@@ -27,7 +27,11 @@ def test_server_info_no_manifest(tmp_path):
 async def test_smoke_server_info_over_memory_transport(dataset):
     async with Client(create_server(dataset)) as client:
         tools = await client.list_tools()
-        assert [t.name for t in tools.tools] == ["server_info"]
+        assert [t.name for t in tools.tools] == [
+            "server_info",
+            "list_characters",
+            "character_brief",
+        ]
         result = await client.call_tool("server_info", {})
     assert result.structured_content["game_build"] == "12345"
     assert result.structured_content["version"] == __version__
@@ -66,3 +70,21 @@ async def test_server_info_reports_characters_over_transport():
     async with Client(create_server(None, FIXTURE / "level1.lua")) as client:
         result = await client.call_tool("server_info", {})
     assert result.structured_content["characters"] == 1
+
+
+async def test_smoke_character_tools_over_transport():
+    async with Client(create_server(None, FIXTURE / "level30_caster.lua")) as client:
+        listed = await client.call_tool("list_characters", {})
+        brief = await client.call_tool("character_brief", {})
+        missing = await client.call_tool("character_brief", {"character": "Nobody"})
+    assert listed.structured_content["result"][0]["name"] == "Testmage"
+    assert "Spec: Test Class Tree (3 points)" in brief.content[0].text
+    assert "ForeverScribe capture at" in brief.content[0].text
+    assert missing.is_error
+
+
+async def test_character_tools_without_file_say_so():
+    async with Client(create_server()) as client:
+        result = await client.call_tool("list_characters", {})
+    assert result.is_error
+    assert "No SavedVariables file configured" in result.content[0].text

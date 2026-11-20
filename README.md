@@ -1,8 +1,9 @@
 # WoW Companion advisor
 
 An MCP server that gives AI clients deterministic, character-aware World of Warcraft advice
-backed by a versioned Parquet game dataset. This skeleton ships one tool, `server_info`, and the
-data-access layer the advice tools will build on.
+backed by a versioned Parquet game dataset. Tools today: `server_info`, `list_characters` and
+`character_brief` (a brief of your captured character). A Claude skill and a Windows setup guide
+are in [skills/](skills/) and [docs/try-it.md](docs/try-it.md).
 
 > WoW Companion is a fan project. It is not affiliated with or endorsed by Blizzard Entertainment. World of Warcraft and Warcraft are trademarks of Blizzard Entertainment, Inc.
 
