@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pytest
 from mcp.client import Client
 
@@ -29,3 +31,38 @@ async def test_smoke_server_info_over_memory_transport(dataset):
         result = await client.call_tool("server_info", {})
     assert result.structured_content["game_build"] == "12345"
     assert result.structured_content["version"] == __version__
+
+
+FIXTURE = Path(__file__).parent / "fixtures" / "foreverscribe"
+
+
+@pytest.mark.parametrize(
+    ("file", "expected"),
+    [
+        (None, {"savedvariables": "no SavedVariables file configured", "characters": None}),
+        (
+            FIXTURE / "two_characters.lua",
+            {
+                "savedvariables": "ok",
+                "characters": 2,
+                "characters_captured_at": "2023-11-18T09:33:20+00:00",
+            },
+        ),
+        (FIXTURE / "missing.lua", {"savedvariables": "file not found", "characters": None}),
+    ],
+)
+def test_server_info_savedvariables(file, expected):
+    assert expected.items() <= server_info(None, file).items()
+
+
+def test_server_info_savedvariables_parse_error(tmp_path):
+    bad = tmp_path / "ForeverScribe.lua"
+    bad.write_text("ForeverScribeDB = {")
+    info = server_info(None, bad)
+    assert info["savedvariables"].startswith("could not parse: line 1")
+
+
+async def test_server_info_reports_characters_over_transport():
+    async with Client(create_server(None, FIXTURE / "level1.lua")) as client:
+        result = await client.call_tool("server_info", {})
+    assert result.structured_content["characters"] == 1

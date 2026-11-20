@@ -18,12 +18,15 @@ def build_parser() -> argparse.ArgumentParser:
     serve.add_argument("--host", default="127.0.0.1", help="HTTP bind address")
     serve.add_argument("--port", type=int, default=8000, help="HTTP port")
     serve.add_argument("--dataset", help="dataset directory (default: $WOWC_DATASET)")
+    serve.add_argument(
+        "--savedvariables", help="ForeverScribe.lua file (default: $WOWC_SAVEDVARIABLES)"
+    )
     return parser
 
 
 def main(argv: Sequence[str] | None = None) -> None:
     args = build_parser().parse_args(argv)
-    server = create_server(args.dataset)
+    server = create_server(args.dataset, args.savedvariables)
     if args.http:
         server.run("streamable-http", host=args.host, port=args.port)
     else:

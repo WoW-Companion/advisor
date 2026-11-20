@@ -22,6 +22,16 @@ Point the server at a dataset directory (Parquet tables plus `manifest.json`) wi
 Client configuration for Claude Desktop, Claude Code, Codex and Gemini CLI is in
 [docs/clients.md](docs/clients.md).
 
+## Character data
+
+Character-aware advice reads the file the [ForeverScribe](https://github.com/MattMaximo/foreverscribe)
+addon (MIT) writes when you `/reload` or log out:
+`WTF/Account/<account>/SavedVariables/ForeverScribe.lua` inside your game folder. Point the server
+at it with `--savedvariables FILE` or `WOWC_SAVEDVARIABLES`; `server_info` then reports how many
+characters it found and when they were captured. The file is only read, on your machine, by a
+parser that never executes it; it is never uploaded or written to. The format is documented in
+[docs/foreverscribe-format.md](docs/foreverscribe-format.md).
+
 ## Development
 
 ```bash
