@@ -7,8 +7,12 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from mcp.server.mcpserver import MCPServer
+from mcp.server.mcpserver.exceptions import ToolError
 
 from wowc_advisor import __version__
+from wowc_advisor.brief import CharacterLookupError, choose_character
+from wowc_advisor.brief import character_brief as build_brief
+from wowc_advisor.brief import list_characters as build_list
 from wowc_advisor.character import LuaParseError, load_savedvariables
 from wowc_advisor.store import DuckDBStore
 
@@ -84,5 +88,29 @@ def create_server(
     def _server_info() -> dict[str, str | int | None]:
         """Return the advisor version, dataset and game build, and the character file's status."""
         return server_info(path, sv_path)
+
+    def _load():
+        if sv_path is None:
+            raise ToolError("No SavedVariables file configured (set WOWC_SAVEDVARIABLES).")
+        try:
+            return load_savedvariables(sv_path)
+        except FileNotFoundError:
+            raise ToolError(f"SavedVariables file not found: {sv_path}") from None
+        except (OSError, UnicodeDecodeError, LuaParseError) as err:
+            raise ToolError(f"Could not read the SavedVariables file: {err}") from None
+
+    @mcp.tool(name="list_characters")
+    def _list_characters() -> list[dict[str, str | int | None]]:
+        """List the characters in the ForeverScribe capture: name, level, class, realm, capture time."""
+        return build_list(_load())
+
+    @mcp.tool(name="character_brief")
+    def _character_brief(character: str | None = None) -> str:
+        """Brief of one captured character (by name; omit if only one): level, class, race, XP,
+        money, spec, gear, professions, quests and the capture time. Source: ForeverScribe capture."""
+        try:
+            return build_brief(choose_character(_load(), character))
+        except CharacterLookupError as err:
+            raise ToolError(str(err)) from None
 
     return mcp

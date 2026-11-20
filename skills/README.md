@@ -1,3 +1,4 @@
 # Skills
 
-Per-client skills land in milestone M2. This directory holds no skill content yet.
+`claude/wow-companion/` tells Claude how to use the advisor's tools. Codex and Gemini packaging
+lands in milestone M3. Setup is in [../docs/try-it.md](../docs/try-it.md).
