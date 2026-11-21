@@ -1,0 +1,33 @@
+{
+  "note": "Advisor defaults, not authoritative. The dataset records which stats an item has, not their sizes, so a weight says how much a stat type matters to the spec (0 to 1); a stat not listed counts 0.",
+  "specs": {
+    "PRIEST/Discipline": {
+      "rationale": "Healer that shields and heals: intellect and spell power drive output, spirit and haste help sustain and cast speed.",
+      "weights": {"intellect": 1, "spell_power": 1, "spirit": 0.7, "haste": 0.6, "crit": 0.5, "mastery": 0.5, "versatility": 0.4, "mp5": 0.4, "stamina": 0.2}
+    },
+    "PRIEST/Holy": {
+      "rationale": "Pure healer: intellect and spell power first, then spirit for mana and haste or crit for throughput.",
+      "weights": {"intellect": 1, "spell_power": 1, "spirit": 0.8, "mp5": 0.5, "haste": 0.5, "crit": 0.5, "mastery": 0.4, "versatility": 0.4, "stamina": 0.2}
+    },
+    "PRIEST/Shadow": {
+      "rationale": "Damage-over-time caster: intellect and spell power, with haste and crit speeding up damage; spirit matters little.",
+      "weights": {"intellect": 1, "spell_power": 1, "haste": 0.7, "crit": 0.6, "mastery": 0.5, "hit": 0.5, "versatility": 0.4, "stamina": 0.2, "spirit": 0.1}
+    },
+    "ROGUE/Assassination": {
+      "rationale": "Melee poison and bleed damage: agility and attack power lead, with crit and mastery next.",
+      "weights": {"agility": 1, "attack_power": 0.8, "crit": 0.6, "mastery": 0.6, "haste": 0.5, "hit": 0.5, "expertise": 0.4, "versatility": 0.4, "stamina": 0.2}
+    },
+    "ROGUE/Combat": {
+      "rationale": "Sustained melee damage: agility and attack power, then haste and hit so the swing rate and landing rate stay high.",
+      "weights": {"agility": 1, "attack_power": 0.8, "haste": 0.6, "hit": 0.6, "expertise": 0.5, "crit": 0.5, "mastery": 0.4, "versatility": 0.4, "stamina": 0.2}
+    },
+    "ROGUE/Outlaw": {
+      "rationale": "Same role as Combat under its newer name: agility first, haste and versatility next.",
+      "weights": {"agility": 1, "attack_power": 0.8, "haste": 0.6, "versatility": 0.5, "crit": 0.5, "mastery": 0.5, "hit": 0.4, "expertise": 0.4, "stamina": 0.2}
+    },
+    "ROGUE/Subtlety": {
+      "rationale": "Burst melee damage from stealth: agility and attack power, with crit and mastery boosting the burst.",
+      "weights": {"agility": 1, "attack_power": 0.8, "crit": 0.6, "mastery": 0.6, "haste": 0.5, "versatility": 0.4, "hit": 0.4, "expertise": 0.4, "stamina": 0.2}
+    }
+  }
+}
