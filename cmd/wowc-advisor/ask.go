@@ -15,7 +15,8 @@ import (
 	"github.com/WoW-Companion/advisor/internal/svfind"
 )
 
-// askCmd answers the questions queued in game: one pass, or --watch until interrupted.
+// askCmd answers the questions queued in game into Answers.lua (deprecated, --answers-file): one
+// pass, or --watch until interrupted. The overlay (companion) is the recommended way.
 func askCmd(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	fs := flag.NewFlagSet("ask", flag.ContinueOnError)
 	fs.SetOutput(stderr)
@@ -26,7 +27,8 @@ func askCmd(ctx context.Context, args []string, stdout, stderr io.Writer) error 
 	agent := fs.String("agent", "", "agent command or preset: claude, codex, gemini (default: \"agent\" in the config file)")
 	confPath := fs.String("config", "", "config file (default: <user config dir>/wowc-advisor/ask.json)")
 	addonSV := fs.String("addon-savedvariables", "", "the addon's WoWCompanion.lua (default: next to ForeverScribe.lua)")
-	answers := fs.String("answers-path", "", "Answers.lua to write (default: derived from the SavedVariables path)")
+	answersFile := fs.Bool("answers-file", false, "DEPRECATED: write Answers.lua for the old WoWCompanion_Answers addon (the overlay is recommended: it answers in-game questions itself)")
+	answers := fs.String("answers-path", "", "Answers.lua to write with --answers-file (default: derived from the SavedVariables path)")
 	timeout := fs.Duration("timeout", ask.DefaultTimeout, "time limit for each agent run")
 	max := fs.Int("max", ask.DefaultMaxPerRun, "most questions answered per pass")
 	watch := fs.Bool("watch", false, "keep running and answer whenever the SavedVariables file changes")
@@ -37,7 +39,11 @@ func askCmd(ctx context.Context, args []string, stdout, stderr io.Writer) error 
 	if fs.NArg() > 0 {
 		return errors.New("ask takes no arguments\n" + usage)
 	}
-	ac, cleanup, err := askSetup(ctx, &cfg, askFlags{cache: *cache, agent: *agent, confPath: *confPath, addonSV: *addonSV, answers: *answers, timeout: *timeout, max: *max}, stderr)
+	if !*answersFile && *answers == "" {
+		return errors.New("ask now only writes Answers.lua for the old WoWCompanion_Answers addon: pass --answers-file to keep doing that (deprecated).\n" +
+			"The recommended way is the overlay (wowc-advisor companion): it answers questions queued in game, in the overlay, and writes nothing to the game folder.")
+	}
+	ac, cleanup, err := askSetup(ctx, &cfg, askFlags{answersFile: true, cache: *cache, agent: *agent, confPath: *confPath, addonSV: *addonSV, answers: *answers, timeout: *timeout, max: *max}, stderr)
 	if err != nil {
 		return err
 	}
@@ -57,6 +63,7 @@ func askCmd(ctx context.Context, args []string, stdout, stderr io.Writer) error 
 // askFlags are the flag values the ask and companion commands share.
 type askFlags struct {
 	cache, agent, confPath, addonSV, answers string
+	answersFile                              bool // write Answers.lua (deprecated; ask always, the companion with --answers-file)
 	timeout                                  time.Duration
 	max                                      int
 	optional                                 bool // run without an agent: detect one, or leave Command empty
@@ -87,7 +94,7 @@ func askSetup(ctx context.Context, cfg *server.Config, f askFlags, stderr io.Wri
 	if ac.SavedVariables == "" {
 		ac.SavedVariables = derivedSV
 	}
-	if ac.AnswersPath == "" {
+	if ac.AnswersPath == "" && f.answersFile {
 		if derr != nil {
 			return ac, cleanup, derr
 		}

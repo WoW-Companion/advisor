@@ -115,3 +115,34 @@ func TestDocsPointAtReleaseInstaller(t *testing.T) {
 		t.Error("release.yml does not publish WoW-Companion-Setup-<version>-x64.exe")
 	}
 }
+
+// The setup order is ForeverScribe (required), the overlay (recommended), then the addon (optional);
+// the in-game /ask flow is legacy and the docs say Answers.lua needs the deprecated --answers-file.
+func TestDocsOverlayFirstOrder(t *testing.T) {
+	doc := read(t, "../../docs/quickstart.md")
+	last := -1
+	for _, h := range []string{"## 1. Install ForeverScribe (required)", "## 2. Get WoW Companion (the overlay, recommended)", "## 5. Optional: the WoW Companion addon"} {
+		i := strings.Index(doc, h)
+		if i < 0 || i < last {
+			t.Errorf("quickstart heading %q is missing or out of order", h)
+		}
+		last = i
+	}
+	if strings.Contains(doc, "`WoWCompanion_Answers`, ") || strings.Contains(doc, "three WoW Companion folders") {
+		t.Error("quickstart still asks for the WoWCompanion_Answers folder")
+	}
+	if !strings.Contains(doc, "Legacy: the in-game `/ask` flow") {
+		t.Error("quickstart has no legacy FAQ entry for the in-game /ask flow")
+	}
+	main := read(t, "main.go")
+	for _, f := range []string{"--answers-file"} {
+		if !strings.Contains(main, f) || !strings.Contains(read(t, "../../docs/ask.md"), f) {
+			t.Errorf("%s is not in the usage and docs/ask.md", f)
+		}
+	}
+	for _, p := range []string{"../../README.md", "../../overlay/README.md"} {
+		if d := read(t, p); !strings.Contains(d, "optional") || !strings.Contains(d, "WoWCompanion_Answers") && p != "../../README.md" {
+			t.Errorf("%s does not call the addon optional", p)
+		}
+	}
+}
