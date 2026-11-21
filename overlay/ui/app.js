@@ -53,12 +53,18 @@ listen('sidecar-up', ev => connect(ev.payload));
 listen('sidecar-down', ev => { conn = null; if (events) events.close(); banner('The advisor stopped.' + (ev.payload ? ' ' + ev.payload : '')); });
 listen('notice', ev => notice(ev.payload));
 listen('mode', ev => { cfg.mode = ev.payload; save(); showMode(); });
-listen('clickthrough', ev => { $('ct').hidden = !ev.payload; });
+listen('clickthrough', ev => { $('ct').hidden = !ev.payload; showCt(); });
 $('retry').onclick = () => { banner('Starting the advisor…'); invoke('restart_sidecar'); };
 
 // --- window controls -----------------------------------------------------------------------
 
-function showMode() { $('mode').textContent = cfg.mode === 'overlay' ? 'Overlay' : 'Window'; }
+function showMode() {
+  const overlay = cfg.mode === 'overlay', b = $('mode');
+  b.dataset.mode = overlay ? 'overlay' : 'window';
+  b.setAttribute('aria-label', overlay ? 'Overlay mode' : 'Window mode');
+  b.title = overlay ? 'Overlay mode: always on top (click for Window)' : 'Window mode (click for Overlay)';
+}
+function showCt() { $('ct').title = 'Click-through on (' + cfg.keyCt + ')'; }
 $('mode').onclick = () => invoke('set_mode', { overlay: cfg.mode !== 'overlay' });
 $('tray').onclick = () => invoke('hide_window');
 $('close').onclick = () => invoke('quit');
@@ -203,7 +209,7 @@ setInterval(() => showBadge(false), 30000);
 (async () => {
   $('next').open = cfg.nextOpen;
   setOpacity(cfg.opacity);
-  showMode();
+  showMode(); showCt();
   await invoke('set_mode', { overlay: cfg.mode === 'overlay' });
   await applyShortcuts();
   // The sidecar may have said hello before this page loaded.

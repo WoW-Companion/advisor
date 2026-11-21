@@ -1,0 +1,45 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>titlebar check</title>
+<!-- Loads the real overlay page in iframes of several widths and measures the title bar.
+     Run via run.sh; the verdict is written to the pre element below. -->
+<pre id="out">pending</pre>
+<script>
+const WIDTHS = [280, 340, 480];
+const fails = [], lines = [];
+async function frameAt(w, ct, mode) {
+  const f = document.createElement('iframe');
+  f.style.cssText = `width:${w}px;height:300px;border:0;position:absolute;left:0;top:0`;
+  f.src = '/ui/index.html?stub';
+  document.body.append(f);
+  await new Promise(r => f.onload = r);
+  const d = f.contentDocument;
+  await d.fonts.ready;
+  d.getElementById('ct').hidden = !ct;
+  d.getElementById('mode').dataset.mode = mode;
+  return f;
+}
+(async () => {
+  for (const w of WIDTHS) for (const ct of [false, true]) for (const mode of ['overlay', 'window']) {
+    const f = await frameAt(w, ct, mode), d = f.contentDocument, win = f.contentWindow;
+    const bar = d.querySelector('.titlebar'), h1 = d.querySelector('h1');
+    const bb = bar.getBoundingClientRect(), pad = parseFloat(win.getComputedStyle(bar).paddingRight);
+    const tag = `${w}px ct=${ct} ${mode}`;
+    const kids = [...bar.children].filter(e => !e.hidden);
+    for (const e of kids) {
+      const r = e.getBoundingClientRect();
+      if (r.right > bb.right - pad + 0.5 || r.left < bb.left - 0.5) fails.push(`${tag}: #${e.id || e.tagName} outside bar`);
+      if (e.scrollWidth > e.clientWidth + 0.5) fails.push(`${tag}: #${e.id || e.tagName} content clipped (${e.scrollWidth}>${e.clientWidth})`);
+      if (e.tagName === 'BUTTON' && (r.width < 28 || r.height < 28 || Math.abs(r.width - r.height) > .5)) fails.push(`${tag}: #${e.id} not 28px square (${r.width}x${r.height})`);
+    }
+    if (bb.height > 44) fails.push(`${tag}: bar wrapped (height ${bb.height})`);
+    const lh = parseFloat(win.getComputedStyle(h1).lineHeight);
+    if (h1.getBoundingClientRect().height > lh * 1.5) fails.push(`${tag}: title wrapped`);
+    const shown = h1.innerText;
+    if (w >= 340 && shown.trim() !== 'WoW Companion') fails.push(`${tag}: title is "${shown}", want full`);
+    lines.push(`${tag}: bar h=${bb.height} title="${shown.trim()}" w=${h1.getBoundingClientRect().width.toFixed(0)}/${h1.scrollWidth}`);
+    f.remove();
+  }
+  document.getElementById('out').textContent = (fails.length ? 'FAIL\n' + fails.join('\n') : 'PASS') + '\n' + lines.join('\n');
+})();
+</script>
