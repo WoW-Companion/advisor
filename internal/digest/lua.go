@@ -32,7 +32,7 @@ func (d Digest) Lua() string {
 	var b strings.Builder
 	b.WriteString("-- Data only: written by wowc-advisor; overwritten on every update. See docs/digest-format.md in the addon repo.\n")
 	b.WriteString("WoWCompanionDigest = {\n")
-	fmt.Fprintf(&b, "  schema = %d,\n  generated = %d,\n  build = %s,\n  character = %s,\n  sections = {\n", d.Schema, d.Generated, Quote(d.Build), Quote(d.Character))
+	fmt.Fprintf(&b, "  schema = %s,\n  generated = %d,\n  build = %s,\n  character = %s,\n  sections = {\n", Quote(d.Schema), d.Generated, Quote(d.Build), Quote(d.Character))
 	for _, s := range d.Sections {
 		fmt.Fprintf(&b, "    { id = %s, lines = {\n", Quote(s.ID))
 		for _, l := range s.Lines {
@@ -47,6 +47,29 @@ func (d Digest) Lua() string {
 		}
 		b.WriteString("    } },\n")
 	}
-	b.WriteString("  },\n}\n")
+	b.WriteString("  },\n")
+	if len(d.Dungeons) > 0 {
+		b.WriteString("  dungeons = {\n")
+		for _, l := range d.Dungeons {
+			fmt.Fprintf(&b, "    { name = %s, line = %s", Quote(l.Name), Quote(l.Line))
+			if l.Item != 0 {
+				fmt.Fprintf(&b, ", item_id = %d", l.Item)
+			}
+			b.WriteString(" },\n")
+		}
+		b.WriteString("  },\n")
+	}
+	if len(d.Talents) > 0 {
+		b.WriteString("  talents = {\n")
+		for _, l := range d.Talents {
+			fmt.Fprintf(&b, "    { line = %s", Quote(l.Line))
+			if l.Spell != 0 {
+				fmt.Fprintf(&b, ", spell_id = %d", l.Spell)
+			}
+			b.WriteString(" },\n")
+		}
+		b.WriteString("  },\n")
+	}
+	b.WriteString("}\n")
 	return b.String()
 }

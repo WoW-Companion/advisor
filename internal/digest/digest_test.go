@@ -57,6 +57,38 @@ type npcRow struct {
 	MaxLevel *int32 `parquet:"max_level,optional"`
 }
 
+type instRow struct {
+	MapID      int32  `parquet:"map_id"`
+	Name       string `parquet:"name"`
+	Type       string `parquet:"instance_type"`
+	MaxPlayers *int16 `parquet:"max_players,optional"`
+	MinLevel   *int16 `parquet:"min_level,optional"`
+	MaxLevel   *int16 `parquet:"max_level,optional"`
+}
+
+type bossRow struct {
+	MapID      int32  `parquet:"map_id"`
+	Name       string `parquet:"name"`
+	CreatureID *int32 `parquet:"creature_id,optional"`
+}
+
+type buildRow struct {
+	Class     string `parquet:"class"`
+	Spec      string `parquet:"spec"`
+	Band      string `parquet:"band"`
+	Order     int16  `parquet:"order"`
+	NodeID    int32  `parquet:"node_id"`
+	Points    int16  `parquet:"points"`
+	Rationale string `parquet:"rationale"`
+	Source    string `parquet:"source"`
+}
+
+type nodeRow struct {
+	NodeID  int32  `parquet:"node_id"`
+	SpellID *int32 `parquet:"spell_id,optional"`
+	Name    string `parquet:"name"`
+}
+
 func tbl(t *testing.T, rows any) store.SizedReaderAt {
 	t.Helper()
 	var buf bytes.Buffer
@@ -70,12 +102,25 @@ func tbl(t *testing.T, rows any) store.SizedReaderAt {
 		err = parquet.Write(&buf, r)
 	case []npcRow:
 		err = parquet.Write(&buf, r)
+	case []instRow:
+		err = parquet.Write(&buf, r)
+	case []bossRow:
+		err = parquet.Write(&buf, r)
+	case []buildRow:
+		err = parquet.Write(&buf, r)
+	case []nodeRow:
+		err = parquet.Write(&buf, r)
 	}
 	if err != nil {
 		t.Fatal(err)
 	}
 	return store.SizedReaderAt{ReaderAt: bytes.NewReader(buf.Bytes()), Size: int64(buf.Len())}
 }
+
+var id501 = int32(501)
+
+func i16(n int16) *int16  { return &n }
+func i32p(n int32) *int32 { return &n }
 
 func zone(s string) *string { return &s }
 
@@ -92,6 +137,18 @@ func synthStore(t *testing.T) store.DataStore {
 		}),
 		"loot_sources": tbl(t, []lootRow{{1, "creature", 501, 100, 5}, {6, "object", 900, 0, 0}}),
 		"npcs":         tbl(t, []npcRow{{501, "Near Wolf", &lo, &hi}}),
+		"instances": tbl(t, []instRow{
+			{1, "Wolf Den", "dungeon", i16(5), i16(10), i16(14)},
+			{2, "Empty Cellar", "dungeon", i16(5), i16(10), i16(14)},
+			{3, "Far Keep", "dungeon", i16(5), i16(40), i16(45)},
+		}),
+		"instance_bosses": tbl(t, []bossRow{{1, "Near Wolf", &id501}, {2, "Nobody", nil}}),
+		"talent_builds": tbl(t, []buildRow{
+			{"PRIEST", "Discipline", "10-19", 1, 71, 1, "Core heal", "test"},
+			{"PRIEST", "Discipline", "10-19", 2, 72, 2, "Shield", "test"},
+			{"ROGUE", "Assassination", "10-19", 1, 81, 1, "Poison", "test"},
+		}),
+		"talent_nodes": tbl(t, []nodeRow{{71, i32p(1001), "Penance"}, {72, nil, "Power Word: Shield"}, {81, i32p(2001), "Deadly Poison"}}),
 	})
 }
 
@@ -119,6 +176,15 @@ func synthChar() character.Character {
 	}
 }
 
+// synthRogue is a level 12 rogue with an assassination build to follow and no quests.
+func synthRogue() character.Character {
+	return character.Character{
+		Name: "Testrogue", Class: "ROGUE", Level: ip(12), BankCaptured: true,
+		Equipment: map[string]character.EquippedItem{"head": {Slot: "head", ItemID: ip(2), ItemLevel: ip(16), Quality: ip(2)}},
+		Talents:   &character.Talents{Trees: []character.TalentTree{{Groups: []character.TalentGroup{{Name: "Assassination", Spent: 1}}}}},
+	}
+}
+
 var synthOpt = Options{Now: time.Unix(1800000000, 0), Client: character.Client{Version: "1.60.0", Build: "64000"}, DatasetBuild: "1.59.0.63000"}
 
 func TestBuildGolden(t *testing.T) {
@@ -128,6 +194,7 @@ func TestBuildGolden(t *testing.T) {
 		ds           bool
 	}{
 		{"full", "full.lua", synthChar(), true},
+		{"rogue", "rogue.lua", synthRogue(), true},
 		{"no dataset, bare capture", "bare.lua", character.Character{Key: "Realm:Bare", BankCaptured: true}, false},
 	}
 	for _, tc := range cases {
@@ -178,6 +245,27 @@ func TestCaps(t *testing.T) {
 	}
 }
 
+func TestSchema12Sections(t *testing.T) {
+	ds := synthStore(t)
+	d := Build(synthChar(), ds, synthOpt)
+	if d.Schema != "1.2" || len(d.Dungeons) != 1 || d.Dungeons[0].Name != "Wolf Den" || d.Dungeons[0].Item != 1 {
+		t.Errorf("dungeons = %+v (schema %s)", d.Dungeons, d.Schema)
+	}
+	if len(d.Talents) != 3 || d.Talents[0].Spell != 1001 || d.Talents[1].Spell != 0 {
+		t.Errorf("talents = %+v", d.Talents)
+	}
+	// Nothing to show: the sections are left out, as is the whole of them with no dataset.
+	for _, c := range []struct {
+		name string
+		c    character.Character
+		ds   store.DataStore
+	}{{"no dataset", synthChar(), nil}, {"no level", character.Character{Class: "PRIEST"}, ds}} {
+		if d := Build(c.c, c.ds, synthOpt); len(d.Dungeons)+len(d.Talents) != 0 || strings.Contains(d.Lua(), "dungeons =") || strings.Contains(d.Lua(), "talents =") {
+			t.Errorf("%s: %+v", c.name, d)
+		}
+	}
+}
+
 func TestIsMaterial(t *testing.T) {
 	cases := []struct {
 		item  string
@@ -222,7 +310,7 @@ func TestQuote(t *testing.T) {
 }
 
 func TestHostileTextStaysData(t *testing.T) {
-	d := Digest{Schema: 1, Build: `"}; os.execute("x") --`, Character: "a\nb", Sections: []Section{{ID: Notes, Lines: []Line{{Text: "\\\"]]; f() --\n"}}}}}
+	d := Digest{Schema: "1.2", Build: `"}; os.execute("x") --`, Character: "a\nb", Sections: []Section{{ID: Notes, Lines: []Line{{Text: "\\\"]]; f() --\n"}}}}}
 	src := d.Lua()
 	if err := SlotCheck(src); err != nil {
 		t.Fatal(err)
@@ -267,7 +355,7 @@ func TestWriteIsAtomicAndNeedsTheAddon(t *testing.T) {
 	if err := CheckInstalled(path); err != nil {
 		t.Fatal(err)
 	}
-	if err := Write(path, Digest{Schema: 1, Character: "A"}); err != nil {
+	if err := Write(path, Digest{Schema: "1.2", Character: "A"}); err != nil {
 		t.Fatal(err)
 	}
 	if b, _ := os.ReadFile(path); !strings.Contains(string(b), `character = "A"`) {

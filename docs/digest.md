@@ -1,7 +1,7 @@
 # In-game digest
 
 `wowc-advisor digest [NAME]` (and the MCP tool `update_digest`) writes the data-only
-`WoWCompanion_Digest/Digest.lua` the WoW Companion panel shows (format: schema 1, the addon repo's
+`WoWCompanion_Digest/Digest.lua` the WoW Companion panel shows (format: schema 1.2, the addon repo's
 `docs/digest-format.md`). Type `/reload` in game afterwards.
 
 The digest adds no advice logic: it is built from `whats_next` and `upgrade_finder`.
@@ -12,6 +12,16 @@ The digest adds no advice logic: it is built from `whats_next` and `upgrade_find
 | `upgrades` | one line per slot: the top `upgrade_finder` candidate and its first source, with the item id | 8 |
 | `keep_materials` | bag and bank reagents of the character's professions' recipes still worth making (`professions.KeepList`), most numerous first | 10 |
 | `notes` | unspent talents, (naming the build's next node, see talents.md), failed quests, no dataset, bank not captured, dataset build differs from the game | 6 |
+
+Schema 1.2 adds two optional top-level lists beside `sections`. Readers that only know 1.0 or 1.1 ignore
+unknown keys.
+
+| Key | From | Entry | Cap |
+| --- | ---- | ----- | --- |
+| `dungeons` | `dungeon_plan`: the top ranked dungeons that have an upgrade | `{ name, line, item_id }`: `line` is the level range (and how far the character is outside it) and the top upgrade; `item_id` is that item | 3 |
+| `talents` | `talent_plan`: the next points of the build | `{ line, spell_id }`: `line` is the node and the rank the point brings it to; `spell_id` is the node's spell, left out when the dataset has none | 3 |
+
+Each list is left out when its plan has nothing to show (no dataset, no build, no upgrade).
 
 A line is at most 60 characters. A section with nothing to say is left out.
 

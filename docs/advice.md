@@ -23,3 +23,8 @@ when it supplied a value.
 trainer or upgrade data yet, and the advisor omits what it cannot source.
 
 Without a dataset, the capture alone is used. Without a captured level, no quest is filtered.
+
+**Digest.** The in-game digest (schema 1.2, see `digest.md`) carries two more advice lists beside the
+quest steps: `dungeons`, the top 3 dungeons of `dungeon_plan` that have an upgrade, each with its level
+fit and best drop, and `talents`, the next 3 points of `talent_plan`. Each is left out when its plan
+has nothing to show.
