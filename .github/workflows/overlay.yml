@@ -1,0 +1,86 @@
+# Builds the WoW Companion overlay app (Tauri v2) with the Go advisor as its sidecar, and keeps the
+# result as workflow artifacts. It publishes nothing. No macOS job yet: the app is Windows-first.
+name: overlay
+
+on:
+  pull_request:
+    paths: ["overlay/**", "cmd/**", "internal/**", ".github/workflows/overlay.yml"]
+  # Only main pushes: a PR branch push is already covered by the pull_request run.
+  push:
+    branches: [main]
+    paths: ["overlay/**", "cmd/**", "internal/**", ".github/workflows/overlay.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One run per ref; a newer commit cancels an outdated PR build (main runs are never cancelled).
+concurrency:
+  group: overlay-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        with:
+          go-version: "1.27"
+
+      - uses: dtolnay/rust-toolchain@39008827e6b4319a349e9a42dfc90579dd25f1ca # stable
+        with:
+          toolchain: stable
+
+      # GitHub scopes caches: a PR can restore its own branch's and main's, never another PR's.
+      # So only main saves the Rust cache (keeping it warm for every PR, well under the 10 GB
+      # repo limit); PRs only restore it.
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          workspaces: overlay/src-tauri -> target
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      # The CLI has its own cache entry keyed on its pinned version, so a Cargo.lock change
+      # never forces the ~5 minute `cargo install`. 2.12 matches the tauri crate's minor version.
+      - id: tauri-cli
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: ~/.cargo/bin/cargo-tauri.exe
+          key: tauri-cli-${{ runner.os }}-2.12.6
+
+      - name: Build the Go advisor sidecar
+        shell: bash
+        env:
+          CGO_ENABLED: "0"
+          GOOS: windows
+          GOARCH: amd64
+        run: |
+          mkdir -p overlay/src-tauri/binaries
+          go build -trimpath -o overlay/src-tauri/binaries/wowc-advisor-x86_64-pc-windows-msvc.exe ./cmd/wowc-advisor
+
+      - name: Install the Tauri CLI
+        shell: bash
+        if: steps.tauri-cli.outputs.cache-hit != 'true'
+        run: cargo install tauri-cli --version "=2.12.6" --locked
+
+      - name: Build the app and the NSIS installer
+        working-directory: overlay/src-tauri
+        run: cargo tauri build --target x86_64-pc-windows-msvc --bundles nsis
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: wow-companion-installer
+          path: overlay/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe
+          if-no-files-found: error
+          retention-days: 14
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: wow-companion-exe
+          path: |
+            overlay/src-tauri/target/x86_64-pc-windows-msvc/release/wow-companion.exe
+            overlay/src-tauri/target/x86_64-pc-windows-msvc/release/wowc-advisor.exe
+          if-no-files-found: error
+          retention-days: 14

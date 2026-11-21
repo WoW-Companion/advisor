@@ -10,6 +10,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/WoW-Companion/advisor/internal/gear"
+	"github.com/WoW-Companion/advisor/internal/items"
 	"github.com/WoW-Companion/advisor/internal/names"
 	"github.com/WoW-Companion/advisor/internal/server"
 	"github.com/WoW-Companion/advisor/internal/store"
@@ -136,6 +137,7 @@ func (d *Dataset) resolveItem(in ItemInput) (id int64, msg string) {
 	if more = len(hits) > maxMatches; more {
 		hits = hits[:maxMatches]
 	}
+	hits = names.ObtainableFirst(hits)
 	switch len(hits) {
 	case 0:
 		return 0, "No item is named '" + in.Name + "'."
@@ -252,6 +254,9 @@ func (d *Dataset) whereDrops(_ context.Context, _ *mcp.CallToolRequest, in ItemI
 	}
 	if err != nil {
 		return fail(err)
+	}
+	if items.Unobtainable(str(item["name"])) {
+		return found(nil, fmt.Sprintf("%s (item %d): %s.", str(item["name"]), id, items.Message))
 	}
 	src, err := d.Store.Filter("loot_sources", store.Range{Column: "item_id", Min: id, Max: id})
 	if err != nil {

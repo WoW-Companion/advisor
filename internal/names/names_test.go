@@ -174,3 +174,18 @@ func TestResolve(t *testing.T) {
 		}
 	}
 }
+
+func TestObtainableFirst(t *testing.T) {
+	real, dnt := Match{1, "Old Cloth Hood"}, Match{2, "DNT HEAD"}
+	for _, tc := range []struct{ in, want []Match }{
+		{[]Match{dnt, real}, []Match{real}},
+		{[]Match{dnt}, []Match{dnt}},
+		{[]Match{real}, []Match{real}},
+		{nil, nil},
+	} {
+		got := ObtainableFirst(tc.in)
+		if len(got) != len(tc.want) || len(got) > 0 && got[0] != tc.want[0] {
+			t.Errorf("ObtainableFirst(%v) = %v, want %v", tc.in, got, tc.want)
+		}
+	}
+}

@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WoW Companion</title>
+<style>
+:root { --bg:#f6f4ef; --fg:#1d1b17; --muted:#6d675c; --card:#fff; --mine:#e3ecf7; --line:#d9d4c7; --accent:#8a5a00; }
+:root[data-theme=dark] { --bg:#15130f; --fg:#ece6d8; --muted:#9a927f; --card:#201d17; --mine:#233246; --line:#38332a; --accent:#e2b04a; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme=light]) { --bg:#15130f; --fg:#ece6d8; --muted:#9a927f; --card:#201d17; --mine:#233246; --line:#38332a; --accent:#e2b04a; } }
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body { display: flex; flex-direction: column; background: var(--bg); color: var(--fg); font: 15px/1.45 system-ui, sans-serif; }
+header { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--line); }
+header h1 { font-size: 16px; margin: 0; color: var(--accent); flex: 1 1 auto; }
+select, button, textarea { font: inherit; color: inherit; background: var(--card); border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; }
+button { cursor: pointer; }
+button:disabled { opacity: .5; cursor: default; }
+#badge { font-size: 12px; color: var(--muted); width: 100%; }
+#badge.fresh { color: var(--accent); }
+#log { flex: 1 1 auto; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+.msg { max-width: 760px; padding: 8px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); white-space: pre-wrap; overflow-wrap: anywhere; }
+.msg.q { background: var(--mine); align-self: flex-end; }
+.msg small { display: block; color: var(--muted); font-size: 11px; margin-top: 4px; }
+.msg.err { border-color: #b3402f; }
+form { display: flex; gap: 8px; padding: 10px 12px; border-top: 1px solid var(--line); }
+textarea { flex: 1 1 auto; resize: none; height: 44px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>WoW Companion</h1>
+  <select id="who" aria-label="Character"></select>
+  <button id="theme" type="button" title="Light or dark">Theme</button>
+  <div id="badge">data from game: …</div>
+</header>
+<div id="log" aria-live="polite"></div>
+<form id="form">
+  <textarea id="text" maxlength="1000" placeholder="Ask about this character…" autofocus></textarea>
+  <button id="send">Ask</button>
+</form>
+<script>
+const $ = id => document.getElementById(id);
+const log = $('log'), who = $('who'), badge = $('badge'), text = $('text'), send = $('send');
+let state = null, busy = false;
+
+function theme(t) { if (t) { document.documentElement.dataset.theme = t; localStorage.theme = t; } }
+theme(localStorage.theme);
+$('theme').onclick = () => {
+  const dark = matchMedia('(prefers-color-scheme: dark)').matches;
+  const cur = document.documentElement.dataset.theme || (dark ? 'dark' : 'light');
+  theme(cur === 'dark' ? 'light' : 'dark');
+};
+
+function ago(t) {
+  if (!t) return 'no capture yet';
+  const s = Math.max(0, Date.now() / 1000 - t);
+  const when = new Date(t * 1000).toLocaleTimeString();
+  const age = s < 90 ? 'just now' : s < 5400 ? Math.round(s / 60) + ' min ago' : Math.round(s / 3600) + ' h ago';
+  return when + ' (' + age + ')';
+}
+function showBadge(fresh) {
+  badge.textContent = 'data from game: ' + ago(state.captured_at) + (state.error ? ' — ' + state.error : '');
+  badge.className = fresh ? 'fresh' : '';
+}
+function setChars(keep) {
+  const cur = keep || who.value;
+  who.replaceChildren(...state.characters.map(c => {
+    const o = document.createElement('option');
+    o.value = c.key; o.textContent = c.name + (c.level ? ' (' + c.level + ' ' + c.class + ')' : '');
+    return o;
+  }));
+  who.value = state.characters.some(c => c.key === cur) ? cur : state.default;
+}
+function bubble(id, cls) {
+  let el = id && document.getElementById(id);
+  if (!el) {
+    el = document.createElement('div'); if (id) el.id = id;
+    log.appendChild(el);
+  }
+  el.className = 'msg ' + cls;
+  return el;
+}
+function put(id, cls, body, note) {
+  const el = bubble(id, cls);
+  el.textContent = body;
+  if (note) { const s = document.createElement('small'); s.textContent = note; el.appendChild(s); }
+  log.scrollTop = log.scrollHeight;
+  return el;
+}
+function render(history) {
+  for (const e of history) {
+    const where = e.character ? ' · ' + e.character : '';
+    put('q-' + e.id, 'q', e.question, e.source === 'game' ? 'asked in game' + where : null);
+    const body = e.status === 'waiting' ? 'Waiting for an answer…' : e.answer;
+    const note = [e.source === 'game' ? 'answered into Answers.lua too — /reload in game' : '', e.status === 'done' && !e.streamed && e.source === 'web' ? 'not streamed' : ''].filter(Boolean).join(' · ');
+    put('a-' + e.id, 'a' + (e.status === 'error' ? ' err' : ''), body, note);
+  }
+}
+
+async function load() {
+  const r = await fetch('/api/state');
+  state = await r.json();
+  setChars();
+  showBadge(false);
+  render(state.history);
+}
+
+function ask(question) {
+  busy = true; send.disabled = true;
+  const char = who.value;
+  put(null, 'q', question);
+  const a = put(null, 'a', '…');
+  fetch('/api/ask', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ character: char, text: question }) })
+    .then(r => r.ok ? r.json() : r.text().then(t => { throw new Error(t); }))
+    .then(({ id }) => {
+      const es = new EventSource('/api/stream/' + id);
+      let got = '';
+      es.addEventListener('chunk', ev => { got += JSON.parse(ev.data).text; a.textContent = got; log.scrollTop = log.scrollHeight; });
+      es.addEventListener('done', ev => {
+        const e = JSON.parse(ev.data);
+        a.textContent = e.answer;
+        if (e.status === 'error') a.classList.add('err');
+        if (e.status === 'done' && !e.streamed) { const s = document.createElement('small'); s.textContent = 'not streamed'; a.appendChild(s); }
+        es.close(); finish();
+      });
+      es.onerror = () => { es.close(); if (busy) { a.textContent = got || 'The connection dropped.'; finish(); } };
+    })
+    .catch(err => { a.textContent = err.message; a.classList.add('err'); finish(); });
+}
+function finish() { busy = false; send.disabled = false; text.focus(); }
+
+$('form').onsubmit = ev => { ev.preventDefault(); const q = text.value.trim(); if (q && !busy) { text.value = ''; ask(q); } };
+text.onkeydown = ev => { if (ev.key === 'Enter' && !ev.shiftKey) { ev.preventDefault(); $('form').requestSubmit(); } };
+
+load().then(() => {
+  const es = new EventSource('/api/events');
+  es.addEventListener('game', ev => { state = { ...JSON.parse(ev.data) }; setChars(); showBadge(true); });
+  es.addEventListener('history', ev => render(JSON.parse(ev.data).filter(e => e.source === 'game')));
+});
+setInterval(() => state && showBadge(false), 30000);
+</script>
+</body>
+</html>

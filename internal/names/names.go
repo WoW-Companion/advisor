@@ -6,6 +6,7 @@ package names
 
 import (
 	"errors"
+	itemdata "github.com/WoW-Companion/advisor/internal/items"
 	"log"
 	"strconv"
 	"strings"
@@ -201,6 +202,9 @@ func Resolve(ds store.DataStore, table, text string) (id int64, name string, can
 	if err != nil || len(hits) == 0 {
 		return 0, "", nil
 	}
+	if table == Items {
+		hits = ObtainableFirst(hits)
+	}
 	if len(hits) == 1 {
 		return hits[0].ID, hits[0].Name, nil
 	}
@@ -208,4 +212,20 @@ func Resolve(ds store.DataStore, table, text string) (id int64, name string, can
 		candidates = append(candidates, h.Name+" ("+strconv.FormatInt(h.ID, 10)+")")
 	}
 	return 0, "", candidates
+}
+
+// ObtainableFirst drops the unobtainable items from a list of item matches when any obtainable one
+// is there, so a search by part of a name never offers a placeholder beside the real item. A list
+// of only unobtainable items is kept, so the tool can say the item cannot be had.
+func ObtainableFirst(hits []Match) []Match {
+	var real []Match
+	for _, h := range hits {
+		if !itemdata.Unobtainable(h.Name) {
+			real = append(real, h)
+		}
+	}
+	if len(real) == 0 {
+		return hits
+	}
+	return real
 }

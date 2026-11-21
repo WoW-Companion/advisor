@@ -1,0 +1,11 @@
+{
+  "$schema": "../gen/schema/desktop-schema.json",
+  "identifier": "default",
+  "description": "The main window: events, dragging and edge-resizing. Everything else goes through the app's own commands.",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "core:window:allow-start-dragging",
+    "core:window:allow-start-resize-dragging"
+  ]
+}

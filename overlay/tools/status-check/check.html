@@ -1,0 +1,86 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>status check</title>
+<!-- Loads the real overlay page in an iframe with a stubbed Tauri shell and sidecar, plays out the
+     start-up (including the handshake arriving before the status query answers) and checks which
+     banners show. Run via run.sh; the verdict is written to the pre element below. -->
+<pre id="out">pending</pre>
+<script>
+const fails = [];
+// Visibility is computed, never the hidden attribute: a CSS rule can override [hidden]. An element
+// shows when neither it nor an ancestor has display:none, i.e. it takes up layout.
+const shown = (d, id) => {
+  for (let e = d.getElementById(id); e; e = e.parentElement) if (d.defaultView.getComputedStyle(e).display === 'none') return false;
+  return true;
+};
+const seenBy = d => ({ banner: shown(d, 'banner'), retry: shown(d, 'retry'), status: shown(d, 'status'), aibar: shown(d, 'aibar'), cmdRow: shown(d, 'agent-cmd-row'), cmd: shown(d, 'agent-cmd'), notice: shown(d, 'notice'), settings: shown(d, 'settings'), next: shown(d, 'next') });
+const tick = (ms = 50) => new Promise(r => setTimeout(r, ms));
+const STATE = { captured_at: 1, characters: [{ key: 'a', name: 'Genaenyu', level: 9, class: 'WARRIOR', next: ['q1'] }], default: 'a', history: [] };
+
+// scenario: conn is what the sidecar says hello with; order is "early" (sidecar-up lands before
+// get_status answers), "late" (get_status already has the conn) or "down".
+async function run(name, { conn, order, agentChoice = '' , after }) {
+  const html = (await (await fetch('/ui/index.html')).text()).replace('<script src="app.js">', `<script>
+    const handlers = {}; let release;
+    const gate = new Promise(r => release = r);
+    window.__release = release; window.__handlers = handlers;
+    window.__TAURI__ = {
+      core: { invoke: async (cmd) => {
+        if (cmd === 'get_agent') return ${JSON.stringify(agentChoice)};
+        if (cmd === 'get_status') { await gate; return ${JSON.stringify(order === 'late' ? { conn, error: '' } : order === 'down' ? { conn: null, error: 'exit 1' } : { conn: null, error: '' })}; }
+        return null;
+      } },
+      event: { listen: (n, f) => { handlers[n] = f; } },
+      window: { getCurrentWindow: () => ({}) },
+    };
+    window.fetch = async () => ({ ok: true, json: async () => (${JSON.stringify(STATE)}) });
+    window.EventSource = function () { this.addEventListener = () => {}; this.close = () => {}; };
+  <\/script><script src="app.js">`).replace('<head>', '<head><base href="/ui/">');
+  const f = document.createElement('iframe');
+  f.style.cssText = 'width:400px;height:500px;border:0';
+  f.srcdoc = html;
+  document.body.append(f);
+  await new Promise(r => f.onload = r);
+  await tick();
+  const w = f.contentWindow, d = f.contentDocument;
+  if (order === 'early') { w.__handlers['sidecar-up']({ payload: conn }); await tick(); }
+  w.__release(); await tick();
+  d.getElementById('settings-btn').click(); await tick(); // settings open: the Command row must still follow the picker
+  const view = {
+    ...seenBy(d), text: d.getElementById('banner-text').textContent,
+    auto: d.getElementById('agent').options[0].textContent, tip: d.getElementById('agent').title,
+    chars: d.getElementById('who').options.length,
+  };
+  if (after) await after(w, d, view);
+  f.remove();
+  return { name, view };
+}
+const expect = (r, want) => { for (const k in want) if (r.view[k] !== want[k]) fails.push(`${r.name}: ${k} is ${JSON.stringify(r.view[k])}, want ${JSON.stringify(want[k])}`); };
+(async () => {
+  const claude = { url: 'http://x', token: 't', agent: 'claude', agent_source: 'auto', agent_path: 'C:\\Users\\me\\.local\\bin\\claude.exe' };
+  const none = { url: 'http://x', token: 't', agent: '', agent_source: 'none', agent_path: '' };
+  const res = [];
+  for (const order of ['early', 'late']) {
+    expect(res[res.push(await run('agent ' + order, { conn: claude, order })) - 1], { banner: false, retry: false, status: false, aibar: false, cmdRow: false, cmd: false, notice: false, settings: true, auto: 'Auto (Claude)', chars: 1 });
+    expect(res[res.push(await run('no agent ' + order, { conn: none, order })) - 1], { banner: false, retry: false, status: false, aibar: true, cmdRow: false, cmd: false, auto: 'Auto (none found)', chars: 1 });
+  }
+  const a = res[0].view; if (!a.tip.includes('claude.exe')) fails.push('tooltip does not name the path: ' + a.tip);
+  res.push(await run('custom', { conn: { ...none, agent: 'my', agent_source: 'config' }, order: 'late', agentChoice: 'my --flag' })); expect(res[res.length - 1], { cmdRow: true, cmd: true, banner: false });
+  res.push(await run('stopped', { conn: null, order: 'down' })); expect(res[res.length - 1], { banner: true, retry: true, status: false, aibar: false, cmdRow: false });
+  // Reconnect: the data endpoint is unreachable while the sidecar restarts; no error may flash.
+  const seen = [];
+  res.push(await run('reconnect', { conn: claude, order: 'late', after: async (w, d) => {
+    const log = () => seen.push(JSON.stringify({ ...seenBy(d), status: d.getElementById('status').textContent, banner_text: d.getElementById('banner-text').textContent }));
+    w.fetch = async () => { throw new TypeError('Failed to fetch'); };
+    w.__handlers['sidecar-down']({ payload: 'exit 1' }); await tick(); log();
+    d.getElementById('retry').click(); await tick(); log();
+    w.__handlers['sidecar-up']({ payload: claude }); await tick(300);
+    w.fetch = async () => ({ ok: true, json: async () => STATE }); await tick(1200); log();
+  } }));
+  const [down, wait, back] = seen.map(JSON.parse);
+  if (!down.banner || !down.retry || !down.banner_text) fails.push('reconnect: stopped must show the banner with a message and Reconnect: ' + seen[0]);
+  if (wait.banner || wait.retry || wait.status !== 'Reconnecting…' || wait.banner_text) fails.push('reconnect: reconnecting must show only "Reconnecting…": ' + seen[1]);
+  if (back.banner || back.status || back.aibar || back.banner_text) fails.push('reconnect: ready after reconnect must show no bar: ' + seen[2]);
+  document.getElementById('out').textContent = (fails.length ? 'FAIL\n' + fails.join('\n') : 'PASS') + '\n' + res.map(r => r.name + ': ' + JSON.stringify(r.view)).join('\n');
+})();
+</script>

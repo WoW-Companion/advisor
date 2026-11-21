@@ -405,3 +405,20 @@ func TestLevelText(t *testing.T) {
 		}
 	}
 }
+
+func TestUnobtainableItemsNeverSuggested(t *testing.T) {
+	rows := []itemRow{
+		it(1, "DNT HEAD", 40, 1, 2, 4, cloth, headSlot, 5),
+		it(2, "Deprecated Battle Chain Pauldrons", 40, 1, 2, 4, cloth, headSlot, 5),
+		it(3, "Old Cloth Hood", 12, 1, 2, 4, cloth, headSlot, 5), // a real name that starts with a pattern word
+		it(4, "Testament Hood", 11, 1, 2, 4, cloth, headSlot, 5),
+	}
+	ds := store.New(store.ReaderSource{"items": table(t, rows)})
+	res, err := Find(char("PRIEST", 5, nil), ds, "", Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := names(res.Slots["head"]); got != "Old Cloth Hood,Testament Hood" {
+		t.Errorf("head candidates = %q, want only the real items", got)
+	}
+}

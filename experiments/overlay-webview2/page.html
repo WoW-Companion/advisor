@@ -1,0 +1,36 @@
+<!doctype html>
+<meta charset="utf-8">
+<style>
+  :root { --a: 0.86; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: transparent; font: 13px "Segoe UI", sans-serif; color: #eee; }
+  #panel { box-sizing: border-box; height: 100%; display: flex; flex-direction: column; padding: 8px;
+           background: rgba(16, 18, 24, var(--a)); border: 1px solid #d4af37; }
+  #title { color: #d4af37; font-weight: 700; font-size: 16px; padding-bottom: 6px; cursor: move; user-select: none; }
+  #answer { flex: 1; overflow-y: auto; white-space: pre-wrap; }
+  #answer::-webkit-scrollbar { width: 6px; }
+  #answer::-webkit-scrollbar-thumb { background: #555; }
+  input { margin-top: 6px; background: rgba(0, 0, 0, 0.4); color: #eee; border: 1px solid #555; padding: 4px; font: inherit; outline: none; }
+</style>
+<div id="panel">
+  <div id="title">WoW Companion</div>
+  <div id="answer"></div>
+  <input id="ask" placeholder="Ask…" autofocus>
+</div>
+<script>
+  const full = "Your best upgrade right now is the Dawnbreaker Helm from the Sunwell dungeon: " +
+    "+38 item level over your current head slot, and it drops from the last boss. " +
+    "If you cannot run it, the vendor helm for 60 badges is a close second. " +
+    "Reforge toward haste until you hit the 12% breakpoint, then stack crit. ";
+  const answer = document.getElementById("answer");
+  const ask = document.getElementById("ask");
+  let shown = 0;
+  setInterval(() => {
+    if (shown >= full.length) return;
+    shown = Math.min(shown + 20, full.length);
+    answer.textContent = full.slice(0, shown);
+    answer.scrollTop = answer.scrollHeight;
+  }, 50);
+  ask.addEventListener("keydown", e => { if (e.key === "Enter") { shown = 0; ask.value = ""; } });
+  document.getElementById("title").addEventListener("mousedown", () => window.chrome.webview.postMessage("drag"));
+  function setPanelAlpha(a) { document.documentElement.style.setProperty("--a", a); }
+</script>

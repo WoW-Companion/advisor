@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	itemdata "github.com/WoW-Companion/advisor/internal/items"
 	"sort"
 	"strings"
 
@@ -230,7 +231,7 @@ func Find(c character.Character, ds store.DataStore, group string, opt Options) 
 	anyStats := false
 	for _, row := range rows {
 		it := itemOf(row)
-		if it.ItemLevel <= 0 || it.Quality <= 0 || it.Quality == qualityArtifact || unequippableBonding(it.Bonding) {
+		if itemdata.Unobtainable(it.Name) || it.ItemLevel <= 0 || it.Quality <= 0 || it.Quality == qualityArtifact || unequippableBonding(it.Bonding) {
 			continue
 		}
 		if !rl.canUse(int8(i64(row["class_id"])), int8(i64(row["subclass_id"])), int8(it.Slot), level) ||
