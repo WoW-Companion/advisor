@@ -36,7 +36,7 @@ writes the digest file.
 
 | Preset | Advisor tools | Everything else | The player's other MCP servers |
 | ------ | ------------- | --------------- | ------------------------------ |
-| `claude` | allowed (`mcp__wowc-advisor`, the whole server) | denied by name: shell, edit, write, web, file read and search | not loaded (`--strict-mcp-config`) |
+| `claude` | allowed (`mcp__wowc-advisor`, the whole server) | no built-in tools (`--tools ""`); only the advisor server is callable | not loaded (`--strict-mcp-config`) |
 | `codex` | server defined on the command line (nothing is written to `~/.codex`), its tools set to `approve` | read-only sandbox; no approval bypass | still loaded from the player's Codex config |
 | `agy` | the one rule `mcp(wowc-advisor/*)` in `permissions.allow` of agy's settings, added by `wowc-advisor setup agy --write` | not allowed: shell, file writes and the web stay at agy's default (Ask), which a headless run refuses; no `--dangerously-skip-permissions` | the player's global MCP servers still load, but nothing allows their tools |
 | `gemini` | `--policy` file (generated beside the MCP config) allows server `wowc-advisor` | the same file denies shell, file writes and web fetch/search; no `--yolo` | only `wowc-advisor` is enabled (`--allowed-mcp-server-names`) |
