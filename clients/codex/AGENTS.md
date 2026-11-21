@@ -24,6 +24,8 @@ All character tools take an optional `character` name (omit it when only one was
   `limit`).
 - `dungeon_plan`: which dungeons fit the character and which boss drops are upgrades (optional
   `limit`).
+- `inventory_review`: what in the bags and bank to equip, keep for professions, hand in for quests,
+  vendor or bank, with the reason for each.
 - `update_digest`: writes the in-game digest into the WoWCompanion_Digest addon. Call it only when
   the player asks to refresh the in-game digest.
 
@@ -33,7 +35,7 @@ All character tools take an optional `character` name (omit it when only one was
    player named one, call `character_brief` (pass `character` when there are several).
 2. Pick the tool that matches the question: `whats_next` for "what should I do", `upgrade_finder`
    for gear, `profession_plan` for professions, `talent_plan` for talents, `dungeon_plan` for
-   where to run. Each step carries its reason and source; relay them, and say "unknown" where a
+   where to run, `inventory_review` for what to do with bags and bank. Each step carries its reason and source; relay them, and say "unknown" where a
    step says a level or zone is unknown.
 3. Base every statement about their character on what the tools returned.
 4. Name your source in the answer: "ForeverScribe capture at <time>", as the brief states it.

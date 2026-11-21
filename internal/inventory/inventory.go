@@ -1,0 +1,218 @@
+// Package inventory sorts a captured character's bags and bank into what to equip, keep for
+// professions, hand in for quests, vendor, bank, or leave alone. The rules are in
+// docs/inventory.md.
+//
+// Nothing is guessed: an item the dataset does not know, a price the dataset does not hold and a
+// quest link the capture does not state are each reported as unknown.
+package inventory
+
+import (
+	"fmt"
+	"sort"
+	"strings"
+
+	"github.com/WoW-Companion/advisor/internal/brief"
+	"github.com/WoW-Companion/advisor/internal/character"
+	"github.com/WoW-Companion/advisor/internal/gear"
+	"github.com/WoW-Companion/advisor/internal/professions"
+	"github.com/WoW-Companion/advisor/internal/store"
+)
+
+// Group is where an item belongs. An item takes the first group that fits, in this order.
+type Group string
+
+const (
+	Equip   Group = "equip"
+	Keep    Group = "keep"
+	Quest   Group = "quest"
+	Vendor  Group = "vendor"
+	Bank    Group = "bank"
+	Unknown Group = "unknown"
+)
+
+// Order is the precedence of the groups, and the order Render lists them.
+var Order = []Group{Equip, Keep, Quest, Vendor, Bank, Unknown}
+
+// poor is the quality id of grey items.
+const poor = 0
+
+// Entry is one stack and why it is in its group.
+type Entry struct {
+	ItemID    int64
+	Name      string
+	Count     int
+	Where     string // "bags" or "bank"
+	Group     Group
+	Reason    string
+	SellPrice *int64 // copper per item; nil when the dataset has no price
+}
+
+// Result is what Review found.
+type Result struct {
+	Groups map[Group][]Entry
+	// VendorValue is the copper the vendor stacks sell for, over the stacks with a known price.
+	VendorValue int64
+	// VendorUnpriced counts vendor stacks with no known price; VendorValue leaves them out.
+	VendorUnpriced int
+	// SlotsFreed is the bag slots emptied by vendoring and banking what sits in the bags.
+	SlotsFreed int
+	Notes      []string
+}
+
+func i64(v any) int64 { n, _ := v.(int64); return n }
+
+// openItemQuests maps a lower-cased item name to the open quests whose item objectives name it.
+func openItemQuests(c character.Character) map[string][]string {
+	out := map[string][]string{}
+	for _, q := range c.Quests {
+		if q.Failed != nil && *q.Failed {
+			continue
+		}
+		for _, o := range q.Objectives {
+			if !strings.EqualFold(o.Type, "item") || o.Done != nil && *o.Done {
+				continue
+			}
+			name, _, _ := strings.Cut(o.Text, ":")
+			name = strings.ToLower(strings.TrimSpace(name))
+			if name != "" && !contains(out[name], q.Title) {
+				out[name] = append(out[name], q.Title)
+			}
+		}
+	}
+	return out
+}
+
+func contains(l []string, s string) bool {
+	for _, x := range l {
+		if x == s {
+			return true
+		}
+	}
+	return false
+}
+
+// classify picks the group of one item and says why.
+func classify(id int64, name string, row store.Row, known bool, up map[int64]gear.Candidate,
+	keep map[int64][]string, far map[int64][]string, quests map[string][]string) (Group, string) {
+	if cd, ok := up[id]; ok {
+		if cd.Empty {
+			return Equip, fmt.Sprintf("fills your empty %s slot", cd.Slot)
+		}
+		return Equip, fmt.Sprintf("upgrade for %s (+%.1f)", cd.Slot, cd.Delta)
+	}
+	if p, ok := keep[id]; ok {
+		return Keep, "reagent for " + strings.Join(p, ", ") + " recipes within reach"
+	}
+	if q, ok := quests[strings.ToLower(name)]; ok {
+		return Quest, "needed for " + strings.Join(q, ", ")
+	}
+	if !known {
+		return Unknown, "not in the dataset"
+	}
+	if row["quality"] != nil && i64(row["quality"]) == poor {
+		return Vendor, "poor quality (grey)"
+	}
+	if p, ok := far[id]; ok {
+		return Bank, "material for " + strings.Join(p, ", ") + " recipes more than " + fmt.Sprint(professions.KeepWindow) + " skill points away"
+	}
+	if i64(row["slot"]) != 0 {
+		return Bank, "gear that is not an upgrade and has no other use"
+	}
+	return Unknown, "no rule places it"
+}
+
+// Review groups every bag and bank stack. ds may be nil: items are then placed only by the
+// capture (quest objectives) and everything else is unknown.
+func Review(c character.Character, ds store.DataStore) Result {
+	r := Result{Groups: map[Group][]Entry{}}
+	if !c.BagsCaptured && len(c.Bags) == 0 {
+		r.Notes = append(r.Notes, "Bags not captured.")
+	}
+	if !c.BankCaptured {
+		r.Notes = append(r.Notes, "Bank not captured: open your bank once; only the bags were reviewed.")
+	}
+	up := map[int64]gear.Candidate{}
+	keep := map[int64][]string{}
+	var far map[int64][]string
+	if ds == nil {
+		r.Notes = append(r.Notes, "No dataset configured: gear, professions, quality and prices are unknown.")
+	} else {
+		group := ""
+		if names, _ := brief.TopGroups(c.Talents); len(names) == 1 {
+			group = names[0]
+		}
+		if res, err := gear.Find(c, ds, group, gear.Options{}); err != nil {
+			r.Notes = append(r.Notes, "Gear upgrades unknown: "+err.Error()+".")
+		} else {
+			for _, cs := range res.Slots {
+				for _, cd := range cs {
+					if old, ok := up[cd.Item.ID]; !ok || cd.Delta > old.Delta {
+						up[cd.Item.ID] = cd
+					}
+				}
+			}
+		}
+		if ks, err := professions.KeepList(c, ds); err != nil {
+			r.Notes = append(r.Notes, "Profession materials unknown: the dataset has no recipes for the character's professions.")
+		} else {
+			for _, k := range ks {
+				keep[k.ItemID] = k.Professions
+			}
+		}
+		far = professions.FarMaterials(c, ds)
+	}
+	quests := openItemQuests(c)
+
+	for _, loc := range []struct {
+		where  string
+		stacks []character.ItemStack
+	}{{"bags", c.Bags}, {"bank", c.Bank}} {
+		for _, s := range loc.stacks {
+			id := int64(s.ItemID)
+			var row store.Row
+			known := false
+			if ds != nil {
+				if rw, err := ds.Get("items", id); err == nil && rw != nil {
+					row, known = rw, true
+				}
+			}
+			name := s.Name
+			if name == "" && known {
+				name, _ = row["name"].(string)
+			}
+			if name == "" {
+				name = fmt.Sprintf("item %d", id)
+			}
+			g, why := classify(id, name, row, known, up, keep, far, quests)
+			e := Entry{ItemID: id, Name: name, Count: s.Count, Where: loc.where, Group: g, Reason: why}
+			if p, ok := row["sell_price"].(int64); ok && known {
+				e.SellPrice = &p
+			}
+			r.Groups[g] = append(r.Groups[g], e)
+			if loc.where == "bags" && (g == Vendor || g == Bank) {
+				r.SlotsFreed++
+			}
+			if g == Vendor {
+				if e.SellPrice == nil {
+					r.VendorUnpriced++
+				} else {
+					r.VendorValue += *e.SellPrice * int64(s.Count)
+				}
+			}
+		}
+	}
+	for _, l := range r.Groups {
+		sort.SliceStable(l, func(i, j int) bool {
+			if l[i].Name != l[j].Name {
+				return l[i].Name < l[j].Name
+			}
+			return l[i].Where < l[j].Where
+		})
+	}
+	if n := len(r.Groups[Vendor]); n > 0 && r.VendorUnpriced == n {
+		r.Notes = append(r.Notes, "The dataset holds no sell prices: vendor value unknown.")
+	} else if r.VendorUnpriced > 0 {
+		r.Notes = append(r.Notes, fmt.Sprintf("%d vendor stack(s) have no price in the dataset: the value leaves them out.", r.VendorUnpriced))
+	}
+	return r
+}
