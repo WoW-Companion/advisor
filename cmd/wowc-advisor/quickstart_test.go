@@ -5,6 +5,8 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+
+	"github.com/WoW-Companion/advisor/internal/ask"
 )
 
 func read(t *testing.T, path string) string {
@@ -250,7 +252,7 @@ func TestGettingStartedMatchesOverlay(t *testing.T) {
 // checklist text and the overlay, and call Gemini CLI legacy.
 func TestAntigravityAdviceInDocs(t *testing.T) {
 	const link = "https://antigravity.google/docs/getting-started?tab=cli"
-	for _, p := range []string{"../../docs/getting-started.md", "../../docs/quickstart.md", "../../overlay/ui/index.html"} {
+	for _, p := range []string{"../../docs/getting-started.md", "../../overlay/ui/index.html"} {
 		if d := read(t, p); !strings.Contains(d, link) {
 			t.Errorf("%s does not link Antigravity CLI's install page", p)
 		}
@@ -265,5 +267,64 @@ func TestAntigravityAdviceInDocs(t *testing.T) {
 	}
 	if d := read(t, "../../overlay/src-tauri/src/main.rs"); !strings.Contains(d, link) {
 		t.Error("the overlay may not open Antigravity CLI's install page")
+	}
+}
+
+// Every client the Getting Started guide has a section for is a preset in code, every preset has a
+// section, and the install links the overlay opens are the ones the guide gives.
+func TestClientGuideMatchesPresets(t *testing.T) {
+	doc := read(t, "../../docs/getting-started.md")
+	sec := doc[strings.Index(doc, "## Set up your AI client"):]
+	sec = sec[:strings.Index(sec, "## Permissions and safety")]
+
+	// Guide heading -> preset id; the overlay's own names come from CLIENT_NAMES in app.js.
+	heads := map[string]string{"Claude Code": "claude", "Codex": "codex", "Antigravity CLI": "agy", "Gemini CLI": "gemini"}
+	found := map[string]bool{}
+	for _, m := range regexp.MustCompile(`(?m)^### ([^\n(]+?)(?: \(.*\))?$`).FindAllStringSubmatch(sec, -1) {
+		id, ok := heads[m[1]]
+		if !ok {
+			t.Errorf("guide has a section for %q, which is not a known client", m[1])
+			continue
+		}
+		if _, ok := ask.Presets[id]; !ok {
+			t.Errorf("guide names %q but there is no %q preset", m[1], id)
+		}
+		found[id] = true
+	}
+	for id := range ask.Presets {
+		if !found[id] {
+			t.Errorf("preset %q has no section in the guide", id)
+		}
+	}
+	js := read(t, "../../overlay/ui/app.js")
+	for id := range ask.Presets {
+		if !regexp.MustCompile(id + `: '`).MatchString(js) {
+			t.Errorf("overlay CLIENT_NAMES has no %q", id)
+		}
+	}
+
+	// Install links: each one in the overlay's notice and its allowlist is in the guide, and the
+	// overlay offers every guide link that is an official install page.
+	html := read(t, "../../overlay/ui/index.html")
+	rs := read(t, "../../overlay/src-tauri/src/main.rs")
+	for _, m := range regexp.MustCompile(`data-page="([^"]+)"`).FindAllStringSubmatch(html, -1) {
+		u := m[1]
+		if strings.Contains(u, "WoW-Companion/advisor") {
+			continue
+		}
+		if !strings.Contains(doc, "("+u+")") {
+			t.Errorf("overlay links %s, which the guide does not", u)
+		}
+		if !strings.Contains(rs, `"`+u+`"`) {
+			t.Errorf("open_install_page does not allow %s", u)
+		}
+	}
+	for _, u := range []string{"https://code.claude.com/docs/en/setup", "https://github.com/openai/codex", "https://antigravity.google/docs/getting-started?tab=cli"} {
+		if !strings.Contains(sec, "("+u+")") || !strings.Contains(html, `data-page="`+u+`"`) {
+			t.Errorf("%s must be in both the guide and the overlay notice", u)
+		}
+	}
+	if !strings.Contains(read(t, "../../internal/gamesetup/ai.go"), "Antigravity") {
+		t.Error("checklist install note does not name Antigravity")
 	}
 }

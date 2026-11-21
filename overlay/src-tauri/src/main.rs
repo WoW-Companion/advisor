@@ -237,7 +237,7 @@ fn set_agent(app: AppHandle, agent: String) -> Result<(), String> {
 const INSTALL_PAGES: [&str; 7] = [
     "https://github.com/WoW-Companion/advisor/releases/latest",
     "https://github.com/MattMaximo/foreverscribe",
-    "https://docs.claude.com/en/docs/claude-code/setup",
+    "https://code.claude.com/docs/en/setup",
     "https://github.com/openai/codex",
     "https://github.com/google-gemini/gemini-cli",
     "https://antigravity.google/docs/getting-started?tab=cli",

@@ -52,20 +52,14 @@ whether a newer release exists; it never downloads or replaces anything. A `go i
 
 Answers need one AI client. Advice lists, the NEXT list and the panel work without it.
 
-Action: install Claude Code with its official installer, in PowerShell:
-`irm https://claude.ai/install.ps1 | iex`. Then run `claude` once in a terminal and sign in. It must be
-signed in once before it can answer headlessly.
+Action: pick one client and follow its section in
+[Getting Started](getting-started.md#set-up-your-ai-client): Claude Code, Codex, Antigravity CLI (`agy`,
+the Google account option) or Gemini CLI (legacy; paid API key only). Each section gives the account,
+the official install command and the one-time sign-in. The overlay looks in the usual install folders
+itself, so a folder missing from PATH (Claude's `%USERPROFILE%\.local\bin`) is fine; see
+[overlay/README.md](../overlay/README.md). Antigravity also needs `wowc-advisor setup agy --write` once.
 
-The installer puts `claude.exe` in `%USERPROFILE%\.local\bin`, which is often not on PATH, so `claude` may
-not work in a new terminal. You do not need to fix that for the overlay: it looks there (and in the other
-usual places) itself. See [overlay/README.md](../overlay/README.md).
-
-Alternatives: [Codex](https://github.com/openai/codex) or
-[Antigravity CLI](https://antigravity.google/docs/getting-started?tab=cli) (`agy`, the Google account option), each from its own install page; sign in once
-too. Antigravity also needs `wowc-advisor setup agy --write` once. Gemini CLI is legacy and works only with a
-paid Gemini API key.
-
-Success: `claude` answers in a terminal, or the overlay (next step) shows the client's name.
+Success: the overlay shows the client's name in the AI client box, and the setup checklist's **Test** button on the AI client line says OK.
 
 ## 4. Set up the overlay
 
@@ -207,10 +201,15 @@ The companion sits beside the game, not inside it, and changes nothing in the cl
 ## FAQ and troubleshooting
 
 **"Auto (none found)" in the AI client box.** No client was found. Install one (step 3), sign in once,
-then press **Re-scan**.
+then press **Re-scan**; no restart is needed, also for a client installed while the overlay was open. If it still says none, run the client once in a terminal to check it is signed in.
 
-**The AI says the advisor's tools are not allowed.** Your build is outdated: the permission flags were
-added later. Install a newer overlay (step 2) or rebuild with `@main`.
+**The checklist's Test says the client "did not start".** The client is installed but would not run: open a
+terminal, run it once (`claude`, `codex` or `agy`) and finish signing in, then press **Test** again. A client
+installed while the overlay was open is found after **Re-scan**; that no longer needs a restart.
+
+**The AI says the advisor's tools are not allowed.** Your build is outdated: the presets pass the permission
+flags themselves, so a current overlay never asks. Install a newer overlay (step 2) or rebuild with `@main`.
+For Antigravity, run `wowc-advisor setup agy --write` once; it adds the one rule that allows the advisor's tools.
 
 **The data is stale, or the age chip is amber or red.** The advice reflects the last ForeverScribe save.
 Type `/reload` in game (or log out) and the chip returns to `now`. The in-game panel refreshes itself
