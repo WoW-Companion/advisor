@@ -28,6 +28,12 @@ const EstimateOffset = 5
 // EstimateRequiredLevel is the required level assumed for an item whose dataset value is unknown.
 func EstimateRequiredLevel(itemLevel int) int { return max(1, itemLevel-EstimateOffset) }
 
+// EstimateGap is how far the estimate may exceed a known required level before the known one is
+// distrusted: the dataset holds required level 1 for about 80 equippable items of item level 30 to
+// 70 (scaling and event items), which are no use to a level-5 character. Real level-60 gear stays
+// within it (item level 83 needs 60).
+const EstimateGap = 20
+
 // unequippableBonding are the bonding values of quest items (the client's bonding 4 and 5).
 func unequippableBonding(b int) bool { return b == 4 || b == 5 }
 
@@ -235,8 +241,8 @@ func Find(c character.Character, ds store.DataStore, group string, opt Options) 
 		// dataset has 2,330 equippable ones, up to item level 83), so 0 is "unknown", not "none":
 		// the level is estimated from the item level and put through the same window.
 		it.ReqLevel = it.RequiredLevel
-		if it.RequiredLevel == 0 {
-			it.ReqLevel, it.Estimated = EstimateRequiredLevel(it.ItemLevel), true
+		if est := EstimateRequiredLevel(it.ItemLevel); it.RequiredLevel == 0 || est-it.RequiredLevel > EstimateGap {
+			it.ReqLevel, it.Estimated = est, true
 		}
 		if it.ReqLevel > level+EquipWindow {
 			continue

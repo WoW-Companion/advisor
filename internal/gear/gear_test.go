@@ -83,7 +83,7 @@ func items(status string) []itemRow {
 		it(2, "Spirit Hood", 24, 14, 2, 4, cloth, headSlot, 6, 7),   // spirit + stamina
 		it(3, "Leather Cap", 22, 14, 2, 4, leather, headSlot, 3, 7), // agi + stamina
 		it(4, "Plate Helm", 40, 14, 3, 4, plate, headSlot, 4, 7),    // never usable
-		it(5, "Future Hood", 60, 20, 3, 4, cloth, headSlot, 5),      // requires level 20
+		it(5, "Future Hood", 40, 20, 3, 4, cloth, headSlot, 5),      // requires level 20
 		it(6, "Ring of Mind", 18, 10, 2, 4, 0, ringSlot, 5),         // any armor type
 		it(7, "Ring of Agility", 18, 10, 2, 4, 0, ringSlot, 3),      //
 		it(8, "Priest Mace", 20, 10, 2, 2, 4, oneHand, 5),           // mace
@@ -331,9 +331,10 @@ func ladder(t *testing.T) store.DataStore {
 		it(16, "Quest Hood", 14, 4, 2, 4, cloth, headSlot, 5),      // quest bonding
 		it(17, "Artifact Hood", 14, 4, 6, 4, cloth, headSlot, 5),   // artifact quality
 		it(18, "Worn Level Hood", 9, 4, 2, 4, cloth, headSlot, 5),  // ilvl 9
+		it(20, "Scaling Neck", 40, 1, 2, 4, 0, neckSlot, 5),        // required level 1, item level 40
 		it(19, "Cut Word Hood Of The Eagle", 12, 4, 2, 4, cloth, headSlot, 5),
 	}
-	rows[15].Bonding = 4
+	rows[15].Bonding = 4 // Quest Hood
 	return store.New(store.ReaderSource{"items": table(t, rows)})
 }
 
@@ -350,9 +351,10 @@ func TestUpgradeRules(t *testing.T) {
 	}{
 		// Level.
 		{"level 5: window ends at 7, placeholder and bad bonding/quality out", char("PRIEST", 5, nil), "head", 0, "Cut Word Hood Of The Eagle,Unknown Hood,Edge Hood,Worn Level Hood,Low Hood"},
+		{"level 5: known level 1 at item level 40 is distrusted", char("PRIEST", 5, nil), "neck", 0, ""},
 		{"level 5: estimated level 49 is out", char("PRIEST", 5, nil), "neck", 0, ""},
-		{"level 40: estimated level 49 is still out", char("PRIEST", 40, nil), "neck", 0, ""},
-		{"level 47: estimated level 49 is in", char("PRIEST", 47, nil), "neck", 0, "Unknown Amulet"},
+		{"level 40: estimated 49 is out, estimated 35 is in", char("PRIEST", 40, nil), "neck", 0, "Scaling Neck"},
+		{"level 47: estimated level 49 is in", char("PRIEST", 47, nil), "neck", 0, "Unknown Amulet,Scaling Neck"},
 		// Not an upgrade.
 		{"worn ilvl 10 hides ilvl 10 and below", char("PRIEST", 5, worn("head", 1, 10)), "head", 0, "Cut Word Hood Of The Eagle,Unknown Hood"},
 		// Slot.

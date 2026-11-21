@@ -19,7 +19,7 @@ level range. There is no object table and no zone on any of them, so object sour
   as "at level N" (the digest line adds ", at level N" inside its brackets). A required level of 0
   is read as unknown, not as "none" (the client holds 0 for many high-level items, about 2,300
   equippable ones in the 1.60.1 dataset): the level is estimated as `max(1, item level - 5)` and
-  put through the same window, and the tool output says "(estimated)". Poor-quality items, artifact
+  put through the same window, and the tool output says "(estimated)". The same estimate replaces a known level more than 20 below it (the dataset has about 80 level-1 items of item level 30 to 70). Poor-quality items, artifact
   quality, quest-bonding items (bonding 4 and 5) and items with no item level are skipped.
 - An item is an upgrade only when its item level is above the equipped item's, and above 1 when the
   slot is empty (level 1 items are placeholders and cosmetics).
