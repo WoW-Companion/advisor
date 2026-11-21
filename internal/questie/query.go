@@ -1,44 +1,36 @@
 package questie
 
 import (
+	"cmp"
 	"fmt"
 	"math"
 	"sort"
 	"strings"
 )
 
-// Where is the character's last known place. MapID is the ForeverScribe uiMapID; Zone is used when
-// it is absent. X and Y are percent of the map.
+// Where is the character's last known place: the uiMapID, or the zone name without one; X and Y are map percent.
 type Where struct {
 	MapID *int
 	Zone  string
 	X, Y  float64
-	Known bool
 }
 
-// Place is a named spot.
 type Place struct {
-	Name    string // the NPC or object
-	Sub     string // subzone, when the area has one
-	Zone    string
-	X, Y    float64
-	Dist    float64 // distance from the character in map percent; -1 when unknown
-	Present bool
+	Name string // the NPC or object
+	Sub  string // subzone, when the area has one
+	Zone string
+	X, Y float64
+	Dist float64 // distance from the character in map percent; -1 when unknown
 }
 
 func (p Place) String() string {
-	loc := p.Sub
-	if loc == "" {
-		loc = p.Zone
-	}
 	s := p.Name
-	if loc != "" {
+	if loc := cmp.Or(p.Sub, p.Zone); loc != "" {
 		s += ", " + loc
 	}
 	return s + fmt.Sprintf(" (%.1f, %.1f)", p.X, p.Y)
 }
 
-// Who is the character the query is for.
 type Who struct {
 	Level           int
 	ClassID, RaceID int // 0 when not captured: that rule is not checked
@@ -75,8 +67,8 @@ func (ix *Index) onMap(area int, w Where) bool {
 
 func (ix *Index) place(e Entity, s Spawn, w Where) Place {
 	a := ix.Areas[s.Area]
-	p := Place{Name: e.Name, Sub: a.Sub, Zone: a.Zone, X: s.X, Y: s.Y, Dist: -1, Present: true}
-	if w.Known && ix.onMap(s.Area, w) {
+	p := Place{Name: e.Name, Sub: a.Sub, Zone: a.Zone, X: s.X, Y: s.Y, Dist: -1}
+	if ix.onMap(s.Area, w) {
 		p.Dist = math.Hypot(s.X-w.X, s.Y-w.Y)
 	}
 	return p
@@ -84,7 +76,7 @@ func (ix *Index) place(e Entity, s Spawn, w Where) Place {
 
 // nearest is the closest spawn of any of the refs on the character's map; with no position it is
 // the first spawn found. ok is false when none is on the map.
-func (ix *Index) nearest(refs []Ref, spawns []Spawn, w Where) (Place, bool) {
+func (ix *Index) nearest(refs []Ref, w Where) (Place, bool) {
 	best, found := Place{Dist: -1}, false
 	consider := func(p Place) {
 		if !found || (p.Dist >= 0 && (best.Dist < 0 || p.Dist < best.Dist)) {
@@ -100,11 +92,6 @@ func (ix *Index) nearest(refs []Ref, spawns []Spawn, w Where) (Place, bool) {
 			if ix.onMap(s.Area, w) {
 				consider(ix.place(e, s, w))
 			}
-		}
-	}
-	for _, s := range spawns {
-		if ix.onMap(s.Area, w) {
-			consider(ix.place(Entity{}, s, w))
 		}
 	}
 	return best, found
@@ -167,7 +154,7 @@ func (q *Quest) Eligible(w Who) bool {
 // level fit first, then nearest the character. A character with no position gets none (nothing can
 // be called nearby).
 func (ix *Index) Available(w Who, at Where, skip func(name string) bool) []Offer {
-	if !at.Known && at.MapID == nil && at.Zone == "" {
+	if at.MapID == nil && at.Zone == "" {
 		return nil
 	}
 	var out []Offer
@@ -175,7 +162,7 @@ func (ix *Index) Available(w Who, at Where, skip func(name string) bool) []Offer
 		if !q.Eligible(w) || (skip != nil && skip(q.Name)) {
 			continue
 		}
-		p, ok := ix.nearest(q.Starters, nil, at)
+		p, ok := ix.nearest(q.Starters, at)
 		if !ok {
 			continue
 		}
@@ -208,10 +195,10 @@ func (ix *Index) Locate(questID int, complete bool, at Where) (p Place, objectiv
 		return Place{}, false, false
 	}
 	if !complete {
-		if p, ok := ix.nearest(q.Creatures, q.Trigger, at); ok {
+		if p, ok := ix.nearest(q.Creatures, at); ok {
 			return p, true, true
 		}
 	}
-	p, ok = ix.nearest(q.Finishers, nil, at)
+	p, ok = ix.nearest(q.Finishers, at)
 	return p, false, ok
 }

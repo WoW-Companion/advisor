@@ -1,7 +1,6 @@
 package questie
 
 import (
-	"encoding/binary"
 	"errors"
 	"math"
 )
@@ -34,7 +33,6 @@ func cborValue(b []byte, i, depth int) (any, int, error) {
 	major, info := b[i]>>5, b[i]&31
 	i++
 	var n uint64
-	indef := false
 	switch {
 	case info < 24:
 		n = uint64(info)
@@ -47,8 +45,6 @@ func cborValue(b []byte, i, depth int) (any, int, error) {
 			n = n<<8 | uint64(c)
 		}
 		i += w
-	case info == 31 && (major == 4 || major == 5):
-		indef = true
 	default:
 		return nil, 0, errors.New("unsupported encoding")
 	}
@@ -68,28 +64,14 @@ func cborValue(b []byte, i, depth int) (any, int, error) {
 			return nil, 0, errShort
 		}
 		return string(b[i : i+int(n)]), i + int(n), nil
-	case 6:
-		return cborValue(b, i, depth+1)
 	case 4, 5:
 		per := 1 + int(major-4)
-		if !indef && n > maxItems {
+		if n > maxItems {
 			return nil, 0, errors.New("collection too large")
 		}
 		var arr []any
 		m := map[any]any{}
-		for c := uint64(0); indef || c < n; c++ {
-			if indef {
-				if i >= len(b) {
-					return nil, 0, errShort
-				}
-				if b[i] == 0xff {
-					i++
-					break
-				}
-			}
-			if c > maxItems {
-				return nil, 0, errors.New("collection too large")
-			}
+		for c := uint64(0); c < n; c++ {
 			var k, v any
 			var err error
 			for p := 0; p < per; p++ {
@@ -134,16 +116,10 @@ func cborValue(b []byte, i, depth int) (any, int, error) {
 		case 26:
 			return float64(math.Float32frombits(uint32(n))), i, nil
 		case 27:
-			return math.Float64frombits(binary.BigEndian.Uint64(be8(n))), i, nil
+			return math.Float64frombits(n), i, nil
 		}
 		return nil, 0, errors.New("unsupported simple value")
 	}
-}
-
-func be8(n uint64) []byte {
-	var x [8]byte
-	binary.BigEndian.PutUint64(x[:], n)
-	return x[:]
 }
 
 func half(h uint16) float64 {

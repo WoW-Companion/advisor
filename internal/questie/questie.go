@@ -32,9 +32,6 @@ type Status struct {
 	Reason   string
 }
 
-// Installed reports whether any Questie or QuestieDB folder exists.
-func (s Status) Installed() bool { return s.Questie != "" || s.DB != "" }
-
 var tocField = regexp.MustCompile(`(?m)^##\s*([A-Za-z-]+):\s*(\S.*?)\s*$`)
 
 // readHeader returns the "## Key: value" lines at the top of a TOC (up to the first file line).
@@ -97,7 +94,6 @@ func Probe(game string) Status {
 	if v := h["Version"]; v != "" {
 		s.DB = v
 	}
-	s.Flavor = h["X-Flavor"]
 	contract, _ := strconv.Atoi(h["X-Contract-Version"])
 	switch {
 	case h["X-Mode"] != "baked":
@@ -113,7 +109,7 @@ func Probe(game string) Status {
 // Describe is the one-line setup text for the status.
 func (s Status) Describe() (ok bool, text string) {
 	switch {
-	case !s.Installed():
+	case s.Questie == "" && s.DB == "":
 		return false, "Not installed; quest suggestions limited to ForeverScribe's saved data."
 	case s.DB == "":
 		return false, "Questie " + vers(s.Questie) + " found, but not its QuestieDB addon; quest suggestions limited."
@@ -126,30 +122,33 @@ func (s Status) Describe() (ok bool, text string) {
 }
 
 func vers(v string) string {
-	if v == "" || v == "unknown" || strings.HasPrefix(v, "v") {
+	if v == "unknown" {
 		return v
 	}
-	return "v" + v
+	return "v" + strings.TrimPrefix(v, "v")
 }
 
-// rowKey is one entity field line: "## X-<Type>-<id>-<field>: <base64 CBOR>".
-func parseLine(l string) (typ string, id int, field string, val string, ok bool) {
-	if !strings.HasPrefix(l, "## X-") {
-		return
-	}
+// parseLine splits "## X-<Type>-<id>-<field>[-<chunk>]: <value>". chunk is 0 for a whole value and
+// the 1-based part number for one piece of a long value, which a "~N~" head line announces.
+func parseLine(l string) (typ string, id int, field string, chunk int, val string, ok bool) {
 	colon := strings.Index(l, ": ")
-	if colon < 0 {
+	if !strings.HasPrefix(l, "## X-") || colon < 0 {
 		return
 	}
 	parts := strings.Split(l[5:colon], "-")
-	if len(parts) != 3 {
+	if len(parts) != 3 && len(parts) != 4 {
 		return
 	}
-	n, err := strconv.Atoi(parts[1])
+	id, err := strconv.Atoi(parts[1])
 	if err != nil {
 		return
 	}
-	return parts[0], n, parts[2], l[colon+2:], true
+	if len(parts) == 4 {
+		if chunk, err = strconv.Atoi(parts[3]); err != nil {
+			return
+		}
+	}
+	return parts[0], id, parts[2], chunk, l[colon+2:], true
 }
 
 func decodeField(val string) (any, error) {
@@ -160,15 +159,14 @@ func decodeField(val string) (any, error) {
 	return decodeCBOR(raw)
 }
 
-// A rawRow is the decoded fields of one entity.
 type rawRow map[string]any
 
-// fields the reader keeps; every other line is skipped without decoding.
-var (
-	questFields  = map[string]bool{"S": true, "2": true, "3": true, "9": true, "10": true, "12": true, "13": true, "16": true, "22": true, "25": true, "33": true, "36": true}
-	npcFields    = map[string]bool{"S": true, "7": true}
-	objectFields = map[string]bool{"S": true, "4": true}
-)
+// wanted are the fields the reader keeps; every other line is skipped without decoding.
+var wanted = map[string]map[string]bool{
+	"Quest":  {"S": true, "2": true, "3": true, "10": true, "12": true, "13": true, "16": true},
+	"Npc":    {"S": true, "7": true},
+	"Object": {"S": true, "4": true},
+}
 
 // ErrUnreadable means the database is not in a format this reader understands.
 var ErrUnreadable = errors.New("QuestieDB format not recognised")

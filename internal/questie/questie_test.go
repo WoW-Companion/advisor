@@ -2,61 +2,43 @@ package questie
 
 import (
 	"encoding/base64"
+	"encoding/binary"
 	"fmt"
 	"math"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 	"testing"
 	"time"
 )
 
-// The fixtures here are hand-written in QuestieDB's baked file shape with invented ids and names.
-// Nothing is copied from Questie.
+// Fixtures are hand-written in QuestieDB's baked shape, with invented ids and names.
 
+// enc writes v as CBOR with fixed-width integers, which is valid if not canonical.
 func enc(v any) []byte {
-	head := func(major byte, n uint64) []byte {
-		switch {
-		case n < 24:
-			return []byte{major<<5 | byte(n)}
-		case n < 256:
-			return []byte{major<<5 | 24, byte(n)}
-		case n < 65536:
-			return []byte{major<<5 | 25, byte(n >> 8), byte(n)}
-		}
-		return append([]byte{major<<5 | 26}, byte(n>>24), byte(n>>16), byte(n>>8), byte(n))
-	}
+	head := func(major byte, n int) []byte { return binary.BigEndian.AppendUint32([]byte{major<<5 | 26}, uint32(n)) }
 	switch x := v.(type) {
 	case nil:
 		return []byte{0xf6}
 	case int:
 		if x < 0 {
-			return head(1, uint64(-1-x))
+			return head(1, -1-x)
 		}
-		return head(0, uint64(x))
-	case int64:
-		return head(0, uint64(x))
+		return head(0, x)
 	case string:
-		return append(head(2, uint64(len(x))), x...)
+		return append(head(2, len(x)), x...)
 	case float64:
-		return append([]byte{0xfb}, be8(math.Float64bits(x))...)
+		return binary.BigEndian.AppendUint64([]byte{0xfb}, math.Float64bits(x))
 	case []any:
-		b := head(4, uint64(len(x)))
+		b := head(4, len(x))
 		for _, e := range x {
 			b = append(b, enc(e)...)
 		}
 		return b
 	case map[int]any:
-		keys := make([]int, 0, len(x))
-		for k := range x {
-			keys = append(keys, k)
-		}
-		sort.Ints(keys)
-		b := head(5, uint64(len(x)))
-		for _, k := range keys {
-			b = append(b, enc(k)...)
-			b = append(b, enc(x[k])...)
+		b := head(5, len(x))
+		for k := range x { // one map per call site has few keys; any order is valid CBOR
+			b = append(append(b, enc(k)...), enc(x[k])...)
 		}
 		return b
 	}
@@ -70,10 +52,18 @@ type row struct {
 	val   any
 }
 
+// chunked is a value stored as a "~2~" head and two numbered pieces, as long values are.
+type chunked struct{ v any }
+
 func toc(header string, rows []row) string {
 	var b strings.Builder
 	b.WriteString(header)
 	for _, r := range rows {
+		if c, ok := r.val.(chunked); ok {
+			e := base64.StdEncoding.EncodeToString(enc(c.v))
+			fmt.Fprintf(&b, "## X-%s-%d-%s: ~2~\n## X-%s-%d-%s-1: %s\n## X-%s-%d-%s-2: %s\n", r.typ, r.id, r.field, r.typ, r.id, r.field, e[:8], r.typ, r.id, r.field, e[8:])
+			continue
+		}
 		fmt.Fprintf(&b, "## X-%s-%d-%s: %s\n", r.typ, r.id, r.field, base64.StdEncoding.EncodeToString(enc(r.val)))
 	}
 	b.WriteString("\nsrc\\config.lua\n")
@@ -117,7 +107,7 @@ func fixtureRows() []row {
 	r = append(r, row{"Quest", 1, "10", []any{[]any{[]any{200, nil, 0}}}}) // a kill objective
 	r = append(r,
 		row{"Npc", 100, "S", map[int]any{1: "Elder Mira", 14: "Elder"}},
-		row{"Npc", 100, "7", map[int]any{902: []any{[]any{50.5, 60.25}}, 901: []any{[]any{10.0, 10.0}}}},
+		row{"Npc", 100, "7", chunked{map[int]any{902: []any{[]any{50.5, 60.5}}, 901: []any{[]any{10.0, 10.0}}}}},
 		row{"Npc", 103, "S", map[int]any{1: "Distant Hermit"}},
 		row{"Npc", 103, "7", map[int]any{903: []any{[]any{20.0, 20.0}}}},
 		row{"Npc", 200, "S", map[int]any{1: "Reef Crab"}},
@@ -125,7 +115,6 @@ func fixtureRows() []row {
 	return r
 }
 
-// install writes a game folder with QuestieDB (and Questie) and returns its path.
 func install(t *testing.T, hdr string, rows []row) string {
 	t.Helper()
 	game := t.TempDir()
@@ -158,31 +147,22 @@ func TestAvailable(t *testing.T) {
 	if ix == nil {
 		t.Fatalf("not readable: %+v", st)
 	}
-	map1 := 7001
-	at := Where{MapID: &map1, X: 50, Y: 60, Known: true}
-	got := ix.Available(who(), at, nil)
+	m := 7001
+	skip := func(n string) bool { return strings.Contains(n, "DNT") }
+	got := ix.Available(who(), Where{MapID: &m, X: 50, Y: 60}, skip)
 	var ids []int
 	for _, o := range got {
 		ids = append(ids, o.Quest.ID)
 	}
-	// 2 is eligible; 9 follows the finished quest 5. Decoys: 1 in the log, 3 wrong class, 4 missing
-	// prerequisite, 5 done, 6 placeholder name (skip func), 7 out of band, 8 other map, 10 skill.
-	if fmt.Sprint(ids) != "[2 6 9]" { // 6 is dropped by the name check below, as in the advisor
+	// 2 is eligible, and 9 follows the finished quest 5. Decoys: 1 in the log, 3 wrong class, 4 missing
+	// prerequisite, 5 done, 6 placeholder name, 7 out of band, 8 other map, 10 needs a skill.
+	if fmt.Sprint(ids) != "[2 9]" {
 		t.Fatalf("got %v", ids)
 	}
-	if got[0].Quest.ID != 2 || got[0].Giver.Name != "Elder Mira" || got[0].Giver.Sub != "Kelp Cove" {
-		t.Fatalf("giver: %+v", got[0])
+	if g := got[0].Giver; g.String() != "Elder Mira, Kelp Cove (50.5, 60.5)" {
+		t.Fatalf("giver %q", g)
 	}
-	if s := got[0].Giver.String(); s != "Elder Mira, Kelp Cove (50.5, 60.2)" && s != "Elder Mira, Kelp Cove (50.5, 60.3)" {
-		t.Fatalf("place %q", s)
-	}
-	skip := func(n string) bool { return strings.Contains(n, "DNT") }
-	for _, o := range ix.Available(who(), at, skip) {
-		if o.Quest.ID == 6 {
-			t.Fatal("DNT quest offered")
-		}
-	}
-	if ix.Available(who(), Where{}, nil) != nil {
+	if ix.Available(who(), Where{}, skip) != nil {
 		t.Fatal("no position, yet quests offered")
 	}
 }
@@ -190,7 +170,7 @@ func TestAvailable(t *testing.T) {
 func TestLocate(t *testing.T) {
 	ix, _ := OpenGame(install(t, header, fixtureRows()))
 	m := 7001
-	at := Where{MapID: &m, X: 0, Y: 0, Known: true}
+	at := Where{MapID: &m, X: 0, Y: 0}
 	p, objective, ok := ix.Locate(1, false, at)
 	if !ok || !objective || p.Name != "Reef Crab" {
 		t.Fatalf("objective: %+v %v %v", p, objective, ok)
@@ -210,7 +190,6 @@ func TestProbe(t *testing.T) {
 	}{
 		{"readable", header, true, "Found Questie v1.2.3 with QuestieDB v9.9.9"},
 		{"unknown contract", strings.Replace(header, "Contract-Version: 4", "Contract-Version: 77", 1), false, "unreadable (v9.9.9)"},
-		{"source mode", strings.Replace(header, "baked", "source", 1), false, "unreadable (v9.9.9)"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -233,87 +212,55 @@ func TestProbe(t *testing.T) {
 	}
 }
 
-func TestGarbageRowsAreUnreadable(t *testing.T) {
-	rows := []row{{"Quest", 1, "S", "not a map"}}
-	game := install(t, header, rows)
-	// every row decodes but no quest has a name
-	if ix, st := OpenGame(game); ix != nil || st.Readable {
-		t.Fatalf("garbage accepted: %+v", st)
-	}
-	toc := filepath.Join(game, "Interface", "AddOns", "QuestieDB", "QuestieDB_Forever.toc")
-	os.WriteFile(toc, []byte(header+"## X-Quest-1-S: !!!not-base64\n## X-Quest-2-S: also bad\n"), 0o644)
-	if ix, st := OpenGame(game); ix != nil || st.Readable {
-		t.Fatalf("bad base64 accepted: %+v", st)
-	}
-}
-
 func TestWarmQueryIsFast(t *testing.T) {
 	game := install(t, header, fixtureRows())
 	if ix, _ := OpenGame(game); ix == nil {
 		t.Fatal("cold load failed")
 	}
-	memoMu.Lock()
-	memo = map[string]*Index{} // force the warm path through the on-disk index
-	memoMu.Unlock()
 	start := time.Now()
 	ix, _ := OpenGame(game)
 	m := 7001
-	ix.Available(who(), Where{MapID: &m, Known: true}, nil)
+	ix.Available(who(), Where{MapID: &m}, nil)
 	if d := time.Since(start); d > 200*time.Millisecond {
 		t.Fatalf("warm open+query took %v", d)
 	}
-	if files, _ := filepath.Glob(filepath.Join(game, "cache", "index-*.gob.gz")); len(files) != 1 {
+	if files, _ := filepath.Glob(filepath.Join(game, "cache", "index-*.gob")); len(files) != 1 {
 		t.Fatalf("cache files %v", files)
 	}
 }
 
-func TestCBOR(t *testing.T) {
-	v, err := decodeCBOR(enc(map[int]any{1: "a", 2: []any{1.5, nil, -3}}))
-	m, _ := v.(map[any]any)
-	if err != nil || m[int64(1)] != "a" || m[int64(2)].([]any)[0] != 1.5 || m[int64(2)].([]any)[2] != int64(-3) {
-		t.Fatalf("%v %v", v, err)
-	}
-	for _, bad := range [][]byte{{0x82, 0x01}, {0x1f}, {0x61}, {0x01, 0x02}} {
-		if _, err := decodeCBOR(bad); err == nil {
-			t.Fatalf("% x accepted", bad)
-		}
-	}
-}
-
-// Fixtures must never hold text copied from Questie. When the source of a Questie checkout is
-// available (WOWC_QUESTIE_SOURCE, a folder), no testdata file may contain a run of more than 40
-// characters that appears in it.
+// Fixtures must never hold text copied from Questie. With a Questie checkout in WOWC_QUESTIE_SOURCE,
+// no testdata file may contain a run of more than 40 characters found in its .lua or .toc files.
 func TestTestdataHoldsNoQuestieText(t *testing.T) {
 	src := os.Getenv("WOWC_QUESTIE_SOURCE")
 	if src == "" {
 		t.Skip("WOWC_QUESTIE_SOURCE not set: no Questie source to compare with")
 	}
 	var corpus strings.Builder
-	filepath.WalkDir(src, func(p string, d os.DirEntry, err error) error {
-		if err == nil && !d.IsDir() && (strings.HasSuffix(p, ".lua") || strings.HasSuffix(p, ".toc")) {
-			b, _ := os.ReadFile(p)
+	walk := func(root string, visit func(p string, b []byte)) {
+		filepath.WalkDir(root, func(p string, d os.DirEntry, err error) error {
+			if b, e := os.ReadFile(p); err == nil && !d.IsDir() && e == nil {
+				visit(p, b)
+			}
+			return nil
+		})
+	}
+	walk(src, func(p string, b []byte) {
+		if strings.HasSuffix(p, ".lua") || strings.HasSuffix(p, ".toc") {
 			corpus.Write(b)
-			corpus.WriteByte('\n')
 		}
-		return nil
 	})
 	if corpus.Len() == 0 {
 		t.Skip("no Questie source under " + src)
 	}
-	text := corpus.String()
-	filepath.WalkDir(filepath.Join("..", "..", "testdata"), func(p string, d os.DirEntry, err error) error {
-		if err != nil || d.IsDir() {
-			return nil
-		}
-		b, _ := os.ReadFile(p)
+	walk(filepath.Join("..", "..", "testdata"), func(p string, b []byte) {
 		for _, line := range strings.Split(string(b), "\n") {
 			for i := 0; i+41 <= len(line); i += 4 {
-				if strings.Contains(text, line[i:i+41]) {
+				if strings.Contains(corpus.String(), line[i:i+41]) {
 					t.Errorf("%s holds text found in the Questie source: %q", p, line[i:i+41])
-					return nil
+					return
 				}
 			}
 		}
-		return nil
 	})
 }

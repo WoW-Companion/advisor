@@ -2,7 +2,6 @@ package questie
 
 import (
 	"bufio"
-	"compress/gzip"
 	"crypto/sha256"
 	"encoding/gob"
 	"encoding/hex"
@@ -10,13 +9,12 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
-	"sync"
 )
 
-// indexSchema changes whenever the cached index's shape does.
-const indexSchema = 1
+const indexSchema = 1 // bump when the cached index's shape changes
 
 // Spawn is a place, as percent of the area's map.
 type Spawn struct {
@@ -24,14 +22,12 @@ type Spawn struct {
 	X, Y float64
 }
 
-// Entity is a quest-giver NPC or object.
 type Entity struct {
 	Name   string
 	Sub    string // the NPC's subname, such as a title
 	Spawns []Spawn
 }
 
-// Ref names an NPC or an object.
 type Ref struct {
 	Object bool
 	ID     int
@@ -39,43 +35,35 @@ type Ref struct {
 
 // Quest is the part of a quest row the advisor uses.
 type Quest struct {
-	ID        int
-	Name      string
-	Level     int
-	MinLevel  int
-	MaxLevel  int // 0: none
-	Races     uint64
-	Classes   uint64
-	Zone      int // area id; negative is a quest sort
-	PreSingle []int
-	PreGroup  []int
-	Exclusive []int
-	Next      int // quest that makes this one moot once started or completed
-	Parent    int
-	Until     int // quest whose completion ends availability
-	Disabled  int // quest that disables this one while it is in the log
-	Starters  []Ref
-	Finishers []Ref
-	Creatures []Ref // objectives that are kills or talks
-	Trigger   []Spawn
-	// Restricted marks a requirement this reader cannot check (a skill, reputation, spell, holiday
-	// or similar); such a quest is never suggested.
-	Restricted bool
+	ID         int
+	Name       string
+	Level      int
+	MinLevel   int
+	MaxLevel   int // 0: none
+	Races      uint64
+	Classes    uint64
+	PreSingle  []int
+	PreGroup   []int
+	Exclusive  []int
+	Next       int // quest that makes this one moot once started or completed
+	Parent     int
+	Until      int // quest whose completion ends availability
+	Disabled   int // quest that disables this one while it is in the log
+	Starters   []Ref
+	Finishers  []Ref
+	Creatures  []Ref // objectives that are kills or talks
+	Restricted bool  // a requirement this reader cannot check (skill, reputation, spell, event)
 }
 
-// Area is a Forever area id with its map and display names.
 type Area struct {
 	UIMap int
 	Sub   string // the subzone's own name; empty for a zone
 	Zone  string
 }
 
-// Index is everything read from one QuestieDB build.
 type Index struct {
 	Schema  int
-	TOC     string
 	DB      string
-	Flavor  string
 	Quests  map[int]*Quest
 	Npcs    map[int]Entity
 	Objects map[int]Entity
@@ -132,7 +120,7 @@ func refs(list any, object bool) []Ref {
 
 func text(v any) string { s, _ := v.(string); return s }
 
-func spawns(v any, limit int) []Spawn {
+func spawns(v any) []Spawn {
 	m, _ := v.(map[any]any)
 	var out []Spawn
 	for k, pts := range m {
@@ -158,29 +146,14 @@ func spawns(v any, limit int) []Spawn {
 			out = append(out, Spawn{int(area), x, y})
 		}
 	}
-	sortSpawns(out)
-	if len(out) > limit {
-		out = out[:limit]
+	sort.Slice(out, func(i, j int) bool { // a stable order keeps the cache reproducible
+		a, b := out[i], out[j]
+		return a.Area < b.Area || a.Area == b.Area && (a.X < b.X || a.X == b.X && a.Y < b.Y)
+	})
+	if len(out) > maxSpawns {
+		out = out[:maxSpawns]
 	}
 	return out
-}
-
-func sortSpawns(s []Spawn) {
-	for i := 1; i < len(s); i++ { // short lists; a stable order keeps the cache reproducible
-		for j := i; j > 0 && less(s[j], s[j-1]); j-- {
-			s[j], s[j-1] = s[j-1], s[j]
-		}
-	}
-}
-
-func less(a, b Spawn) bool {
-	if a.Area != b.Area {
-		return a.Area < b.Area
-	}
-	if a.X != b.X {
-		return a.X < b.X
-	}
-	return a.Y < b.Y
 }
 
 const maxSpawns = 64
@@ -188,7 +161,7 @@ const maxSpawns = 64
 func buildQuest(id int, r rawRow) *Quest {
 	s := r.scalars()
 	q := &Quest{ID: id, Name: text(s[int64(1)]), MinLevel: num(s[int64(4)]), Level: num(s[int64(5)]),
-		Races: mask(s[int64(6)]), Classes: mask(s[int64(7)]), Zone: num(s[int64(17)]), Next: num(s[int64(22)])}
+		Races: mask(s[int64(6)]), Classes: mask(s[int64(7)]), Next: num(s[int64(22)])}
 	q.Parent, q.Until, q.Disabled = num(s[int64(25)]), num(s[int64(33)]), num(s[int64(36)])
 	q.MaxLevel = num(s[int64(32)])
 	// A skill, reputation, spell, specialisation, rank, availability-by-quest or special flag.
@@ -216,9 +189,6 @@ func buildQuest(id int, r rawRow) *Quest {
 			}
 		}
 	}
-	if t := r["9"]; t != nil {
-		q.Trigger = spawns(slot(t, 2), maxSpawns)
-	}
 	return q
 }
 
@@ -226,7 +196,7 @@ func asList(v any) []any { a, _ := v.([]any); return a }
 
 func buildEntity(r rawRow, spawnField string) Entity {
 	s := r.scalars()
-	return Entity{Name: text(s[int64(1)]), Sub: text(s[int64(14)]), Spawns: spawns(r[spawnField], maxSpawns)}
+	return Entity{Name: text(s[int64(1)]), Sub: text(s[int64(14)]), Spawns: spawns(r[spawnField])}
 }
 
 var areaLine = regexp.MustCompile(`^\s*\[(\d+)\]\s*=\s*(\d+),?\s*(?:--\s*(.*?))?\s*$`)
@@ -275,38 +245,51 @@ func Parse(st Status) (*Index, error) {
 		return nil, err
 	}
 	defer f.Close()
-	ix := &Index{Schema: indexSchema, TOC: st.TOC, DB: st.DB, Flavor: st.Flavor,
+	ix := &Index{Schema: indexSchema, DB: st.DB,
 		Quests: map[int]*Quest{}, Npcs: map[int]Entity{}, Objects: map[int]Entity{}}
 	quests, npcs, objects := map[int]rawRow{}, map[int]rawRow{}, map[int]rawRow{}
 	good, bad := 0, 0
 	sc := bufio.NewScanner(f)
 	sc.Buffer(make([]byte, 1<<20), 16<<20)
-	for sc.Scan() {
-		typ, id, field, val, ok := parseLine(sc.Text())
-		if !ok {
-			continue
-		}
-		var rows map[int]rawRow
-		switch {
-		case typ == "Quest" && questFields[field]:
-			rows = quests
-		case typ == "Npc" && npcFields[field]:
-			rows = npcs
-		case typ == "Object" && objectFields[field]:
-			rows = objects
-		default:
-			continue
-		}
+	type key struct {
+		typ   string
+		id    int
+		field string
+	}
+	pending := map[key][]string{} // long values arrive as a "~N~" head and N chunk lines
+	store := func(k key, val string) {
+		rows := map[string]map[int]rawRow{"Quest": quests, "Npc": npcs, "Object": objects}[k.typ]
 		v, err := decodeField(val)
 		if err != nil {
 			bad++
-			continue
+			return
 		}
 		good++
-		if rows[id] == nil {
-			rows[id] = rawRow{}
+		if rows[k.id] == nil {
+			rows[k.id] = rawRow{}
 		}
-		rows[id][field] = v
+		rows[k.id][k.field] = v
+	}
+	for sc.Scan() {
+		typ, id, field, chunk, val, ok := parseLine(sc.Text())
+		if !ok || !wanted[typ][field] {
+			continue
+		}
+		k := key{typ, id, field}
+		n, _ := strconv.Atoi(strings.Trim(val, "~"))
+		switch {
+		case chunk > 0:
+			if parts := pending[k]; chunk <= len(parts) {
+				parts[chunk-1] = val
+			}
+		case strings.HasPrefix(val, "~") && n > 0 && n <= 64:
+			pending[k] = make([]string, n)
+		default:
+			store(k, val)
+		}
+	}
+	for k, parts := range pending {
+		store(k, strings.Join(parts, ""))
 	}
 	if err := sc.Err(); err != nil {
 		return nil, err
@@ -360,15 +343,10 @@ func cacheFile(st Status, fi os.FileInfo) string {
 		return ""
 	}
 	sum := sha256.Sum256([]byte(fmt.Sprintf("%d|%s|%d|%d|%s", indexSchema, st.TOC, fi.Size(), fi.ModTime().UnixNano(), st.DB)))
-	return filepath.Join(dir, "index-"+hex.EncodeToString(sum[:8])+".gob.gz")
+	return filepath.Join(dir, "index-"+hex.EncodeToString(sum[:8])+".gob")
 }
 
-var (
-	memoMu sync.Mutex
-	memo   = map[string]*Index{}
-)
-
-// Load returns the index for the installed QuestieDB: from memory, else the local cache, else a
+// Load returns the index for the installed QuestieDB: from the local cache, else a
 // fresh parse that is then cached. A cache that cannot be read or written is ignored.
 func Load(st Status) (*Index, error) {
 	if !st.Readable {
@@ -379,14 +357,8 @@ func Load(st Status) (*Index, error) {
 		return nil, err
 	}
 	cf := cacheFile(st, fi)
-	memoMu.Lock()
-	defer memoMu.Unlock()
-	if ix := memo[cf]; ix != nil && cf != "" {
-		return ix, nil
-	}
 	if cf != "" {
 		if ix := readCache(cf); ix != nil {
-			memo[cf] = ix
 			return ix, nil
 		}
 	}
@@ -396,7 +368,6 @@ func Load(st Status) (*Index, error) {
 	}
 	if cf != "" {
 		writeCache(cf, ix)
-		memo[cf] = ix
 	}
 	return ix, nil
 }
@@ -407,12 +378,8 @@ func readCache(path string) *Index {
 		return nil
 	}
 	defer f.Close()
-	zr, err := gzip.NewReader(f)
-	if err != nil {
-		return nil
-	}
 	var ix Index
-	if gob.NewDecoder(zr).Decode(&ix) != nil || ix.Schema != indexSchema {
+	if gob.NewDecoder(f).Decode(&ix) != nil || ix.Schema != indexSchema {
 		return nil
 	}
 	return &ix
@@ -423,20 +390,15 @@ func writeCache(path string, ix *Index) {
 	if os.MkdirAll(dir, 0o700) != nil {
 		return
 	}
-	if old, _ := filepath.Glob(filepath.Join(dir, "index-*.gob.gz")); len(old) > 0 {
-		for _, o := range old {
-			os.Remove(o) // an older QuestieDB build's index
-		}
+	old, _ := filepath.Glob(filepath.Join(dir, "index-*.gob"))
+	for _, o := range old {
+		os.Remove(o) // an older QuestieDB build's index
 	}
 	tmp, err := os.CreateTemp(dir, "index-*.tmp")
 	if err != nil {
 		return
 	}
-	zw := gzip.NewWriter(tmp)
-	err = gob.NewEncoder(zw).Encode(ix)
-	if e := zw.Close(); err == nil {
-		err = e
-	}
+	err = gob.NewEncoder(tmp).Encode(ix)
 	if e := tmp.Close(); err == nil {
 		err = e
 	}
@@ -461,17 +423,16 @@ func OpenGame(game string) (*Index, Status) {
 }
 
 // GameFromSavedVariables derives the game folder from a ForeverScribe.lua path,
-// <game>/WTF/Account/<account>/SavedVariables/<file>.
+// <game>/WTF/Account/<account>/SavedVariables/<file>; "" when the path has another shape.
 func GameFromSavedVariables(sv string) string {
 	d := filepath.Dir(filepath.Clean(sv))
-	if filepath.Base(d) != "SavedVariables" {
-		return ""
+	for _, want := range []string{"SavedVariables", "", "Account", "WTF"} {
+		if want != "" && filepath.Base(d) != want {
+			return ""
+		}
+		d = filepath.Dir(d)
 	}
-	g := filepath.Dir(filepath.Dir(filepath.Dir(filepath.Dir(d))))
-	if filepath.Base(filepath.Dir(filepath.Dir(d))) != "Account" || filepath.Base(filepath.Dir(filepath.Dir(filepath.Dir(d)))) != "WTF" {
-		return ""
-	}
-	return g
+	return d
 }
 
 // ForSavedVariables is the index for the game folder a ForeverScribe.lua path sits in, or nil when

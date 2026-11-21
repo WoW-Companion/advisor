@@ -167,6 +167,7 @@ func TestGettingStartedMatchesOverlay(t *testing.T) {
 		"ForeverScribe has data":         "ForeverScribe has data",
 		"WoW Companion addon (optional)": "WoW Companion addon (optional",
 		"Display mode":                   "display mode",
+		"Questie (optional)":             "Questie (optional",
 		"Game data":                      "game data",
 	}
 	seen := map[string]bool{}

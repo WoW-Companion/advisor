@@ -17,7 +17,7 @@ func whereOf(c character.Character) (questie.Where, bool) {
 	if p == nil {
 		return questie.Where{}, false
 	}
-	return questie.Where{MapID: p.MapID, Zone: p.Zone, X: p.X, Y: p.Y, Known: true}, true
+	return questie.Where{MapID: p.MapID, Zone: p.Zone, X: p.X, Y: p.Y}, true
 }
 
 func whoOf(c character.Character) questie.Who {
@@ -33,8 +33,8 @@ func whoOf(c character.Character) questie.Who {
 	return w
 }
 
-// questieAvailable lists the pickups from the player's QuestieDB: ok is false when it cannot say
-// (no level or no known position), so the caller falls back to the dataset.
+// questieAvailable lists pick-ups from the player's QuestieDB; ok is false when it cannot say (no
+// level or position), and the caller falls back to the dataset.
 func questieAvailable(c character.Character, qx *questie.Index) (Available, bool) {
 	at, ok := whereOf(c)
 	if qx == nil || c.Level == nil || !ok {
@@ -80,12 +80,6 @@ func locate(c character.Character, steps []Step, qx *questie.Index) {
 			verb = "objective near "
 		}
 		s.Location = p.String()
-		if p.Name == "" {
-			s.Location = fmt.Sprintf("(%.1f, %.1f)", p.X, p.Y)
-			if p.Sub != "" {
-				s.Location = p.Sub + " " + s.Location
-			}
-		}
 		s.Reason += "; " + verb + s.Location
 		s.Sources = append(s.Sources, fmt.Sprintf("questie: QuestieDB %s quest %d", qx.DB, s.QuestID))
 	}
