@@ -12,6 +12,7 @@ import (
 
 	"github.com/WoW-Companion/advisor/internal/ask"
 	"github.com/WoW-Companion/advisor/internal/server"
+	"github.com/WoW-Companion/advisor/internal/svfind"
 )
 
 // askCmd answers the questions queued in game: one pass, or --watch until interrupted.
@@ -36,9 +37,9 @@ func askCmd(ctx context.Context, args []string, stdout, stderr io.Writer) error 
 	if fs.NArg() > 0 {
 		return errors.New("ask takes no arguments\n" + usage)
 	}
-	cfg = cfg.FromEnv()
+	cfg = resolve(cfg, stderr)
 	if cfg.SavedVariables == "" {
-		return errors.New("no SavedVariables file: pass --savedvariables or set $" + server.SavedVariablesEnv)
+		return errors.New("no SavedVariables file: pass --savedvariables or set $" + server.SavedVariablesEnv + "; " + svfind.Detect().NotFound(server.SavedVariablesEnv))
 	}
 	if *confPath == "" {
 		if dir, err := os.UserConfigDir(); err == nil {
