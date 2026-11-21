@@ -9,6 +9,7 @@ import (
 
 	"github.com/WoW-Companion/advisor/internal/character"
 	"github.com/WoW-Companion/advisor/internal/gear"
+	"github.com/WoW-Companion/advisor/internal/names"
 	"github.com/WoW-Companion/advisor/internal/store"
 )
 
@@ -143,8 +144,8 @@ func Crafted(ds store.DataStore, itemID int64) bool {
 	return false
 }
 
-// Resolve turns an item id or name into an item id and name. A name is matched exactly, ignoring
-// case, before a unique partial match; otherwise it returns the candidate names and id 0.
+// Resolve turns an item id or name into an item id and name. A name is matched exactly, then by
+// prefix, through the dataset's name index; otherwise it returns the candidate names and id 0.
 func Resolve(ds store.DataStore, text string) (id int64, name string, candidates []string) {
 	text = strings.TrimSpace(text)
 	if n, err := strconv.ParseInt(text, 10, 64); err == nil && n > 0 {
@@ -154,20 +155,5 @@ func Resolve(ds store.DataStore, text string) (id int64, name string, candidates
 		}
 		return n, str(row["name"]), nil
 	}
-	rows, err := ds.SearchName("items", text, 10)
-	if err != nil || len(rows) == 0 {
-		return 0, "", nil
-	}
-	for _, r := range rows {
-		if strings.EqualFold(str(r["name"]), text) {
-			return i64(r["id"]), str(r["name"]), nil
-		}
-	}
-	if len(rows) == 1 {
-		return i64(rows[0]["id"]), str(rows[0]["name"]), nil
-	}
-	for _, r := range rows {
-		candidates = append(candidates, str(r["name"])+" ("+strconv.FormatInt(i64(r["id"]), 10)+")")
-	}
-	return 0, "", candidates
+	return names.Resolve(ds, names.Items, text)
 }

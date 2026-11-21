@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -19,6 +20,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/parquet-go/parquet-go"
 
+	"github.com/WoW-Companion/advisor/internal/names"
 	"github.com/WoW-Companion/advisor/internal/server"
 )
 
@@ -78,6 +80,36 @@ func enc[T any](t testing.TB, rows []T) []byte {
 	return b.Bytes()
 }
 
+type nameRow struct {
+	Norm  string `parquet:"norm"`
+	Name  string `parquet:"name"`
+	Table string `parquet:"table"`
+	ID    int32  `parquet:"id"`
+}
+
+// nameIndex is names.parquet for the fixture's named rows, sorted by norm.
+func nameIndex(t testing.TB, items []item, npcs []npc, recipes []recipe, insts []instance) []byte {
+	var rows []nameRow
+	for _, i := range items {
+		rows = append(rows, nameRow{names.Normalize(i.Name), i.Name, names.Items, int32(i.ID)})
+	}
+	for _, n := range npcs {
+		rows = append(rows, nameRow{names.Normalize(n.Name), n.Name, names.Npcs, int32(n.ID)})
+	}
+	for _, r := range recipes {
+		rows = append(rows, nameRow{names.Normalize(r.Name), r.Name, names.Recipes, int32(r.SpellID)})
+	}
+	for _, i := range insts {
+		rows = append(rows, nameRow{names.Normalize(i.Name), i.Name, names.Instances, int32(i.MapID)})
+	}
+	sort.Slice(rows, func(a, b int) bool { return rows[a].Norm < rows[b].Norm })
+	var b bytes.Buffer
+	if err := parquet.Write(&b, rows); err != nil {
+		t.Fatal(err)
+	}
+	return b.Bytes()
+}
+
 func ptr[T any](v T) *T { return &v }
 
 // files is the fixture dataset: every required table, with n synthetic items besides the named ones.
@@ -86,14 +118,18 @@ func files(t testing.TB, n int) map[string][]byte {
 	for i := 5; i <= n; i++ {
 		items = append(items, item{int64(i), fmt.Sprintf("Filler Item %d", i), 10})
 	}
+	npcs := []npc{{100, "Timber Wolf", ptr("Elwynn Forest")}, {101, "Defias Thug", nil}}
+	insts := []instance{{34, "The Stockade"}, {36, "Deadmines"}}
+	recipes := []recipe{{300, "Heavy Linen Bandage", "First Aid"}}
 	tables := map[string][]byte{
+		"names":           nameIndex(t, items[:4], npcs, recipes, insts),
 		"items":           enc(t, items),
 		"quests":          enc(t, []quest{{10, ptr(int32(7))}, {11, nil}}),
-		"npcs":            enc(t, []npc{{100, "Timber Wolf", ptr("Elwynn Forest")}, {101, "Defias Thug", nil}}),
+		"npcs":            enc(t, npcs),
 		"loot_sources":    enc(t, []loot{{2, "creature", 100, 200, 0.5}, {2, "object", 900, 10, 0.1}, {2, "crafted", 300, 0, 0}}),
-		"instances":       enc(t, []instance{{34, "The Stockade"}, {36, "Deadmines"}}),
+		"instances":       enc(t, insts),
 		"instance_bosses": enc(t, []boss{{36, "Edwin VanCleef", 2, nil}, {36, "Rhahk'Zor", 1, ptr(int32(101))}}),
-		"recipes":         enc(t, []recipe{{300, "Heavy Linen Bandage", "First Aid"}}),
+		"recipes":         enc(t, recipes),
 		"recipe_reagents": enc(t, []reagent{{300, 1, 2}}),
 		"quest_lines":     enc(t, []line{{7, "Wolf Hunt", 10}, {7, "Wolf Hunt", 11}}),
 	}
@@ -242,14 +278,14 @@ func TestLookups(t *testing.T) {
 		{"item_lookup", nil, true, []string{"Give an item id or a name"}},
 		{"quest_lookup", map[string]any{"id": 10}, false, []string{"Quest 10", "Quest line 7 Wolf Hunt, 2 quests", "2. quest 11"}},
 		{"npc_lookup", map[string]any{"id": 100}, false, []string{"Timber Wolf", "zone_name: Elwynn Forest"}},
-		{"npc_lookup", map[string]any{"name": "thug"}, false, []string{"Creature 101 Defias Thug"}},
+		{"npc_lookup", map[string]any{"name": "defias"}, false, []string{"Creature 101 Defias Thug"}},
 		{"where_drops", map[string]any{"name": "Wolf Pelt"}, false, []string{"Timber Wolf (creature 100, Elwynn Forest): 50.0% of 200", "object 900: 10.0%", "crafted 300"}},
 		{"where_drops", map[string]any{"id": 4}, false, []string{"none recorded"}},
-		{"dungeon_info", map[string]any{"name": "dead"}, false, []string{"Deadmines (map 36)", "boss: Rhahk'Zor (creature 101)"}},
+		{"dungeon_info", map[string]any{"name": "deadm"}, false, []string{"Deadmines (map 36)", "boss: Rhahk'Zor (creature 101)"}},
 		{"dungeon_info", map[string]any{"map_id": 34}, false, []string{"The Stockade"}},
-		{"recipe_lookup", map[string]any{"name": "bandage"}, false, []string{"Heavy Linen Bandage (First Aid)", "reagent: 2 x Linen Cloth (item 1)"}},
+		{"recipe_lookup", map[string]any{"name": "heavy linen"}, false, []string{"Heavy Linen Bandage (First Aid)", "reagent: 2 x Linen Cloth (item 1)"}},
 		{"recipe_lookup", map[string]any{"spell_id": 301}, true, []string{"No recipe matches"}},
-		{"server_info", nil, false, []string{`"mode":"knowledge-only"`, `"game_build":"1.60.1.71037"`, `"name_index_items":4`}},
+		{"server_info", nil, false, []string{`"mode":"knowledge-only"`, `"game_build":"1.60.1.71037"`}},
 	}
 	for _, c := range cases {
 		text, isErr := call(t, cs, c.tool, c.args)
@@ -271,17 +307,17 @@ func TestRequestsPerLookup(t *testing.T) {
 	h := newHost(t, files(t, 3000))
 	d := open(t, h, Limits{})
 	cs := connect(t, d)
-	t.Logf("open: %d requests, name index %d items, about %d bytes", d.Requests(), d.Names.Len(), d.Names.Bytes())
+	t.Logf("open: %d requests", d.Requests())
 	for _, c := range []struct {
 		tool string
 		args map[string]any
 		max  int64
 	}{
 		{"item_lookup", map[string]any{"id": 2}, 8},
-		{"item_lookup", map[string]any{"name": "Wolf Pelt"}, 8},
+		{"item_lookup", map[string]any{"name": "Wolf Pelt"}, 20},
 		{"where_drops", map[string]any{"name": "Wolf Pelt"}, 25},
-		{"dungeon_info", map[string]any{"name": "dead"}, 20},
-		{"npc_lookup", map[string]any{"name": "thug"}, 10},
+		{"dungeon_info", map[string]any{"name": "deadm"}, 20},
+		{"npc_lookup", map[string]any{"name": "defias"}, 14},
 	} {
 		before := d.Requests()
 		start := time.Now()
@@ -377,32 +413,3 @@ func TestCappedBody(t *testing.T) {
 type readCloser struct{ *strings.Reader }
 
 func (readCloser) Close() error { return nil }
-
-func TestNameIndexFind(t *testing.T) {
-	ix := &NameIndex{}
-	for i, n := range []string{"Linen Cloth", "Linen Bandage", "Bandage", "Silk Cloth"} {
-		ix.entries = append(ix.entries, nameEntry{strings.ToLower(n), n, int64(i + 1)})
-	}
-	sortEntries(ix)
-	for _, c := range []struct {
-		text  string
-		limit int
-		want  []int64
-		more  bool
-	}{
-		{"bandage", 10, []int64{3}, false}, // exact beats substring
-		{"CLOTH", 10, []int64{1, 4}, false},
-		{"cloth", 1, []int64{1}, true},
-		{"  ", 10, nil, false},
-		{"zzz", 10, nil, false},
-	} {
-		hits, more := ix.Find(c.text, c.limit)
-		var ids []int64
-		for _, h := range hits {
-			ids = append(ids, h.ID)
-		}
-		if fmt.Sprint(ids) != fmt.Sprint(c.want) || more != c.more {
-			t.Errorf("Find(%q, %d) = %v, %v; want %v, %v", c.text, c.limit, ids, more, c.want, c.more)
-		}
-	}
-}

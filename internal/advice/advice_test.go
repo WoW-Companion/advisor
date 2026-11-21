@@ -174,10 +174,10 @@ func chainStore(t *testing.T, lines bool) store.DataStore {
 func TestWhatsNextChain(t *testing.T) {
 	done, open := bp(true), (*bool)(nil)
 	char := character.Character{Level: ip(24), Quests: []character.Quest{
-		{QuestID: 102, Title: "Last", Zone: "Dunemark", Complete: done},  // last step: unlocks nothing
-		{QuestID: 100, Title: "First", Zone: "Dunemark", Complete: done}, // unlocks step 2
-		{QuestID: 103, Title: "Loner", Zone: "Dunemark", Complete: done}, // in no line
-		{QuestID: 101, Title: "Second", Complete: open},                  // open chain step
+		{QuestID: 102, Title: "Last", Zone: "Dunemark", Complete: done},   // last step: unlocks nothing
+		{QuestID: 100, Title: "Zephyr", Zone: "Dunemark", Complete: done}, // unlocks step 2; sorts after Last by title
+		{QuestID: 103, Title: "Loner", Zone: "Dunemark", Complete: done},  // in no line
+		{QuestID: 101, Title: "Second", Complete: open},                   // open chain step
 	}}
 	for _, tc := range []struct {
 		name  string
@@ -185,11 +185,11 @@ func TestWhatsNextChain(t *testing.T) {
 		want  string
 	}{
 		{"chain marks and unlock boost", true,
-			"turn_in:Turn in First: ready to turn in; step 1 of 3 in Wolf Hunt, unlocks step 2 | turn_in:Turn in Last: ready to turn in; step 3 of 3 in Wolf Hunt | " +
+			"turn_in:Turn in Zephyr: ready to turn in; step 1 of 3 in Wolf Hunt, unlocks step 2 | turn_in:Turn in Last: ready to turn in; step 3 of 3 in Wolf Hunt | " +
 				"turn_in:Turn in Loner: ready to turn in | quest:Second: level 24 quest, you are 24; step 2 of 3 in Wolf Hunt"},
 		{"no quest_lines leaves steps unchanged", false,
-			"turn_in:Turn in First: ready to turn in | turn_in:Turn in Last: ready to turn in | " +
-				"turn_in:Turn in Loner: ready to turn in | quest:Second: level 24 quest, you are 24"},
+			"turn_in:Turn in Last: ready to turn in | turn_in:Turn in Loner: ready to turn in | " +
+				"turn_in:Turn in Zephyr: ready to turn in | quest:Second: level 24 quest, you are 24"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			var got []string
