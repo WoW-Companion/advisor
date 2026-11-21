@@ -1,8 +1,10 @@
 # Changelog
 
-## Unreleased
+## 0.5.0
 
-- If you have Questie and QuestieDB installed, the advisor reads them on your PC to suggest quests you have not picked up (with the giver's position) and to say where a logged quest's objective or turn-in is. It is optional; the setup checklist has a Questie row.
+- Answers now use your saved quest progress, such as "3/8" on an objective, so the advisor knows what you still have left to do.
+- The advisor can point you to nearby quest givers you have already met, with their positions.
+- Optional: if you have Questie and QuestieDB installed, the advisor reads them on your own PC to suggest quests you have not picked up (with the giver's position) and to say where a logged quest's objective or turn-in is. Nothing from Questie is copied or shared. The setup checklist has a Questie row.
 
 ## 0.4.0
 
