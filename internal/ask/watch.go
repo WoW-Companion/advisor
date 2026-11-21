@@ -50,8 +50,8 @@ func MCPConfig(exe string, env map[string]string) []byte {
 	return b
 }
 
-// stamp identifies a file's content cheaply enough to poll.
-func stamp(path string) string {
+// Stamp identifies a file's content cheaply enough to poll.
+func Stamp(path string) string {
 	st, err := os.Stat(path)
 	if err != nil {
 		return ""
@@ -64,7 +64,7 @@ func stamp(path string) string {
 func Watch(ctx context.Context, cfg Config, every time.Duration, out io.Writer) error {
 	last := ""
 	for {
-		if s := stamp(cfg.SavedVariables); s != last {
+		if s := Stamp(cfg.SavedVariables); s != last {
 			last = s
 			if s != "" {
 				res, err := Run(ctx, cfg)
