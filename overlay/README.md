@@ -26,7 +26,29 @@ installed. It finds your SavedVariables itself, and shows your characters and NE
 client. To ask questions it needs one: it picks the first of Claude Code, Codex and Gemini CLI it finds
 (search places in `docs/ask.md`). Choose another in the settings panel, **AI client** (Auto, Claude, Codex,
 Gemini or a custom command); the choice is kept and the advisor restarts with it. With none installed the
-app shows a calm notice with links to each install page.
+app shows a calm notice with links to each install page. The picker's tooltip names the program in use;
+**Re-scan** looks again (it restarts the advisor), so installing a client while the overlay is open needs
+no restart of the app. The Command box shows only for **Custom command**.
+
+### Where Windows installs are found
+
+The advisor looks for `claude`, `codex` and `gemini` with the extensions in `PATHEXT` plus `.cmd`, `.bat`
+and `.ps1`, in this order: the process's `PATH`, the user's and the system's `PATH` from the registry
+(`HKCU\Environment`, `HKLM\...\Session Manager\Environment`: an app started from the Start menu may have a
+minimal `PATH`), then these folders:
+
+| Folder | Put there by |
+| --- | --- |
+| `%USERPROFILE%\.local\bin` | Claude Code's native installer (`claude.exe`) |
+| `%USERPROFILE%\.claude\local` | Claude Code's local install |
+| `%APPDATA%\npm` | `npm install -g` shims (`claude.cmd`, `codex.cmd`, `gemini.cmd`) |
+| `%LOCALAPPDATA%\Microsoft\WinGet\Links` | WinGet (`winget install Anthropic.ClaudeCode`) |
+| `%USERPROFILE%\scoop\shims` | Scoop |
+| `%ProgramFiles%\nodejs` | a system-wide npm prefix |
+
+A `.cmd` or `.bat` agent runs through `cmd.exe /d /s /c` and a `.ps1` through `powershell.exe -File`, with every
+argument quoted. For `.cmd` the prompt's line breaks become spaces, `"` becomes `'` and `%` becomes `％`, because
+`cmd` would otherwise end the command or expand `%VAR%` in it.
 
 ## Modes
 
@@ -76,4 +98,6 @@ cd overlay/src-tauri && cargo tauri build --bundles nsis
 - `src-tauri/`: the Rust shell (window, tray, shortcuts, sidecar), `tauri.conf.json`, capabilities, icons.
 - `ui/`: static HTML, CSS and plain JS; no npm build. Fonts are bundled under `ui/fonts/`: Cinzel and
   Inter, both SIL Open Font License (licenses alongside).
+- `tools/titlebar-check/`, `tools/status-check/`: headless-Chrome checks of the title bar and of the banners,
+  AI client picker and Command box (`run.sh` in each; they need Chrome and python3).
 - `tools/genicon/`: draws the emblem and writes `src-tauri/icons/` (`go run ./tools/genicon src-tauri/icons` from `overlay/`).

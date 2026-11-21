@@ -192,7 +192,7 @@ func execAgent(ctx context.Context, cfg Config, q Question, prompt string, extra
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	argv := append(Argv(cfg.Command, prompt, cfg.MCPConfig), extra...)
-	cmd := exec.CommandContext(ctx, argv[0], argv[1:]...)
+	cmd := Command(ctx, argv)
 	cmd.Env = append(os.Environ(), "WOWC_QUESTION="+q.Text, "WOWC_CHARACTER="+q.Character, "WOWC_MCP_CONFIG="+cfg.MCPConfig)
 	cmd.WaitDelay = time.Second
 	var errOut bytes.Buffer
