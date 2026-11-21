@@ -6,7 +6,7 @@ const win = window.__TAURI__.window.getCurrentWindow();
 
 const $ = id => document.getElementById(id);
 const log = $('log'), who = $('who'), badge = $('badge'), text = $('text'), send = $('send');
-const DEFAULTS = { opacity: 92, solidHover: false, mode: 'overlay', keyVis: 'Ctrl+Shift+W', keyCt: 'Ctrl+Shift+T', nextOpen: null, settingsOpen: false, chatOpen: true, size: 'M', cleared: [], who: '', setupSeen: false, setupHidden: [], gameDir: '' };
+const DEFAULTS = { opacity: 92, solidHover: false, mode: 'overlay', keyVis: 'Ctrl+Shift+W', keyCt: 'Ctrl+Shift+T', nextOpen: null, settingsOpen: false, chatOpen: true, size: 'M', checkUpdates: true, cleared: [], who: '', setupSeen: false, setupHidden: [], gameDir: '' };
 // nextOpen null means automatic: open until the chat has a message, then collapsed. A click makes it a choice.
 const cfg = { ...DEFAULTS, ...JSON.parse(localStorage.getItem('wowc') || '{}') };
 const save = () => localStorage.setItem('wowc', JSON.stringify(cfg));
@@ -363,6 +363,40 @@ function ask(question) {
 $('form').onsubmit = ev => { ev.preventDefault(); const q = text.value.trim(); if (q && !busy && conn) { text.value = ''; ask(q); } };
 text.onkeydown = ev => { if (ev.key === 'Enter' && !ev.shiftKey) { ev.preventDefault(); $('form').requestSubmit(); } };
 setInterval(() => showBadge(), 30000);
+
+// --- version line and update notice ---------------------------------------------------------
+// "WoW Companion 0.2.0 · advisor 0.2.0", plus "· v0.3.0 available" when the sidecar's one
+// unauthenticated release lookup (asked on start, then every 12 hours, only when "Check for
+// updates" is on) finds a newer release. "available" opens the release page on click; nothing is
+// downloaded or installed. A failed lookup shows nothing.
+const RELEASE_PAGE = 'https://github.com/WoW-Companion/advisor/releases/latest';
+let appVersion = '', latest = '';
+function versionText(appV, advisorV) {
+  return 'WoW Companion ' + appV + (advisorV ? ' \u00b7 advisor ' + advisorV : '');
+}
+function showVersion() {
+  const el = $('version');
+  el.textContent = versionText(appVersion, conn && conn.version);
+  if (!latest) return;
+  el.append(' \u00b7 ' + latest + ' ');
+  const a = document.createElement('a');
+  a.href = '#'; a.textContent = 'available';
+  a.onclick = ev => { ev.preventDefault(); invoke('open_install_page', { url: RELEASE_PAGE }).catch(e => notice(String(e))); };
+  el.append(a);
+}
+async function checkUpdates() {
+  if (!cfg.checkUpdates || !conn) return;
+  try {
+    const r = await api('/api/update');
+    const n = r.ok ? await r.json() : {};
+    latest = n.available ? n.latest : '';
+  } catch { latest = ''; }
+  showVersion();
+}
+$('check-updates').checked = cfg.checkUpdates;
+$('check-updates').onchange = ev => { cfg.checkUpdates = ev.target.checked; save(); if (!cfg.checkUpdates) { latest = ''; showVersion(); } else checkUpdates(); };
+setInterval(checkUpdates, 12 * 60 * 60 * 1000);
+window.__TAURI__.app.getVersion().then(v => { appVersion = v; showVersion(); });
 
 // --- start ---------------------------------------------------------------------------------
 

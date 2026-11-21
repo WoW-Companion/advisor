@@ -2,6 +2,7 @@ package release
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -56,5 +57,38 @@ func TestCheck(t *testing.T) {
 		if (err != nil) != c.wantErr || got != c.want {
 			t.Errorf("%s: got %+v, %v; want %+v (err %v)", c.name, got, err, c.want, c.wantErr)
 		}
+	}
+}
+
+func TestNoticeFor(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		res  Result
+		err  error
+		want Notice
+	}{
+		{"newer", Result{Latest: "v0.3.0", Newer: true, Known: true}, nil, Notice{true, "v0.3.0"}},
+		{"same", Result{Latest: "v0.2.0", Known: true}, nil, Notice{}},
+		{"dev build", Result{Latest: "v0.3.0", Newer: false}, nil, Notice{}},
+		{"failed", Result{Latest: "v0.3.0", Newer: true, Known: true}, errors.New("offline"), Notice{}},
+	} {
+		if got := NoticeFor(tc.res, tc.err); got != tc.want {
+			t.Errorf("%s: %+v, want %+v", tc.name, got, tc.want)
+		}
+	}
+}
+
+func TestNoticeFromFakeLatest(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`{"tag_name":"v0.3.0"}`))
+	}))
+	res, err := Check(context.Background(), srv.Client(), srv.URL, "0.2.0")
+	if got := NoticeFor(res, err); got != (Notice{true, "v0.3.0"}) {
+		t.Errorf("fake newer release: %+v", got)
+	}
+	srv.Close()
+	res, err = Check(context.Background(), srv.Client(), srv.URL, "0.2.0")
+	if got := NoticeFor(res, err); got != (Notice{}) {
+		t.Errorf("unreachable: %+v", got)
 	}
 }

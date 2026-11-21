@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/http"
 	"os/exec"
 	"path/filepath"
 	"runtime"
@@ -16,6 +17,7 @@ import (
 
 	"github.com/WoW-Companion/advisor/internal/ask"
 	"github.com/WoW-Companion/advisor/internal/companion"
+	"github.com/WoW-Companion/advisor/internal/release"
 	"github.com/WoW-Companion/advisor/internal/server"
 )
 
@@ -38,7 +40,7 @@ func companionCmd(ctx context.Context, args []string, stdout, stderr io.Writer) 
 	gameDir := fs.String("game-dir", "", "WoW folder for the setup checklist (default: found from the SavedVariables path or the standard install folders)")
 	port := fs.Int("port", 4317, "first port to try; the next free one is used when it is taken")
 	noOpen := fs.Bool("no-open", false, "do not open the browser")
-	handshake := fs.Bool("handshake", false, "for the desktop app: pick a free port, print one JSON line {\"url\",\"token\",\"agent\",\"agent_source\"} and never open a browser")
+	handshake := fs.Bool("handshake", false, "for the desktop app: pick a free port, print one JSON line {\"url\",\"token\",\"agent\",\"agent_source\",\"version\"} and never open a browser")
 	autoDigest := fs.Bool("auto-digest", false, "rewrite the in-game digest whenever ForeverScribe saves (default: on with --handshake, off otherwise)")
 	lan := fs.Bool("lan", false, "listen on all interfaces so a phone or another PC can open it (anyone with the URL can ask your agent)")
 	if err := fs.Parse(args); err != nil {
@@ -75,11 +77,14 @@ func companionCmd(ctx context.Context, args []string, stdout, stderr io.Writer) 
 	}
 	s := companion.New(companion.Config{
 		ForeverScribe: cfg.SavedVariables, Ask: ac, LAN: *lan, App: *handshake, Dataset: cfg.Dataset, AutoDigest: *autoDigest, GameDir: *gameDir,
+		Update: func(ctx context.Context) (release.Result, error) {
+			return release.Check(ctx, http.DefaultClient, release.LatestURL, server.Version)
+		},
 		Stream: len(ac.Command) > 0 && strings.TrimSuffix(strings.ToLower(filepath.Base(ac.Command[0])), strings.ToLower(filepath.Ext(ac.Command[0]))) == "claude",
 	})
 	p := ln.Addr().(*net.TCPAddr).Port
 	if *handshake {
-		fmt.Fprintln(stdout, handshakeLine(p, s.Token, ac.Name, ac.Source, ask.DetectedPath(ac.Source, ac.Command)))
+		fmt.Fprintln(stdout, handshakeLine(p, s.Token, ac.Name, ac.Source, ask.DetectedPath(ac.Source, ac.Command), server.Version))
 		return s.Serve(ctx, ln)
 	}
 	local := fmt.Sprintf("http://127.0.0.1:%d/?token=%s", p, s.Token)
@@ -95,8 +100,8 @@ func companionCmd(ctx context.Context, args []string, stdout, stderr io.Writer) 
 
 // handshakeLine is the one line the desktop app reads from the sidecar's stdout.
 // agent is the AI client's short name ("" when none), source where it came from: flag, config, auto or none,
-// path the detected executable ("" otherwise), which the settings tooltip names.
-func handshakeLine(port int, token, agent, source, path string) string {
+// path the detected executable ("" otherwise), which the settings tooltip names, version the advisor's own.
+func handshakeLine(port int, token, agent, source, path, version string) string {
 	if source == "" {
 		source = ask.SourceNone
 	}
@@ -106,7 +111,8 @@ func handshakeLine(port int, token, agent, source, path string) string {
 		Agent       string `json:"agent"`
 		AgentSource string `json:"agent_source"`
 		AgentPath   string `json:"agent_path"`
-	}{fmt.Sprintf("http://127.0.0.1:%d", port), token, agent, source, path})
+		Version     string `json:"version"`
+	}{fmt.Sprintf("http://127.0.0.1:%d", port), token, agent, source, path, version})
 	return string(b)
 }
 
