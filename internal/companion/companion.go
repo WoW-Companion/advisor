@@ -92,7 +92,8 @@ type Entry struct {
 	Answer    string `json:"answer"`
 	Status    string `json:"status"` // "waiting", "done" or "error"
 	Streamed  bool   `json:"streamed"`
-	Usage     string `json:"usage,omitempty"` // "≈3.1k tokens", when the CLI reported it and the setting is on
+	Usage     string `json:"usage,omitempty"`  // "≈3.1k tokens · haiku": tokens when the CLI reported them, and the model; only with the setting on
+	Notice    string `json:"notice,omitempty"` // a one-line notice, e.g. the reasoning setting was dropped
 	At        int64  `json:"at"`
 }
 
@@ -618,6 +619,7 @@ func (s *Server) answer(id, client string, t *turn, req askRequest, history stri
 	if s.settings().Usage {
 		e.Usage = usage.Line()
 	}
+	e.Notice = usage.Notice
 	if err != nil {
 		e.Answer, e.Status = err.Error(), "error"
 	}

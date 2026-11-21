@@ -6,7 +6,7 @@ const win = window.__TAURI__.window.getCurrentWindow();
 
 const $ = id => document.getElementById(id);
 const log = $('log'), who = $('who'), badge = $('badge'), text = $('text'), send = $('send');
-const DEFAULTS = { opacity: 92, solidHover: false, mode: 'overlay', keyVis: 'Ctrl+Shift+W', keyCt: 'Ctrl+Shift+T', nextOpen: null, settingsOpen: false, chatOpen: true, size: 'M', checkUpdates: true, cleared: [], who: '', setupSeen: false, setupHidden: [], gameDir: '', length: 'standard', model: 'efficient', customModel: '', usage: true };
+const DEFAULTS = { opacity: 92, solidHover: false, mode: 'overlay', keyVis: 'Ctrl+Shift+W', keyCt: 'Ctrl+Shift+T', nextOpen: null, settingsOpen: false, chatOpen: true, size: 'M', checkUpdates: true, cleared: [], who: '', setupSeen: false, setupHidden: [], gameDir: '', length: 'standard', byClient: {}, usage: true };
 // nextOpen null means automatic: open until the chat has a message, then collapsed. A click makes it a choice.
 const cfg = { ...DEFAULTS, ...JSON.parse(localStorage.getItem('wowc') || '{}') };
 const save = () => localStorage.setItem('wowc', JSON.stringify(cfg));
@@ -259,22 +259,44 @@ function showDigest() {
   $('auto-digest').checked = cfg.autoDigest !== false;
   $('auto-digest-note').textContent = d && d.status === 'addon not found' ? 'addon not found' : d && d.status === 'error' ? d.error : '';
 }
-// Answer length, model tier and the usage line are kept here and pushed to the advisor, which
-// applies them to the next ask; no restart. The tooltip says what the tiers mean for this client.
+// Answer length, model, reasoning level and the usage line are pushed to the advisor, which applies
+// them to the next ask; no restart. The model and reasoning choice is kept for each AI client
+// (cfg.byClient), so switching clients restores that client's last choice. The advisor says what each
+// client offers (state.settings.choices); a client with no such option gets the dropdown disabled,
+// and its tooltip says why. The defaults are the smallest model and the lowest reasoning level.
+const clientKey = () => (state && state.settings && state.settings.client) || 'custom';
+function clientChoice() {
+  const ch = (state && state.settings && state.settings.choices) || { models: [], reasoning: [] };
+  const c = { model: 'efficient', custom: '', reasoning: 'low', ...cfg.byClient[clientKey()] };
+  if (!ch.models.some(m => m.tier === c.model)) c.model = 'efficient';
+  if (!ch.reasoning.includes(c.reasoning)) c.reasoning = 'low';
+  return { c, ch };
+}
+function fill(sel, items, value, note, none) {
+  sel.replaceChildren(...items.map(([v, t]) => Object.assign(document.createElement('option'), { value: v, textContent: t })));
+  if (!items.length) sel.append(Object.assign(document.createElement('option'), { textContent: none }));
+  sel.value = value; sel.disabled = !items.length; sel.title = note;
+}
 function showAnswerSettings() {
-  $('length').value = cfg.length; $('model').value = cfg.model; $('usage').checked = cfg.usage !== false;
-  $('model-custom').value = cfg.customModel;
-  $('model-custom-row').hidden = cfg.model !== 'custom';
-  const note = state && state.settings && state.settings.model_note;
-  $('model').title = note || 'Efficient is the AI client\'s small, fast tier. For a custom command the tiers do nothing; use Custom with a model name.';
+  const { c, ch } = clientChoice();
+  $('length').value = cfg.length; $('usage').checked = cfg.usage !== false;
+  fill($('model'), ch.models.map(m => [m.tier, m.label]), c.model, ch.model_note || '', 'Own model');
+  fill($('reasoning'), ch.reasoning.map(r => [r, r[0].toUpperCase() + r.slice(1)]), c.reasoning, ch.reasoning_note || '', 'Own default');
+  $('model-custom').value = c.custom;
+  $('model-custom-row').hidden = c.model !== 'custom';
+}
+function setClientChoice(patch) {
+  cfg.byClient[clientKey()] = { ...clientChoice().c, ...patch }; save(); pushSettings();
 }
 async function pushSettings() {
   showAnswerSettings();
-  try { await api('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ length: cfg.length, model: cfg.model, custom_model: cfg.customModel, usage: cfg.usage !== false }) }); } catch (e) { /* the next state load pushes again */ }
+  const { c } = clientChoice();
+  try { await api('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ length: cfg.length, model: c.model, custom_model: c.custom, reasoning: c.reasoning, usage: cfg.usage !== false }) }); } catch (e) { /* the next state load pushes again */ }
 }
 $('length').onchange = ev => { cfg.length = ev.target.value; save(); pushSettings(); };
-$('model').onchange = ev => { cfg.model = ev.target.value; save(); pushSettings(); if (cfg.model === 'custom') $('model-custom').focus(); };
-$('model-custom').onchange = ev => { cfg.customModel = ev.target.value.trim(); save(); pushSettings(); };
+$('model').onchange = ev => { setClientChoice({ model: ev.target.value }); if (ev.target.value === 'custom') $('model-custom').focus(); };
+$('reasoning').onchange = ev => setClientChoice({ reasoning: ev.target.value });
+$('model-custom').onchange = ev => setClientChoice({ custom: ev.target.value.trim() });
 $('usage').onchange = ev => { cfg.usage = ev.target.checked; save(); pushSettings(); };
 async function pushDigest() {
   try { await api('/api/auto-digest', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ on: cfg.autoDigest !== false }) }); } catch (e) { /* shown by the next state load */ }
@@ -373,7 +395,7 @@ function ask(question) {
         const e = JSON.parse(ev.data);
         es.close(); a.textContent = e.answer; scrollDown();
         if (e.status === 'error') a.classList.add('err');
-        if (e.usage) { const s = document.createElement('small'); s.textContent = e.usage; a.appendChild(s); }
+        for (const t of [e.usage, e.notice]) if (t) { const s = document.createElement('small'); s.textContent = t; a.appendChild(s); }
         stop();
       });
       es.onerror = () => { es.close(); if (busy) { a.textContent = got || 'The connection dropped.'; stop(); } };

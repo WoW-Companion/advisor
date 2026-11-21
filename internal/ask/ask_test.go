@@ -22,10 +22,19 @@ func TestMain(m *testing.M) {
 	case "argv":
 		os.WriteFile(os.Getenv("FAKE_ARGV_OUT"), []byte(strings.Join(os.Args[1:], "\x00")), 0o644)
 		fmt.Println("ok")
+	case "rejecteffort": // a CLI too old for the reasoning flag: refuses it, else records argv like "argv"
+		for _, a := range os.Args[1:] {
+			if a == "--effort" || strings.HasPrefix(a, "model_reasoning_effort") {
+				fmt.Fprintf(os.Stderr, "error: unknown option '%s'\n", a)
+				os.Exit(2)
+			}
+		}
+		os.WriteFile(os.Getenv("FAKE_ARGV_OUT"), []byte(strings.Join(os.Args[1:], "\x00")), 0o644)
+		fmt.Println("ok")
 	case "stream": // a Claude stream-json fixture: one text delta, then the result with usage
 		fmt.Println(`{"type":"system","subtype":"init"}`)
 		fmt.Println(`{"type":"stream_event","event":{"type":"content_block_delta","delta":{"type":"text_delta","text":"Do the turn-in."}}}`)
-		fmt.Println(`{"type":"result","is_error":false,"result":"Do the turn-in.","total_cost_usd":0.0123,"usage":{"input_tokens":100,"output_tokens":300,"cache_creation_input_tokens":2000,"cache_read_input_tokens":700}}`)
+		fmt.Println(`{"type":"result","is_error":false,"result":"Do the turn-in.","total_cost_usd":0.0123,"modelUsage":{"claude-haiku-4-5":{"inputTokens":50,"outputTokens":300},"claude-sonnet-4-5":{"inputTokens":10,"outputTokens":5}},"usage":{"input_tokens":100,"output_tokens":300,"cache_creation_input_tokens":2000,"cache_read_input_tokens":700}}`)
 	case "fail":
 		fmt.Fprintln(os.Stderr, "boom")
 		os.Exit(3)

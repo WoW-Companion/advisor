@@ -48,9 +48,13 @@ func TestModelArgsPerClient(t *testing.T) {
 		{"gemini", Options{}, []string{"--model", "flash-lite"}, ""},
 		{"gemini", Options{Tier: TierBalanced}, []string{"--model", "flash"}, ""},
 		{"gemini", Options{Tier: TierBest}, []string{"--model", "pro"}, ""},
+		{"claude", Options{}, []string{"--effort", "low"}, ""},
+		{"claude", Options{Reasoning: "medium"}, []string{"--effort", "medium"}, ""},
+		{"claude", Options{Tier: TierBest, Reasoning: "high"}, []string{"--effort", "high"}, ""},
+		{"gemini", Options{Reasoning: "high"}, []string{"--model", "flash-lite"}, "--effort"},
 		{"codex", Options{}, []string{"-c", `model_reasoning_effort="low"`}, "--model"},
-		{"codex", Options{Tier: TierBest}, []string{"-c", `model_reasoning_effort="high"`}, "--model"},
-		{"codex", Options{Tier: TierCustom, Custom: "my-model"}, []string{"--model", "my-model"}, "-c"},
+		{"codex", Options{Tier: TierBest, Reasoning: "high"}, []string{"-c", `model_reasoning_effort="high"`}, "--model"},
+		{"codex", Options{Tier: TierCustom, Custom: "my-model"}, []string{"--model", "my-model"}, ""},
 	} {
 		got := fakeClient(t, tc.client, tc.o)
 		found := false
@@ -76,10 +80,10 @@ func TestUnknownCommandGetsNoModelFlags(t *testing.T) {
 
 func TestOptionsNormalize(t *testing.T) {
 	for _, tc := range []struct{ in, want Options }{
-		{Options{}, Options{LengthStandard, TierEfficient, ""}},
-		{Options{"loud", "huge", "x"}, Options{LengthStandard, TierEfficient, "x"}},
-		{Options{LengthBrief, TierCustom, "--evil"}, Options{LengthBrief, TierEfficient, "--evil"}},
-		{Options{LengthDetailed, TierCustom, " m-1 "}, Options{LengthDetailed, TierCustom, "m-1"}},
+		{Options{}, Options{Length: LengthStandard, Tier: TierEfficient, Reasoning: "low"}},
+		{Options{Length: "loud", Tier: "huge", Custom: "x", Reasoning: "max"}, Options{Length: LengthStandard, Tier: TierEfficient, Custom: "x", Reasoning: "low"}},
+		{Options{Length: LengthBrief, Tier: TierCustom, Custom: "--evil"}, Options{Length: LengthBrief, Tier: TierEfficient, Custom: "--evil", Reasoning: "low"}},
+		{Options{Length: LengthDetailed, Tier: TierCustom, Custom: " m-1 ", Reasoning: "high"}, Options{Length: LengthDetailed, Tier: TierCustom, Custom: "m-1", Reasoning: "high"}},
 	} {
 		if got := tc.in.Normalize(); got != tc.want {
 			t.Errorf("%+v -> %+v, want %+v", tc.in, got, tc.want)
@@ -103,6 +107,12 @@ func TestPromptLengthInstructions(t *testing.T) {
 }
 
 func TestUsageLine(t *testing.T) {
+	if got := (Usage{Tokens: 3123, Model: "haiku"}).Line(); got != "≈3.1k tokens · haiku" {
+		t.Errorf("%q", got)
+	}
+	if got := (Usage{Model: "default model"}).Line(); got != "default model" {
+		t.Errorf("%q", got)
+	}
 	for n, want := range map[int]string{0: "", 850: "≈850 tokens", 3123: "≈3.1k tokens", 25400: "≈25k tokens"} {
 		if got := (Usage{Tokens: n}).Line(); got != want {
 			t.Errorf("%d: %q", n, got)
@@ -114,7 +124,74 @@ func TestUsageFromStreamJSON(t *testing.T) {
 	cfg := fixture(t, "stream")
 	cfg.Command = []string{os.Args[0]}
 	text, streamed, u, err := RespondUsage(context.Background(), cfg, Question{Text: "q"}, "p", true, func(string) {})
-	if err != nil || !streamed || text != "Do the turn-in." || u.Tokens != 3100 || u.CostUSD != 0.0123 {
+	if err != nil || !streamed || text != "Do the turn-in." || u.Tokens != 3100 || u.CostUSD != 0.0123 || u.Model != "claude-haiku-4-5" {
 		t.Fatalf("%q %v %+v %v", text, streamed, u, err)
+	}
+}
+
+// The defaults are each client's smallest model and lowest reasoning level; a client without a
+// reasoning flag, or a custom command, gets no reasoning option.
+func TestDefaultsAreSmallestAndLowest(t *testing.T) {
+	for _, c := range []string{"claude", "codex", "gemini"} {
+		ch := ChoicesFor(c)
+		if ch.Models[0].Tier != TierEfficient || !strings.Contains(ch.Models[0].Label, "small") || ch.Models[len(ch.Models)-1].Tier != TierCustom {
+			t.Errorf("%s: %+v", c, ch.Models)
+		}
+		if c != "gemini" && (len(ch.Reasoning) != 3 || ch.Reasoning[0] != "low") {
+			t.Errorf("%s: %v", c, ch.Reasoning)
+		}
+		if ch.ModelNote == "" || ch.ReasoningNote == "" {
+			t.Errorf("%s: tooltips missing: %+v", c, ch)
+		}
+	}
+	if ch := ChoicesFor("gemini"); len(ch.Reasoning) != 0 {
+		t.Errorf("gemini has no reasoning flag: %v", ch.Reasoning)
+	}
+	if ch := ChoicesFor(""); len(ch.Models) != 0 || len(ch.Reasoning) != 0 || ch.ModelNote == "" {
+		t.Errorf("custom command: %+v", ch)
+	}
+	if d := (Options{}).Normalize(); d.Tier != TierEfficient || d.Reasoning != "low" {
+		t.Errorf("%+v", d)
+	}
+	if m := ModelUsed([]string{"claude"}, Options{}); m != "haiku" {
+		t.Error(m)
+	}
+	if m := ModelUsed([]string{"codex"}, Options{}); m != "default model" {
+		t.Error(m)
+	}
+}
+
+// A CLI that rejects the reasoning flag is run once more without it, with a notice; other clients
+// and other failures are not retried.
+func TestRejectedReasoningFlagIsDropped(t *testing.T) {
+	for _, tc := range []struct{ client, flag string }{{"claude", "--effort"}, {"codex", "-c"}} {
+		cfg := fixture(t, "rejecteffort")
+		bin := filepath.Join(t.TempDir(), tc.client+filepath.Ext(os.Args[0]))
+		if err := os.Symlink(os.Args[0], bin); err != nil {
+			t.Skip("no symlinks here:", err)
+		}
+		out := filepath.Join(t.TempDir(), "argv")
+		t.Setenv("FAKE_ARGV_OUT", out)
+		cfg.Command = []string{bin, "-p", "{prompt}"}
+		var notice string
+		cfg.Notice = func(n string) { notice = n }
+		var buf strings.Builder
+		if err := execAgent(context.Background(), cfg, Question{Text: "q"}, "p", nil, &buf); err != nil {
+			t.Fatalf("%s: %v", tc.client, err)
+		}
+		raw, _ := os.ReadFile(out)
+		if got := string(raw); strings.Contains(got, "--effort") || strings.Contains(got, "model_reasoning_effort") || !strings.Contains(got, "--model") && tc.client == "claude" {
+			t.Errorf("%s retried with %q", tc.client, got)
+		}
+		if notice == "" {
+			t.Errorf("%s: no notice", tc.client)
+		}
+	}
+	cfg := fixture(t, "fail") // an unrelated failure is not retried
+	cfg.Command = []string{os.Args[0]}
+	n := 0
+	cfg.Notice = func(string) { n++ }
+	if err := execAgent(context.Background(), cfg, Question{}, "p", nil, &strings.Builder{}); err == nil || n != 0 {
+		t.Errorf("%v %d", err, n)
 	}
 }

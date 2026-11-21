@@ -106,12 +106,13 @@ func str(v any) string { s, _ := v.(string); return s }
 
 // Config is one pass's settings.
 type Config struct {
-	SavedVariables string   // the addon's WoWCompanion.lua
-	AnswersPath    string   // Answers.lua to write
-	Command        []string // the agent argv, see Presets; empty when no agent is set up (the companion only)
-	Name, Source   string   // the agent's short name and where it came from (see Agent); may be empty
-	MCPConfig      string   // path of the MCP config file handed to the agent; may be empty
-	Options        Options  // answer length and model tier, see Options
+	SavedVariables string       // the addon's WoWCompanion.lua
+	AnswersPath    string       // Answers.lua to write
+	Command        []string     // the agent argv, see Presets; empty when no agent is set up (the companion only)
+	Name, Source   string       // the agent's short name and where it came from (see Agent); may be empty
+	MCPConfig      string       // path of the MCP config file handed to the agent; may be empty
+	Options        Options      // answer length, model tier and reasoning, see Options
+	Notice         func(string) // told a one-line notice, e.g. that the CLI rejected a flag (may be nil)
 	Timeout        time.Duration
 	MaxPerRun      int
 	Now            func() time.Time
@@ -196,10 +197,37 @@ func runAgent(ctx context.Context, cfg Config, q Question) (string, error) {
 	return out.String(), nil
 }
 
-// execAgent runs the agent once with prompt, extra argv appended, and its stdout sent to stdout.
+// execAgent runs the agent with prompt, extra argv appended, and its stdout sent to stdout. If the
+// CLI rejects the reasoning flag before writing anything, it runs once more without it and tells
+// cfg.Notice.
 func execAgent(ctx context.Context, cfg Config, q Question, prompt string, extra []string, stdout io.Writer) error {
+	wrote, err := execOnce(ctx, cfg, q, prompt, extra, stdout)
+	if err != nil && !wrote && !cfg.Options.noReasoning && len(reasoningArgs(ClientName(cfg.Command), "low")) > 0 && rejectedFlag(err) {
+		cfg.Options.noReasoning = true
+		if cfg.Notice != nil {
+			cfg.Notice("This AI client does not accept the reasoning setting; it ran with its own default.")
+		}
+		_, err = execOnce(ctx, cfg, q, prompt, extra, stdout)
+	}
+	return err
+}
+
+// rejectedFlag reports whether the CLI's error looks like it refused an option: the first line of
+// its stderr names the reasoning flag or says the option is unknown.
+func rejectedFlag(err error) bool {
+	m := strings.ToLower(err.Error())
+	for _, w := range []string{"effort", "reasoning", "unknown option", "unknown argument", "unrecognized", "unexpected argument", "invalid option", "unknown flag"} {
+		if strings.Contains(m, w) {
+			return true
+		}
+	}
+	return false
+}
+
+// execOnce runs the agent once; wrote is true when it wrote any output.
+func execOnce(ctx context.Context, cfg Config, q Question, prompt string, extra []string, stdout io.Writer) (wrote bool, _ error) {
 	if len(cfg.Command) == 0 {
-		return errors.New("no agent command is configured")
+		return false, errors.New("no agent command is configured")
 	}
 	timeout := cfg.Timeout
 	if timeout <= 0 {
@@ -210,7 +238,7 @@ func execAgent(ctx context.Context, cfg Config, q Question, prompt string, extra
 	argv := append(WithModel(Argv(cfg.Command, prompt, cfg.MCPConfig), cfg.Command, cfg.Options), extra...)
 	cmd, err := Launch(ctx, argv, "WOWC_QUESTION="+q.Text, "WOWC_CHARACTER="+q.Character, "WOWC_MCP_CONFIG="+cfg.MCPConfig)
 	if err != nil {
-		return err
+		return false, err
 	}
 	cmd.WaitDelay = time.Second
 	var errOut bytes.Buffer
@@ -220,17 +248,17 @@ func execAgent(ctx context.Context, cfg Config, q Question, prompt string, extra
 	err = cmd.Run()
 	switch {
 	case ctx.Err() == context.DeadlineExceeded:
-		return fmt.Errorf("the agent took longer than %s", timeout)
+		return out.n > 0, fmt.Errorf("the agent took longer than %s", timeout)
 	case ctx.Err() != nil:
-		return ctx.Err()
+		return out.n > 0, ctx.Err()
 	case err != nil:
 		var ee *exec.ExitError
 		if errors.As(err, &ee) {
-			return exitError(ee, out.n > 0, errOut.String())
+			return out.n > 0, exitError(ee, out.n > 0, errOut.String())
 		}
-		return startError(cmd.Path, err)
+		return false, startError(cmd.Path, err)
 	}
-	return nil
+	return out.n > 0, nil
 }
 
 // capped keeps the first left bytes and discards the rest, so a chatty agent cannot fill memory.

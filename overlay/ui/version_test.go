@@ -34,6 +34,20 @@ func TestVersionLineAndInstallerWiring(t *testing.T) {
 	}
 }
 
+// The model and reasoning dropdowns sit under the AI client row, and the choice is kept per client.
+func TestModelAndReasoningDropdowns(t *testing.T) {
+	html, js := read(t, "index.html"), read(t, "app.js")
+	agent, model, reasoning := strings.Index(html, `id="agent-cmd-row"`), strings.Index(html, `id="model"`), strings.Index(html, `id="reasoning"`)
+	if agent < 0 || model < agent || reasoning < model || strings.Index(html, `id="length"`) < reasoning {
+		t.Error("the model and reasoning dropdowns must follow the AI client row, side by side")
+	}
+	for _, want := range []string{"byClient", "cfg.byClient[clientKey()]", "model: 'efficient'", "reasoning: 'low'", "reasoning: c.reasoning", "sel.disabled = !items.length"} {
+		if !strings.Contains(js, want) {
+			t.Errorf("app.js lacks %q", want)
+		}
+	}
+}
+
 // The version line and update check run as real code under Node (no browser): before and after the
 // handshake, after a restart, the check on start and on the timer, and a silent failure.
 func TestVersionLogicUnderNode(t *testing.T) {
