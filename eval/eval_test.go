@@ -5,6 +5,7 @@ package eval
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
@@ -22,6 +23,24 @@ const (
 	toolUpgrades  = "upgrade_finder"
 	toolDigest    = "update_digest"
 )
+
+// fixtures is the temporary directory TestMain builds the synthetic captures and dataset in.
+var fixtures string
+
+func TestMain(m *testing.M) {
+	dir, err := os.MkdirTemp("", "eval-fixtures")
+	if err == nil {
+		fixtures = dir
+		err = writeFixtures(dir)
+	}
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "eval fixtures:", err)
+		os.Exit(1)
+	}
+	code := m.Run()
+	os.RemoveAll(dir)
+	os.Exit(code)
+}
 
 type question struct {
 	Ask   string `json:"ask"`   // the question as a player would put it
@@ -44,7 +63,7 @@ type env struct {
 
 func loadCharacter(t *testing.T, file string) (character.Character, character.Client) {
 	t.Helper()
-	f, err := character.LoadFile(filepath.Join("captures", file+".lua"))
+	f, err := character.LoadFile(filepath.Join(fixtures, "captures", file+".lua"))
 	if err != nil {
 		t.Fatalf("capture %s: %v", file, err)
 	}
@@ -65,7 +84,7 @@ func TestQuestions(t *testing.T) {
 	if err := json.Unmarshal(raw, &set); err != nil {
 		t.Fatalf("questions.json: %v", err)
 	}
-	ds := store.NewDir("dataset")
+	ds := store.NewDir(filepath.Join(fixtures, "dataset"))
 	files := make([]string, 0, len(set.Characters))
 	for f := range set.Characters {
 		files = append(files, f)

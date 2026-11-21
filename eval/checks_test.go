@@ -7,6 +7,7 @@ package eval
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
@@ -544,10 +545,41 @@ func buildDigest(e *env) digest.Digest {
 	return digest.Build(e.c, e.ds, digest.Options{Now: e.now, Client: e.client})
 }
 
+var (
+	luaString = regexp.MustCompile(`"(?:[^"\\\n]|\\[\s\S])*"`)
+	luaStart  = regexp.MustCompile(`^\s*WoWCompanionDigest\s*=\s*\{`)
+	luaWord   = regexp.MustCompile(`([A-Za-z_]\w*)\s*(=?=?)`)
+)
+
+// slotRules is the slot addon's data-only rule (addon tests/slotcheck.lua): with comments dropped
+// and each string replaced by 0, one `WoWCompanionDigest = {...}` assignment, no parentheses, no
+// bare identifier as a value, no `..`, `:` or `#`.
+func slotRules(src string) error {
+	var lines []string
+	for _, l := range strings.Split(src, "\n") {
+		if !strings.HasPrefix(strings.TrimSpace(l), "--") {
+			lines = append(lines, l)
+		}
+	}
+	code := luaString.ReplaceAllString(strings.Join(lines, "\n"), "0")
+	if !luaStart.MatchString(code) || strings.Count(code, "WoWCompanionDigest") != 1 {
+		return fmt.Errorf("not a single WoWCompanionDigest = {...} assignment")
+	}
+	if strings.ContainsAny(code, "():#") || strings.Contains(code, "..") {
+		return fmt.Errorf("call, parenthesis or operator in the digest")
+	}
+	for _, w := range luaWord.FindAllStringSubmatch(strings.TrimPrefix(strings.TrimSpace(code), "WoWCompanionDigest"), -1) {
+		if w[1] != "true" && w[1] != "false" && w[1] != "nil" && w[2] != "=" {
+			return fmt.Errorf("identifier %q is not a key", w[1])
+		}
+	}
+	return nil
+}
+
 // The digest is the data-only file the slot addon accepts, and parses back as the same character.
 func digestPassesSlotRules(e *env) error {
 	src := buildDigest(e).Lua()
-	if err := digest.SlotCheck(src); err != nil {
+	if err := slotRules(src); err != nil {
 		return err
 	}
 	vars, err := lua.Parse(src)

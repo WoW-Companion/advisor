@@ -5,8 +5,9 @@ like, so a change to the ranking, the gear rules or the digest that makes the ad
 `make verify` (`go test ./eval/...`) and names the question that broke.
 
 **What it holds.** Six synthetic characters, a Priest and a Rogue at levels 12, 24 and 40
-(`eval/captures/<class><level>.lua`, ForeverScribe format), and a small synthetic Parquet dataset
-that covers them (`eval/dataset/`: `quests`, `items`, `loot_sources`, `npcs`). Names, ids and items are
+(ForeverScribe format), and a small synthetic Parquet dataset that covers them (`quests`, `items`,
+`loot_sources`, `npcs`). Both are built in code from the specs in `eval/gen_test.go` when the tests
+start, in a temporary directory; nothing generated is committed. Names, ids and items are
 invented; nothing is taken from a real capture or the real dataset. Each character has 12 questions
 in `eval/questions.json`, 72 in all.
 
@@ -40,14 +41,7 @@ property "no_wrong_armor": head: "Eval Cloth Hood 24": cloth armor offered to a 
 3. **Make the fixture able to fail it.** A property that passes on every character proves
    nothing. If no character has the situation (a failed quest, a class-locked item, an unknown
    quest level), add it to the spec in `eval/gen_test.go` (`charSpecs`, `bandItems`, the quest
-   mix) and regenerate the files:
-
-   ```
-   go test ./eval -run TestFixtures -update
-   ```
-
-   The tests read the committed files in `eval/captures/` and `eval/dataset/`, so review the fixture
-   diff. Fixtures stay synthetic: no real names, no real capture.
+   mix). The fixtures are rebuilt on every run. Keep them synthetic: no real names, no real capture.
 4. **Try it break.** Change the tool to give the wrong answer (for example `advice.MaxBelow = 50`)
    and see the question fail by name; then revert.
 

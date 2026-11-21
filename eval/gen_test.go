@@ -1,24 +1,19 @@
 package eval
 
-// The fixtures in captures/ and dataset/ are written from the specs in this file by
-// `go test ./eval -run TestFixtures -update`; the tests read the committed files, so a reviewer
-// sees the fixtures themselves change. Everything here is synthetic: invented names, invented
-// ids, nothing taken from a real capture or the real dataset.
+// The captures and the Parquet dataset are built from the specs in this file when the tests start
+// (TestMain) and written to a temporary directory. Everything here is synthetic: invented names,
+// invented ids, nothing taken from a real capture or the real dataset.
 
 import (
 	"bytes"
-	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
-	"testing"
 
 	"github.com/parquet-go/parquet-go"
 )
-
-var update = flag.Bool("update", false, "rewrite the fixtures in captures/ and dataset/")
 
 const capturedAt = 1700000000
 
@@ -173,23 +168,25 @@ func datasetTables() map[string]any {
 	return map[string]any{"quests": quests, "items": items, "loot_sources": loot, "npcs": npcs}
 }
 
-func writeParquet(path string, rows any) error {
+func writeParquet[T any](path string, rows []T) error {
 	var buf bytes.Buffer
-	var err error
-	switch r := rows.(type) {
-	case []questRow:
-		err = parquet.Write(&buf, r)
-	case []itemRow:
-		err = parquet.Write(&buf, r)
-	case []lootRow:
-		err = parquet.Write(&buf, r)
-	case []npcRow:
-		err = parquet.Write(&buf, r)
-	}
-	if err != nil {
+	if err := parquet.Write(&buf, rows); err != nil {
 		return err
 	}
 	return os.WriteFile(path, buf.Bytes(), 0o644)
+}
+
+func writeTable(path string, rows any) error {
+	switch r := rows.(type) {
+	case []questRow:
+		return writeParquet(path, r)
+	case []itemRow:
+		return writeParquet(path, r)
+	case []lootRow:
+		return writeParquet(path, r)
+	default:
+		return writeParquet(path, rows.([]npcRow))
+	}
 }
 
 // ---- captures ----
@@ -387,23 +384,22 @@ func (s charSpec) lua() string {
 	return out.String()
 }
 
-func TestFixtures(t *testing.T) {
-	if !*update {
-		t.Skip("fixtures are written with -update")
-	}
-	for _, dir := range []string{"captures", "dataset"} {
-		if err := os.MkdirAll(dir, 0o755); err != nil {
-			t.Fatal(err)
+// writeFixtures writes the synthetic dataset to dir/dataset and the captures to dir/captures.
+func writeFixtures(dir string) error {
+	for _, d := range []string{"captures", "dataset"} {
+		if err := os.MkdirAll(filepath.Join(dir, d), 0o755); err != nil {
+			return err
 		}
 	}
 	for table, rows := range datasetTables() {
-		if err := writeParquet(filepath.Join("dataset", table+".parquet"), rows); err != nil {
-			t.Fatal(err)
+		if err := writeTable(filepath.Join(dir, "dataset", table+".parquet"), rows); err != nil {
+			return err
 		}
 	}
 	for _, s := range charSpecs {
-		if err := os.WriteFile(filepath.Join("captures", s.file+".lua"), []byte(s.lua()), 0o644); err != nil {
-			t.Fatal(err)
+		if err := os.WriteFile(filepath.Join(dir, "captures", s.file+".lua"), []byte(s.lua()), 0o644); err != nil {
+			return err
 		}
 	}
+	return nil
 }

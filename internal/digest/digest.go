@@ -115,7 +115,7 @@ func Build(c character.Character, ds store.DataStore, opt Options) Digest {
 	for _, s := range []Section{
 		{NextQuests, capLines(quests, MaxQuests)},
 		{Upgrades, capLines(ups, MaxUpgrades)},
-		{KeepMaterials, capLines(materials(c), MaxMaterials)},
+		{KeepMaterials, capLines(materials(c, ds), MaxMaterials)},
 		{Notes, capLines(notes, MaxNotes)},
 	} {
 		if len(s.Lines) > 0 {
