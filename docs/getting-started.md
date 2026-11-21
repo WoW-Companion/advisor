@@ -25,9 +25,10 @@ About 3 minutes to read, about 10 to do. Use your own names wherever you see `<a
    SmartScreen will say it "protected your PC" because the installer is not code-signed: click
    **More info**, then **Run anyway**.
 3. **Follow the setup checklist.** The overlay opens a **Setup** checklist with these lines: game found,
-   ForeverScribe installed, ForeverScribe has data, WoW Companion addon (optional) and display mode. The
-   checklist installs the addon if you want it. Fix any red line with the button next to it. You can reopen it from
-   the settings (the gear), under **Setup checklist**.
+   ForeverScribe installed, ForeverScribe has data, WoW Companion addon (optional), display mode, and game data.
+   The checklist installs the addon if you want it. The first time it runs, it downloads a small game-data
+   file (under 1 MB) from GitHub; nothing to install. Fix any red line with the button next to it. You can
+   reopen it from the settings (the gear), under **Setup checklist**.
 4. **Install an AI client and sign in once.** Pick one; Claude Code gives the most detailed answers in
    our testing. Steps for each are under [Set up your AI client](#set-up-your-ai-client) below.
 5. **Set WoW to Windowed (Fullscreen).** In WoW: System, Graphics, **Display Mode**, **Windowed (Fullscreen)**.

@@ -17,6 +17,7 @@ import (
 
 	"github.com/WoW-Companion/advisor/internal/ask"
 	"github.com/WoW-Companion/advisor/internal/companion"
+	"github.com/WoW-Companion/advisor/internal/dataset"
 	"github.com/WoW-Companion/advisor/internal/release"
 	"github.com/WoW-Companion/advisor/internal/server"
 )
@@ -83,7 +84,7 @@ func companionCmd(ctx context.Context, args []string, stdout, stderr io.Writer) 
 		return err
 	}
 	s := companion.New(companion.Config{
-		ForeverScribe: cfg.SavedVariables, Ask: ac, LAN: *lan, App: *handshake, Dataset: cfg.Dataset, AutoDigest: *autoDigest, NoUsage: *noUsage, GameDir: *gameDir,
+		ForeverScribe: cfg.SavedVariables, Ask: ac, LAN: *lan, App: *handshake, Dataset: cfg.Dataset, Cache: dataset.Store{Root: f.cache}, AutoDigest: *autoDigest, NoUsage: *noUsage, GameDir: *gameDir,
 		Update: func(ctx context.Context) (release.Result, error) {
 			return release.Check(ctx, http.DefaultClient, release.LatestURL, server.Version)
 		},

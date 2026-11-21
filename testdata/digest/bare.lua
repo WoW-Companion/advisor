@@ -9,8 +9,8 @@ WoWCompanionDigest = {
       build = "1.60.0.64000",
       character = "Realm:Bare",
       sections = {
-        { id = "notes", lines = {
-          { text = "No dataset: zones and gear are limited" },
+        { id = "next_quests", lines = {
+          { text = "Game data not downloaded yet; see Setup" },
         } },
       },
     },

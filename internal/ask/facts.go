@@ -39,6 +39,9 @@ func Facts(cfg Config, q Question) string {
 	if cfg.Dataset != "" {
 		ds = store.NewDir(cfg.Dataset)
 	}
+	if ds == nil {
+		return NoDataFacts + "\n\n" + capRunes(brief.Character(c, f.ClientOf(c), time.Now()), FactsBudget)
+	}
 	all := advice.WhatsNext(c, ds)
 	next := advice.Render(c, advice.Limit(all, FactsSteps), len(all))
 	return capRunes(brief.Character(c, f.ClientOf(c), time.Now())+"\n\n"+next, FactsBudget)
@@ -50,6 +53,9 @@ func capRunes(s string, n int) string {
 	}
 	return strings.TrimRight(string([]rune(s)[:n]), " \n") + "\n[cut; use the tools for the rest]"
 }
+
+// NoDataFacts stands in for the next steps when no game dataset has downloaded.
+const NoDataFacts = "Game data not downloaded yet; see Setup. Tell the player this, in those words, rather than guessing quests, zones or gear."
 
 // PromptWithFacts is PromptFor plus the pre-fetched facts, when there are any.
 func PromptWithFacts(q Question, length, facts string) string {

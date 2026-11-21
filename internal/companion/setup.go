@@ -50,6 +50,7 @@ func (s *Server) setupOptions(game string, force bool, ctx context.Context) game
 
 func (s *Server) setupItems(game string, force bool, ctx context.Context) []gamesetup.Item {
 	items := gamesetup.Check(s.setupOptions(game, force, ctx))
+	items = append(items, s.datasetItem())
 	return append(items, gamesetup.AIItem(s.cfg.Ask.Name))
 }
 

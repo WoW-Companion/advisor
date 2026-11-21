@@ -40,7 +40,7 @@ func (s *Server) askCfg() ask.Config {
 	defer s.mu.Unlock()
 	c := s.cfg.Ask
 	c.Options = s.opts
-	c.Dataset = s.cfg.Dataset
+	c.Dataset = s.datasetDir()
 	return c
 }
 

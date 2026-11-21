@@ -211,6 +211,13 @@ installed while the overlay was open is found after **Re-scan**; that no longer 
 flags themselves, so a current overlay never asks. Install a newer overlay (step 2) or rebuild with `@main`.
 For Antigravity, run `wowc-advisor setup agy --write` once; it adds the one rule that allows the advisor's tools.
 
+**Game data won't download.** The advisor fetches a small game-data file (under 1 MB) from GitHub the first
+time it needs it; there is nothing to install by hand. Until it arrives, advice says "Game data not
+downloaded yet; see Setup". Check that this PC can reach github.com (a firewall, proxy or being offline
+blocks it), then open the **Setup checklist** and press **Retry** (or **Download now**) on the **Game data**
+line. The file is kept in `%LOCALAPPDATA%\wowc\dataset\<build>`; deleting that folder only makes the advisor
+download it again.
+
 **The data is stale, or the age chip is amber or red.** The advice reflects the last ForeverScribe save.
 Type `/reload` in game (or log out) and the chip returns to `now`. The in-game panel refreshes itself
 while the overlay runs (`/reload` twice, see step 5; needs the optional addon); without the overlay run `wowc-advisor digest`

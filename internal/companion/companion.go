@@ -24,6 +24,7 @@ import (
 
 	"github.com/WoW-Companion/advisor/internal/ask"
 	"github.com/WoW-Companion/advisor/internal/character"
+	"github.com/WoW-Companion/advisor/internal/dataset"
 	"github.com/WoW-Companion/advisor/internal/digest"
 	"github.com/WoW-Companion/advisor/internal/release"
 	"github.com/WoW-Companion/advisor/internal/server"
@@ -50,12 +51,13 @@ const ErrNoAgent = "No AI client set up yet: install Claude Code, Codex or Antig
 
 // Config is one companion's settings.
 type Config struct {
-	ForeverScribe string     // ForeverScribe.lua, polled for game data
-	Ask           ask.Config // the agent; SavedVariables and AnswersPath serve in-game questions
-	Stream        bool       // the agent command is Claude's and can print stream-json
-	LAN           bool       // listening on all interfaces
-	App           bool       // the desktop app's webview is the client: its origins pass, and the token may come in a header or query
-	Dataset       string     // dataset directory, for each character's next quests (empty: none)
+	ForeverScribe string        // ForeverScribe.lua, polled for game data
+	Ask           ask.Config    // the agent; SavedVariables and AnswersPath serve in-game questions
+	Stream        bool          // the agent command is Claude's and can print stream-json
+	LAN           bool          // listening on all interfaces
+	App           bool          // the desktop app's webview is the client: its origins pass, and the token may come in a header or query
+	Dataset       string        // dataset directory, for each character's next quests (empty: none until Setup downloads it)
+	Cache         dataset.Store // where the Setup row looks for and downloads the dataset (Root empty: the per-user cache)
 	Poll          time.Duration
 	NoUsage       bool                                          // start with the usage line off
 	AutoDigest    bool                                          // rewrite the in-game digest when ForeverScribe saves
@@ -168,6 +170,7 @@ type Server struct {
 	opts     ask.Options
 	usageOn  bool
 	setup    setupCache
+	data     dataState
 }
 
 // New returns a companion; it does not listen. Serve does that.
@@ -181,6 +184,7 @@ func New(cfg Config) *Server {
 		cfg.Debounce = 2 * time.Second
 	}
 	s := &Server{cfg: cfg, Token: hex.EncodeToString(b), turns: map[string]*turn{}, busy: map[string]bool{}, subs: map[chan event]bool{}}
+	s.data.dir = cfg.Dataset
 	s.digest = DigestState{Enabled: cfg.AutoDigest}
 	s.opts, s.usageOn = cfg.Ask.Options.Normalize(), !cfg.NoUsage
 	s.digest.Status = s.digestStatus(cfg.AutoDigest)
@@ -218,6 +222,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/setup", s.setupState)
 	mux.HandleFunc("POST /api/setup/install-addon", s.setupInstall)
 	mux.HandleFunc("POST /api/setup/test-ai", s.setupTestAI)
+	mux.HandleFunc("POST /api/setup/download-dataset", s.setupDownloadData)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if msg := s.reject(r); msg != "" {
 			http.Error(w, msg, http.StatusForbidden)
@@ -345,8 +350,9 @@ func (s *Server) snapshot() State {
 func (s *Server) reload() {
 	f, err := character.LoadFile(s.cfg.ForeverScribe)
 	var ds store.DataStore
-	if s.cfg.Dataset != "" {
-		ds = store.NewDir(s.cfg.Dataset)
+	dsDir := s.datasetDir()
+	if dsDir != "" {
+		ds = store.NewDir(dsDir)
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -356,7 +362,10 @@ func (s *Server) reload() {
 	}
 	s.loadErr, s.chars, s.captured = "", nil, 0
 	for _, c := range f.Characters {
-		ci := CharInfo{Key: c.Key, Name: c.Name, Class: c.Class, Next: nextQuests(c, f, ds)}
+		ci := CharInfo{Key: c.Key, Name: c.Name, Class: c.Class, Next: []string{NoDataMessage}}
+		if ds != nil {
+			ci.Next = nextQuests(c, f, ds)
+		}
 		if c.Level != nil {
 			ci.Level = *c.Level
 		}
@@ -735,7 +744,7 @@ func (s *Server) writeDigest() {
 		return
 	}
 	_, err := server.WriteDigest(server.Config{
-		SavedVariables: s.cfg.ForeverScribe, Dataset: s.cfg.Dataset, DigestPath: s.cfg.DigestPath, SkipUnchanged: true,
+		SavedVariables: s.cfg.ForeverScribe, Dataset: s.datasetDir(), DigestPath: s.cfg.DigestPath, SkipUnchanged: true,
 	}, "")
 	s.mu.Lock()
 	if err != nil {

@@ -15,6 +15,7 @@ import (
 	"strings"
 
 	"github.com/WoW-Companion/advisor/internal/character"
+	"github.com/WoW-Companion/advisor/internal/dataset"
 	"github.com/WoW-Companion/advisor/internal/digest"
 	"github.com/WoW-Companion/advisor/internal/svfind"
 )
@@ -31,6 +32,7 @@ const (
 	IDGame      = "game"
 	IDScribe    = "foreverscribe"
 	IDData      = "data"
+	IDDataset   = "dataset"
 	IDAddon     = "addon"
 	IDDisplay   = "display"
 	IDAI        = "ai"
@@ -307,4 +309,60 @@ func displayItem(game string) Item {
 		it.Status, it.Detail = OK, d.Mode+"."
 	}
 	return it
+}
+
+// ActDownloadData asks the sidecar to fetch the game dataset (the one write besides the addon install).
+const ActDownloadData = "download-dataset"
+
+// DatasetState is what the Game data row needs: the capture's client, the verified cached builds
+// (newest first), the last failed download and whether one is running.
+type DatasetState struct {
+	Client character.Client
+	Cached []string
+	Failed string
+	Busy   bool
+}
+
+// DatasetItem is the "Game data" row. The dataset downloads by itself on first need; this shows
+// whether it has and lets the player retry.
+func DatasetItem(st DatasetState) Item {
+	it := Item{ID: IDDataset, Title: "Game data"}
+	game := st.Client.Build
+	if game != "" && st.Client.Version != "" {
+		game = st.Client.Version + "." + st.Client.Build
+	}
+	var match string
+	for _, b := range st.Cached {
+		if game == "" || dataset.Matches(b, st.Client.Version, st.Client.Build) {
+			match = b
+			break
+		}
+	}
+	switch {
+	case st.Busy:
+		it.Status, it.Detail = Warn, "Downloading the game data (under 1 MB)…"
+	case match != "" && game == "":
+		it.Status, it.Detail = OK, "Downloaded (build "+match+")."
+	case match != "":
+		it.Status, it.Detail = OK, "Downloaded (build "+match+", matches your game)."
+	case len(st.Cached) > 0:
+		it.Status = Warn
+		it.Detail = "Downloaded for build " + st.Cached[0] + "; your game is build " + game + "; a newer dataset will download when it's published."
+	case st.Failed != "":
+		it.Status, it.Detail = Bad, "Download failed: "+oneLine(st.Failed)
+		it.Action, it.Label = ActDownloadData, "Retry"
+	default:
+		it.Status, it.Detail = Bad, "Not downloaded yet. It downloads by itself the first time the advisor needs it."
+		it.Action, it.Label = ActDownloadData, "Download now"
+	}
+	return it
+}
+
+// oneLine keeps a failure reason to one short line.
+func oneLine(s string) string {
+	s = strings.Join(strings.Fields(s), " ")
+	if r := []rune(s); len(r) > 160 {
+		s = string(r[:157]) + "..."
+	}
+	return s
 }
