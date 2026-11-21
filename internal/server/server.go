@@ -28,6 +28,7 @@ import (
 	"github.com/WoW-Companion/advisor/internal/inventory"
 	"github.com/WoW-Companion/advisor/internal/lua"
 	"github.com/WoW-Companion/advisor/internal/professions"
+	"github.com/WoW-Companion/advisor/internal/quests"
 	"github.com/WoW-Companion/advisor/internal/setup"
 	"github.com/WoW-Companion/advisor/internal/store"
 	"github.com/WoW-Companion/advisor/internal/talents"
@@ -323,6 +324,18 @@ type FarmOutput struct {
 
 // DefaultFarmLimit is how many spots farm_spots lists when none is asked for.
 const DefaultFarmLimit = 5
+
+// ChainInput is the quest_chain argument.
+type ChainInput struct {
+	Quest string `json:"quest" jsonschema:"quest id or name"`
+}
+
+// ChainOutput is the quest_chain result.
+type ChainOutput struct {
+	Quest string       `json:"quest" jsonschema:"quest name, empty when the dataset has none"`
+	Chain quests.Chain `json:"chain"`
+	Text  string       `json:"text" jsonschema:"plain-text rendering"`
+}
 
 // InventoryInput is the inventory_review argument.
 type InventoryInput struct {
@@ -676,6 +689,30 @@ func New(cfg Config) *mcp.Server {
 			spots = spots[:limit]
 		}
 		return nil, FarmOutput{name, id, item, spots, crafted, text}, nil
+	})
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "quest_chain",
+		Description: "Where a quest sits in its quest line (quest id or name): the line's name, every step in order and the quest's position, from the dataset. " +
+			"Says so when the dataset has no quest lines or none holds the quest. Reads no character.",
+	}, func(_ context.Context, _ *mcp.CallToolRequest, in ChainInput) (*mcp.CallToolResult, ChainOutput, error) {
+		none := ChainOutput{Chain: quests.Chain{Steps: []quests.Step{}}}
+		if cfg.Dataset == "" {
+			return toolError("No dataset configured (set WOWC_DATASET)."), none, nil
+		}
+		if strings.TrimSpace(in.Quest) == "" {
+			return toolError("Give a quest id or name."), none, nil
+		}
+		ds := store.NewDir(cfg.Dataset)
+		id, name, cands := quests.Resolve(ds, in.Quest)
+		if len(cands) > 0 {
+			return toolError("'" + in.Quest + "' matches several quests: " + strings.Join(cands, ", ") + ". Use the id."), none, nil
+		}
+		if id == 0 {
+			return toolError("No quest matches '" + in.Quest + "'."), none, nil
+		}
+		c := quests.Of(ds, id)
+		return nil, ChainOutput{name, c, quests.Render(c, name)}, nil
 	})
 
 	mcp.AddTool(s, &mcp.Tool{

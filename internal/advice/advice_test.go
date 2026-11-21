@@ -143,3 +143,62 @@ func TestLimitAndRender(t *testing.T) {
 		t.Error("empty render")
 	}
 }
+
+type lineRow struct {
+	LineID   int64  `parquet:"line_id"`
+	Name     string `parquet:"name"`
+	Position int32  `parquet:"position"`
+	QuestID  int64  `parquet:"quest_id"`
+}
+
+func encode[T any](t *testing.T, rows []T) store.SizedReaderAt {
+	t.Helper()
+	var buf bytes.Buffer
+	if err := parquet.Write(&buf, rows); err != nil {
+		t.Fatal(err)
+	}
+	return store.SizedReaderAt{ReaderAt: bytes.NewReader(buf.Bytes()), Size: int64(buf.Len())}
+}
+
+// chainStore is the quests table with a three-step line "Wolf Hunt" (quests 100, 101, 102), or
+// without the quest_lines table.
+func chainStore(t *testing.T, lines bool) store.DataStore {
+	t.Helper()
+	src := store.ReaderSource{"quests": encode(t, []questRow{{100, i32(24), nil}, {101, i32(24), nil}, {102, i32(24), nil}, {103, i32(24), nil}})}
+	if lines {
+		src["quest_lines"] = encode(t, []lineRow{{7, "Wolf Hunt", 1, 100}, {7, "Wolf Hunt", 2, 101}, {7, "Wolf Hunt", 3, 102}})
+	}
+	return store.New(src)
+}
+
+func TestWhatsNextChain(t *testing.T) {
+	done, open := bp(true), (*bool)(nil)
+	char := character.Character{Level: ip(24), Quests: []character.Quest{
+		{QuestID: 102, Title: "Last", Zone: "Dunemark", Complete: done},  // last step: unlocks nothing
+		{QuestID: 100, Title: "First", Zone: "Dunemark", Complete: done}, // unlocks step 2
+		{QuestID: 103, Title: "Loner", Zone: "Dunemark", Complete: done}, // in no line
+		{QuestID: 101, Title: "Second", Complete: open},                  // open chain step
+	}}
+	for _, tc := range []struct {
+		name  string
+		lines bool
+		want  string
+	}{
+		{"chain marks and unlock boost", true,
+			"turn_in:Turn in First: ready to turn in; step 1 of 3 in Wolf Hunt, unlocks step 2 | turn_in:Turn in Last: ready to turn in; step 3 of 3 in Wolf Hunt | " +
+				"turn_in:Turn in Loner: ready to turn in | quest:Second: level 24 quest, you are 24; step 2 of 3 in Wolf Hunt"},
+		{"no quest_lines leaves steps unchanged", false,
+			"turn_in:Turn in First: ready to turn in | turn_in:Turn in Last: ready to turn in | " +
+				"turn_in:Turn in Loner: ready to turn in | quest:Second: level 24 quest, you are 24"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var got []string
+			for _, s := range WhatsNext(char, chainStore(t, tc.lines)) {
+				got = append(got, s.Kind+":"+s.Title+": "+s.Reason)
+			}
+			if g := strings.Join(got, " | "); g != tc.want {
+				t.Errorf("steps =\n%s\nwant\n%s", g, tc.want)
+			}
+		})
+	}
+}
