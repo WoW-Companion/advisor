@@ -35,7 +35,8 @@
   <div id="notice" class="notice" hidden></div>
 
   <section id="settings" class="settings" hidden>
-    <label>Opacity <input id="opacity" type="range" min="40" max="100" step="5"> <output id="opacity-out"></output></label>
+    <label>Opacity <input id="opacity" type="range" min="0" max="100" step="5"> <output id="opacity-out"></output></label>
+    <label>Solid on hover <input id="solid-hover" type="checkbox"></label>
     <label>AI client
       <select id="agent">
         <option value="auto">Auto</option>
@@ -48,6 +49,7 @@
     <label id="agent-cmd-row" hidden>Command <input id="agent-cmd" placeholder="my-agent --flag"></label>
     <label>Show / hide <input id="key-vis" class="key" readonly></label>
     <label>Click-through <input id="key-ct" class="key" readonly></label>
+    <small>Opacity fades only the panel background. At 0% with click-through on, bring the panel back with the show/hide shortcut or the tray icon.</small>
     <small>Focus a shortcut box and press the new keys (with Ctrl, Shift or Alt).</small>
   </section>
 

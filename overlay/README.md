@@ -32,7 +32,7 @@ app shows a calm notice with links to each install page.
 
 | Mode | What it does |
 | ---- | ------------ |
-| **Overlay** | Always on top, no taskbar entry, opacity slider (40% to 100%, in the settings panel) and optional click-through. |
+| **Overlay** | Always on top, no taskbar entry, opacity slider (0% to 100%, in the settings panel; it fades only the panel background, never the text or controls) with an optional "Solid on hover" and optional click-through. |
 | **Window** | A normal window with a taskbar entry. |
 
 Switch with the pin / window icon button in the title bar (tooltip names the mode), or the tray menu. The window is see-through
