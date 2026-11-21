@@ -11,9 +11,10 @@ are in [clients/](clients/) and [docs/try-it.md](docs/try-it.md).
 
 ## Quick start
 
-Download the binary for your platform (Windows, macOS or Linux; amd64 or arm64) from the
-[releases page](https://github.com/WoW-Companion/advisor/releases). It is one static file with no
-dependencies.
+Download the archive for your platform (Windows, macOS or Linux; amd64 or arm64) from the
+[releases page](https://github.com/WoW-Companion/advisor/releases). It holds one static program with
+no dependencies. The program is not code-signed; the [quickstart](docs/quickstart.md) explains the
+Windows and macOS warnings.
 
 ```bash
 wowc-advisor serve --stdio                 # default transport
@@ -44,7 +45,8 @@ parser that never executes it; it is never uploaded or written to. The format is
 
 ```bash
 make verify   # gofmt -l, go vet, go test
-make build    # static binaries for six platforms in dist/ (git-ignored)
+make dist     # the six release archives and SHA256SUMS in dist/ (git-ignored), as the release workflow builds them
+make cross-check   # compile for all six platforms with no cgo, writing nothing (about 15 s)
 make bench    # DataStore benchmarks: point lookups and a range filter on a 32,000 row table
 ```
 

@@ -21,11 +21,24 @@ Success: `/wowc status` prints the addon version, and ForeverScribe has written
 
 ## 3. Get `wowc-advisor`
 
-Click: download `wowc-advisor-windows-amd64.exe` (`-arm64.exe` on an ARM PC) from the
-[releases page](https://github.com/WoW-Companion/advisor/releases) and save it, for example, as
-`C:\Users\<you>\wowc-advisor.exe`. It is one static file. Windows may ask you to confirm running it.
+Click: download the archive for your system from the
+[releases page](https://github.com/WoW-Companion/advisor/releases). Each is named
+`wowc-advisor_<version>_<os>_<arch>`: `.zip` for Windows, `.tar.gz` for macOS and Linux, with `amd64`
+for most PCs and Intel Macs and `arm64` for ARM PCs and Apple Silicon Macs. Each holds one static
+program, the license, the third-party notices and a short readme. `SHA256SUMS` on the same page lets
+you check the download.
 
-Success: `C:\Users\<you>\wowc-advisor.exe version` prints `wowc-advisor` and a version.
+- **Windows:** unzip it anywhere, then run `wowc-advisor.exe doctor` in that folder. The binary is
+  **not signed**, because signing and notarization need paid certificates, so SmartScreen may say it
+  "protected your PC". Click **More info**, then **Run anyway**.
+- **macOS:** unpack it (`tar -xzf <file>`). If Gatekeeper blocks the downloaded binary (it is not
+  notarized), run `xattr -d com.apple.quarantine wowc-advisor` in that folder.
+- **Linux (Wine or Proton setups):** unpack it with `tar -xzf <file>`.
+- **You have Go?** `go install github.com/WoW-Companion/advisor/cmd/wowc-advisor@latest` works too.
+
+Success: `wowc-advisor version` (`wowc-advisor.exe version` on Windows) prints `wowc-advisor` and a
+version. `doctor --check` also says whether a newer release exists; it never downloads or replaces
+anything.
 
 ## 4. Connect your AI client
 
