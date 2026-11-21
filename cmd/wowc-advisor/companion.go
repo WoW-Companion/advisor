@@ -31,7 +31,8 @@ func companionCmd(ctx context.Context, args []string, stdout, stderr io.Writer) 
 	fs.StringVar(&f.agent, "agent", "", "agent command or preset: claude, codex, gemini, or auto (default: \"agent\" in the config file, else the first of claude, codex, gemini found)")
 	fs.StringVar(&f.confPath, "config", "", "config file (default: <user config dir>/wowc-advisor/ask.json)")
 	fs.StringVar(&f.addonSV, "addon-savedvariables", "", "the addon's WoWCompanion.lua (default: next to ForeverScribe.lua)")
-	fs.StringVar(&f.answers, "answers-path", "", "Answers.lua to write (default: derived from the SavedVariables path)")
+	fs.BoolVar(&f.answersFile, "answers-file", false, "DEPRECATED: also write Answers.lua for the old WoWCompanion_Answers addon (in-game questions are answered in the overlay without it)")
+	fs.StringVar(&f.answers, "answers-path", "", "Answers.lua to write with --answers-file (default: derived from the SavedVariables path)")
 	fs.DurationVar(&f.timeout, "timeout", ask.DefaultTimeout, "time limit for each agent run")
 	fs.IntVar(&f.max, "max", ask.DefaultMaxPerRun, "most in-game questions answered per pass")
 	port := fs.Int("port", 4317, "first port to try; the next free one is used when it is taken")
@@ -45,6 +46,7 @@ func companionCmd(ctx context.Context, args []string, stdout, stderr io.Writer) 
 	if fs.NArg() > 0 {
 		return errors.New("companion takes no arguments\n" + usage)
 	}
+	f.answersFile = f.answersFile || f.answers != ""
 	autoSet := false
 	fs.Visit(func(f *flag.Flag) { autoSet = autoSet || f.Name == "auto-digest" })
 	if !autoSet {
@@ -80,7 +82,7 @@ func companionCmd(ctx context.Context, args []string, stdout, stderr io.Writer) 
 		return s.Serve(ctx, ln)
 	}
 	local := fmt.Sprintf("http://127.0.0.1:%d/?token=%s", p, s.Token)
-	fmt.Fprintf(stdout, "companion: %s\n(Ctrl-C to stop; it also answers questions asked in game, so do not run ask --watch alongside)\n", local)
+	fmt.Fprintf(stdout, "companion: %s\n(Ctrl-C to stop; it also answers questions asked in game, so do not run ask --watch alongside; nothing is written to the game folder unless --answers-file)\n", local)
 	if *lan {
 		fmt.Fprintf(stdout, "WARNING: --lan lets anyone on your network who has this URL ask your AI agent questions.\nLAN URL: http://%s:%d/?token=%s\n", lanIP(), p, s.Token)
 	}

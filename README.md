@@ -9,19 +9,21 @@ are in [clients/](clients/) and [docs/try-it.md](docs/try-it.md).
 
 > WoW Companion is a fan project. It is not affiliated with or endorsed by Blizzard Entertainment. World of Warcraft and Warcraft are trademarks of Blizzard Entertainment, Inc.
 
-## The three pieces
+## The pieces, in the order to set them up
 
-- **Addon** ([WoW-Companion/addon](https://github.com/WoW-Companion/addon), with
-  [ForeverScribe](https://github.com/MattMaximo/foreverscribe)): the in-game panel and the `/ask` box. It
-  only reads game state and shows the digest.
-- **Advisor** (this repo, `wowc-advisor`): the brain. An MCP server and command line that read your
-  ForeverScribe capture and a game dataset, answer with ranked advice, and write the digest.
-  `wowc-advisor companion` is a browser chat beside the game.
+- **ForeverScribe** ([MattMaximo/foreverscribe](https://github.com/MattMaximo/foreverscribe)), required: the
+  addon that captures your characters into SavedVariables.
 - **Overlay** ([overlay/](overlay/README.md)): a small Windows app (download `WoW-Companion-Setup-<version>-x64.exe`
   from the [latest release](https://github.com/WoW-Companion/advisor/releases/latest)) that bundles the advisor, sits over the
   game (Windowed (Fullscreen) only), finds your AI client and chats about the character you are playing.
+  Recommended. It also answers questions you queue in game.
+- **WoW Companion addon** ([WoW-Companion/addon](https://github.com/WoW-Companion/addon)), optional: in-game
+  extras (the panel, tracker, tooltips and right-click "Ask about this", answered in the overlay after `/reload`).
+- **Advisor** (this repo, `wowc-advisor`): the brain. An MCP server and command line that read your
+  ForeverScribe capture and a game dataset, answer with ranked advice, and write the digest.
+  `wowc-advisor companion` is a browser chat beside the game.
 
-Setup for all three, step by step, is the [quickstart](docs/quickstart.md). Developers can run the advisor
+Setup for each, step by step, is the [quickstart](docs/quickstart.md). Developers can run the advisor
 alone: `wowc-advisor serve --stdio` (default) or `serve --http --port 8000` (streamable HTTP at `/mcp`).
 Download the advisor archive for Windows, macOS or Linux (amd64 or arm64) from the
 [releases page](https://github.com/WoW-Companion/advisor/releases); it is one static program, not

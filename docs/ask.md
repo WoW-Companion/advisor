@@ -1,13 +1,19 @@
 # /ask: answering questions from the game
 
-`/ask <question>` in game queues the question in the addon's SavedVariables (`WoWCompanion.lua`,
-next to `ForeverScribe.lua`). `wowc-advisor ask` reads the unanswered ones, runs a headless agent
-CLI for each, and writes `Interface/AddOns/WoWCompanion_Answers/Answers.lua` (schema 1, see
-`docs/ask-format.md` in the addon repo). `/reload` in game shows the answers.
+**The overlay answers these for you.** A question queued in game (right-click "Ask about this", or `/ask`)
+lands in the addon's SavedVariables (`WoWCompanion.lua`, next to `ForeverScribe.lua`). With the overlay (or
+`wowc-advisor companion`) running, it shows up in the overlay chat, marked "asked in game", on the next
+`/reload`, and is answered there, streaming, once each. Nothing is written to the game folder.
+
+**Deprecated: `--answers-file`.** `wowc-advisor ask` is for anyone still on an older addon that has the
+`WoWCompanion_Answers` slot. It runs a headless agent CLI per unanswered question and writes
+`Interface/AddOns/WoWCompanion_Answers/Answers.lua` (schema 1) only when you pass `--answers-file`;
+`companion --answers-file` does the same alongside the overlay chat. Without the flag, `ask` stops and
+points at the overlay. The folder can be deleted if you do not use it.
 
 ```
-wowc-advisor ask --agent claude --savedvariables /path/to/ForeverScribe.lua
-wowc-advisor ask --agent claude --watch     # poll the file; remind to /reload after each pass
+wowc-advisor ask --answers-file --agent claude --savedvariables /path/to/ForeverScribe.lua
+wowc-advisor ask --answers-file --agent claude --watch     # poll the file; remind to /reload after each pass
 ```
 
 ## The agent

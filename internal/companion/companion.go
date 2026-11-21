@@ -149,6 +149,7 @@ type Server struct {
 	loadErr  string
 	web      []Entry
 	game     []Entry
+	gameDone map[string]Entry // in-game question id -> its answer, kept in memory (no Answers.lua)
 	turns    map[string]*turn
 	busy     map[string]bool // client address -> an answer is in flight
 	seq      int
@@ -397,10 +398,50 @@ func (s *Server) watch(ctx context.Context) {
 // shows the answers.
 func (s *Server) gameQuestions(ctx context.Context) {
 	s.showGame()
-	if s.cfg.Ask.AnswersPath == "" || len(s.cfg.Ask.Command) == 0 {
+	if len(s.cfg.Ask.Command) == 0 {
 		return
 	}
-	if res, err := ask.Run(ctx, s.cfg.Ask); err == nil && res.Answered > 0 {
+	if s.cfg.Ask.AnswersPath != "" { // the deprecated --answers-file mode: Answers.lua too
+		if res, err := ask.Run(ctx, s.cfg.Ask); err == nil && res.Answered > 0 {
+			s.showGame()
+		}
+		return
+	}
+	s.answerGame(ctx)
+}
+
+// answerGame answers each unanswered in-game question once, in the overlay only: nothing is written
+// to the game folder. Answered ids are kept in memory for the life of the companion.
+func (s *Server) answerGame(ctx context.Context) {
+	raw, err := readFile(s.cfg.Ask.SavedVariables)
+	if err != nil {
+		return
+	}
+	qs, err := ask.Questions(raw)
+	if err != nil {
+		return
+	}
+	for _, q := range qs {
+		s.mu.Lock()
+		_, done := s.gameDone[q.ID]
+		s.mu.Unlock()
+		if done || q.Answered {
+			continue
+		}
+		if ctx.Err() != nil {
+			return
+		}
+		text, _, err := ask.Respond(ctx, s.cfg.Ask, ask.Question{ID: q.ID, Character: q.Character, Text: q.Text}, ask.Prompt(q), s.cfg.Stream, nil)
+		e := Entry{Answer: text, Status: "done"}
+		if err != nil {
+			e.Answer, e.Status = "Could not answer: "+err.Error(), "error"
+		}
+		s.mu.Lock()
+		if s.gameDone == nil {
+			s.gameDone = map[string]Entry{}
+		}
+		s.gameDone[q.ID] = e
+		s.mu.Unlock()
 		s.showGame()
 	}
 }
@@ -414,7 +455,10 @@ func (s *Server) showGame() {
 	if err != nil {
 		return
 	}
-	have := ask.ReadAnswers(s.cfg.Ask.AnswersPath)
+	have := map[string]ask.Answer{}
+	if s.cfg.Ask.AnswersPath != "" {
+		have = ask.ReadAnswers(s.cfg.Ask.AnswersPath)
+	}
 	var list []Entry
 	for _, q := range qs {
 		e := Entry{ID: "game-" + q.ID, Source: "game", Character: q.Character, Question: q.Text, Status: "waiting", At: q.AskedAt}
@@ -424,6 +468,11 @@ func (s *Server) showGame() {
 				e.Status = "error"
 			}
 		}
+		s.mu.Lock()
+		if d, ok := s.gameDone[q.ID]; ok {
+			e.Answer, e.Status = d.Answer, d.Status
+		}
+		s.mu.Unlock()
 		list = append(list, e)
 	}
 	if len(list) > maxEntries {
