@@ -21,6 +21,33 @@ wowc-advisor ask --agent claude --watch     # poll the file; remind to /reload a
 | `codex` | `codex exec <prompt>` |
 | `gemini` | `gemini -p <prompt>` |
 
+### The config file
+
+| System | Path |
+| ------ | ---- |
+| Windows | `%AppData%\wowc-advisor\ask.json` |
+| macOS | `~/Library/Application Support/wowc-advisor/ask.json` |
+| Linux | `$XDG_CONFIG_HOME/wowc-advisor/ask.json`, else `~/.config/wowc-advisor/ask.json` |
+
+`wowc-advisor config path` prints it; `wowc-advisor config set agent <preset|command|auto>` writes the
+`"agent"` field and keeps the file's other keys (an empty value removes it).
+
+### Auto-detect (companion and the overlay)
+
+`wowc-advisor companion` starts with no agent at all: the character list, game-data badge, NEXT strip and
+digest work, and asking answers "No AI client set up yet…". When no `--agent` or config value is set (or the
+value is `auto`) it looks for `claude`, `codex` and `gemini`, in that order, and uses the first found. For
+each name it checks every directory of `PATH` first, then these (`.exe`, `.cmd`, `.bat` and `.com` on Windows):
+
+| System | Extra directories |
+| ------ | ----------------- |
+| Windows | `%USERPROFILE%\.local\bin`, `%USERPROFILE%\.claude\local`, `%APPDATA%\npm`, `%LOCALAPPDATA%\Programs\claude`, `%USERPROFILE%\scoop\shims`, `%ProgramFiles%\nodejs` |
+| macOS, Linux | `~/.local/bin`, `~/.claude/local`, `~/.npm-global/bin`, `/opt/homebrew/bin`, `/usr/local/bin` |
+
+An explicit `--agent` or config value always wins. `companion --handshake` reports the result in its JSON
+line: `"agent":"claude","agent_source":"auto"` (`agent_source` is `flag`, `config`, `auto` or `none`).
+`ask` and `ask --watch` do not auto-detect; they still need an agent.
+
 A custom command gets the prompt as its last argument, or wherever `{prompt}` / `{mcp_config}` appear.
 The agent's environment also has `WOWC_QUESTION`, `WOWC_CHARACTER` and `WOWC_MCP_CONFIG`. The MCP
 config starts `wowc-advisor serve --stdio` on your capture: codex and gemini need the same server

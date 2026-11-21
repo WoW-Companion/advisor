@@ -32,6 +32,7 @@ function notice(msg) {
 
 async function connect(c) {
   conn = c;
+  showAgent();
   if (events) events.close();
   banner(null);
   try {
@@ -50,11 +51,41 @@ async function connect(c) {
 }
 
 listen('sidecar-up', ev => connect(ev.payload));
-listen('sidecar-down', ev => { conn = null; if (events) events.close(); banner('The advisor stopped.' + (ev.payload ? ' ' + ev.payload : '')); });
+listen('sidecar-down', ev => { conn = null; $('aibar').hidden = true; if (events) events.close(); banner('The advisor stopped.' + (ev.payload ? ' ' + ev.payload : '')); });
 listen('notice', ev => notice(ev.payload));
 listen('mode', ev => { cfg.mode = ev.payload; save(); showMode(); });
 listen('clickthrough', ev => { $('ct').hidden = !ev.payload; });
 $('retry').onclick = () => { banner('Starting the advisor…'); invoke('restart_sidecar'); };
+
+// --- AI client -----------------------------------------------------------------------------
+// The choice is kept by the shell and passed to the sidecar as --agent: "" (no choice), "auto",
+// a preset name or a custom command. Changing it restarts the sidecar.
+
+const PRESETS = ['claude', 'codex', 'gemini'];
+let agentChoice = '';
+
+function showAgent() {
+  const known = agentChoice === '' || agentChoice === 'auto' || PRESETS.includes(agentChoice);
+  $('agent').value = known ? (agentChoice || 'auto') : 'custom';
+  $('agent-cmd-row').hidden = known;
+  if (!known) $('agent-cmd').value = agentChoice;
+  const auto = $('agent').options[0];
+  auto.textContent = 'Auto' + (conn && conn.agent_source === 'auto' && conn.agent ? ' (detected: ' + conn.agent + ')' : conn && !conn.agent ? ' (none found)' : '');
+  $('aibar').hidden = !conn || !!conn.agent;
+}
+async function chooseAgent(value) {
+  agentChoice = value;
+  banner('Restarting the advisor…');
+  try { await invoke('set_agent', { agent: value }); } catch (e) { banner('Could not save the AI client: ' + e); }
+}
+$('agent').onchange = ev => {
+  if (ev.target.value === 'custom') { agentChoice = $('agent-cmd').value.trim() || 'custom'; $('agent-cmd-row').hidden = false; $('agent-cmd').focus(); }
+  else chooseAgent(ev.target.value);
+};
+$('agent-cmd').onchange = ev => { if (ev.target.value.trim()) chooseAgent(ev.target.value.trim()); };
+for (const a of document.querySelectorAll('#aibar a')) {
+  a.onclick = ev => { ev.preventDefault(); invoke('open_install_page', { url: a.dataset.page }).catch(e => notice(String(e))); };
+}
 
 // --- window controls -----------------------------------------------------------------------
 
@@ -220,6 +251,8 @@ setInterval(() => showBadge(false), 30000);
   showMode();
   await invoke('set_mode', { overlay: cfg.mode === 'overlay' });
   await applyShortcuts();
+  agentChoice = await invoke('get_agent');
+  showAgent();
   // The sidecar may have said hello before this page loaded.
   const st = await invoke('get_status');
   if (st.conn) connect(st.conn);
