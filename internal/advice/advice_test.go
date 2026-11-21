@@ -126,7 +126,7 @@ func TestStepFacts(t *testing.T) {
 
 func TestLimitAndRender(t *testing.T) {
 	c := character.Character{Name: "Testrogue", Level: ip(12)}
-	steps := []Step{{KindQuest, "A", "r", "Z", []string{"s"}}, {KindQuest, "B", "r", "", []string{"s"}}}
+	steps := []Step{{Kind: KindQuest, Title: "A", Reason: "r", Zone: "Z", Sources: []string{"s"}}, {Kind: KindQuest, Title: "B", Reason: "r", Sources: []string{"s"}}}
 	if got := len(Limit(steps, 1)); got != 1 {
 		t.Errorf("Limit = %d", got)
 	}

@@ -61,7 +61,7 @@ func exercise(t *testing.T, cs *mcp.ClientSession) {
 	for _, tool := range tools.Tools {
 		names = append(names, tool.Name)
 	}
-	if strings.Join(names, ",") != "character_brief,list_characters,server_info,upgrade_finder,whats_next" {
+	if strings.Join(names, ",") != "character_brief,list_characters,server_info,update_digest,upgrade_finder,whats_next" {
 		t.Errorf("tools = %v", names)
 	}
 	call := func(name string, args map[string]any) (string, bool) {
@@ -91,6 +91,9 @@ func exercise(t *testing.T, cs *mcp.ClientSession) {
 	}
 	if text, isErr := call("upgrade_finder", map[string]any{"character": "testpriest", "slot": "knees"}); !isErr || !strings.Contains(text, "Unknown slot") {
 		t.Errorf("upgrade_finder bad slot = %q, error %v", text, isErr)
+	}
+	if text, isErr := call("update_digest", map[string]any{"character": "testpriest"}); !isErr || !strings.Contains(text, "cannot derive the digest path") {
+		t.Errorf("update_digest outside a game folder = %q, error %v", text, isErr)
 	}
 	if text, isErr := call("character_brief", map[string]any{"character": "Nobody"}); !isErr || !strings.Contains(text, "No captured character") {
 		t.Errorf("unknown character = %q, error %v", text, isErr)
@@ -157,5 +160,41 @@ func TestCompareBuilds(t *testing.T) {
 			(info.DatasetWarning != nil) != c.warns {
 			t.Errorf("%s: %+v", c.name, info)
 		}
+	}
+}
+
+// The digest is derived from the SavedVariables path, written into the installed slot addon, and
+// refused when the addon is not there.
+func TestWriteDigest(t *testing.T) {
+	game := t.TempDir()
+	sv := filepath.Join(game, "WTF", "Account", "ACCT", "SavedVariables", "ForeverScribe.lua")
+	os.MkdirAll(filepath.Dir(sv), 0o755)
+	data, _ := os.ReadFile(fixture("tree_priest.lua"))
+	os.WriteFile(sv, data, 0o644)
+	cfg := Config{SavedVariables: sv}
+
+	if _, err := WriteDigest(cfg, ""); err == nil || !strings.Contains(err.Error(), "not installed") {
+		t.Fatalf("without the addon: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(game, "Interface")); err == nil {
+		t.Fatal("created the addon folder")
+	}
+	slot := filepath.Join(game, "Interface", "AddOns", "WoWCompanion_Digest")
+	os.MkdirAll(slot, 0o755)
+	out, err := WriteDigest(cfg, "testpriest")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, _ := os.ReadFile(filepath.Join(slot, "Digest.lua"))
+	if out.Path != filepath.Join(slot, "Digest.lua") || !strings.Contains(out.Text, "/reload") ||
+		!strings.Contains(string(got), `character = "Testpriest"`) || out.Lines["notes"] == 0 {
+		t.Errorf("out = %+v\n%s", out, got)
+	}
+	override := filepath.Join(t.TempDir(), "d.lua")
+	if _, err := WriteDigest(Config{SavedVariables: fixture("tree_priest.lua"), DigestPath: override}, ""); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(override); err != nil {
+		t.Errorf("--digest-path ignored: %v", err)
 	}
 }

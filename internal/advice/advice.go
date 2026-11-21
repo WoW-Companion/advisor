@@ -34,8 +34,12 @@ type Step struct {
 	Title   string   `json:"title"`
 	Reason  string   `json:"reason"`
 	Zone    string   `json:"zone,omitempty"`
+	QuestID int      `json:"quest_id,omitempty"`
 	Sources []string `json:"sources"`
 }
+
+// AbandonPrefix starts the title of the step for a failed quest.
+const AbandonPrefix = "Abandon "
 
 const unknownZone = ""
 
@@ -101,11 +105,11 @@ func WhatsNext(c character.Character, ds store.DataStore) []Step {
 		info := lookup(q, ds)
 		switch {
 		case isTrue(q.Complete):
-			turnIns = append(turnIns, Step{KindTurnIn, "Turn in " + title(q), "ready to turn in", info.zone, info.sources})
+			turnIns = append(turnIns, Step{Kind: KindTurnIn, Title: "Turn in " + title(q), Reason: "ready to turn in", Zone: info.zone, QuestID: q.QuestID, Sources: info.sources})
 		case isTrue(q.Failed):
-			failed = append(failed, Step{KindQuest, "Abandon " + title(q), "failed; it cannot be completed", info.zone, info.sources})
+			failed = append(failed, Step{Kind: KindQuest, Title: AbandonPrefix + title(q), Reason: "failed; it cannot be completed", Zone: info.zone, QuestID: q.QuestID, Sources: info.sources})
 		default:
-			s := Step{Kind: KindQuest, Title: title(q), Zone: info.zone, Sources: info.sources}
+			s := Step{Kind: KindQuest, Title: title(q), Zone: info.zone, QuestID: q.QuestID, Sources: info.sources}
 			switch {
 			case info.level == nil:
 				s.Reason = "quest level unknown"

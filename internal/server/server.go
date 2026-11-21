@@ -19,6 +19,7 @@ import (
 	"github.com/WoW-Companion/advisor/internal/brief"
 	"github.com/WoW-Companion/advisor/internal/character"
 	"github.com/WoW-Companion/advisor/internal/dataset"
+	"github.com/WoW-Companion/advisor/internal/digest"
 	"github.com/WoW-Companion/advisor/internal/gear"
 	"github.com/WoW-Companion/advisor/internal/lua"
 	"github.com/WoW-Companion/advisor/internal/store"
@@ -37,6 +38,7 @@ const (
 type Config struct {
 	Dataset        string
 	SavedVariables string
+	DigestPath     string // the digest file to write; empty derives it from SavedVariables
 }
 
 // FromEnv fills empty fields from $WOWC_DATASET and $WOWC_SAVEDVARIABLES.
@@ -258,6 +260,66 @@ const DefaultUpgradeLimit = 3
 // DefaultLimit is how many steps whats_next returns when none is asked for.
 const DefaultLimit = 8
 
+// DigestInput is the update_digest argument.
+type DigestInput struct {
+	Character string `json:"character,omitempty" jsonschema:"character name; omit when only one was captured"`
+}
+
+// DigestOutput is the update_digest result.
+type DigestOutput struct {
+	Character string         `json:"character"`
+	Path      string         `json:"path" jsonschema:"the Digest.lua file written"`
+	Lines     map[string]int `json:"lines" jsonschema:"lines written, per section id"`
+	Text      string         `json:"text" jsonschema:"plain-text summary, with the /reload reminder"`
+}
+
+// WriteDigest builds the digest for one captured character and writes it atomically to the slot
+// addon. The slot addon must already be installed; nothing is created.
+func WriteDigest(cfg Config, name string) (DigestOutput, error) {
+	f, errResult := load(cfg.SavedVariables)
+	if errResult != nil {
+		return DigestOutput{}, errors.New(errResult.Content[0].(*mcp.TextContent).Text)
+	}
+	c, err := brief.Choose(f, name)
+	if err != nil {
+		return DigestOutput{}, err
+	}
+	path := cfg.DigestPath
+	if path == "" {
+		if path, err = digest.DigestPath(cfg.SavedVariables); err != nil {
+			return DigestOutput{}, err
+		}
+		if err := digest.CheckInstalled(path); err != nil {
+			return DigestOutput{}, err
+		}
+	}
+	opt := digest.Options{Now: time.Now(), Client: f.ClientOf(c)}
+	var ds store.DataStore
+	if cfg.Dataset != "" {
+		ds = store.NewDir(cfg.Dataset)
+		if m, err := store.ReadManifest(cfg.Dataset); err == nil && m != nil {
+			if v, ok := m["game_build"]; ok {
+				opt.DatasetBuild = toString(v)
+			}
+		}
+	}
+	d := digest.Build(c, ds, opt)
+	if err := digest.Write(path, d); err != nil {
+		return DigestOutput{}, fmt.Errorf("could not write the digest: %w", err)
+	}
+	out := DigestOutput{Character: d.Character, Path: path, Lines: map[string]int{}}
+	var counts []string
+	for _, s := range d.Sections {
+		out.Lines[s.ID] = len(s.Lines)
+		counts = append(counts, fmt.Sprintf("%s %d", s.ID, len(s.Lines)))
+	}
+	if len(counts) == 0 {
+		counts = []string{"no advice"}
+	}
+	out.Text = fmt.Sprintf("Wrote the digest for %s to %s (%s). Type /reload in game to show it.", d.Character, path, strings.Join(counts, ", "))
+	return out, nil
+}
+
 // New builds the server with its tools. The character file is read on every call.
 func New(cfg Config) *mcp.Server {
 	s := mcp.NewServer(&mcp.Implementation{Name: "wowc-advisor", Version: Version}, nil)
@@ -370,6 +432,19 @@ func New(cfg Config) *mcp.Server {
 			name = c.Key
 		}
 		return nil, UpgradeOutput{name, res.Spec, res.ItemLevelOnly, res.Slots, gear.Render(c, res)}, nil
+	})
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "update_digest",
+		Description: "Write the in-game digest for one captured character (by name; omit if only one) into the WoWCompanion_Digest addon: " +
+			"next quests, gear upgrades, materials to keep and notes, from whats_next and upgrade_finder. " +
+			"Replaces Digest.lua; the player then types /reload in game.",
+	}, func(_ context.Context, _ *mcp.CallToolRequest, in DigestInput) (*mcp.CallToolResult, DigestOutput, error) {
+		out, err := WriteDigest(cfg, in.Character)
+		if err != nil {
+			return toolError(err.Error()), DigestOutput{Lines: map[string]int{}}, nil
+		}
+		return nil, out, nil
 	})
 	return s
 }
