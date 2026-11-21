@@ -5,7 +5,8 @@ backed by a versioned Parquet game dataset. Tools today: `server_info`, `list_ch
 `character_brief` (a brief of your captured character). A Claude skill and a Windows setup guide
 are in [clients/](clients/) and [docs/try-it.md](docs/try-it.md).
 
-**New here? Start with the [quickstart](docs/quickstart.md):** one page from download to in-game advice.
+**Alpha tester on Windows? Start with [Getting Started](docs/getting-started.md)**, one short page. The full
+[quickstart](docs/quickstart.md) covers every path, from download to in-game advice.
 
 > WoW Companion is a fan project. It is not affiliated with or endorsed by Blizzard Entertainment. World of Warcraft and Warcraft are trademarks of Blizzard Entertainment, Inc.
 
