@@ -16,6 +16,7 @@ import (
 	"github.com/WoW-Companion/advisor/internal/dataset"
 	"github.com/WoW-Companion/advisor/internal/digest"
 	"github.com/WoW-Companion/advisor/internal/setup"
+	"github.com/WoW-Companion/advisor/internal/svfind"
 )
 
 // Statuses of a check. Info never fails the report.
@@ -36,6 +37,7 @@ const gamePathHint = "use a SavedVariables path like <game>/WTF/Account/<account
 // Options says what to check; Now and Env make it testable.
 type Options struct {
 	SavedVariables string
+	SVSource       string // "auto", "env" or "flag": where SavedVariables came from; empty says nothing
 	Cache          string // dataset cache root; empty means the per-user cache
 	Now            time.Time
 	Env            setup.Env
@@ -87,7 +89,7 @@ func (r *run) capture() (character.File, bool) {
 	const name = "SavedVariables"
 	sv := r.opt.SavedVariables
 	if sv == "" {
-		r.fail(name, "no SavedVariables file configured", "pass --savedvariables PATH or set WOWC_SAVEDVARIABLES to your ForeverScribe.lua")
+		r.fail(name, "no SavedVariables file configured: "+svfind.Detect().NotFound("WOWC_SAVEDVARIABLES"), "pass --savedvariables PATH or set WOWC_SAVEDVARIABLES to your ForeverScribe.lua")
 		return character.File{}, false
 	}
 	f, err := character.LoadFile(sv)
@@ -99,10 +101,23 @@ func (r *run) capture() (character.File, bool) {
 	case len(f.Characters) == 0:
 		r.fail(name, sv+" lists no characters", "log in with a character and log out so ForeverScribe captures it")
 	default:
-		r.pass(name, fmt.Sprintf("%s parses, %d character(s)", sv, len(f.Characters)))
+		r.pass(name, fmt.Sprintf("%s parses, %d character(s)%s", sv, len(f.Characters), r.sourceNote()))
 		return f, true
 	}
 	return f, false
+}
+
+// sourceNote says where the path came from, for the SavedVariables check.
+func (r *run) sourceNote() string {
+	switch r.opt.SVSource {
+	case "auto":
+		return " (auto-detected)"
+	case "env":
+		return " (from WOWC_SAVEDVARIABLES)"
+	case "flag":
+		return " (from --savedvariables)"
+	}
+	return ""
 }
 
 // freshness checks the capture's age and returns the client that wrote it.

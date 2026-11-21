@@ -88,7 +88,7 @@ func digestCmd(ctx context.Context, args []string, stdout, stderr io.Writer) err
 	if fs.NArg() == 1 {
 		name = fs.Arg(0)
 	}
-	cfg = cfg.FromEnv()
+	cfg = resolve(cfg, stderr)
 	if cfg.Dataset == "" {
 		cfg.Dataset = autoDataset(ctx, *cache, cfg.SavedVariables, stderr)
 	}
@@ -140,7 +140,7 @@ func serve(ctx context.Context, args []string, stderr io.Writer) error {
 		fmt.Fprintf(stderr, "wowc-advisor: knowledge-only, dataset %s build %s\n", d.Base, d.Manifest.GameBuild)
 		s = hosted.New(d)
 	} else {
-		cfg = cfg.FromEnv()
+		cfg = resolve(cfg, stderr)
 		if cfg.Dataset == "" {
 			cfg.Dataset = autoDataset(ctx, *cache, cfg.SavedVariables, stderr)
 		}
@@ -162,4 +162,13 @@ func serve(ctx context.Context, args []string, stderr io.Writer) error {
 		return err
 	}
 	return nil
+}
+
+// resolve fills cfg from the environment and, when SavedVariables was auto-detected, says which file.
+func resolve(cfg server.Config, stderr io.Writer) server.Config {
+	cfg = cfg.FromEnv()
+	if cfg.SVNote != "" {
+		fmt.Fprintln(stderr, cfg.SVNote)
+	}
+	return cfg
 }

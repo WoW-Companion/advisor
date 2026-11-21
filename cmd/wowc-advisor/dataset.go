@@ -66,7 +66,7 @@ func datasetCmd(ctx context.Context, args []string, stdout, stderr io.Writer) er
 	if err != nil {
 		return err
 	}
-	client := server.CaptureClient(server.Config{SavedVariables: *sv}.FromEnv().SavedVariables)
+	client := server.CaptureClient(resolve(server.Config{SavedVariables: *sv}, stderr).SavedVariables)
 	if args[0] == "update" {
 		want := *build
 		if want == "" {

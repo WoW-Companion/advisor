@@ -29,6 +29,9 @@ Success: `C:\Users\<you>\wowc-advisor.exe version` prints `wowc-advisor` and a v
 
 ## 4. Connect your AI client
 
+On a standard install you can skip the `--savedvariables` path here: the advisor finds
+`ForeverScribe.lua` itself (see the FAQ). The client entry still has to be written once.
+
 Command (Claude Desktop shown; the others are `claude-code`, `codex` and `gemini`):
 
 ```
@@ -42,9 +45,10 @@ Success: the command names the config file it wrote and keeps a `.bak` copy of t
 
 ## 5. Check the setup
 
-Command: `wowc-advisor doctor --savedvariables "<the same path>"`
+Command: `wowc-advisor doctor` (add `--savedvariables "<the path>"` only if your WoW is not in a
+standard folder)
 
-Success: every check passes. A failing check prints the fix for it. The game dataset is downloaded
+Success: every check passes, and the SavedVariables line says `(auto-detected)` or where else the path came from. A failing check prints the fix for it. The game dataset is downloaded
 on first use and cached; the check says if it is missing.
 
 ## 6. Ask your AI client
@@ -63,7 +67,7 @@ Success: the panel opens and shows your next quests, upgrades, materials and not
 ## 8. Ask from inside the game
 
 Command: type `/ask <question>` in game (or use the Ask box in the panel). `/reload` once to send it
-out, run `wowc-advisor ask --agent claude --savedvariables "<the same path>"` (or `--watch` to keep
+out, run `wowc-advisor ask --agent claude` (or `--watch` to keep
 polling), then `/reload` again.
 
 Success: the answer appears under your question in the panel. `claude`, `codex` and `gemini` are the
@@ -103,6 +107,14 @@ played is kept.
 **The digest is stale.** The panel shows its age and asks for a refresh after 12 hours. Ask your AI
 client to "refresh my digest" (or run `wowc-advisor digest`), then `/reload`. If the capture itself is
 old, `/reload` in game first so ForeverScribe writes a new one.
+
+**Where does it look for `ForeverScribe.lua`?** With no `--savedvariables` and no `WOWC_SAVEDVARIABLES`,
+the advisor searches `C:\Program Files (x86)\World of Warcraft`, `C:\Program Files\World of Warcraft`, the same
+two folders on every other drive, and (on macOS) `/Applications/World of Warcraft`, for
+`_forever_\WTF\Account\*\SavedVariables\ForeverScribe.lua` (then `_classic_era_` and `_retail_`). It prints
+one line naming the file it picked; with several accounts it takes the most recently modified one and lists
+the others. To use a different file, pass `--savedvariables` or run
+`setx WOWC_SAVEDVARIABLES "<path to ForeverScribe.lua>"` (then open a new terminal). An explicit path always wins.
 
 **Windows paths.** In JSON config files use forward slashes or doubled backslashes
 (`C:/Users/<you>/wowc-advisor.exe`). In PowerShell or cmd, quote any path with spaces, such as

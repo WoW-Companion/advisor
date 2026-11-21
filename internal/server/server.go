@@ -32,6 +32,7 @@ import (
 	"github.com/WoW-Companion/advisor/internal/quests"
 	"github.com/WoW-Companion/advisor/internal/setup"
 	"github.com/WoW-Companion/advisor/internal/store"
+	"github.com/WoW-Companion/advisor/internal/svfind"
 	"github.com/WoW-Companion/advisor/internal/talents"
 )
 
@@ -50,15 +51,36 @@ type Config struct {
 	SavedVariables string
 	DigestPath     string // the digest file to write; empty derives it from SavedVariables
 	Cache          string // dataset cache directory for doctor; empty is the per-user cache
+
+	// SVSource says where SavedVariables came from once FromEnv has run: SVFlag, SVEnv or SVAuto.
+	SVSource string
+	// SVNote is the one line telling which file auto-detect picked; empty otherwise.
+	SVNote string
 }
 
-// FromEnv fills empty fields from $WOWC_DATASET and $WOWC_SAVEDVARIABLES.
+// Where SavedVariables came from.
+const (
+	SVFlag = "flag"
+	SVEnv  = "env"
+	SVAuto = "auto"
+)
+
+// FromEnv fills empty fields from $WOWC_DATASET and $WOWC_SAVEDVARIABLES. An empty SavedVariables
+// that the environment leaves empty is searched for in the standard WoW install folders; an explicit
+// flag or variable always wins.
 func (c Config) FromEnv() Config {
 	if c.Dataset == "" {
 		c.Dataset = os.Getenv(DatasetEnv)
 	}
-	if c.SavedVariables == "" {
-		c.SavedVariables = os.Getenv(SavedVariablesEnv)
+	switch {
+	case c.SavedVariables != "":
+		c.SVSource = SVFlag
+	case os.Getenv(SavedVariablesEnv) != "":
+		c.SavedVariables, c.SVSource = os.Getenv(SavedVariablesEnv), SVEnv
+	default:
+		if res := svfind.Detect(); res.Path != "" {
+			c.SavedVariables, c.SVSource, c.SVNote = res.Path, SVAuto, res.Note(SavedVariablesEnv)
+		}
 	}
 	return c
 }
@@ -208,7 +230,7 @@ func toolError(msg string) *mcp.CallToolResult {
 
 func load(path string) (character.File, *mcp.CallToolResult) {
 	if path == "" {
-		return character.File{}, toolError("No SavedVariables file configured (set WOWC_SAVEDVARIABLES).")
+		return character.File{}, toolError("No SavedVariables file configured: " + svfind.Detect().NotFound(SavedVariablesEnv))
 	}
 	f, err := character.LoadFile(path)
 	switch {
@@ -458,7 +480,7 @@ func Diagnose(cfg Config) doctor.Report {
 	env := setup.Env{GOOS: runtime.GOOS, AppData: os.Getenv("APPDATA")}
 	env.Home, _ = os.UserHomeDir()
 	env.Cwd, _ = os.Getwd()
-	return doctor.Run(doctor.Options{SavedVariables: cfg.SavedVariables, Cache: cfg.Cache, Env: env})
+	return doctor.Run(doctor.Options{SavedVariables: cfg.SavedVariables, SVSource: cfg.SVSource, Cache: cfg.Cache, Env: env})
 }
 
 // New builds the server with its tools. The character file is read on every call.
