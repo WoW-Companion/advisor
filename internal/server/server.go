@@ -22,6 +22,7 @@ import (
 	"github.com/WoW-Companion/advisor/internal/digest"
 	"github.com/WoW-Companion/advisor/internal/dungeons"
 	"github.com/WoW-Companion/advisor/internal/gear"
+	"github.com/WoW-Companion/advisor/internal/inventory"
 	"github.com/WoW-Companion/advisor/internal/lua"
 	"github.com/WoW-Companion/advisor/internal/professions"
 	"github.com/WoW-Companion/advisor/internal/store"
@@ -296,6 +297,22 @@ type DungeonOutput struct {
 	Picks     []dungeons.DungeonPick `json:"picks"`
 	Unknown   []dungeons.DungeonPick `json:"level_unknown"`
 	Text      string                 `json:"text" jsonschema:"plain-text rendering"`
+}
+
+// InventoryInput is the inventory_review argument.
+type InventoryInput struct {
+	Character string `json:"character,omitempty" jsonschema:"character name; omit when only one was captured"`
+}
+
+// InventoryOutput is the inventory_review result.
+type InventoryOutput struct {
+	Character      string                       `json:"character"`
+	Groups         map[string][]inventory.Entry `json:"groups" jsonschema:"stacks per group: equip, keep, quest, vendor, bank, unknown"`
+	VendorValue    *int64                       `json:"vendor_value_copper" jsonschema:"copper the priced vendor stacks sell for; null when no price is known"`
+	VendorUnpriced int                          `json:"vendor_unpriced" jsonschema:"vendor stacks with no known price"`
+	SlotsFreed     int                          `json:"bag_slots_freed"`
+	Notes          []string                     `json:"notes"`
+	Text           string                       `json:"text" jsonschema:"plain-text rendering"`
 }
 
 // DefaultDungeonLimit is how many ranked dungeons dungeon_plan lists when none is asked for.
@@ -580,6 +597,41 @@ func New(cfg Config) *mcp.Server {
 			picks = picks[:limit]
 		}
 		return nil, DungeonOutput{name, picks, res.Unknown, dungeons.Render(c, res, limit)}, nil
+	})
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "inventory_review",
+		Description: "What to do with the bags and bank of one captured character (by name; omit if only one): each stack goes to the first group that fits, " +
+			"equip now (a gear upgrade), keep for professions, quest item, vendor (grey quality), bank, or unknown, with its reason, " +
+			"plus the vendor value and bag slots freed. Prices, quest links and items the dataset lacks are reported as unknown, never guessed. A dataset is optional but without it most items are unknown.",
+	}, func(_ context.Context, _ *mcp.CallToolRequest, in InventoryInput) (*mcp.CallToolResult, InventoryOutput, error) {
+		none := InventoryOutput{Groups: map[string][]inventory.Entry{}, Notes: []string{}}
+		f, errResult := load(cfg.SavedVariables)
+		if errResult != nil {
+			return errResult, none, nil
+		}
+		c, err := brief.Choose(f, in.Character)
+		if err != nil {
+			return toolError(err.Error()), none, nil
+		}
+		var ds store.DataStore
+		if cfg.Dataset != "" {
+			ds = store.NewDir(cfg.Dataset)
+		}
+		r := inventory.Review(c, ds)
+		name := c.Name
+		if name == "" {
+			name = c.Key
+		}
+		out := InventoryOutput{Character: name, Groups: map[string][]inventory.Entry{}, VendorUnpriced: r.VendorUnpriced,
+			SlotsFreed: r.SlotsFreed, Notes: append([]string{}, r.Notes...), Text: inventory.Render(r)}
+		for g, l := range r.Groups {
+			out.Groups[string(g)] = l
+		}
+		if n := len(r.Groups[inventory.Vendor]); n > r.VendorUnpriced {
+			out.VendorValue = &r.VendorValue
+		}
+		return nil, out, nil
 	})
 
 	mcp.AddTool(s, &mcp.Tool{

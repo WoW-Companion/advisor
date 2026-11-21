@@ -386,3 +386,31 @@ func KeepList(c character.Character, ds store.DataStore) ([]Keep, error) {
 	})
 	return out, nil
 }
+
+// FarMaterials returns the reagent item ids, with their professions, of recipes the character
+// cannot learn for more than KeepWindow skill points: materials to bank, not to carry. A
+// profession with no captured skill or no recipes in the dataset contributes nothing.
+func FarMaterials(c character.Character, ds store.DataStore) map[int64][]string {
+	out := map[int64][]string{}
+	if ds == nil {
+		return out
+	}
+	for _, pr := range c.Professions {
+		recipes, err := Recipes(ds, pr.Name)
+		if err != nil || pr.Rank == nil {
+			continue
+		}
+		for _, r := range recipes {
+			if r.LearnSkill == nil || *r.LearnSkill <= *pr.Rank+KeepWindow {
+				continue
+			}
+			for _, row := range reagentsOf(ds, r.SpellID) {
+				id, _ := row["reagent_item_id"].(int64)
+				if l := out[id]; len(l) == 0 || l[len(l)-1] != pr.Name {
+					out[id] = append(l, pr.Name)
+				}
+			}
+		}
+	}
+	return out
+}

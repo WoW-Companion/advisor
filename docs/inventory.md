@@ -1,0 +1,29 @@
+# inventory_review
+
+`inventory_review(character)` sorts every bag and bank stack of a captured character into one
+group, each with a short reason, and sums the vendor value and the bag slots freed. The digest's
+`keep_materials` section is unchanged.
+
+**Groups.** A stack takes the first group that fits:
+
+1. **Equip now**: `gear.Upgrades` lists the item as an upgrade for one of the character's slots.
+2. **Keep for professions**: `professions.KeepList` lists it (a reagent of a recipe learnable within
+   50 skill points and not yet grey).
+3. **Quest item**: an open (not failed) quest of the capture has an unfinished item objective whose
+   text starts with the item's name. The dataset holds no quest-to-item requirement table, so a quest
+   the capture does not state this for is not linked.
+4. **Vendor**: grey (quality 0) in the dataset. The sell price is read from an `items.sell_price`
+   column when the dataset has one; the current dataset has none, so the value is reported as
+   unknown.
+5. **Bank**: a reagent only of recipes more than 50 skill points above the character's skill
+   (`professions.FarMaterials`), or equippable gear that is not an upgrade.
+6. **Unknown**: everything else, including items the dataset has no row for.
+
+**Summary.** *Vendor value* adds the priced vendor stacks; unpriced stacks are counted and left out,
+and with none priced the value is "unknown". *Bag slots freed* counts the stacks in the bags that
+fall in Vendor or Bank (stacks already in the bank free no bag slot).
+
+Without a dataset, only quest links come from the capture; everything else is unknown. With no bank
+capture the review covers the bags only and says so.
+
+Operator check: run `inventory_review` against a real ForeverScribe capture and a built dataset.

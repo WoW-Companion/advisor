@@ -61,7 +61,7 @@ func exercise(t *testing.T, cs *mcp.ClientSession) {
 	for _, tool := range tools.Tools {
 		names = append(names, tool.Name)
 	}
-	if strings.Join(names, ",") != "character_brief,dungeon_plan,list_characters,profession_plan,server_info,talent_plan,update_digest,upgrade_finder,whats_next" {
+	if strings.Join(names, ",") != "character_brief,dungeon_plan,inventory_review,list_characters,profession_plan,server_info,talent_plan,update_digest,upgrade_finder,whats_next" {
 		t.Errorf("tools = %v", names)
 	}
 	call := func(name string, args map[string]any) (string, bool) {
@@ -97,6 +97,9 @@ func exercise(t *testing.T, cs *mcp.ClientSession) {
 	}
 	if text, isErr := call("dungeon_plan", map[string]any{"character": "testpriest"}); !isErr || !strings.Contains(text, "No dataset configured") {
 		t.Errorf("dungeon_plan without dataset = %q, error %v", text, isErr)
+	}
+	if text, isErr := call("inventory_review", map[string]any{"character": "testpriest"}); isErr || !strings.Contains(text, "Bag slots freed: 0") || !strings.Contains(text, "No dataset configured") {
+		t.Errorf("inventory_review without dataset = %q, error %v", text, isErr)
 	}
 	if text, isErr := call("update_digest", map[string]any{"character": "testpriest"}); !isErr || !strings.Contains(text, "cannot derive the digest path") {
 		t.Errorf("update_digest outside a game folder = %q, error %v", text, isErr)
