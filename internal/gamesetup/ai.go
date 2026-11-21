@@ -20,7 +20,7 @@ func AIItem(name string) Item {
 		it.Status, it.Detail = Bad, "None found. "+AIInstallNote
 		return it
 	}
-	it.Status, it.Detail = OK, name+" detected."
+	it.Status, it.Detail = OK, ask.DisplayName(name)+" detected."
 	it.Action, it.Label = ActTestAI, "Test"
 	return it
 }

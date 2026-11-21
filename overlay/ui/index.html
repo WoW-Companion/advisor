@@ -47,39 +47,55 @@
   </section>
 
   <section id="settings" class="settings" hidden>
-    <label>Setup checklist <button id="setup-open" type="button">Setup</button></label>
-    <label>Opacity <input id="opacity" type="range" min="0" max="100" step="5"> <output id="opacity-out"></output></label>
-    <label>Solid on hover <input id="solid-hover" type="checkbox"></label>
-    <label>AI client
-      <select id="agent">
-        <option value="auto">Auto</option>
-        <option value="claude">Claude</option>
-        <option value="codex">Codex</option>
-        <option value="gemini">Gemini</option>
-        <option value="custom">Custom command</option>
-      </select>
-      <button id="agent-rescan" type="button" title="Look for installed AI clients again">Re-scan</button>
-    </label>
-    <label id="agent-cmd-row" hidden>Command <input id="agent-cmd" placeholder="my-agent --flag"></label>
-    <label>Model
-      <select id="model" aria-label="Model"></select>
-      <select id="reasoning" aria-label="Reasoning level"></select>
-    </label>
-    <label id="model-custom-row" hidden>Model name <input id="model-custom" placeholder="a model name"></label>
-    <label>Answer length
-      <select id="length"><option value="brief">Brief</option><option value="standard">Standard</option><option value="detailed">Detailed</option></select>
-    </label>
-    <label>Show tokens used <input id="usage" type="checkbox"></label>
-    <label>Keep in-game advice up to date <input id="auto-digest" type="checkbox"> <span id="auto-digest-note"></span></label>
-    <label>Show / hide <input id="key-vis" class="key" readonly></label>
-    <label>Click-through <input id="key-ct" class="key" readonly></label>
-    <label>Check for updates <input id="check-updates" type="checkbox"></label>
-    <label>Text size
-      <select id="size"><option value="S">Small</option><option value="M">Medium</option><option value="L">Large</option></select>
-    </label>
-    <small>Opacity fades only the panel background. At 0% with click-through on, bring the panel back with the show/hide shortcut or the tray icon.</small>
+    <div class="settings-body">
+    <details class="grp" data-group="appearance">
+      <summary>Appearance</summary>
+      <label class="row"><span class="lbl">Opacity</span><span class="ctl"><input id="opacity" type="range" min="0" max="100" step="5"> <output id="opacity-out"></output></span></label>
+      <label class="row"><span class="lbl">Solid on hover</span><span class="ctl"><input id="solid-hover" type="checkbox"></span></label>
+      <label class="row"><span class="lbl">Text size</span><span class="ctl"><select id="size"><option value="S">Small</option><option value="M">Medium</option><option value="L">Large</option></select></span></label>
+      <small>Opacity fades only the panel background. At 0% with click-through on, bring the panel back with the show/hide shortcut or the tray icon.</small>
+    </details>
+    <details class="grp" data-group="ai">
+      <summary>AI</summary>
+      <label class="row"><span class="lbl">AI client</span><span class="ctl">
+        <select id="agent">
+          <option value="auto">Auto</option>
+          <option value="claude">Claude Code</option>
+          <option value="codex">Codex</option>
+          <option value="gemini">Gemini CLI</option>
+          <option value="custom">Custom command</option>
+        </select>
+        <button id="agent-rescan" type="button" title="Look for installed AI clients again">Re-scan</button>
+      </span></label>
+      <label class="row" id="agent-cmd-row" hidden><span class="lbl">Command</span><span class="ctl"><input id="agent-cmd" placeholder="my-agent --flag"></span></label>
+      <label class="row"><span class="lbl">Model</span><span class="ctl">
+        <select id="model" aria-label="Model"></select>
+        <select id="reasoning" aria-label="Reasoning level"></select>
+      </span></label>
+      <label class="row" id="model-custom-row" hidden><span class="lbl">Model name</span><span class="ctl"><input id="model-custom" placeholder="a model name"></span></label>
+      <label class="row"><span class="lbl">Answer length</span><span class="ctl">
+        <select id="length"><option value="brief">Brief</option><option value="standard">Standard</option><option value="detailed">Detailed</option></select>
+      </span></label>
+      <label class="row"><span class="lbl">Show tokens used</span><span class="ctl"><input id="usage" type="checkbox"></span></label>
+    </details>
+    <details class="grp" data-group="game">
+      <summary>Game</summary>
+      <label class="row"><span class="lbl">Keep in-game advice up to date</span><span class="ctl"><input id="auto-digest" type="checkbox"></span></label>
+      <small id="auto-digest-note"></small>
+      <label class="row"><span class="lbl">Setup checklist</span><span class="ctl"><button id="setup-open" type="button">Setup</button></span></label>
+    </details>
+    <details class="grp" data-group="shortcuts">
+      <summary>Shortcuts</summary>
+      <label class="row"><span class="lbl">Show / hide</span><span class="ctl"><input id="key-vis" class="key" readonly></span></label>
+      <label class="row"><span class="lbl">Click-through</span><span class="ctl"><input id="key-ct" class="key" readonly></span></label>
+      <small>Focus a shortcut box and press the new keys (with Ctrl, Shift or Alt).</small>
+    </details>
+    <details class="grp" data-group="updates">
+      <summary>Updates</summary>
+      <label class="row"><span class="lbl">Check for updates</span><span class="ctl"><input id="check-updates" type="checkbox"></span></label>
+    </details>
+    </div>
     <small id="version" class="version"></small>
-    <small>Focus a shortcut box and press the new keys (with Ctrl, Shift or Alt).</small>
   </section>
 
   <div class="bar">
