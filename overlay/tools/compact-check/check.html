@@ -1,0 +1,133 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>compact check</title>
+<!-- Loads the real overlay page in a 340x480 iframe with a stubbed Tauri shell and sidecar and checks
+     that the settings, NEXT and chat panes show, hide and are remembered, the age chip, the text size,
+     the title bar's hit areas and the chat's share of the panel height. Run via run.sh; the verdict is
+     written to the pre element below. -->
+<pre id="out">pending</pre>
+<script>
+const fails = [], lines = [];
+const shown = (d, id) => {
+  for (let e = d.getElementById(id); e; e = e.parentElement) if (d.defaultView.getComputedStyle(e).display === 'none') return false;
+  return true;
+};
+const tick = (ms = 50) => new Promise(r => setTimeout(r, ms));
+const ex = [{ id: 1, source: 'game', question: 'What now?', answer: 'Turn in the quest, then head to the next hub and pick up the follow-ups.', status: 'done', character: 'Gen' }];
+const stateWith = (over = {}) => ({ captured_at: Date.now() / 1000, characters: [{ key: 'a', name: 'Genaenyu', level: 9, class: 'WARRIOR', next: ['Turn in Unnerving Silence (+2)', 'Kill 8 boars', 'Learn Charge'] }], default: 'a', history: ex, ...over });
+
+// Loads the page; `saved` is what localStorage held (the remembered window state).
+async function load(name, { saved = null, state = stateWith(), w = 340, h = 480 } = {}) {
+  if (saved) localStorage.setItem('wowc', JSON.stringify(saved)); else localStorage.removeItem('wowc');
+  const conn = { url: 'http://x', token: 't', agent: 'claude', agent_source: 'auto', agent_path: '' };
+  const html = (await (await fetch('/ui/index.html')).text()).replace('<script src="app.js">', `<script>
+    window.__TAURI__ = {
+      core: { invoke: async (cmd) => cmd === 'get_agent' ? '' : cmd === 'get_status' ? { conn: ${JSON.stringify(conn)}, error: '' } : null },
+      event: { listen: () => {} },
+      window: { getCurrentWindow: () => ({}) },
+    };
+    window.fetch = async () => ({ ok: true, json: async () => (${JSON.stringify(state)}) });
+    window.EventSource = function () { this.addEventListener = () => {}; this.close = () => {}; };
+  <\/script><script src="app.js">`).replace('<head>', '<head><base href="/ui/">');
+  const f = document.createElement('iframe');
+  f.style.cssText = `width:${w}px;height:${h}px;border:0;position:absolute;left:0;top:0`;
+  f.srcdoc = html;
+  document.body.append(f);
+  await new Promise(r => f.onload = r);
+  await f.contentDocument.fonts.ready;
+  await tick(150);
+  return { f, d: f.contentDocument, win: f.contentWindow, name };
+}
+const stored = () => JSON.parse(localStorage.getItem('wowc') || '{}');
+const want = (p, what, got, exp) => { if (got !== exp) fails.push(`${p.name}: ${what} is ${JSON.stringify(got)}, want ${JSON.stringify(exp)}`); };
+const H = (d, sel) => d.querySelector(sel).getBoundingClientRect().height;
+
+(async () => {
+  // Defaults: settings collapsed; NEXT collapsed because the chat has a message; chat shown.
+  let p = await load('defaults');
+  want(p, 'settings shown', shown(p.d, 'settings'), false);
+  want(p, 'next list shown', shown(p.d, 'next-list'), false);
+  want(p, 'next line shown', shown(p.d, 'next-line'), true);
+  want(p, 'next line', p.d.getElementById('next-line').textContent, 'Turn in Unnerving Silence (+2)');
+  want(p, 'chat shown', shown(p.d, 'log'), true);
+  want(p, 'old data line gone', p.d.querySelector('.bar').textContent.includes('data from game'), false);
+  want(p, 'chip tooltip', p.d.getElementById('badge').title.startsWith('data from game: '), true);
+  want(p, 'chip text', p.d.getElementById('badge').textContent, 'now');
+  want(p, 'size', p.d.body.dataset.size, 'M');
+  const mFont = parseFloat(p.win.getComputedStyle(p.d.body).fontSize);
+  want(p, 'M font px', mFont, 12.5);
+  const titleFont = parseFloat(p.win.getComputedStyle(p.d.querySelector('h1')).fontSize);
+  // The space check: settings and NEXT collapsed, one exchange in the chat.
+  const panel = H(p.d, '#panel'), logH = H(p.d, '#log');
+  lines.push(`340x480: panel ${panel}px, chat ${logH}px = ${(100 * logH / panel).toFixed(1)}%`);
+  if (logH < 0.6 * panel) fails.push(`space: chat is ${(100 * logH / panel).toFixed(1)}% of the panel, want >= 60%`);
+  // Title bar: every button keeps its 28px hit area and the bar does not grow.
+  for (const b of p.d.querySelectorAll('.titlebar button')) {
+    const r = b.getBoundingClientRect();
+    if (r.width < 28 || r.height < 28) fails.push(`titlebar: #${b.id} is ${r.width}x${r.height}, want 28x28`);
+  }
+  if (H(p.d, '.titlebar') > 44) fails.push('titlebar: grew past 44px');
+  const barOverflow = [...p.d.querySelector('.bar').children].some(e => e.getBoundingClientRect().right > 340);
+  want(p, 'character row on one line', H(p.d, '.bar') < 40 && !barOverflow, true);
+  // Toggling NEXT and settings is remembered.
+  p.d.getElementById('next-head').click(); await tick();
+  want(p, 'next list after click', shown(p.d, 'next-list'), true);
+  want(p, 'next saved', stored().nextOpen, true);
+  p.d.getElementById('settings-btn').click(); await tick();
+  want(p, 'settings after click', shown(p.d, 'settings'), true);
+  want(p, 'settings saved', stored().settingsOpen, true);
+  p.d.getElementById('chat-toggle').click(); await tick();
+  want(p, 'chat after toggle', shown(p.d, 'log'), false);
+  want(p, 'chat saved', stored().chatOpen, false);
+  const saved = stored();
+  p.f.remove();
+
+  // Reload with what was saved: the three panes come back as left.
+  p = await load('restored', { saved });
+  want(p, 'settings restored', shown(p.d, 'settings'), true);
+  want(p, 'next restored', shown(p.d, 'next-list'), true);
+  want(p, 'chat restored', shown(p.d, 'log'), false);
+  p.f.remove();
+  p = await load('restored-collapsed', { saved: { ...saved, settingsOpen: false, nextOpen: false, chatOpen: true } });
+  want(p, 'settings restored closed', shown(p.d, 'settings'), false);
+  want(p, 'next restored closed', shown(p.d, 'next-list'), false);
+  want(p, 'chat restored open', shown(p.d, 'log'), true);
+  p.f.remove();
+
+  // NEXT starts open while the chat is empty.
+  p = await load('empty chat', { state: stateWith({ history: [] }) });
+  want(p, 'next list shown with no chat', shown(p.d, 'next-list'), true);
+  p.f.remove();
+
+  // Text size: S < M < L on the body, the title unchanged.
+  const px = {};
+  for (const s of ['S', 'M', 'L']) {
+    p = await load('size ' + s, { saved: { size: s } });
+    px[s] = parseFloat(p.win.getComputedStyle(p.d.querySelector('.msg')).fontSize);
+    want(p, 'title px', parseFloat(p.win.getComputedStyle(p.d.querySelector('h1')).fontSize), titleFont);
+    p.f.remove();
+  }
+  if (!(px.S === 11.5 && px.M === 12.5 && px.L === 14.5)) fails.push('size: message font px ' + JSON.stringify(px) + ', want 11.5 / 12.5 / 14.5');
+  p = await load('size select'); p.d.getElementById('settings-btn').click();
+  p.d.getElementById('size').value = 'L'; p.d.getElementById('size').dispatchEvent(new Event('change')); await tick();
+  want(p, 'size after change', p.d.body.dataset.size + '/' + stored().size, 'L/L'); p.f.remove();
+
+  // Age chip colours: gold fresh, amber over 30 min, red over 2 h.
+  for (const [age, cls, txt] of [[120, 'chip', '2m'], [2000, 'chip amber', '33m'], [3000, 'chip amber', '50m'], [8000, 'chip red', '2h'], [90000, 'chip red', '1d']]) {
+    p = await load('chip ' + age, { state: stateWith({ captured_at: Date.now() / 1000 - age }) });
+    const c = p.d.getElementById('badge');
+    want(p, 'chip class', c.className, cls); want(p, 'chip text', c.textContent, txt);
+    p.f.remove();
+  }
+
+  // Clear empties the chat and survives a reload.
+  p = await load('clear'); p.d.getElementById('clear').click(); await tick();
+  want(p, 'messages after Clear', p.d.querySelectorAll('.msg').length, 0);
+  const afterClear = stored(); p.f.remove();
+  p = await load('after clear', { saved: afterClear });
+  want(p, 'messages after reload', p.d.querySelectorAll('.msg').length, 0); p.f.remove();
+
+  localStorage.removeItem('wowc');
+  document.getElementById('out').textContent = (fails.length ? 'FAIL\n' + fails.join('\n') : 'PASS') + '\n' + lines.join('\n');
+})();
+</script>

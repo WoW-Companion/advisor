@@ -6,7 +6,8 @@ const win = window.__TAURI__.window.getCurrentWindow();
 
 const $ = id => document.getElementById(id);
 const log = $('log'), who = $('who'), badge = $('badge'), text = $('text'), send = $('send');
-const DEFAULTS = { opacity: 92, solidHover: false, mode: 'overlay', keyVis: 'Ctrl+Shift+W', keyCt: 'Ctrl+Shift+T', nextOpen: true, who: '' };
+const DEFAULTS = { opacity: 92, solidHover: false, mode: 'overlay', keyVis: 'Ctrl+Shift+W', keyCt: 'Ctrl+Shift+T', nextOpen: null, settingsOpen: false, chatOpen: true, size: 'M', cleared: [], who: '' };
+// nextOpen null means automatic: open until the chat has a message, then collapsed. A click makes it a choice.
 const cfg = { ...DEFAULTS, ...JSON.parse(localStorage.getItem('wowc') || '{}') };
 const save = () => localStorage.setItem('wowc', JSON.stringify(cfg));
 
@@ -97,7 +98,7 @@ async function connect(c) {
   if (conn !== c) return;
   events = sse('/api/events');
   const es = events;
-  events.addEventListener('game', ev => { state = JSON.parse(ev.data); setChars(); showBadge(true); });
+  events.addEventListener('game', ev => { state = JSON.parse(ev.data); setChars(); showBadge(); });
   events.addEventListener('history', ev => render(JSON.parse(ev.data).filter(e => e.source === 'game')));
   events.onerror = () => {
     // The stream drops when the sidecar dies or is restarted; only a drop of the current stream
@@ -166,7 +167,29 @@ $('mode').onclick = () => invoke('set_mode', { overlay: cfg.mode !== 'overlay' }
 $('tray').onclick = () => invoke('hide_window');
 $('close').onclick = () => invoke('quit');
 $('grip').onmousedown = ev => { ev.preventDefault(); win.startResizeDragging('SouthEast'); };
-$('settings-btn').onclick = () => { $('settings').hidden = !$('settings').hidden; };
+function showPanes() {
+  $('settings').hidden = !cfg.settingsOpen;
+  $('settings-btn').setAttribute('aria-expanded', String(cfg.settingsOpen));
+  const next = nextOpen();
+  $('next').classList.toggle('open', next);
+  $('next-head').setAttribute('aria-expanded', String(next));
+  log.hidden = !cfg.chatOpen;
+  const t = $('chat-toggle');
+  t.setAttribute('aria-expanded', String(cfg.chatOpen));
+  t.title = cfg.chatOpen ? 'Collapse the chat' : 'Show the chat';
+  t.textContent = cfg.chatOpen ? '\u25BE' : '\u25B8';
+  document.body.dataset.size = cfg.size;
+  $('size').value = cfg.size;
+}
+const nextOpen = () => cfg.nextOpen === null ? !log.children.length : cfg.nextOpen;
+$('settings-btn').onclick = () => { cfg.settingsOpen = !cfg.settingsOpen; save(); showPanes(); };
+$('next-head').onclick = () => { cfg.nextOpen = !nextOpen(); save(); showPanes(); };
+$('chat-toggle').onclick = () => { cfg.chatOpen = !cfg.chatOpen; save(); showPanes(); if (cfg.chatOpen) scrollDown(true); };
+$('size').onchange = ev => { cfg.size = ev.target.value; save(); showPanes(); };
+$('clear').onclick = () => {
+  cfg.cleared = [...new Set([...cfg.cleared, ...[...log.children].map(e => e.id).filter(Boolean)])].slice(-500);
+  save(); log.replaceChildren(); showPanes();
+};
 
 // The slider drives the panel background's alpha (--alpha) and the text outline (--outline), never
 // the window or element opacity. The outline fades in as the background drops below ~55%.
@@ -216,17 +239,17 @@ for (const [id, field] of [['key-vis', 'keyVis'], ['key-ct', 'keyCt']]) {
 
 // --- content -------------------------------------------------------------------------------
 
+// The chip is the data's age ("now", "5m", "2h"); the full capture time is in its tooltip.
 function ago(t) {
-  if (!t) return 'no capture yet';
   const s = Math.max(0, Date.now() / 1000 - t);
-  const when = new Date(t * 1000).toLocaleTimeString();
-  const age = s < 90 ? 'just now' : s < 5400 ? Math.round(s / 60) + ' min ago' : Math.round(s / 3600) + ' h ago';
-  return when + ' (' + age + ')';
+  return s < 60 ? 'now' : s < 3600 ? Math.floor(s / 60) + 'm' : s < 86400 ? Math.floor(s / 3600) + 'h' : Math.floor(s / 86400) + 'd';
 }
-function showBadge(fresh) {
+function showBadge() {
   if (!state) return;
-  badge.textContent = 'data from game: ' + ago(state.captured_at) + (state.error ? ' — ' + state.error : '');
-  badge.className = fresh ? 'fresh' : '';
+  const t = state.captured_at, s = t ? Date.now() / 1000 - t : 0;
+  badge.textContent = t ? ago(t) : '—';
+  badge.className = 'chip' + (!t || s > 7200 ? ' red' : s > 1800 ? ' amber' : '');
+  badge.title = 'data from game: ' + (t ? new Date(t * 1000).toLocaleTimeString() : 'no capture yet') + (state.error ? ' — ' + state.error : '');
 }
 function setChars() {
   const cur = who.value || cfg.who;
@@ -243,6 +266,7 @@ who.onchange = () => { cfg.who = who.value; save(); showNext(); };
 function showNext() {
   const c = state && state.characters.find(c => c.key === who.value);
   const items = (c && c.next) || [];
+  $('next-line').textContent = items.length ? items[0] : 'Nothing queued yet.';
   $('next-list').replaceChildren(...(items.length ? items : ['Nothing queued yet.']).map(t => {
     const li = document.createElement('li');
     li.textContent = t;
@@ -250,7 +274,11 @@ function showNext() {
     return li;
   }));
 }
-$('next').ontoggle = ev => { cfg.nextOpen = ev.target.open; save(); };
+
+// Follow the newest text unless the reader has scrolled up.
+let stick = true;
+log.onscroll = () => { stick = log.scrollHeight - log.scrollTop - log.clientHeight < 24; };
+function scrollDown(force) { if (force) stick = true; if (stick) log.scrollTop = log.scrollHeight; }
 
 function bubble(id, cls) {
   let el = id && document.getElementById(id);
@@ -265,11 +293,13 @@ function put(id, cls, body, note) {
   const el = bubble(id, cls);
   el.textContent = body;
   if (note) { const s = document.createElement('small'); s.textContent = note; el.appendChild(s); }
-  log.scrollTop = log.scrollHeight;
+  scrollDown();
+  showPanes();
   return el;
 }
 function render(history) {
   for (const e of history) {
+    if (cfg.cleared.includes('q-' + e.id) || cfg.cleared.includes('a-' + e.id)) continue;
     const where = e.character ? ' · ' + e.character : '';
     put('q-' + e.id, 'q', e.question, e.source === 'game' ? 'asked in game' + where : null);
     const body = e.status === 'waiting' ? 'Waiting for an answer…' : e.answer;
@@ -283,17 +313,18 @@ async function load() {
   if (!r.ok) throw new Error('HTTP ' + r.status);
   state = await r.json();
   setChars();
-  showBadge(false);
+  showBadge();
   render(state.history);
 }
 
 // Streaming text is painted at most once per frame, so a fast stream stays smooth.
 function ask(question) {
   busy = true; send.disabled = true;
+  scrollDown(true);
   put(null, 'q', question);
   const a = put(null, 'a live', '…');
   let got = '', queued = false;
-  const paint = () => { queued = false; a.textContent = got; log.scrollTop = log.scrollHeight; };
+  const paint = () => { queued = false; a.textContent = got; scrollDown(); };
   const stop = () => { a.classList.remove('live'); busy = false; send.disabled = false; text.focus(); };
   api('/api/ask', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ character: who.value, text: question }) })
     .then(r => r.ok ? r.json() : r.text().then(t => { throw new Error(t); }))
@@ -302,7 +333,7 @@ function ask(question) {
       es.addEventListener('chunk', ev => { got += JSON.parse(ev.data).text; if (!queued) { queued = true; requestAnimationFrame(paint); } });
       es.addEventListener('done', ev => {
         const e = JSON.parse(ev.data);
-        es.close(); a.textContent = e.answer;
+        es.close(); a.textContent = e.answer; scrollDown();
         if (e.status === 'error') a.classList.add('err');
         stop();
       });
@@ -312,13 +343,13 @@ function ask(question) {
 }
 $('form').onsubmit = ev => { ev.preventDefault(); const q = text.value.trim(); if (q && !busy && conn) { text.value = ''; ask(q); } };
 text.onkeydown = ev => { if (ev.key === 'Enter' && !ev.shiftKey) { ev.preventDefault(); $('form').requestSubmit(); } };
-setInterval(() => showBadge(false), 30000);
+setInterval(() => showBadge(), 30000);
 
 // --- start ---------------------------------------------------------------------------------
 
 (async () => {
   setPhase('starting');
-  $('next').open = cfg.nextOpen;
+  showPanes();
   $('solid-hover').checked = cfg.solidHover;
   setOpacity(cfg.opacity);
   showMode(); showCt();
