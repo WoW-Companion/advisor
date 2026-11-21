@@ -3,6 +3,7 @@ module github.com/WoW-Companion/advisor
 go 1.27
 
 require (
+	github.com/klauspost/compress v1.20.4
 	github.com/modelcontextprotocol/go-sdk v1.8.0
 	github.com/parquet-go/parquet-go v0.32.1
 )
@@ -11,7 +12,6 @@ require (
 	github.com/andybalholm/brotli v1.3.0 // indirect
 	github.com/google/jsonschema-go v0.4.3 // indirect
 	github.com/google/uuid v1.6.0 // indirect
-	github.com/klauspost/compress v1.20.4 // indirect
 	github.com/parquet-go/bitpack v1.0.3 // indirect
 	github.com/parquet-go/jsonlite v1.5.5 // indirect
 	github.com/pierrec/lz4/v4 v4.1.33 // indirect

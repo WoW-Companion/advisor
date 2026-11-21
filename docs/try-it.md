@@ -53,6 +53,24 @@ Ask Claude to call `server_info`: it reports whether the file was found, how man
 holds and the game client version and build that wrote the capture. Use the full path to the `.exe` in `command`. Windows may ask you to confirm running a downloaded
 program the first time (the binary is not code-signed).
 
+### The game data (automatic)
+
+The advisor needs the published game dataset for your game build. You do nothing: on the first
+`serve` it reads the client build from your capture, downloads the matching release from
+<https://github.com/WoW-Companion/data/releases> (a `dataset-<build>` release), checks every file's
+sha256 against the release manifest and keeps it in a per-user cache
+(`%LOCALAPPDATA%\wowc\dataset\<build>` on Windows, `~/Library/Caches/wowc/dataset/<build>` on macOS,
+`$XDG_CACHE_HOME/wowc/dataset/<build>` or `~/.cache/wowc/dataset/<build>` on Linux). A download that
+fails a check or stops half way is thrown away and the cache is untouched. Once cached it works
+offline. `server_info` reports the dataset build and warns when it differs from your client's build.
+
+- `wowc-advisor dataset status` lists the cached builds and whether each still verifies.
+- `wowc-advisor dataset update` fetches the capture's build, or the newest release without a capture.
+  Use `--build 71037` to name one.
+- `serve --dataset DIR` (or `WOWC_DATASET`) uses your own directory instead; `--cache DIR` moves the cache.
+
+Whether a release is published yet is **unverified**: the first real download is not yet tested.
+
 ## 5. Install the skill
 
 Source: <https://support.claude.com/en/articles/12512180-using-skills-in-claude>

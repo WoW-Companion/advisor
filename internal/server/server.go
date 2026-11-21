@@ -15,6 +15,7 @@ import (
 
 	"github.com/WoW-Companion/advisor/internal/brief"
 	"github.com/WoW-Companion/advisor/internal/character"
+	"github.com/WoW-Companion/advisor/internal/dataset"
 	"github.com/WoW-Companion/advisor/internal/lua"
 	"github.com/WoW-Companion/advisor/internal/store"
 )
@@ -59,6 +60,8 @@ type Info struct {
 	DatasetPath          *string     `json:"dataset_path"`
 	ManifestVersion      *string     `json:"manifest_version"`
 	GameBuild            *string     `json:"game_build"`
+	DatasetMatchesClient *bool       `json:"dataset_matches_client" jsonschema:"dataset build equals the capture's client build"`
+	DatasetWarning       *string     `json:"dataset_warning"`
 	SavedVariables       string      `json:"savedvariables" jsonschema:"character file status"`
 	SavedVariablesPath   *string     `json:"savedvariables_path"`
 	Characters           *int        `json:"characters"`
@@ -111,14 +114,44 @@ func Describe(cfg Config) Info {
 		info.Dataset = "no manifest found"
 	default:
 		info.Dataset = "ok"
-		if v, ok := manifest["version"]; ok {
-			info.ManifestVersion = strp(toString(v))
+		for _, key := range []string{"dataset_version", "version"} {
+			if v, ok := manifest[key]; ok {
+				info.ManifestVersion = strp(toString(v))
+				break
+			}
 		}
 		if v, ok := manifest["game_build"]; ok {
 			info.GameBuild = strp(toString(v))
 		}
 	}
+	compareBuilds(&info)
 	return info
+}
+
+// compareBuilds says whether the dataset is for the build the capture was written by, and warns
+// plainly when it is not.
+func compareBuilds(info *Info) {
+	if info.GameBuild == nil || info.Client == nil || info.Client.Build == "" {
+		return
+	}
+	ok := dataset.Matches(*info.GameBuild, info.Client.Version, info.Client.Build)
+	info.DatasetMatchesClient = &ok
+	if !ok {
+		info.DatasetWarning = strp("dataset is for game build " + *info.GameBuild + " but the capture was written by client build " +
+			info.Client.Build + "; ids and values may differ. Run `wowc-advisor dataset update` to fetch the matching build.")
+	}
+}
+
+// CaptureClient is the game client that wrote the capture at path, empty when it cannot be read.
+func CaptureClient(path string) character.Client {
+	if path == "" {
+		return character.Client{}
+	}
+	f, err := character.LoadFile(path)
+	if err != nil {
+		return character.Client{}
+	}
+	return fileClient(f)
 }
 
 func toString(v any) string {

@@ -27,7 +27,9 @@ func main() {
 	}
 }
 
-const usage = `usage: wowc-advisor serve [--stdio | --http] [--host ADDR] [--port N] [--dataset DIR] [--savedvariables FILE]
+const usage = `usage: wowc-advisor serve [--stdio | --http] [--host ADDR] [--port N] [--dataset DIR] [--cache DIR] [--savedvariables FILE]
+       wowc-advisor dataset update [--build BUILD] [--cache DIR] [--savedvariables FILE]
+       wowc-advisor dataset status [--cache DIR] [--savedvariables FILE]
        wowc-advisor version`
 
 func run(ctx context.Context, args []string, stderr io.Writer) error {
@@ -40,6 +42,8 @@ func run(ctx context.Context, args []string, stderr io.Writer) error {
 		return nil
 	case "serve":
 		return serve(ctx, args[1:], stderr)
+	case "dataset":
+		return datasetCmd(ctx, args[1:], os.Stdout, stderr)
 	}
 	return fmt.Errorf("unknown command %q\n%s", args[0], usage)
 }
@@ -54,13 +58,18 @@ func serve(ctx context.Context, args []string, stderr io.Writer) error {
 	var cfg server.Config
 	fs.StringVar(&cfg.Dataset, "dataset", "", "dataset directory (default: $"+server.DatasetEnv+")")
 	fs.StringVar(&cfg.SavedVariables, "savedvariables", "", "ForeverScribe.lua file (default: $"+server.SavedVariablesEnv+")")
+	cache := fs.String("cache", "", "dataset cache directory (default: per-user cache)")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
 	if *stdio && *httpMode {
 		return errors.New("--stdio and --http are mutually exclusive")
 	}
-	s := server.New(cfg.FromEnv())
+	cfg = cfg.FromEnv()
+	if cfg.Dataset == "" {
+		cfg.Dataset = autoDataset(ctx, *cache, cfg.SavedVariables, stderr)
+	}
+	s := server.New(cfg)
 	if !*httpMode {
 		return server.ServeStdio(ctx, s)
 	}
