@@ -61,7 +61,7 @@ func exercise(t *testing.T, cs *mcp.ClientSession) {
 	for _, tool := range tools.Tools {
 		names = append(names, tool.Name)
 	}
-	if strings.Join(names, ",") != "character_brief,list_characters,server_info" {
+	if strings.Join(names, ",") != "character_brief,list_characters,server_info,whats_next" {
 		t.Errorf("tools = %v", names)
 	}
 	call := func(name string, args map[string]any) (string, bool) {
@@ -82,6 +82,9 @@ func exercise(t *testing.T, cs *mcp.ClientSession) {
 		if isErr || !strings.Contains(text, want) {
 			t.Errorf("character_brief lacks %q:\n%s", want, text)
 		}
+	}
+	if text, isErr := call("whats_next", map[string]any{"character": "testpriest", "limit": 3}); isErr || !strings.Contains(text, `"steps":`) || !strings.Contains(text, "What's next for Testpriest") {
+		t.Errorf("whats_next = %s", text)
 	}
 	if text, isErr := call("character_brief", map[string]any{"character": "Nobody"}); !isErr || !strings.Contains(text, "No captured character") {
 		t.Errorf("unknown character = %q, error %v", text, isErr)

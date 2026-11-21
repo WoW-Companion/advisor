@@ -390,3 +390,20 @@ func Character(c character.Character, client character.Client, now time.Time) st
 	}
 	return strings.Join(lines, "\n")
 }
+
+// TopGroups are the talent groups holding the most points (several when tied) and that count;
+// none when no points are spent.
+func TopGroups(t *character.Talents) (names []string, points int) {
+	if t == nil {
+		return nil, 0
+	}
+	for _, g := range groups(t) {
+		switch {
+		case g.points > points:
+			names, points = []string{g.name}, g.points
+		case g.points == points && g.points > 0:
+			names = append(names, g.name)
+		}
+	}
+	return names, points
+}

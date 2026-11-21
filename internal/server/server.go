@@ -13,6 +13,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
+	"github.com/WoW-Companion/advisor/internal/advice"
 	"github.com/WoW-Companion/advisor/internal/brief"
 	"github.com/WoW-Companion/advisor/internal/character"
 	"github.com/WoW-Companion/advisor/internal/lua"
@@ -182,7 +183,24 @@ type BriefInput struct {
 	Character string `json:"character,omitempty" jsonschema:"character name; omit when only one was captured"`
 }
 
-// New builds the server with its three tools. The character file is read on every call.
+// NextInput is the whats_next argument.
+type NextInput struct {
+	Character string `json:"character,omitempty" jsonschema:"character name; omit when only one was captured"`
+	Limit     int    `json:"limit,omitempty" jsonschema:"most steps to return (default 8)"`
+}
+
+// NextOutput is the whats_next result.
+type NextOutput struct {
+	Character string        `json:"character"`
+	Steps     []advice.Step `json:"steps"`
+	Total     int           `json:"total" jsonschema:"steps before the limit"`
+	Text      string        `json:"text" jsonschema:"plain-text rendering of the steps"`
+}
+
+// DefaultLimit is how many steps whats_next returns when none is asked for.
+const DefaultLimit = 8
+
+// New builds the server with its four tools. The character file is read on every call.
 func New(cfg Config) *mcp.Server {
 	s := mcp.NewServer(&mcp.Implementation{Name: "wowc-advisor", Version: Version}, nil)
 
@@ -220,6 +238,40 @@ func New(cfg Config) *mcp.Server {
 		}
 		text := brief.Character(c, f.ClientOf(c), time.Now())
 		return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: text}}}, nil, nil
+	})
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "whats_next",
+		Description: "Ranked next steps for one captured character (by name; omit if only one; limit defaults to 8): " +
+			"quests to turn in, unspent talent points, open quests near their level, failed quests to abandon. " +
+			"Each step gives its reason and its source (capture field or dataset row); unknown facts are said to be unknown.",
+	}, func(_ context.Context, _ *mcp.CallToolRequest, in NextInput) (*mcp.CallToolResult, NextOutput, error) {
+		f, errResult := load(cfg.SavedVariables)
+		if errResult != nil {
+			return errResult, NextOutput{}, nil
+		}
+		c, err := brief.Choose(f, in.Character)
+		if err != nil {
+			return toolError(err.Error()), NextOutput{}, nil
+		}
+		var ds store.DataStore
+		if cfg.Dataset != "" {
+			ds = store.NewDir(cfg.Dataset)
+		}
+		all := advice.WhatsNext(c, ds)
+		limit := in.Limit
+		if limit <= 0 {
+			limit = DefaultLimit
+		}
+		steps := advice.Limit(all, limit)
+		if steps == nil {
+			steps = []advice.Step{}
+		}
+		name := c.Name
+		if name == "" {
+			name = c.Key
+		}
+		return nil, NextOutput{name, steps, len(all), advice.Render(c, steps, len(all))}, nil
 	})
 	return s
 }
