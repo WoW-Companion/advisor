@@ -135,3 +135,15 @@ pinned version; bump the version in the workflow when the `tauri` crate's minor 
 - `tools/titlebar-check/`, `tools/status-check/`: headless-Chrome checks of the title bar and of the banners,
   AI client picker and Command box (`run.sh` in each; they need Chrome and python3).
 - `tools/genicon/`: draws the emblem and writes `src-tauri/icons/` (`go run ./tools/genicon src-tauri/icons` from `overlay/`).
+
+## Setup checklist
+
+On first run, and whenever a row is red, the overlay shows a checklist (Settings › Setup reopens it):
+WoW folder found, ForeverScribe installed, ForeverScribe has data, the optional WoW Companion addon
+(Install/Update from the addon's latest GitHub release, SHA256-verified), display mode (read-only
+look at `WTF/Config.wtf`; exclusive fullscreen cannot be drawn over) and the AI client (Test sends
+one tiny prompt). The checks and the install are Go code in `internal/gamesetup`, served by the
+companion at `/api/setup*`; `wowc-advisor doctor --fix-addon` does the addon install from the CLI.
+Downloads happen only on a click, over HTTPS from github.com, and write only under
+`Interface/AddOns` (never `WoWCompanion_Digest/Digest.lua` or `WoWCompanion_Answers`).
+ForeverScribe publishes no release zip, so its row links to the project page instead.

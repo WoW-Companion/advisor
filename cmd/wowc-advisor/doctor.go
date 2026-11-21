@@ -7,6 +7,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"path/filepath"
+
+	"github.com/WoW-Companion/advisor/internal/gamesetup"
 
 	"github.com/WoW-Companion/advisor/internal/release"
 	"github.com/WoW-Companion/advisor/internal/server"
@@ -26,8 +29,13 @@ func doctor(ctx context.Context, args []string, stdout, stderr io.Writer, client
 	fs.StringVar(&cfg.SavedVariables, "savedvariables", "", "ForeverScribe.lua file (default: $"+server.SavedVariablesEnv+")")
 	fs.StringVar(&cfg.Cache, "cache", "", "dataset cache directory (default: per-user cache)")
 	check := fs.Bool("check", false, "also ask GitHub whether a newer release exists (one unauthenticated request; nothing is downloaded)")
+	fixAddon := fs.Bool("fix-addon", false, "install or update the WoW Companion addon from its latest GitHub release (checksum verified; only writes under Interface/AddOns)")
+	gameDir := fs.String("game-dir", "", "WoW folder for --fix-addon (default: found from the SavedVariables path or the standard install folders)")
 	if err := fs.Parse(args); err != nil {
 		return err
+	}
+	if *fixAddon {
+		return fixAddonCmd(ctx, stdout, client, *gameDir, cfg.FromEnv().SavedVariables)
 	}
 	if fs.NArg() != 0 {
 		return errors.New("doctor takes no arguments\n" + usage)
@@ -56,4 +64,29 @@ func updateLine(ctx context.Context, client *http.Client, url string) string {
 		return "update check: " + res.Latest + " is available, see https://github.com/WoW-Companion/advisor/releases/latest"
 	}
 	return "update check: up to date (" + res.Latest + ")"
+}
+
+// fixAddonCmd installs or updates the addon; it says what it did and never touches Digest.lua.
+func fixAddonCmd(ctx context.Context, stdout io.Writer, client *http.Client, gameDir, sv string) error {
+	game, ok := gamesetup.Resolve(gamesetup.Options{GameDir: gameDir, SavedVariables: sv})
+	if !ok {
+		return errors.New("WoW folder not found: pass --game-dir <your World of Warcraft folder>")
+	}
+	rel, err := gamesetup.LatestAddon(ctx, client, gamesetup.AddonLatestURL)
+	if err != nil {
+		return fmt.Errorf("could not look up the latest addon release: %w", err)
+	}
+	have, installed := gamesetup.InstalledAddonVersion(game)
+	if installed && !gamesetup.Newer(rel.Version, have) {
+		fmt.Fprintf(stdout, "WoW Companion addon %s is up to date in %s\n", have, game)
+		return nil
+	}
+	if err := gamesetup.InstallAddon(ctx, client, game, rel); err != nil {
+		return err
+	}
+	fmt.Fprintf(stdout, "Installed WoW Companion addon %s into %s\n", rel.Version, filepath.Join(game, "Interface", "AddOns"))
+	if !installed {
+		fmt.Fprintln(stdout, "Restart the game fully, since this was the first install.")
+	}
+	return nil
 }
