@@ -58,3 +58,7 @@ spec is the talent group holding the most points, matched by name inside the gro
 Per candidate, up to 3 sources: creatures whose level range reaches within 5 below to 3 above the
 character first, then by drop chance (drops / kills, shown as "of kills"), then by id. A candidate
 with no `loot_sources` row says "source unknown".
+
+## Internal and placeholder items
+
+The client data lists developer-only, deprecated and test items (names such as "DNT HEAD", "Deprecated Battle Chain Pauldrons", "[PH] ...", "Monster - ...", "Test ..."). The items table has no column that marks them, so they are recognised by name, by the single table in `internal/items`. Upgrade, inventory, digest, dungeon, farm and profession answers never name one, a search by part of a name offers the real item before a placeholder, and asking about one (`where_drops`, `farm_spots`) answers that it isn't obtainable in game.

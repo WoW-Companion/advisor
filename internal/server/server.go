@@ -27,6 +27,7 @@ import (
 	"github.com/WoW-Companion/advisor/internal/farm"
 	"github.com/WoW-Companion/advisor/internal/gear"
 	"github.com/WoW-Companion/advisor/internal/inventory"
+	"github.com/WoW-Companion/advisor/internal/items"
 	"github.com/WoW-Companion/advisor/internal/lua"
 	"github.com/WoW-Companion/advisor/internal/professions"
 	"github.com/WoW-Companion/advisor/internal/quests"
@@ -726,6 +727,9 @@ func New(cfg Config) *mcp.Server {
 		}
 		if id == 0 {
 			return toolError("No item matches '" + in.Item + "'."), none, nil
+		}
+		if items.Unobtainable(item) {
+			return toolError(item + ": " + items.Message + "."), none, nil
 		}
 		limit := in.Limit
 		if limit <= 0 {

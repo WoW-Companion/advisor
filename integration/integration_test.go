@@ -22,6 +22,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/WoW-Companion/advisor/internal/hosted"
+	"github.com/WoW-Companion/advisor/internal/items"
 	"github.com/WoW-Companion/advisor/internal/server"
 	"github.com/WoW-Companion/advisor/internal/store"
 )
@@ -320,4 +321,32 @@ func firstName(ds store.DataStore, table string) string {
 		return "x"
 	}
 	return text(rows[len(rows)/2]["name"])
+}
+
+// TestUnobtainableCensus counts, over the real items table, what internal/items drops, per pattern,
+// with example names, so a person can see nothing real was caught.
+func TestUnobtainableCensus(t *testing.T) {
+	dir := os.Getenv(DatasetEnv)
+	if dir == "" {
+		t.Skip(DatasetEnv + " is not set; run make integration")
+	}
+	rows, err := store.NewDir(dir).Filter("items", store.Range{Column: "id", Min: 0, Max: 1 << 31})
+	if err != nil {
+		t.Fatal(err)
+	}
+	counts, examples, total := map[string]int{}, map[string][]string{}, 0
+	for _, r := range rows {
+		name, _ := r["name"].(string)
+		if label := items.Match(name); label != "" {
+			total++
+			counts[label]++
+			if len(examples[label]) < 10 {
+				examples[label] = append(examples[label], name)
+			}
+		}
+	}
+	t.Logf("unobtainable census: %d of %d items", total, len(rows))
+	for _, p := range items.Patterns {
+		t.Logf("  %-12q %5d  e.g. %q", p.Label, counts[p.Label], examples[p.Label])
+	}
 }

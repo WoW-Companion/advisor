@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/WoW-Companion/advisor/internal/character"
+	"github.com/WoW-Companion/advisor/internal/items"
 	"github.com/WoW-Companion/advisor/internal/store"
 )
 
@@ -130,10 +131,18 @@ func Recipes(ds store.DataStore, profession string) ([]Recipe, error) {
 			continue
 		}
 		seen[id] = true
+		if items.Unobtainable(asText(r["name"])) {
+			continue
+		}
 		rc := Recipe{SpellID: id, Name: asText(r["name"]), LearnSkill: asInt(r["learn_skill"]),
 			YellowSkill: asInt(r["yellow_skill"]), GreySkill: asInt(r["grey_skill"])}
 		if n := asInt(r["creates_item_id"]); n != nil {
 			rc.CreatesItem = int64(*n)
+		}
+		if rc.CreatesItem != 0 {
+			if it, err := ds.Get("items", rc.CreatesItem); err == nil && items.Unobtainable(asText(it["name"])) {
+				continue
+			}
 		}
 		out = append(out, rc)
 	}
