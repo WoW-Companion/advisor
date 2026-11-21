@@ -12,7 +12,8 @@ row id).
    more than 5 levels below (grey) or more than 3 above are skipped. A quest whose level is unknown
    (not in the capture, not in the dataset `quests` table) is listed after the others with the
    reason "quest level unknown"; it is never guessed.
-4. **Failed quests** (`quest`, "Abandon ..."): failed quests that cannot be completed.
+4. **Quests to pick up** (`quest`, "Pick up ..."): up to 3 quests not in the log, see below.
+5. **Failed quests** (`quest`, "Abandon ..."): failed quests that cannot be completed.
 
 Quest level and zone come from the capture; when the capture lacks one, from the dataset
 `quests` table's `level` and `zone` columns, if the table has them (the current client-derived
@@ -34,3 +35,15 @@ its reason ends with "step N of M in <line>" and its sources name the line. A tu
 step also says "unlocks step N+1" and sorts ahead of the other turn-ins of its own zone; zone order is
 unchanged, so the boost is slight. A dataset without `quest_lines` leaves every step as before. See
 `chain.md`.
+
+**Quests to pick up.** A quest that is not in the log is suggested when the dataset's `quests` row
+gives its `level` within the character's level -2 to +2, and: it is not completed; it is not a DNT,
+deprecated or placeholder name (the `items` pattern table); if it sits in a quest line, the step
+before it is completed; `allowable_class_mask` and `allowable_race_mask` (when the table has them; 0
+means anyone) allow the class and race; and its `zone_name` is the last-saved zone
+(`snapshot.location`) or the zone of a quest in the log. Order: level fit, then continuing a quest
+line already in the log, then a shared zone, then name. Phrase: "Pick up X: level 9 quest, you are 9;
+not in your log, in Zone, on the way ...". A rule the dataset cannot support is skipped and recorded
+in `AvailableQuests(...).Unchecked`, never guessed; the built dataset (build 1.60.1.71037) has no
+quest levels, names, masks or prerequisites, so on it this section stays empty. See
+`design/live-guidance.md`.

@@ -68,8 +68,11 @@ func lookup(q character.Quest, ds store.DataStore) questInfo {
 		}
 	}
 	if info.zone == "" {
-		if s, ok := row["zone"].(string); ok && s != "" {
-			info.zone, used = s, true
+		for _, col := range []string{"zone", "zone_name"} { // the built dataset names the column zone_name
+			if s, ok := row[col].(string); ok && s != "" {
+				info.zone, used = s, true
+				break
+			}
 		}
 	}
 	if used {
@@ -199,6 +202,7 @@ func WhatsNext(c character.Character, ds store.DataStore) []Step {
 		out = append(out, s)
 	}
 	out = append(out, openSteps...)
+	out = append(out, Limit(AvailableQuests(c, ds).Quests, MaxAvailable)...)
 	out = append(out, failed...)
 	// Profession steps need trainer data the dataset does not hold yet; omitted, never guessed.
 	return out
