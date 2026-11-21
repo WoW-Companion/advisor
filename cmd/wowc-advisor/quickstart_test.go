@@ -83,3 +83,35 @@ func TestQuickstartOverlaySettingsExist(t *testing.T) {
 		}
 	}
 }
+
+// The overlay's version (tauri.conf.json, Cargo.toml, its Cargo.lock entry) is the VERSION file's,
+// so the installer name, the tray tooltip and `wowc-advisor version` agree with the release.
+func TestOverlayVersionMatchesVersionFile(t *testing.T) {
+	want := strings.TrimSpace(read(t, "../../VERSION"))
+	for path, re := range map[string]string{
+		"../../overlay/src-tauri/tauri.conf.json": `(?m)^\s*"version":\s*"([^"]+)"`,
+		"../../overlay/src-tauri/Cargo.toml":      `(?m)^version\s*=\s*"([^"]+)"`,
+		"../../overlay/src-tauri/Cargo.lock":      `(?m)^name = "wow-companion"\nversion = "([^"]+)"`,
+	} {
+		m := regexp.MustCompile(re).FindStringSubmatch(read(t, path))
+		if m == nil || m[1] != want {
+			t.Errorf("%s: version %v, want %s (the VERSION file)", path, m, want)
+		}
+	}
+}
+
+// The release workflow must attach the installer under the name the docs tell players to look for.
+func TestDocsPointAtReleaseInstaller(t *testing.T) {
+	for _, path := range []string{"../../docs/quickstart.md", "../../overlay/README.md", "../../README.md"} {
+		doc := read(t, path)
+		if !strings.Contains(doc, "WoW-Companion-Setup-") || !strings.Contains(doc, "releases") {
+			t.Errorf("%s does not point at the Setup exe on the releases page", path)
+		}
+		if strings.Contains(doc, "overlay does not ship") || strings.Contains(doc, "Releases do not include") {
+			t.Errorf("%s still says the releases lack the overlay", path)
+		}
+	}
+	if wf := read(t, "../../.github/workflows/release.yml"); !strings.Contains(wf, "WoW-Companion-Setup-") {
+		t.Error("release.yml does not publish WoW-Companion-Setup-<version>-x64.exe")
+	}
+}

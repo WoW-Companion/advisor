@@ -300,7 +300,7 @@ fn build_tray(app: &tauri::App) -> tauri::Result<()> {
         click_item,
     });
     let mut tray = TrayIconBuilder::new()
-        .tooltip("WoW Companion")
+        .tooltip(concat!("WoW Companion ", env!("CARGO_PKG_VERSION")))
         .menu(&menu)
         .show_menu_on_left_click(false)
         .on_menu_event(|app, ev| {

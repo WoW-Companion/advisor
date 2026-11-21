@@ -1,7 +1,11 @@
 name: release
 
 # Publishes a release when VERSION changes on main (or when run by hand), unless the
-# tag v<VERSION> already exists. It builds the six platform archives with `make dist`.
+# tag v<VERSION> already exists. Two jobs, in order, so the release is created exactly once:
+#   release  builds the six advisor archives and creates the release as a DRAFT (no tag yet);
+#   overlay  builds the Windows installer on windows-latest, uploads it and its SHA-256 to that
+#            draft, then publishes it. Only then does the tag appear.
+# A failed overlay build leaves an invisible draft and no tag, so re-running the workflow retries.
 on:
   push:
     branches: [main]
@@ -9,7 +13,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: release
@@ -19,8 +23,13 @@ jobs:
   release:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      version: ${{ steps.ver.outputs.version }}
+      exists: ${{ steps.ver.outputs.exists }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           fetch-depth: 0
 
@@ -40,7 +49,7 @@ jobs:
             echo "exists=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
         if: steps.ver.outputs.exists == 'false'
         with:
           go-version-file: go.mod
@@ -72,5 +81,87 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ steps.ver.outputs.version }}
         run: |
+          # A draft left by an earlier failed run holds no tag; replace it.
+          gh release delete "v$VERSION" --yes 2>/dev/null || true
           gh release create "v$VERSION" dist/*.zip dist/*.tar.gz dist/SHA256SUMS \
-            --target "$GITHUB_SHA" --title "wowc-advisor $VERSION" --notes-file notes.md
+            --draft --target "$GITHUB_SHA" --title "wowc-advisor $VERSION" --notes-file notes.md
+
+  overlay:
+    needs: release
+    if: needs.release.outputs.exists == 'false'
+    runs-on: windows-latest
+    timeout-minutes: 45
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.release.outputs.version }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.sha }}
+
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        with:
+          go-version-file: go.mod
+
+      - uses: dtolnay/rust-toolchain@39008827e6b4319a349e9a42dfc90579dd25f1ca # stable
+        with:
+          toolchain: stable
+
+      # Same cache approach as the overlay workflow: restore only (that workflow's main runs keep
+      # the cache warm), and the Tauri CLI under its own key so a Cargo.lock change never
+      # triggers the ~5 minute `cargo install`.
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          workspaces: overlay/src-tauri -> target
+          save-if: "false"
+
+      - id: tauri-cli
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: ~/.cargo/bin/cargo-tauri.exe
+          key: tauri-cli-${{ runner.os }}-2.12.6
+
+      - name: Build the Go advisor sidecar
+        shell: bash
+        env:
+          CGO_ENABLED: "0"
+          GOOS: windows
+          GOARCH: amd64
+        run: |
+          mkdir -p overlay/src-tauri/binaries
+          go build -trimpath -ldflags "-s -w -X main.version=$VERSION -X main.commit=$(git rev-parse --short=12 HEAD)" \
+            -o overlay/src-tauri/binaries/wowc-advisor-x86_64-pc-windows-msvc.exe ./cmd/wowc-advisor
+
+      - name: Install the Tauri CLI
+        shell: bash
+        if: steps.tauri-cli.outputs.cache-hit != 'true'
+        run: cargo install tauri-cli --version "=2.12.6" --locked
+
+      - name: Build the app and the NSIS installer
+        working-directory: overlay/src-tauri
+        run: cargo tauri build --target x86_64-pc-windows-msvc --bundles nsis
+
+      # tauri.conf.json's version is in the installer's file name, so a mismatch with VERSION
+      # finds nothing here and fails the job (the Go tests check it earlier too).
+      - name: Name the installer and checksum it
+        shell: bash
+        run: |
+          src="overlay/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/WoW Companion_${VERSION}_x64-setup.exe"
+          [ -f "$src" ] || { echo "no installer for version $VERSION" >&2; ls overlay/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis >&2; exit 1; }
+          mkdir upload
+          cp "$src" "upload/WoW-Companion-Setup-${VERSION}-x64.exe"
+          (cd upload && sha256sum "WoW-Companion-Setup-${VERSION}-x64.exe" > exe.sha256)
+
+      - name: Attach the installer and publish the release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tag="v$VERSION"
+          cd upload
+          gh release download "$tag" --repo "$GITHUB_REPOSITORY" --pattern SHA256SUMS
+          cat exe.sha256 >> SHA256SUMS
+          gh release upload "$tag" --repo "$GITHUB_REPOSITORY" --clobber \
+            "WoW-Companion-Setup-${VERSION}-x64.exe" SHA256SUMS
+          gh release edit "$tag" --repo "$GITHUB_REPOSITORY" --draft=false
