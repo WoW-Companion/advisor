@@ -22,6 +22,7 @@ import (
 	"github.com/WoW-Companion/advisor/internal/digest"
 	"github.com/WoW-Companion/advisor/internal/gear"
 	"github.com/WoW-Companion/advisor/internal/lua"
+	"github.com/WoW-Companion/advisor/internal/professions"
 	"github.com/WoW-Companion/advisor/internal/store"
 )
 
@@ -254,6 +255,19 @@ type UpgradeOutput struct {
 // noUpgrades is the result accompanying an error; the output schema wants a map, not null.
 var noUpgrades = UpgradeOutput{Slots: map[string][]gear.Candidate{}}
 
+// PlanInput is the profession_plan argument.
+type PlanInput struct {
+	Character  string `json:"character,omitempty" jsonschema:"character name; omit when only one was captured"`
+	Profession string `json:"profession,omitempty" jsonschema:"one profession (for example Tailoring); omit for all the character's professions"`
+}
+
+// PlanOutput is the profession_plan result.
+type PlanOutput struct {
+	Character string                 `json:"character"`
+	Plans     []professions.Leveling `json:"plans"`
+	Text      string                 `json:"text" jsonschema:"plain-text rendering"`
+}
+
 // DefaultUpgradeLimit is how many upgrades per slot upgrade_finder returns when none is asked for.
 const DefaultUpgradeLimit = 3
 
@@ -432,6 +446,44 @@ func New(cfg Config) *mcp.Server {
 			name = c.Key
 		}
 		return nil, UpgradeOutput{name, res.Spec, res.ItemLevelOnly, res.Slots, gear.Render(c, res)}, nil
+	})
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "profession_plan",
+		Description: "Leveling plan per profession for one captured character (by name; omit if only one; optional profession): " +
+			"the next 3-5 recipes that still give skill-ups at their skill, orange before yellow, with each reagent, how many the bags and bank hold and what is missing. " +
+			"Missing thresholds, reagents or a missing bank capture are said to be unknown.",
+	}, func(_ context.Context, _ *mcp.CallToolRequest, in PlanInput) (*mcp.CallToolResult, PlanOutput, error) {
+		none := PlanOutput{Plans: []professions.Leveling{}}
+		f, errResult := load(cfg.SavedVariables)
+		if errResult != nil {
+			return errResult, none, nil
+		}
+		c, err := brief.Choose(f, in.Character)
+		if err != nil {
+			return toolError(err.Error()), none, nil
+		}
+		if cfg.Dataset == "" {
+			return toolError("No dataset configured (set WOWC_DATASET)."), none, nil
+		}
+		ds := store.NewDir(cfg.Dataset)
+		plans := []professions.Leveling{}
+		want := strings.TrimSpace(in.Profession)
+		var have []string
+		for _, p := range c.Professions {
+			have = append(have, p.Name)
+			if want == "" || strings.EqualFold(p.Name, want) {
+				plans = append(plans, professions.Plan(c, ds, p.Name))
+			}
+		}
+		if want != "" && len(plans) == 0 {
+			return toolError("Profession '" + want + "' is not one of this character's professions (" + strings.Join(have, ", ") + ")."), none, nil
+		}
+		name := c.Name
+		if name == "" {
+			name = c.Key
+		}
+		return nil, PlanOutput{name, plans, professions.Render(plans)}, nil
 	})
 
 	mcp.AddTool(s, &mcp.Tool{
