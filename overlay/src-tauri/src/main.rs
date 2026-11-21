@@ -25,6 +25,9 @@ struct Conn {
     agent: String,
     #[serde(default)]
     agent_source: String,
+    /// The advisor's own version, for the tray tooltip.
+    #[serde(default)]
+    version: String,
 }
 
 /// Where the AI client choice is kept: "" (no choice), "auto", a preset name or a command.
@@ -66,6 +69,23 @@ struct Status {
 struct UiState {
     overlay: bool,
     click_through: bool,
+}
+
+/// "WoW Companion 0.2.0 · advisor 0.2.0": the same line the settings panel shows. The advisor
+/// part is left off until the sidecar has said its version.
+fn version_line(advisor: &str) -> String {
+    let app = env!("CARGO_PKG_VERSION");
+    if advisor.is_empty() {
+        format!("WoW Companion {app}")
+    } else {
+        format!("WoW Companion {app} \u{b7} advisor {advisor}")
+    }
+}
+
+fn set_tooltip(app: &AppHandle, advisor: &str) {
+    if let Some(t) = app.tray_by_id("main") {
+        let _ = t.set_tooltip(Some(version_line(advisor)));
+    }
 }
 
 fn main_window(app: &AppHandle) -> Option<WebviewWindow> {
@@ -158,6 +178,7 @@ fn start_sidecar(app: &AppHandle) {
             match ev {
                 CommandEvent::Stdout(line) => {
                     if let Ok(c) = serde_json::from_slice::<Conn>(&line) {
+                        set_tooltip(&app, &c.version);
                         *app.state::<Sidecar>().conn.lock().unwrap() = Some(c.clone());
                         let _ = app.emit("sidecar-up", c);
                     }
@@ -211,8 +232,10 @@ fn set_agent(app: AppHandle, agent: String) -> Result<(), String> {
     Ok(())
 }
 
-/// The official install pages of the AI clients; the page may open these and nothing else.
-const INSTALL_PAGES: [&str; 3] = [
+/// The official install pages of the AI clients, and this app's latest-release page; the page may
+/// open these and nothing else, and only from a click.
+const INSTALL_PAGES: [&str; 4] = [
+    "https://github.com/WoW-Companion/advisor/releases/latest",
     "https://docs.claude.com/en/docs/claude-code/setup",
     "https://github.com/openai/codex",
     "https://github.com/google-gemini/gemini-cli",
@@ -299,8 +322,8 @@ fn build_tray(app: &tauri::App) -> tauri::Result<()> {
         overlay_item,
         click_item,
     });
-    let mut tray = TrayIconBuilder::new()
-        .tooltip(concat!("WoW Companion ", env!("CARGO_PKG_VERSION")))
+    let mut tray = TrayIconBuilder::with_id("main")
+        .tooltip(version_line(""))
         .menu(&menu)
         .show_menu_on_left_click(false)
         .on_menu_event(|app, ev| {
@@ -365,4 +388,16 @@ fn main() {
                 stop_sidecar(app);
             }
         });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::version_line;
+
+    #[test]
+    fn version_line_names_both_parts() {
+        let app = env!("CARGO_PKG_VERSION");
+        assert_eq!(version_line(""), format!("WoW Companion {app}"));
+        assert_eq!(version_line("0.2.0"), format!("WoW Companion {app} \u{b7} advisor 0.2.0"));
+    }
 }

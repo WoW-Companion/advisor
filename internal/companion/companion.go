@@ -25,6 +25,7 @@ import (
 	"github.com/WoW-Companion/advisor/internal/ask"
 	"github.com/WoW-Companion/advisor/internal/character"
 	"github.com/WoW-Companion/advisor/internal/digest"
+	"github.com/WoW-Companion/advisor/internal/release"
 	"github.com/WoW-Companion/advisor/internal/server"
 	"github.com/WoW-Companion/advisor/internal/store"
 )
@@ -56,9 +57,10 @@ type Config struct {
 	App           bool       // the desktop app's webview is the client: its origins pass, and the token may come in a header or query
 	Dataset       string     // dataset directory, for each character's next quests (empty: none)
 	Poll          time.Duration
-	AutoDigest    bool          // rewrite the in-game digest when ForeverScribe saves
-	DigestPath    string        // Digest.lua; empty derives it from ForeverScribe
-	Debounce      time.Duration // quiet time after a save before the digest is written (default 2s)
+	AutoDigest    bool                                          // rewrite the in-game digest when ForeverScribe saves
+	DigestPath    string                                        // Digest.lua; empty derives it from ForeverScribe
+	Debounce      time.Duration                                 // quiet time after a save before the digest is written (default 2s)
+	Update        func(context.Context) (release.Result, error) // looks up the latest release for /api/update; nil answers no notice
 }
 
 // Digest statuses.
@@ -197,6 +199,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/events", s.events)
 	mux.HandleFunc("POST /api/ask", s.ask)
 	mux.HandleFunc("POST /api/auto-digest", s.autoDigest)
+	mux.HandleFunc("GET /api/update", s.update)
 	mux.HandleFunc("GET /api/stream/{id}", s.stream)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if msg := s.reject(r); msg != "" {
@@ -682,4 +685,15 @@ func (s *Server) autoDigest(w http.ResponseWriter, r *http.Request) {
 	s.SetAutoDigest(req.On)
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(s.snapshot().Digest)
+}
+
+// update answers the overlay's version line: one unauthenticated release lookup, made only when the
+// page asks (it asks when "Check for updates" is on). Failure is an empty notice, never an error.
+func (s *Server) update(w http.ResponseWriter, r *http.Request) {
+	var n release.Notice
+	if s.cfg.Update != nil {
+		n = release.NoticeFor(s.cfg.Update(r.Context()))
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(n)
 }

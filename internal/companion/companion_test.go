@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -19,6 +20,7 @@ import (
 	"github.com/WoW-Companion/advisor/internal/ask"
 	"github.com/WoW-Companion/advisor/internal/character"
 	"github.com/WoW-Companion/advisor/internal/digest"
+	"github.com/WoW-Companion/advisor/internal/release"
 )
 
 // TestMain makes the test binary double as the fake agent CLI. "stream" prints Claude-style
@@ -514,4 +516,30 @@ func TestAutoDigestOnSave(t *testing.T) {
 		time.Sleep(20 * time.Millisecond)
 	}
 	t.Error("a save did not write the digest")
+}
+
+// TestUpdateEndpoint: /api/update reports a newer release, and stays an empty notice when the
+// lookup fails or none is configured.
+func TestUpdateEndpoint(t *testing.T) {
+	e := start(t, "text", false)
+	get := func() release.Notice {
+		var n release.Notice
+		if err := json.NewDecoder(e.do(t, "GET", "/api/update", "", nil).Body).Decode(&n); err != nil {
+			t.Fatal(err)
+		}
+		return n
+	}
+	if n := get(); n.Available {
+		t.Errorf("no lookup configured: %+v", n)
+	}
+	e.srv.cfg.Update = func(context.Context) (release.Result, error) {
+		return release.Result{Latest: "v0.3.0", Newer: true, Known: true}, nil
+	}
+	if n := get(); !n.Available || n.Latest != "v0.3.0" {
+		t.Errorf("newer release: %+v", n)
+	}
+	e.srv.cfg.Update = func(context.Context) (release.Result, error) { return release.Result{}, errors.New("offline") }
+	if n := get(); n.Available {
+		t.Errorf("failed lookup: %+v", n)
+	}
 }

@@ -66,6 +66,8 @@ button:disabled { opacity: .5; cursor: default; }
 .settings input[type=range] { flex: 1; accent-color: var(--gold); }
 .settings .key { width: 150px; text-shadow: inherit; background: linear-gradient(rgba(255, 255, 255, .06), rgba(255, 255, 255, .06)), rgba(var(--slate), .65); border: 1px solid rgba(217, 176, 90, .3); border-radius: 6px; padding: 2px 8px; text-align: center; }
 .settings small { color: var(--muted); }
+.settings .version { font-size: 11px; }
+.settings .version a { color: inherit; text-decoration: underline; cursor: pointer; }
 
 .bar { display: flex; align-items: center; gap: 6px; padding: 6px 12px 3px; }
 #who { flex: 1 1 0; min-width: 0; padding: 2px 6px; }
