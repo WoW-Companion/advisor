@@ -3,6 +3,10 @@
 package main
 
 import (
+	"errors"
+	"syscall"
+	"unsafe"
+
 	"golang.org/x/sys/windows"
 )
 
@@ -24,6 +28,7 @@ var (
 	procSetLayeredWindowAttributes = user32.NewProc("SetLayeredWindowAttributes")
 	procReleaseCapture             = user32.NewProc("ReleaseCapture")
 	procSendMessageW               = user32.NewProc("SendMessageW")
+	procMessageBoxW                = user32.NewProc("MessageBoxW")
 )
 
 var gwlExStyle = int32(-20)
@@ -126,4 +131,21 @@ func setClickThrough(hwnd uintptr, on bool, alpha uint8) {
 		s &^= wsExTranspar
 	}
 	setExStyle(hwnd, s)
+}
+
+// hresultOf recovers the HRESULT from the error x/sys/windows builds for a nonzero return.
+func hresultOf(err error) int32 {
+	var errno syscall.Errno
+	if errors.As(err, &errno) {
+		return int32(uint32(errno))
+	}
+	return 0
+}
+
+// showError reports a startup failure in a message box, because a -H windowsgui binary has no
+// console to print to.
+func showError(title string, err error) {
+	t, _ := windows.UTF16PtrFromString(title)
+	m, _ := windows.UTF16PtrFromString(err.Error())
+	procMessageBoxW.Call(0, uintptr(unsafe.Pointer(m)), uintptr(unsafe.Pointer(t)), 0x10) // MB_ICONERROR
 }

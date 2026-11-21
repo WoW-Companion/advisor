@@ -56,13 +56,21 @@ func main() {
 	app.mode = *mode
 	app.opacity = 220
 	if err := run(); err != nil {
+		showError("overlay-webview2", err)
 		log.Fatal(err)
 	}
 }
 
 func run() error {
-	if err := windows.CoInitializeEx(0, windows.COINIT_APARTMENTTHREADED); err != nil {
-		return fmt.Errorf("CoInitializeEx: %w", err)
+	uninit, note, err := coInitStatus(hresultOf(windows.CoInitializeEx(0, windows.COINIT_APARTMENTTHREADED)))
+	if err != nil {
+		return err
+	}
+	if note != "" {
+		log.Print(note)
+	}
+	if uninit {
+		defer windows.CoUninitialize()
 	}
 	var inst windows.Handle
 	_ = windows.GetModuleHandleEx(0, nil, &inst)
