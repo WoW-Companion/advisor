@@ -278,7 +278,12 @@ func TestGameDataChangeEvent(t *testing.T) {
 	e := start(t, "text", false)
 	ch := events(e.do(t, "GET", "/api/events", "", nil).Body)
 	time.Sleep(50 * time.Millisecond) // let the poller record the first stamp
-	write(t, filepath.Join(e.dir, "ForeverScribe.lua"), strings.Replace(capture, "capturedAt = 200", "capturedAt = 999, extra = 1", 1))
+	// Renamed into place, so the poller never reads a half-written file under load.
+	tmp := filepath.Join(e.dir, "ForeverScribe.tmp")
+	write(t, tmp, strings.Replace(capture, "capturedAt = 200", "capturedAt = 999, extra = 1", 1))
+	if err := os.Rename(tmp, filepath.Join(e.dir, "ForeverScribe.lua")); err != nil {
+		t.Fatal(err)
+	}
 	ev := next(t, ch)
 	var st State
 	json.Unmarshal([]byte(ev.data), &st)
