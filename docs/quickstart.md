@@ -73,6 +73,36 @@ polling), then `/reload` again.
 Success: the answer appears under your question in the panel. `claude`, `codex` and `gemini` are the
 agent presets; see [ask.md](ask.md).
 
+## Live answers beside the game
+
+Command: `wowc-advisor companion --agent claude`
+
+Success: your browser opens a chat page (URL `http://127.0.0.1:4317/?token=...`). Pick the character
+(the most recently captured is the default), type a question, and the answer streams in as the agent
+writes it. The "data from game" badge shows when ForeverScribe last saved; it updates the moment you
+`/reload` or log out. Press Ctrl-C to stop.
+
+Why the in-game Ask box can't do this: the WoW client gives addons no file access at runtime.
+SavedVariables are written only on `/reload` or logout, and addon files are read only at login or
+`/reload`, so an in-game question needs one `/reload` to go out and another to bring the answer back.
+The companion sits beside the game instead of inside it, and changes nothing in the client.
+
+- **Second monitor:** drag the browser window over. **Over the game:** run WoW in windowed fullscreen
+  and put the window on top or beside it.
+- **Phone or another PC:** `wowc-advisor companion --lan` listens on all interfaces and prints a LAN
+  URL with the token. Anyone with that URL can ask your AI agent, so use it on a network you trust.
+  `--port N` picks the first port to try (default 4317; the next free one is used), `--no-open`
+  skips opening the browser.
+- **Questions asked in game** show up in the page marked "asked in game", and the companion still writes
+  Answers.lua for them, like `ask --watch`, so `/reload` in game shows them too. Do not run
+  `ask --watch` on the same file at the same time.
+- **Streaming:** Claude (`--agent claude`) streams text as it arrives. Codex and Gemini answers appear
+  once finished, marked "not streamed".
+- **Context:** the last 6 turns about the same character (at most 4,000 characters, answers cut to 600)
+  are sent with each question. Questions are limited to 1,000 characters, and one answer runs at a time.
+- **Safety:** it binds to 127.0.0.1, checks the `Host` and `Origin` of every request, and needs the random
+  token printed at start (kept in a cookie). The agent runs exactly as `ask` runs it.
+
 ## What the advisor can answer
 
 | Tool | Answers |

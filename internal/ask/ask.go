@@ -169,8 +169,20 @@ func fileExists(p string) bool { _, err := os.Stat(p); return err == nil }
 
 // runAgent runs the agent for q. The error is short and fit to show the player.
 func runAgent(ctx context.Context, cfg Config, q Question) (string, error) {
+	var out bytes.Buffer
+	if err := execAgent(ctx, cfg, q, Prompt(q), nil, &capped{w: &out, left: MaxOutput}); err != nil {
+		return "", err
+	}
+	if strings.TrimSpace(out.String()) == "" {
+		return "", errors.New("the agent gave no answer")
+	}
+	return out.String(), nil
+}
+
+// execAgent runs the agent once with prompt, extra argv appended, and its stdout sent to stdout.
+func execAgent(ctx context.Context, cfg Config, q Question, prompt string, extra []string, stdout io.Writer) error {
 	if len(cfg.Command) == 0 {
-		return "", errors.New("no agent command is configured")
+		return errors.New("no agent command is configured")
 	}
 	timeout := cfg.Timeout
 	if timeout <= 0 {
@@ -178,30 +190,27 @@ func runAgent(ctx context.Context, cfg Config, q Question) (string, error) {
 	}
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-	argv := Argv(cfg.Command, Prompt(q), cfg.MCPConfig)
+	argv := append(Argv(cfg.Command, prompt, cfg.MCPConfig), extra...)
 	cmd := exec.CommandContext(ctx, argv[0], argv[1:]...)
 	cmd.Env = append(os.Environ(), "WOWC_QUESTION="+q.Text, "WOWC_CHARACTER="+q.Character, "WOWC_MCP_CONFIG="+cfg.MCPConfig)
 	cmd.WaitDelay = time.Second
-	var out, errOut bytes.Buffer
-	cmd.Stdout = &capped{w: &out, left: MaxOutput}
+	var errOut bytes.Buffer
+	cmd.Stdout = stdout
 	cmd.Stderr = &capped{w: &errOut, left: 2048}
 	err := cmd.Run()
 	switch {
 	case ctx.Err() == context.DeadlineExceeded:
-		return "", fmt.Errorf("the agent took longer than %s", timeout)
+		return fmt.Errorf("the agent took longer than %s", timeout)
 	case ctx.Err() != nil:
-		return "", ctx.Err()
+		return ctx.Err()
 	case err != nil:
 		var ee *exec.ExitError
 		if errors.As(err, &ee) {
-			return "", fmt.Errorf("the agent exited with status %d", ee.ExitCode())
+			return fmt.Errorf("the agent exited with status %d", ee.ExitCode())
 		}
-		return "", fmt.Errorf("the agent did not start (%s)", filepath.Base(argv[0]))
+		return fmt.Errorf("the agent did not start (%s)", filepath.Base(argv[0]))
 	}
-	if strings.TrimSpace(out.String()) == "" {
-		return "", errors.New("the agent gave no answer")
-	}
-	return out.String(), nil
+	return nil
 }
 
 // capped keeps the first left bytes and discards the rest, so a chatty agent cannot fill memory.

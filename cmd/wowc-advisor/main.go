@@ -38,6 +38,7 @@ const usage = `usage: wowc-advisor serve [--stdio | --http] [--host ADDR] [--por
        wowc-advisor dataset status [--cache DIR] [--savedvariables FILE]
        wowc-advisor digest [NAME] [--dataset DIR] [--cache DIR] [--savedvariables FILE] [--digest-path FILE]
        wowc-advisor ask [--agent PRESET|COMMAND] [--watch] [--timeout D] [--max N] [--config FILE] [--dataset DIR] [--cache DIR] [--savedvariables FILE] [--addon-savedvariables FILE] [--answers-path FILE]
+       wowc-advisor companion [--port N] [--no-open] [--lan] [--agent PRESET|COMMAND] [--timeout D] [--config FILE] [--dataset DIR] [--cache DIR] [--savedvariables FILE] [--addon-savedvariables FILE] [--answers-path FILE]
        wowc-advisor setup CLIENT [--write] [--savedvariables FILE] [--binary FILE] [--os OS]   (CLIENT: claude-desktop, claude-code, codex, gemini)
        wowc-advisor doctor [--savedvariables FILE] [--cache DIR]
        wowc-advisor version`
@@ -62,6 +63,8 @@ func run(ctx context.Context, args []string, stderr io.Writer) error {
 		return doctorCmd(args[1:], os.Stdout, stderr)
 	case "ask":
 		return askCmd(ctx, args[1:], os.Stdout, stderr)
+	case "companion":
+		return companionCmd(ctx, args[1:], os.Stdout, stderr)
 	}
 	return fmt.Errorf("unknown command %q\n%s", args[0], usage)
 }
