@@ -17,6 +17,7 @@ import (
 	"github.com/WoW-Companion/advisor/internal/character"
 	"github.com/WoW-Companion/advisor/internal/dataset"
 	"github.com/WoW-Companion/advisor/internal/digest"
+	"github.com/WoW-Companion/advisor/internal/questie"
 	"github.com/WoW-Companion/advisor/internal/svfind"
 )
 
@@ -35,6 +36,7 @@ const (
 	IDDataset   = "dataset"
 	IDAddon     = "addon"
 	IDDisplay   = "display"
+	IDQuestie   = "questie"
 	IDAI        = "ai"
 	AddonName   = "WoWCompanion"
 	ScribeName  = "ForeverScribe"
@@ -130,9 +132,10 @@ func Check(o Options) []Item {
 			Item{ID: IDScribe, Title: "ForeverScribe installed", Status: Bad, Detail: "Needs the game folder first."},
 			Item{ID: IDData, Title: "ForeverScribe has data", Status: Bad, Detail: "Needs the game folder first."},
 			Item{ID: IDAddon, Title: "WoW Companion addon (optional)", Status: Warn, Optional: true, Detail: "Needs the game folder first."},
-			Item{ID: IDDisplay, Title: "Display mode", Status: Warn, Detail: "Needs the game folder first."})
+			Item{ID: IDDisplay, Title: "Display mode", Status: Warn, Detail: "Needs the game folder first."},
+			Item{ID: IDQuestie, Title: "Questie (optional)", Status: Warn, Optional: true, Detail: "Needs the game folder first."})
 	}
-	items = append(items, scribeItem(game), dataItem(game), addonItem(game, o), displayItem(game))
+	items = append(items, scribeItem(game), dataItem(game), addonItem(game, o), displayItem(game), questieItem(game))
 	return items
 }
 
@@ -365,4 +368,18 @@ func oneLine(s string) string {
 		s = string(r[:157]) + "..."
 	}
 	return s
+}
+
+// questieItem reports the player's own Questie, which the advisor reads when present. It is never
+// an error: without it, quest suggestions come from ForeverScribe's saved data alone.
+func questieItem(game string) Item {
+	it := Item{ID: IDQuestie, Title: "Questie (optional)", Optional: true}
+	ok, detail := questie.Probe(game).Describe()
+	it.Detail = detail
+	if ok {
+		it.Status = OK
+	} else {
+		it.Status = Warn
+	}
+	return it
 }

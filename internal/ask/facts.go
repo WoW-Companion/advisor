@@ -8,6 +8,7 @@ import (
 	"github.com/WoW-Companion/advisor/internal/advice"
 	"github.com/WoW-Companion/advisor/internal/brief"
 	"github.com/WoW-Companion/advisor/internal/character"
+	"github.com/WoW-Companion/advisor/internal/questie"
 	"github.com/WoW-Companion/advisor/internal/store"
 )
 
@@ -42,7 +43,7 @@ func Facts(cfg Config, q Question) string {
 	if ds == nil {
 		return NoDataFacts + "\n\n" + capRunes(brief.Character(c, f.ClientOf(c), time.Now()), FactsBudget)
 	}
-	all := advice.WhatsNext(c, ds)
+	all := advice.WhatsNextWith(c, ds, questie.ForSavedVariables(cfg.SavedVariables))
 	next := advice.Render(c, advice.Limit(all, FactsSteps), len(all))
 	return capRunes(brief.Character(c, f.ClientOf(c), time.Now())+"\n\n"+next, FactsBudget)
 }

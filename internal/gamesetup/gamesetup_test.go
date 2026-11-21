@@ -286,3 +286,10 @@ func TestTestAI(t *testing.T) {
 	}
 	_ = fmt.Sprint
 }
+
+func TestQuestieItemIsOptionalAndNeverBad(t *testing.T) {
+	it := questieItem(t.TempDir())
+	if it.ID != IDQuestie || !it.Optional || it.Status != Warn || !strings.Contains(it.Detail, "Not installed") {
+		t.Fatalf("%+v", it)
+	}
+}

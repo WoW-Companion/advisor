@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- If you have Questie and QuestieDB installed, the advisor reads them on your PC to suggest quests you have not picked up (with the giver's position) and to say where a logged quest's objective or turn-in is. It is optional; the setup checklist has a Questie row.
+
 ## 0.4.0
 
 - Antigravity (`agy`) is now supported as an AI client. Gemini CLI still works but is now legacy.

@@ -26,6 +26,7 @@ import (
 	"github.com/WoW-Companion/advisor/internal/character"
 	"github.com/WoW-Companion/advisor/internal/dataset"
 	"github.com/WoW-Companion/advisor/internal/digest"
+	"github.com/WoW-Companion/advisor/internal/questie"
 	"github.com/WoW-Companion/advisor/internal/release"
 	"github.com/WoW-Companion/advisor/internal/server"
 	"github.com/WoW-Companion/advisor/internal/store"
@@ -364,7 +365,7 @@ func (s *Server) reload() {
 	for _, c := range f.Characters {
 		ci := CharInfo{Key: c.Key, Name: c.Name, Class: c.Class, Next: []string{NoDataMessage}}
 		if ds != nil {
-			ci.Next = nextQuests(c, f, ds)
+			ci.Next = nextQuests(c, f, ds, questie.ForSavedVariables(s.cfg.Ask.SavedVariables))
 		}
 		if c.Level != nil {
 			ci.Level = *c.Level
@@ -685,8 +686,8 @@ func readFile(p string) (string, error) {
 }
 
 // nextQuests is the top NextQuests lines of the character's digest "next quests" section.
-func nextQuests(c character.Character, f character.File, ds store.DataStore) []string {
-	d := digest.Build(c, ds, digest.Options{Now: time.Now(), Client: f.ClientOf(c)})
+func nextQuests(c character.Character, f character.File, ds store.DataStore, qx *questie.Index) []string {
+	d := digest.Build(c, ds, digest.Options{Now: time.Now(), Client: f.ClientOf(c), Questie: qx})
 	for _, sec := range d.Sections {
 		if sec.ID != digest.NextQuests {
 			continue

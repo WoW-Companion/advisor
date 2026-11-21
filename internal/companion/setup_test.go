@@ -35,7 +35,7 @@ func TestSetupEndpoints(t *testing.T) {
 	m := do("GET", "/api/setup?game="+root, "")
 	items, _ := m["items"].([]any)
 	if len(items) != 7 {
-		t.Fatalf("want 6 rows, got %v", m)
+		t.Fatalf("want 7 rows, got %v", m)
 	}
 	res := do("POST", "/api/setup/install-addon", `{"game":"`+root+`"}`)
 	if res["error"] == nil || res["ok"] != nil {
