@@ -51,6 +51,7 @@ type Config struct {
 	Dataset        string
 	SavedVariables string
 	DigestPath     string // the digest file to write; empty derives it from SavedVariables
+	SkipUnchanged  bool   // leave the file alone when only the generated times would differ
 	Cache          string // dataset cache directory for doctor; empty is the per-user cache
 
 	// SVSource says where SavedVariables came from once FromEnv has run: SVFlag, SVEnv or SVAuto.
@@ -398,6 +399,7 @@ type DigestOutput struct {
 	Path       string                    `json:"path" jsonschema:"the Digest.lua file written"`
 	Lines      map[string]map[string]int `json:"lines" jsonschema:"lines written, per character and section id"`
 	Text       string                    `json:"text" jsonschema:"plain-text summary, with the /reload reminder"`
+	Unchanged  bool                      `json:"unchanged,omitempty" jsonschema:"the file already held this digest and was not rewritten"`
 }
 
 // NotCapturedError is what a digest asked for an uncaptured character says.
@@ -462,7 +464,9 @@ func WriteDigest(cfg Config, name string) (DigestOutput, error) {
 		}
 		parts = append(parts, fmt.Sprintf("%s: %s", d.Character, strings.Join(counts, ", ")))
 	}
-	if err := digest.Write(path, env); err != nil {
+	if cfg.SkipUnchanged && digest.Same(path, env) {
+		out.Unchanged = true
+	} else if err := digest.Write(path, env); err != nil {
 		return DigestOutput{}, fmt.Errorf("could not write the digest: %w", err)
 	}
 	out.Text = fmt.Sprintf("Wrote the digest for %d characters to %s.\n%s\n", len(kept), path, strings.Join(parts, "\n"))

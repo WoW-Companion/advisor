@@ -25,6 +25,7 @@ import (
 	"github.com/WoW-Companion/advisor/internal/ask"
 	"github.com/WoW-Companion/advisor/internal/character"
 	"github.com/WoW-Companion/advisor/internal/digest"
+	"github.com/WoW-Companion/advisor/internal/server"
 	"github.com/WoW-Companion/advisor/internal/store"
 )
 
@@ -55,6 +56,25 @@ type Config struct {
 	App           bool       // the desktop app's webview is the client: its origins pass, and the token may come in a header or query
 	Dataset       string     // dataset directory, for each character's next quests (empty: none)
 	Poll          time.Duration
+	AutoDigest    bool          // rewrite the in-game digest when ForeverScribe saves
+	DigestPath    string        // Digest.lua; empty derives it from ForeverScribe
+	Debounce      time.Duration // quiet time after a save before the digest is written (default 2s)
+}
+
+// Digest statuses.
+const (
+	DigestOn      = "on"
+	DigestOff     = "off"
+	DigestNoAddon = "addon not found"
+	DigestFailed  = "error"
+)
+
+// DigestState is the in-game digest's status: whether it is kept up to date, and when it last was.
+type DigestState struct {
+	Enabled   bool   `json:"enabled"`
+	Status    string `json:"status"`
+	UpdatedAt int64  `json:"updated_at,omitempty"` // when the file was last written or confirmed current
+	Error     string `json:"error,omitempty"`
 }
 
 // Entry is one turn of the chat history.
@@ -87,12 +107,13 @@ var AppOrigins = []string{"http://tauri.localhost", "https://tauri.localhost", "
 
 // State is what the page loads and what a "game" event carries.
 type State struct {
-	Characters []CharInfo `json:"characters"`
-	Default    string     `json:"default"`
-	CapturedAt int64      `json:"captured_at"`
-	Error      string     `json:"error,omitempty"`
-	History    []Entry    `json:"history"`
-	Streaming  bool       `json:"streaming"`
+	Characters []CharInfo  `json:"characters"`
+	Default    string      `json:"default"`
+	CapturedAt int64       `json:"captured_at"`
+	Error      string      `json:"error,omitempty"`
+	History    []Entry     `json:"history"`
+	Streaming  bool        `json:"streaming"`
+	Digest     DigestState `json:"digest"`
 }
 
 type event struct{ name, data string }
@@ -132,6 +153,7 @@ type Server struct {
 	busy     map[string]bool // client address -> an answer is in flight
 	seq      int
 	subs     map[chan event]bool
+	digest   DigestState
 }
 
 // New returns a companion; it does not listen. Serve does that.
@@ -141,7 +163,13 @@ func New(cfg Config) *Server {
 	}
 	b := make([]byte, 16)
 	rand.Read(b)
-	return &Server{cfg: cfg, Token: hex.EncodeToString(b), turns: map[string]*turn{}, busy: map[string]bool{}, subs: map[chan event]bool{}}
+	if cfg.Debounce <= 0 {
+		cfg.Debounce = 2 * time.Second
+	}
+	s := &Server{cfg: cfg, Token: hex.EncodeToString(b), turns: map[string]*turn{}, busy: map[string]bool{}, subs: map[chan event]bool{}}
+	s.digest = DigestState{Enabled: cfg.AutoDigest}
+	s.digest.Status = s.digestStatus(cfg.AutoDigest)
+	return s
 }
 
 // Serve serves on ln until ctx ends, watching the game files meanwhile.
@@ -168,6 +196,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/state", s.state)
 	mux.HandleFunc("GET /api/events", s.events)
 	mux.HandleFunc("POST /api/ask", s.ask)
+	mux.HandleFunc("POST /api/auto-digest", s.autoDigest)
 	mux.HandleFunc("GET /api/stream/{id}", s.stream)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if msg := s.reject(r); msg != "" {
@@ -281,7 +310,7 @@ func (s *Server) state(w http.ResponseWriter, r *http.Request) {
 func (s *Server) snapshot() State {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	st := State{Characters: s.chars, CapturedAt: s.captured, Error: s.loadErr, Streaming: s.cfg.Stream}
+	st := State{Characters: s.chars, CapturedAt: s.captured, Error: s.loadErr, Streaming: s.cfg.Stream, Digest: s.digest}
 	var best int64 = -1
 	for _, c := range s.chars {
 		if c.CapturedAt > best {
@@ -337,11 +366,17 @@ func (s *Server) publish(name string, v any) {
 func (s *Server) watch(ctx context.Context) {
 	last, lastAsk := ask.Stamp(s.cfg.ForeverScribe), ""
 	var asking sync.Mutex
+	var due time.Time // when the pending digest write falls due; zero when none
 	for {
 		if cur := ask.Stamp(s.cfg.ForeverScribe); cur != last {
 			last = cur
 			s.reload()
 			s.publish("game", s.snapshot())
+			due = time.Now().Add(s.cfg.Debounce) // each further change pushes it back
+		}
+		if !due.IsZero() && !time.Now().Before(due) {
+			due = time.Time{}
+			s.writeDigest()
 		}
 		if cur := ask.Stamp(s.cfg.Ask.SavedVariables); cur != lastAsk && cur != "" && asking.TryLock() {
 			lastAsk = cur
@@ -577,4 +612,74 @@ func nextQuests(c character.Character, f character.File, ds store.DataStore) []s
 		return out
 	}
 	return nil
+}
+
+// digestPath is the Digest.lua to write.
+func (s *Server) digestPath() (string, error) {
+	if s.cfg.DigestPath != "" {
+		return s.cfg.DigestPath, nil
+	}
+	return digest.DigestPath(s.cfg.ForeverScribe)
+}
+
+// digestStatus is the status when nothing has gone wrong: off, addon not found, or on.
+func (s *Server) digestStatus(enabled bool) string {
+	if p, err := s.digestPath(); err != nil || digest.CheckInstalled(p) != nil {
+		return DigestNoAddon
+	}
+	if !enabled {
+		return DigestOff
+	}
+	return DigestOn
+}
+
+// SetAutoDigest turns the automatic digest on or off and republishes the status.
+func (s *Server) SetAutoDigest(on bool) {
+	st := s.digestStatus(on)
+	s.mu.Lock()
+	s.digest.Enabled, s.digest.Status, s.digest.Error = on, st, ""
+	s.mu.Unlock()
+	s.publish("game", s.snapshot())
+}
+
+// writeDigest writes the digest of every captured character, as `wowc-advisor digest` does, unless
+// the setting is off or the addon folder is missing. A file that already holds the same advice is
+// left untouched.
+func (s *Server) writeDigest() {
+	s.mu.Lock()
+	on := s.digest.Enabled
+	s.mu.Unlock()
+	st := s.digestStatus(on)
+	if !on || st == DigestNoAddon {
+		s.mu.Lock()
+		s.digest.Status = st
+		s.mu.Unlock()
+		s.publish("game", s.snapshot())
+		return
+	}
+	_, err := server.WriteDigest(server.Config{
+		SavedVariables: s.cfg.ForeverScribe, Dataset: s.cfg.Dataset, DigestPath: s.cfg.DigestPath, SkipUnchanged: true,
+	}, "")
+	s.mu.Lock()
+	if err != nil {
+		s.digest.Status, s.digest.Error = DigestFailed, err.Error()
+	} else {
+		s.digest.Status, s.digest.Error, s.digest.UpdatedAt = DigestOn, "", time.Now().Unix()
+	}
+	s.mu.Unlock()
+	s.publish("game", s.snapshot())
+}
+
+// autoDigest is the settings switch: {"on": true|false}.
+func (s *Server) autoDigest(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		On bool `json:"on"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, MaxBody)).Decode(&req); err != nil {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+	s.SetAutoDigest(req.On)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(s.snapshot().Digest)
 }
