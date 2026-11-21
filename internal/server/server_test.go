@@ -129,3 +129,24 @@ func TestToolsWithoutFileSaySo(t *testing.T) {
 		t.Errorf("res = %+v, err %v", res, err)
 	}
 }
+
+func TestCompareBuilds(t *testing.T) {
+	for _, c := range []struct {
+		name         string
+		game         string
+		client       *ClientInfo
+		match, warns bool
+		compared     bool
+	}{
+		{"match", "1.60.1.71037", &ClientInfo{Version: "1.60.1", Build: "71037"}, true, false, true},
+		{"mismatch", "1.60.1.71037", &ClientInfo{Version: "1.60.2", Build: "71500"}, false, true, true},
+		{"no client", "1.60.1.71037", nil, false, false, false},
+	} {
+		info := Info{GameBuild: &c.game, Client: c.client}
+		compareBuilds(&info)
+		if (info.DatasetMatchesClient != nil) != c.compared || (c.compared && *info.DatasetMatchesClient != c.match) ||
+			(info.DatasetWarning != nil) != c.warns {
+			t.Errorf("%s: %+v", c.name, info)
+		}
+	}
+}
