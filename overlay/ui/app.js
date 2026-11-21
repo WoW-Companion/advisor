@@ -6,7 +6,7 @@ const win = window.__TAURI__.window.getCurrentWindow();
 
 const $ = id => document.getElementById(id);
 const log = $('log'), who = $('who'), badge = $('badge'), text = $('text'), send = $('send');
-const DEFAULTS = { opacity: 92, solidHover: false, mode: 'overlay', keyVis: 'Ctrl+Shift+W', keyCt: 'Ctrl+Shift+T', nextOpen: null, settingsOpen: false, chatOpen: true, size: 'M', cleared: [], who: '' };
+const DEFAULTS = { opacity: 92, solidHover: false, mode: 'overlay', keyVis: 'Ctrl+Shift+W', keyCt: 'Ctrl+Shift+T', nextOpen: null, settingsOpen: false, chatOpen: true, size: 'M', cleared: [], who: '', setupSeen: false, setupHidden: [], gameDir: '' };
 // nextOpen null means automatic: open until the chat has a message, then collapsed. A click makes it a choice.
 const cfg = { ...DEFAULTS, ...JSON.parse(localStorage.getItem('wowc') || '{}') };
 const save = () => localStorage.setItem('wowc', JSON.stringify(cfg));
@@ -96,6 +96,7 @@ async function connect(c) {
     return setPhase('stopped', 'The advisor did not answer. ' + (err || e.message));
   }
   if (conn !== c) return;
+  loadSetup(true);
   events = sse('/api/events');
   const es = events;
   events.addEventListener('game', ev => { state = JSON.parse(ev.data); setChars(); showBadge(); });
@@ -383,3 +384,86 @@ setInterval(() => showBadge(), 30000);
   if (st.conn) connect(st.conn);
   else if (st.error) setPhase('stopped', 'The advisor stopped. ' + st.error);
 })();
+
+// --- Setup checklist -----------------------------------------------------------------------
+// The sidecar does every check and the addon install (Go); this only shows the rows. It opens on
+// first run and whenever a row is red. The one write is the addon install, on the player's click.
+
+let setupItems = [];
+const gameQ = () => cfg.gameDir ? '?game=' + encodeURIComponent(cfg.gameDir) : '';
+const MARK = { ok: '\u2713', warn: '\u26A0', bad: '\u2717' };
+
+function showSetup() {
+  const list = $('setup-list');
+  list.replaceChildren();
+  for (const it of setupItems) {
+    if (it.optional && cfg.setupHidden.includes(it.id)) continue;
+    const li = document.createElement('li');
+    const mark = document.createElement('span');
+    mark.className = 'mark ' + it.status; mark.textContent = MARK[it.status] || '?';
+    mark.setAttribute('role', 'img'); mark.setAttribute('aria-label', it.status);
+    const title = document.createElement('b'); title.textContent = it.title;
+    const acts = document.createElement('span'); acts.className = 'acts';
+    if (it.action) {
+      const b = document.createElement('button'); b.type = 'button'; b.textContent = it.label || it.action;
+      b.onclick = () => setupAct(it, b);
+      acts.append(b);
+    }
+    if (it.optional && it.status !== 'ok') {
+      const h = document.createElement('button'); h.type = 'button'; h.textContent = "Don't show again";
+      h.onclick = () => { cfg.setupHidden = [...cfg.setupHidden, it.id]; save(); showSetup(); };
+      acts.append(h);
+    }
+    const detail = document.createElement('span'); detail.className = 'detail'; detail.textContent = it.detail;
+    li.append(mark, title, acts, detail);
+    list.append(li);
+  }
+}
+
+async function loadSetup(auto) {
+  if (!conn) return;
+  const c = conn;
+  try {
+    const r = await api('/api/setup' + gameQ());
+    if (!r.ok || conn !== c) return;
+    setupItems = (await r.json()).items || [];
+  } catch (e) { return; }
+  showSetup();
+  const red = setupItems.some(it => it.status === 'bad' && !(it.optional && cfg.setupHidden.includes(it.id)));
+  if (auto && (red || !cfg.setupSeen)) { $('setup').hidden = false; }
+  if (auto) { cfg.setupSeen = true; save(); }
+}
+
+function setupMsg(t) { $('setup-msg').textContent = t || ''; }
+
+async function setupAct(it, btn) {
+  setupMsg('');
+  if (it.action === 'choose-folder') { $('setup-folder').hidden = false; $('setup-folder-path').focus(); return; }
+  if (it.action === 'open-url') { invoke('open_install_page', { url: it.url }).catch(e => setupMsg(String(e))); return; }
+  btn.disabled = true;
+  try {
+    if (it.action === 'install-addon' || it.action === 'update-addon') {
+      setupMsg('Downloading and verifying the addon…');
+      const r = await api('/api/setup/install-addon', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ game: cfg.gameDir }) });
+      const j = await r.json();
+      if (j.items) setupItems = j.items;
+      setupMsg(j.error || j.message);
+    } else if (it.action === 'test-ai') {
+      setupMsg('Asking your AI client…');
+      const r = await api('/api/setup/test-ai', { method: 'POST' });
+      const j = await r.json();
+      setupMsg((j.ok ? '\u2713 ' : '\u2717 ') + j.message);
+    }
+  } catch (e) { setupMsg('Could not reach the advisor: ' + e.message); }
+  btn.disabled = false;
+  showSetup();
+}
+
+$('setup-folder').onsubmit = ev => {
+  ev.preventDefault();
+  cfg.gameDir = $('setup-folder-path').value.trim(); save();
+  $('setup-folder').hidden = true;
+  loadSetup(false);
+};
+$('setup-open').onclick = () => { $('setup').hidden = false; loadSetup(false); };
+$('setup-close').onclick = () => { $('setup').hidden = true; };

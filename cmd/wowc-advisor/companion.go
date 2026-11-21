@@ -35,6 +35,7 @@ func companionCmd(ctx context.Context, args []string, stdout, stderr io.Writer) 
 	fs.StringVar(&f.answers, "answers-path", "", "Answers.lua to write with --answers-file (default: derived from the SavedVariables path)")
 	fs.DurationVar(&f.timeout, "timeout", ask.DefaultTimeout, "time limit for each agent run")
 	fs.IntVar(&f.max, "max", ask.DefaultMaxPerRun, "most in-game questions answered per pass")
+	gameDir := fs.String("game-dir", "", "WoW folder for the setup checklist (default: found from the SavedVariables path or the standard install folders)")
 	port := fs.Int("port", 4317, "first port to try; the next free one is used when it is taken")
 	noOpen := fs.Bool("no-open", false, "do not open the browser")
 	handshake := fs.Bool("handshake", false, "for the desktop app: pick a free port, print one JSON line {\"url\",\"token\",\"agent\",\"agent_source\"} and never open a browser")
@@ -73,7 +74,7 @@ func companionCmd(ctx context.Context, args []string, stdout, stderr io.Writer) 
 		return err
 	}
 	s := companion.New(companion.Config{
-		ForeverScribe: cfg.SavedVariables, Ask: ac, LAN: *lan, App: *handshake, Dataset: cfg.Dataset, AutoDigest: *autoDigest,
+		ForeverScribe: cfg.SavedVariables, Ask: ac, LAN: *lan, App: *handshake, Dataset: cfg.Dataset, AutoDigest: *autoDigest, GameDir: *gameDir,
 		Stream: len(ac.Command) > 0 && strings.TrimSuffix(strings.ToLower(filepath.Base(ac.Command[0])), strings.ToLower(filepath.Ext(ac.Command[0]))) == "claude",
 	})
 	p := ln.Addr().(*net.TCPAddr).Port

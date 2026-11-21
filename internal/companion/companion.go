@@ -59,6 +59,9 @@ type Config struct {
 	AutoDigest    bool          // rewrite the in-game digest when ForeverScribe saves
 	DigestPath    string        // Digest.lua; empty derives it from ForeverScribe
 	Debounce      time.Duration // quiet time after a save before the digest is written (default 2s)
+	GameDir       string        // the WoW folder the player chose in the setup checklist (empty: detect)
+	HTTP          *http.Client  // for the addon lookup and install (nil: the default client)
+	AddonAPI      string        // the addon's latest-release URL (empty: GitHub's)
 }
 
 // Digest statuses.
@@ -155,6 +158,7 @@ type Server struct {
 	seq      int
 	subs     map[chan event]bool
 	digest   DigestState
+	setup    setupCache
 }
 
 // New returns a companion; it does not listen. Serve does that.
@@ -199,6 +203,9 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/ask", s.ask)
 	mux.HandleFunc("POST /api/auto-digest", s.autoDigest)
 	mux.HandleFunc("GET /api/stream/{id}", s.stream)
+	mux.HandleFunc("GET /api/setup", s.setupState)
+	mux.HandleFunc("POST /api/setup/install-addon", s.setupInstall)
+	mux.HandleFunc("POST /api/setup/test-ai", s.setupTestAI)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if msg := s.reject(r); msg != "" {
 			http.Error(w, msg, http.StatusForbidden)

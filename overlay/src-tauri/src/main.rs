@@ -211,8 +211,9 @@ fn set_agent(app: AppHandle, agent: String) -> Result<(), String> {
     Ok(())
 }
 
-/// The official install pages of the AI clients; the page may open these and nothing else.
-const INSTALL_PAGES: [&str; 3] = [
+/// The official install pages of the AI clients and of ForeverScribe; the page may open these and nothing else.
+const INSTALL_PAGES: [&str; 4] = [
+    "https://github.com/MattMaximo/foreverscribe",
     "https://docs.claude.com/en/docs/claude-code/setup",
     "https://github.com/openai/codex",
     "https://github.com/google-gemini/gemini-cli",
