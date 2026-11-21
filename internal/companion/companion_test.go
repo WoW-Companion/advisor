@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/WoW-Companion/advisor/internal/ask"
+	"github.com/WoW-Companion/advisor/internal/character"
 )
 
 // TestMain makes the test binary double as the fake agent CLI. "stream" prints Claude-style
@@ -347,5 +348,60 @@ func TestHistoryFor(t *testing.T) {
 		if tc.maxRunes > 0 && len([]rune(got)) > tc.maxRunes {
 			t.Errorf("%s: %d runes", tc.name, len([]rune(got)))
 		}
+	}
+}
+
+// TestAppMode: with App set (the --handshake sidecar) the app's webview origins pass, the token
+// comes in a header or the query, preflights are answered; without it none of that holds.
+func TestAppMode(t *testing.T) {
+	e := start(t, "text", false)
+	tok := map[string]string{"Cookie": "", TokenHeader: e.srv.Token}
+	with := func(h map[string]string, kv ...string) map[string]string {
+		out := map[string]string{}
+		for k, v := range h {
+			out[k] = v
+		}
+		for i := 0; i < len(kv); i += 2 {
+			out[kv[i]] = kv[i+1]
+		}
+		return out
+	}
+	type tc struct {
+		name, method, path string
+		hdr                map[string]string
+		want               int
+	}
+	cases := []tc{
+		{"app origin, header token", "GET", "/api/state", with(tok, "Origin", "http://tauri.localhost"), 200},
+		{"https app origin", "GET", "/api/state", with(tok, "Origin", "https://tauri.localhost"), 200},
+		{"tauri scheme origin", "GET", "/api/state", with(tok, "Origin", "tauri://localhost"), 200},
+		{"query token", "GET", "/api/state?token=" + e.srv.Token, map[string]string{"Cookie": "", "Origin": "http://tauri.localhost"}, 200},
+		{"app origin, no token", "GET", "/api/state", map[string]string{"Cookie": "", "Origin": "http://tauri.localhost"}, 403},
+		{"wrong header token", "GET", "/api/state", map[string]string{"Cookie": "", TokenHeader: "nope"}, 403},
+		{"preflight", "OPTIONS", "/api/ask", map[string]string{"Cookie": "", "Origin": "http://tauri.localhost"}, 204},
+		{"foreign origin still refused", "GET", "/api/state", with(tok, "Origin", "http://evil.example"), 403},
+		{"foreign tauri-like origin", "GET", "/api/state", with(tok, "Origin", "http://tauri.localhost.evil.example"), 403},
+		{"query token off /api", "GET", "/?token=" + e.srv.Token, map[string]string{"Cookie": ""}, 303},
+	}
+	e.srv.cfg.App = true
+	for _, c := range cases {
+		if got := e.do(t, c.method, c.path, "", c.hdr).StatusCode; got != c.want {
+			t.Errorf("app: %s: status %d, want %d", c.name, got, c.want)
+		}
+	}
+	if h := e.do(t, "GET", "/api/state", "", with(tok, "Origin", "http://tauri.localhost")).Header.Get("Access-Control-Allow-Origin"); h != "http://tauri.localhost" {
+		t.Errorf("Access-Control-Allow-Origin = %q", h)
+	}
+	e.srv.cfg.App = false
+	for _, c := range cases[:5] {
+		if got := e.do(t, c.method, c.path, "", c.hdr).StatusCode; got != 403 {
+			t.Errorf("not app: %s: status %d, want 403", c.name, got)
+		}
+	}
+}
+
+func TestNextQuestsCapped(t *testing.T) {
+	if got := nextQuests(character.Character{}, character.File{}, nil); len(got) > NextQuests {
+		t.Errorf("%d lines", len(got))
 	}
 }
