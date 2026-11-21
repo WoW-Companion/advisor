@@ -18,7 +18,7 @@ const NotAvailable = "not available in knowledge-only mode: this server holds ga
 
 // CharacterTools are the full server's tools that read the character capture or local files.
 var CharacterTools = []string{"list_characters", "character_brief", "whats_next", "upgrade_finder", "profession_plan",
-	"talent_plan", "dungeon_plan", "inventory_review", "update_digest", "doctor"}
+	"talent_plan", "dungeon_plan", "farm_spots", "inventory_review", "update_digest", "doctor"}
 
 const (
 	maxMatches = 10 // candidates a name lookup lists

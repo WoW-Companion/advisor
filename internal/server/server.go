@@ -23,6 +23,7 @@ import (
 	"github.com/WoW-Companion/advisor/internal/digest"
 	"github.com/WoW-Companion/advisor/internal/doctor"
 	"github.com/WoW-Companion/advisor/internal/dungeons"
+	"github.com/WoW-Companion/advisor/internal/farm"
 	"github.com/WoW-Companion/advisor/internal/gear"
 	"github.com/WoW-Companion/advisor/internal/inventory"
 	"github.com/WoW-Companion/advisor/internal/lua"
@@ -302,6 +303,26 @@ type DungeonOutput struct {
 	Unknown   []dungeons.DungeonPick `json:"level_unknown"`
 	Text      string                 `json:"text" jsonschema:"plain-text rendering"`
 }
+
+// FarmInput is the farm_spots argument.
+type FarmInput struct {
+	Character string `json:"character,omitempty" jsonschema:"character name; omit when only one was captured"`
+	Item      string `json:"item" jsonschema:"item id or name"`
+	Limit     int    `json:"limit,omitempty" jsonschema:"how many spots to list (default 5)"`
+}
+
+// FarmOutput is the farm_spots result.
+type FarmOutput struct {
+	Character string      `json:"character"`
+	ItemID    int64       `json:"item_id"`
+	Item      string      `json:"item"`
+	Spots     []farm.Spot `json:"spots"`
+	Crafted   bool        `json:"crafted" jsonschema:"the item can also be crafted; see profession_plan"`
+	Text      string      `json:"text" jsonschema:"plain-text rendering"`
+}
+
+// DefaultFarmLimit is how many spots farm_spots lists when none is asked for.
+const DefaultFarmLimit = 5
 
 // InventoryInput is the inventory_review argument.
 type InventoryInput struct {
@@ -609,6 +630,52 @@ func New(cfg Config) *mcp.Server {
 			picks = picks[:limit]
 		}
 		return nil, DungeonOutput{name, picks, res.Unknown, dungeons.Render(c, res, limit)}, nil
+	})
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "farm_spots",
+		Description: "Where to farm an item for one captured character (by name; omit if only one; item id or name; optional limit, default 5): " +
+			"the creatures and objects that drop it, those in the character's level range first, then by drop chance (drops per loot window), with level range and zone. " +
+			"Unknown zones, levels and chances are said to be unknown; crafted sources are left out and point to profession_plan.",
+	}, func(_ context.Context, _ *mcp.CallToolRequest, in FarmInput) (*mcp.CallToolResult, FarmOutput, error) {
+		none := FarmOutput{Spots: []farm.Spot{}}
+		f, errResult := load(cfg.SavedVariables)
+		if errResult != nil {
+			return errResult, none, nil
+		}
+		c, err := brief.Choose(f, in.Character)
+		if err != nil {
+			return toolError(err.Error()), none, nil
+		}
+		if cfg.Dataset == "" {
+			return toolError("No dataset configured (set WOWC_DATASET)."), none, nil
+		}
+		if strings.TrimSpace(in.Item) == "" {
+			return toolError("Give an item id or name."), none, nil
+		}
+		ds := store.NewDir(cfg.Dataset)
+		id, item, cands := farm.Resolve(ds, in.Item)
+		if len(cands) > 0 {
+			return toolError("'" + in.Item + "' matches several items: " + strings.Join(cands, ", ") + ". Use the id."), none, nil
+		}
+		if id == 0 {
+			return toolError("No item matches '" + in.Item + "'."), none, nil
+		}
+		limit := in.Limit
+		if limit <= 0 {
+			limit = DefaultFarmLimit
+		}
+		spots := farm.Spots(c, ds, id)
+		crafted := farm.Crafted(ds, id)
+		name := c.Name
+		if name == "" {
+			name = c.Key
+		}
+		text := farm.Render(item, spots, crafted, limit)
+		if len(spots) > limit {
+			spots = spots[:limit]
+		}
+		return nil, FarmOutput{name, id, item, spots, crafted, text}, nil
 	})
 
 	mcp.AddTool(s, &mcp.Tool{

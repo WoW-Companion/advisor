@@ -35,7 +35,7 @@ avoid. Serve the dataset over HTTPS from a bucket only you can write.
 | `recipe_lookup` | a recipe by `spell_id` or part of its `name`, with reagents |
 
 The character tools (`list_characters`, `character_brief`, `whats_next`, `upgrade_finder`,
-`profession_plan`, `talent_plan`, `dungeon_plan`, `inventory_review`, `update_digest`, `doctor`) are not
+`profession_plan`, `talent_plan`, `dungeon_plan`, `farm_spots`, `inventory_review`, `update_digest`, `doctor`) are not
 listed. Calling one returns an error saying it is "not available in knowledge-only mode". The mode
 refuses `--dataset`, `--savedvariables` and the stdio transport, and never reads `$WOWC_DATASET` or
 `$WOWC_SAVEDVARIABLES`.
