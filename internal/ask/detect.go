@@ -76,21 +76,7 @@ var winMode = os.PathSeparator == '\\'
 // system's from the registry. A desktop app started from the Start menu may have a minimal PATH,
 // and a program installed after this one started is only in the registry.
 var searchPath = func() string {
-	p := os.Getenv("PATH")
-	if winMode {
-		p = joinPaths(p, registryPaths(os.Getenv)...)
-	}
-	return p
-}
-
-func joinPaths(first string, more ...string) string {
-	all := []string{first}
-	for _, m := range more {
-		if m != "" {
-			all = append(all, m)
-		}
-	}
-	return strings.Join(all, string(os.PathListSeparator))
+	return freshPath()
 }
 
 // Detect finds the first of DetectOrder in the PATH list, else in the extra directories, and the

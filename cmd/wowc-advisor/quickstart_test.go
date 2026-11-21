@@ -146,3 +146,102 @@ func TestDocsOverlayFirstOrder(t *testing.T) {
 		}
 	}
 }
+
+// Every step the one-page Getting Started names must match the overlay's setup checklist, its
+// settings and the commands that exist; the feedback form and the links must be in place.
+func TestGettingStartedMatchesOverlay(t *testing.T) {
+	doc := read(t, "../../docs/getting-started.md")
+	html := read(t, "../../overlay/ui/index.html")
+	setup := read(t, "../../internal/gamesetup/gamesetup.go")
+
+	// Each checklist item (by its title in gamesetup) is named in the page, as the page words it.
+	titles := regexp.MustCompile(`Item\{ID: ID\w+, Title: "([^"]+)"`).FindAllStringSubmatch(setup, -1)
+	if len(titles) < 5 {
+		t.Fatalf("found %d checklist titles in gamesetup.go", len(titles))
+	}
+	words := map[string]string{
+		"WoW: Forever found":             "game found",
+		"ForeverScribe installed":        "ForeverScribe installed",
+		"ForeverScribe has data":         "ForeverScribe has data",
+		"WoW Companion addon (optional)": "WoW Companion addon (optional",
+		"Display mode":                   "display mode",
+	}
+	seen := map[string]bool{}
+	for _, m := range titles {
+		if seen[m[1]] {
+			continue
+		}
+		seen[m[1]] = true
+		w, ok := words[m[1]]
+		if !ok {
+			t.Errorf("checklist item %q is not covered by getting-started", m[1])
+			continue
+		}
+		if !strings.Contains(strings.ToLower(doc), strings.ToLower(w)) {
+			t.Errorf("getting-started does not name checklist item %q", m[1])
+		}
+	}
+	if !strings.Contains(setup, `Label = "Open ForeverScribe page"`) && !strings.Contains(setup, `"Open ForeverScribe page"`) {
+		t.Error("the checklist has no \"Open ForeverScribe page\" button")
+	}
+	if !strings.Contains(doc, "Open ForeverScribe page") {
+		t.Error("getting-started does not name the \"Open ForeverScribe page\" button")
+	}
+
+	// Settings and controls the page names exist in the overlay UI.
+	for _, label := range []string{"Re-scan", "Setup checklist"} {
+		if !strings.Contains(doc, label) || !strings.Contains(html, label) {
+			t.Errorf("%q must be in both getting-started and the overlay UI", label)
+		}
+	}
+	for _, id := range []string{`id="setup"`, `id="setup-open"`, `id="agent-rescan"`} {
+		if !strings.Contains(html, id) {
+			t.Errorf("overlay/ui/index.html lost %s", id)
+		}
+	}
+	if !strings.Contains(doc, "Windowed (Fullscreen)") || !strings.Contains(doc, "Display Mode") {
+		t.Error("getting-started lost the Windowed (Fullscreen) step")
+	}
+
+	// Commands: the page uses only subcommands main.go handles, and an installer name the release publishes.
+	subs := map[string]bool{}
+	for _, m := range regexp.MustCompile(`case "(\w+)":`).FindAllStringSubmatch(read(t, "main.go"), -1) {
+		subs[m[1]] = true
+	}
+	for _, m := range regexp.MustCompile(`wowc-advisor(?:\.exe)? ([a-z]\w*)`).FindAllStringSubmatch(doc, -1) {
+		if !subs[m[1]] {
+			t.Errorf("getting-started uses subcommand %q that main.go does not handle", m[1])
+		}
+	}
+	if !strings.Contains(doc, "WoW-Companion-Setup-<version>-x64.exe") {
+		t.Error("getting-started does not name the installer")
+	}
+
+	// Links: README lists Getting Started before the quickstart; the overlay's link opens only the allowed page.
+	readme := read(t, "../../README.md")
+	g, q := strings.Index(readme, "docs/getting-started.md"), strings.Index(readme, "docs/quickstart.md")
+	if g < 0 || q < 0 || g > q {
+		t.Error("README must link getting-started before the quickstart")
+	}
+	const page = "https://github.com/WoW-Companion/advisor/blob/main/docs/getting-started.md"
+	if !strings.Contains(html, `data-page="`+page+`"`) {
+		t.Error("the Setup panel has no Getting Started link")
+	}
+	if !strings.Contains(read(t, "../../overlay/src-tauri/src/main.rs"), `"`+page+`"`) {
+		t.Error("open_install_page does not allow the Getting Started page")
+	}
+
+	// The feedback form is an issue form with the fields the page promises, and no workflow.
+	form := read(t, "../../.github/ISSUE_TEMPLATE/alpha-feedback.yml")
+	for _, f := range []string{"tried", "happened", "expected", "version", "client", "checklist", "screenshots", "privacy"} {
+		if !strings.Contains(form, "id: "+f+"\n") {
+			t.Errorf("alpha-feedback.yml has no field %q", f)
+		}
+	}
+	if !strings.Contains(form, "No account, character or other players' names in my screenshots") || !strings.Contains(form, "required: true") {
+		t.Error("alpha-feedback.yml lost the screenshot privacy checkbox")
+	}
+	if !strings.Contains(doc, "template=alpha-feedback.yml") {
+		t.Error("getting-started does not link the feedback form")
+	}
+}

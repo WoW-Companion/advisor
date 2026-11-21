@@ -1,0 +1,52 @@
+name: Alpha feedback
+description: Tell us what happened while trying WoW Companion
+title: "[Alpha] "
+labels: ["alpha-feedback"]
+body:
+  - type: textarea
+    id: tried
+    attributes:
+      label: What you tried
+    validations:
+      required: true
+  - type: textarea
+    id: happened
+    attributes:
+      label: What happened
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+  - type: input
+    id: version
+    attributes:
+      label: Overlay version
+      description: The number in the installer file name (WoW-Companion-Setup-<version>-x64.exe), also shown when you hover the tray icon.
+  - type: dropdown
+    id: client
+    attributes:
+      label: AI client
+      options:
+        - Claude
+        - Codex
+        - Gemini
+        - Other or none
+  - type: textarea
+    id: checklist
+    attributes:
+      label: Setup checklist state
+      description: Open Setup from the overlay settings and list which lines are green, yellow or red.
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots
+      description: Drag images here.
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy
+      options:
+        - label: No account, character or other players' names in my screenshots
+          required: true

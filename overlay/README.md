@@ -17,6 +17,18 @@ Those are preview builds of unreleased work: open the **Actions** tab, pick a gr
 NSIS installer; `wow-companion-exe` holds the raw `wow-companion.exe` and `wowc-advisor.exe`, which must
 stay in one folder.
 
+**Version and updates.** The last line of the settings panel (gear) and the tray tooltip read
+"WoW Companion 0.2.0 · advisor 0.2.0". On start and every 12 hours the advisor makes one unauthenticated
+request for the newest GitHub release; if it is newer the line adds "· v0.3.0 available", and clicking
+"available" opens the release page in your browser. Nothing is downloaded or installed for you. Turn it off
+with **Check for updates** in settings; a failed lookup shows nothing.
+
+**Upgrading.** Run a newer `WoW-Companion-Setup-*.exe` over an older install: it upgrades in place, with no
+"uninstall first" page (`overlay/src-tauri/windows/installer.nsi` is Tauri's NSIS template with that one
+change, set through `bundle.windows.nsis.template`; Tauri's installer hooks run too late to skip the page).
+Settings and window position live in your app data folder, which the installer does not touch. Installing the
+same or an older version still asks.
+
 The installer is **not code-signed**, so Windows SmartScreen shows "Windows
 protected your PC": click **More info**, then **Run anyway**.
 

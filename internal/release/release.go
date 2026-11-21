@@ -99,3 +99,19 @@ func parse(v string) ([]int, bool) {
 	}
 	return out, true
 }
+
+// Notice is what the overlay's version line needs: whether to say a newer release is available,
+// and which. A failed lookup, a development build or a release that is not newer all read as no
+// notice, so the line stays quiet.
+type Notice struct {
+	Available bool   `json:"available"`
+	Latest    string `json:"latest"`
+}
+
+// NoticeFor decides the update notice from a lookup's outcome.
+func NoticeFor(res Result, err error) Notice {
+	if err != nil || !res.Known || !res.Newer {
+		return Notice{}
+	}
+	return Notice{Available: true, Latest: res.Latest}
+}

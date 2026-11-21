@@ -29,6 +29,10 @@ func TestMain(m *testing.M) {
 	case "fail":
 		fmt.Fprintln(os.Stderr, "boom")
 		os.Exit(3)
+	case "failout":
+		fmt.Println("partial")
+		fmt.Fprintln(os.Stderr, "boom")
+		os.Exit(3)
 	case "silent":
 	case "long":
 		fmt.Print(strings.Repeat("x", 5000))
@@ -207,10 +211,11 @@ func TestRunFailures(t *testing.T) {
 		timeout    time.Duration
 		command    []string
 	}{
-		{"fail", "exited with status 3", 0, nil},
+		{"fail", "boom", 0, nil},
+		{"failout", "exited with status 3", 0, nil},
 		{"silent", "gave no answer", 0, nil},
 		{"hang", "took longer than", 100 * time.Millisecond, nil},
-		{"echo", "did not start", 0, []string{"/nonexistent/agent"}},
+		{"echo", "Couldn't find Agent", 0, []string{"/nonexistent/agent"}},
 	} {
 		cfg := fixture(t, tc.mode)
 		if tc.timeout != 0 {
