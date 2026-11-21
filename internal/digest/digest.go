@@ -16,6 +16,7 @@ import (
 	"github.com/WoW-Companion/advisor/internal/dataset"
 	"github.com/WoW-Companion/advisor/internal/dungeons"
 	"github.com/WoW-Companion/advisor/internal/gear"
+	"github.com/WoW-Companion/advisor/internal/questie"
 	"github.com/WoW-Companion/advisor/internal/store"
 	"github.com/WoW-Companion/advisor/internal/talents"
 )
@@ -91,6 +92,7 @@ type Options struct {
 	Now          time.Time
 	Client       character.Client // the game client that wrote the capture
 	DatasetBuild string           // the dataset's game build; empty when none
+	Questie      *questie.Index   // the player's own QuestieDB; nil when they have none
 }
 
 // NoDataText is what NEXT says when no game dataset has downloaded.
@@ -139,7 +141,7 @@ func buildOf(cl character.Client) string {
 // left out.
 func Build(c character.Character, ds store.DataStore, opt Options) Digest {
 	d := Digest{Schema: Schema, Generated: opt.Now.Unix(), Build: buildOf(opt.Client), Character: name(c)}
-	steps := advice.WhatsNext(c, ds)
+	steps := advice.WhatsNextWith(c, ds, opt.Questie)
 	notes := stepNotes(c, ds, steps)
 
 	var quests []Line

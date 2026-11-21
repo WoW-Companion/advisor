@@ -108,8 +108,9 @@ learns the live position; it plans from the last save.
 
 Questie draws pins for every quest from its own database. This design draws none. It answers a
 different question, "what should I do next, and which way", and takes its order from the advisor, so
-it adds sequencing, level fit and "pick this up on the way". It reads no Questie data and adds no map
-pins. If Questie is loaded, the addon may point at Questie's tracked quest in text only; that is a
+it adds sequencing, level fit and "pick this up on the way". The addon reads no Questie data and adds
+no map pins (the advisor on the player's PC may read their installed Questie; see
+[questie-interop.md](questie-interop.md)). If Questie is loaded, the addon may point at Questie's tracked quest in text only; that is a
 follow-up, not a dependency.
 
 Does Questie cover WoW: Forever, including Zephras Isle? **Unverified.** Questie's database is built

@@ -10,6 +10,7 @@ import (
 
 	"github.com/WoW-Companion/advisor/internal/brief"
 	"github.com/WoW-Companion/advisor/internal/character"
+	"github.com/WoW-Companion/advisor/internal/questie"
 	"github.com/WoW-Companion/advisor/internal/quests"
 	"github.com/WoW-Companion/advisor/internal/store"
 )
@@ -36,8 +37,11 @@ type Step struct {
 	Reason string `json:"reason"`
 	Zone   string `json:"zone,omitempty"`
 	// Progress is the quest's objective progress, such as "Crab Season: 3/8 Crab Claws".
-	Progress string   `json:"progress,omitempty"`
-	QuestID  int      `json:"quest_id,omitempty"`
+	Progress string `json:"progress,omitempty"`
+	QuestID  int    `json:"quest_id,omitempty"`
+	// Location is where to go (an NPC or objective and its map percent), when the player's own
+	// Questie could place it.
+	Location string   `json:"location,omitempty"`
 	Sources  []string `json:"sources"`
 }
 
@@ -118,7 +122,11 @@ func plural(n int, one, many string) string {
 }
 
 // WhatsNext returns every step for the character, best first. ds may be nil (no dataset).
-func WhatsNext(c character.Character, ds store.DataStore) []Step {
+func WhatsNext(c character.Character, ds store.DataStore) []Step { return WhatsNextWith(c, ds, nil) }
+
+// WhatsNextWith is WhatsNext with the player's own QuestieDB, when they have one (nil otherwise):
+// it supplies the pick-ups and the locations of the quests in the log.
+func WhatsNextWith(c character.Character, ds store.DataStore, qx *questie.Index) []Step {
 	var turnIns, openSteps, failed []Step
 	unlocking := map[int]bool{} // quest ids of turn-ins that unlock the next chain step
 	type scored struct {
@@ -220,8 +228,13 @@ func WhatsNext(c character.Character, ds store.DataStore) []Step {
 		out = append(out, s)
 	}
 	out = append(out, openSteps...)
-	out = append(out, Limit(AvailableQuests(c, ds).Quests, MaxAvailable)...)
+	avail, ok := questieAvailable(c, qx)
+	if !ok {
+		avail = AvailableQuests(c, ds)
+	}
+	out = append(out, Limit(avail.Quests, MaxAvailable)...)
 	out = append(out, failed...)
+	locate(c, out, qx)
 	// Profession steps need trainer data the dataset does not hold yet; omitted, never guessed.
 	return out
 }

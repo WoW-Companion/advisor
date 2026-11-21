@@ -30,6 +30,7 @@ import (
 	"github.com/WoW-Companion/advisor/internal/items"
 	"github.com/WoW-Companion/advisor/internal/lua"
 	"github.com/WoW-Companion/advisor/internal/professions"
+	"github.com/WoW-Companion/advisor/internal/questie"
 	"github.com/WoW-Companion/advisor/internal/quests"
 	"github.com/WoW-Companion/advisor/internal/setup"
 	"github.com/WoW-Companion/advisor/internal/store"
@@ -447,12 +448,13 @@ func WriteDigest(cfg Config, name string) (DigestOutput, error) {
 		}
 	}
 	now := time.Now()
+	qx := questie.ForSavedVariables(cfg.SavedVariables)
 	kept, skipped := digest.Select(f.Characters)
 	env := digest.Envelope{Generated: now.Unix()}
 	out := DigestOutput{Path: path, Lines: map[string]map[string]int{}}
 	var parts []string
 	for _, c := range kept {
-		d := digest.Build(c, ds, digest.Options{Now: now, Client: f.ClientOf(c), DatasetBuild: datasetBuild})
+		d := digest.Build(c, ds, digest.Options{Now: now, Client: f.ClientOf(c), DatasetBuild: datasetBuild, Questie: qx})
 		env.Characters = append(env.Characters, d)
 		out.Characters = append(out.Characters, d.Character)
 		out.Lines[d.Character] = map[string]int{}
@@ -548,7 +550,7 @@ func New(cfg Config) *mcp.Server {
 		if cfg.Dataset != "" {
 			ds = store.NewDir(cfg.Dataset)
 		}
-		all := advice.WhatsNext(c, ds)
+		all := advice.WhatsNextWith(c, ds, questie.ForSavedVariables(cfg.SavedVariables))
 		limit := in.Limit
 		if limit <= 0 {
 			limit = DefaultLimit
