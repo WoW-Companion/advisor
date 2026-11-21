@@ -15,30 +15,48 @@ import (
 // ResolveAgent turns the --agent value, or else the config file's "agent" field, into an argv.
 // A preset name (claude, codex, gemini) expands to its command; anything else is split on spaces.
 func ResolveAgent(flagValue, configPath string) ([]string, error) {
-	spec := strings.TrimSpace(flagValue)
-	if spec == "" && configPath != "" {
-		raw, err := os.ReadFile(configPath)
-		switch {
-		case errors.Is(err, os.ErrNotExist):
-		case err != nil:
-			return nil, err
-		default:
-			var c struct {
-				Agent string `json:"agent"`
-			}
-			if err := json.Unmarshal(raw, &c); err != nil {
-				return nil, fmt.Errorf("%s: %w", configPath, err)
-			}
-			spec = strings.TrimSpace(c.Agent)
-		}
+	spec, _, err := agentSpec(flagValue, configPath)
+	if err != nil {
+		return nil, err
 	}
 	if spec == "" {
 		return nil, errors.New("no agent command: pass --agent (claude, codex, gemini or a command) or set \"agent\" in the config file")
 	}
+	return expand(spec), nil
+}
+
+func expand(spec string) []string {
 	if p, ok := Presets[spec]; ok {
-		return p, nil
+		return append([]string(nil), p...)
 	}
-	return strings.Fields(spec), nil
+	return strings.Fields(spec)
+}
+
+// agentSpec is the --agent value, else the config file's "agent" field, and which of the two it was.
+func agentSpec(flagValue, configPath string) (spec, source string, err error) {
+	if spec = strings.TrimSpace(flagValue); spec != "" {
+		return spec, SourceFlag, nil
+	}
+	if configPath == "" {
+		return "", SourceNone, nil
+	}
+	raw, err := os.ReadFile(configPath)
+	switch {
+	case errors.Is(err, os.ErrNotExist):
+		return "", SourceNone, nil
+	case err != nil:
+		return "", "", err
+	}
+	var c struct {
+		Agent string `json:"agent"`
+	}
+	if err := json.Unmarshal(raw, &c); err != nil {
+		return "", "", fmt.Errorf("%s: %w", configPath, err)
+	}
+	if spec = strings.TrimSpace(c.Agent); spec == "" {
+		return "", SourceNone, nil
+	}
+	return spec, SourceConfig, nil
 }
 
 // MCPConfig renders the MCP config JSON handed to the agent: it starts this binary as a stdio

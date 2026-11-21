@@ -410,3 +410,18 @@ func TestNextQuestsCapped(t *testing.T) {
 		t.Errorf("%d lines", len(got))
 	}
 }
+
+// TestNoAgent: a companion with no agent still serves the character data, and asking says why it cannot.
+func TestNoAgent(t *testing.T) {
+	e := start(t, "text", false)
+	e.srv.cfg.Ask.Command = nil
+	var st State
+	if err := json.NewDecoder(e.do(t, "GET", "/api/state", "", nil).Body).Decode(&st); err != nil || len(st.Characters) != 2 {
+		t.Fatalf("state: %+v, %v", st, err)
+	}
+	resp := e.do(t, "POST", "/api/ask", `{"character":"R:New","text":"hi"}`, nil)
+	body, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode != http.StatusConflict || strings.TrimSpace(string(body)) != ErrNoAgent {
+		t.Errorf("ask: %d %q", resp.StatusCode, body)
+	}
+}

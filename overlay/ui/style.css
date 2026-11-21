@@ -37,6 +37,7 @@ button:disabled { opacity: .5; cursor: default; }
 #close:hover { background: rgba(179, 64, 47, .55); }
 
 .banner { display: flex; gap: 8px; align-items: center; justify-content: space-between; padding: 6px 12px; background: rgba(150, 45, 32, .85); font-size: 12px; }
+.notice.calm a { color: inherit; text-decoration: underline; cursor: pointer; }
 .notice { padding: 5px 12px; background: rgba(217, 176, 90, .18); font-size: 12px; animation: fade .25s ease-out; }
 .settings { display: grid; gap: 6px; padding: 8px 12px; border-bottom: 1px solid rgba(217, 176, 90, .2); background: rgba(0, 0, 0, .22); font-size: 12px; }
 .settings label { display: flex; gap: 8px; align-items: center; justify-content: space-between; }

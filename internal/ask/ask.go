@@ -93,7 +93,8 @@ func str(v any) string { s, _ := v.(string); return s }
 type Config struct {
 	SavedVariables string   // the addon's WoWCompanion.lua
 	AnswersPath    string   // Answers.lua to write
-	Command        []string // the agent argv, see Presets
+	Command        []string // the agent argv, see Presets; empty when no agent is set up (the companion only)
+	Name, Source   string   // the agent's short name and where it came from (see Agent); may be empty
 	MCPConfig      string   // path of the MCP config file handed to the agent; may be empty
 	Timeout        time.Duration
 	MaxPerRun      int

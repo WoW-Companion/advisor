@@ -37,7 +37,7 @@ func askCmd(ctx context.Context, args []string, stdout, stderr io.Writer) error 
 	if fs.NArg() > 0 {
 		return errors.New("ask takes no arguments\n" + usage)
 	}
-	ac, cleanup, err := askSetup(ctx, &cfg, askFlags{*cache, *agent, *confPath, *addonSV, *answers, *timeout, *max}, stderr)
+	ac, cleanup, err := askSetup(ctx, &cfg, askFlags{cache: *cache, agent: *agent, confPath: *confPath, addonSV: *addonSV, answers: *answers, timeout: *timeout, max: *max}, stderr)
 	if err != nil {
 		return err
 	}
@@ -59,6 +59,7 @@ type askFlags struct {
 	cache, agent, confPath, addonSV, answers string
 	timeout                                  time.Duration
 	max                                      int
+	optional                                 bool // run without an agent: detect one, or leave Command empty
 }
 
 // askSetup resolves the SavedVariables file, the agent and the paths, and writes the agent's MCP
@@ -70,15 +71,18 @@ func askSetup(ctx context.Context, cfg *server.Config, f askFlags, stderr io.Wri
 		return ac, cleanup, errors.New("no SavedVariables file: pass --savedvariables or set $" + server.SavedVariablesEnv + "; " + svfind.Detect().NotFound(server.SavedVariablesEnv))
 	}
 	if f.confPath == "" {
-		if dir, err := os.UserConfigDir(); err == nil {
-			f.confPath = filepath.Join(dir, "wowc-advisor", "ask.json")
-		}
+		f.confPath = defaultConfigPath()
 	}
-	argv, err := ask.ResolveAgent(f.agent, f.confPath)
+	var ag ask.Agent
+	if f.optional {
+		ag, err = ask.ResolveAuto(f.agent, f.confPath)
+	} else {
+		ag.Command, err = ask.ResolveAgent(f.agent, f.confPath)
+	}
 	if err != nil {
 		return ac, cleanup, err
 	}
-	ac = ask.Config{Command: argv, Timeout: f.timeout, MaxPerRun: f.max, SavedVariables: f.addonSV, AnswersPath: f.answers}
+	ac = ask.Config{Command: ag.Command, Name: ag.Name, Source: ag.Source, Timeout: f.timeout, MaxPerRun: f.max, SavedVariables: f.addonSV, AnswersPath: f.answers}
 	derivedSV, derivedAnswers, derr := ask.Paths(cfg.SavedVariables)
 	if ac.SavedVariables == "" {
 		ac.SavedVariables = derivedSV
