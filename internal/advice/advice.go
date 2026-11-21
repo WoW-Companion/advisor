@@ -31,12 +31,14 @@ const (
 
 // Step is one piece of advice.
 type Step struct {
-	Kind    string   `json:"kind"`
-	Title   string   `json:"title"`
-	Reason  string   `json:"reason"`
-	Zone    string   `json:"zone,omitempty"`
-	QuestID int      `json:"quest_id,omitempty"`
-	Sources []string `json:"sources"`
+	Kind   string `json:"kind"`
+	Title  string `json:"title"`
+	Reason string `json:"reason"`
+	Zone   string `json:"zone,omitempty"`
+	// Progress is the quest's objective progress, such as "Crab Season: 3/8 Crab Claws".
+	Progress string   `json:"progress,omitempty"`
+	QuestID  int      `json:"quest_id,omitempty"`
+	Sources  []string `json:"sources"`
 }
 
 // AbandonPrefix starts the title of the step for a failed quest.
@@ -121,8 +123,11 @@ func WhatsNext(c character.Character, ds store.DataStore) []Step {
 	unlocking := map[int]bool{} // quest ids of turn-ins that unlock the next chain step
 	type scored struct {
 		step Step
-		diff int // |quest level - character level|; -1 when the level is unknown
+		diff int  // |quest level - character level|; -1 when the level is unknown
+		near bool // complete or at least 75% of objectives done
+		here bool // shares a zone or subzone with the last known position
 	}
+	pos := c.LastKnownPosition()
 	var open []scored
 	for _, q := range c.Quests {
 		info := lookup(q, ds)
@@ -137,16 +142,23 @@ func WhatsNext(c character.Character, ds store.DataStore) []Step {
 			failed = append(failed, Step{Kind: KindQuest, Title: AbandonPrefix + title(q), Reason: "failed; it cannot be completed", Zone: info.zone, QuestID: q.QuestID, Sources: info.sources})
 		default:
 			s := Step{Kind: KindQuest, Title: title(q), Zone: info.zone, QuestID: q.QuestID, Sources: info.sources}
-			chained := func() { withChain(&s, ds, q, false) }
+			chained := func() {
+				withChain(&s, ds, q, false)
+				if p := q.ProgressText(); p != "" {
+					s.Progress = p
+					s.Reason += "; " + p
+				}
+			}
+			near, here := q.NearlyDone(), pos != nil && pos.InZone(info.zone)
 			switch {
 			case info.level == nil:
 				s.Reason = "quest level unknown"
 				chained()
-				open = append(open, scored{s, -1})
+				open = append(open, scored{s, -1, near, here})
 			case c.Level == nil:
 				s.Reason = fmt.Sprintf("level %d quest, your level is not captured", *info.level)
 				chained()
-				open = append(open, scored{s, -1})
+				open = append(open, scored{s, -1, near, here})
 			default:
 				d := *info.level - *c.Level
 				if d < -MaxBelow || d > MaxAbove {
@@ -157,7 +169,7 @@ func WhatsNext(c character.Character, ds store.DataStore) []Step {
 				if d < 0 {
 					d = -d
 				}
-				open = append(open, scored{s, d})
+				open = append(open, scored{s, d, near, here})
 			}
 		}
 	}
@@ -184,6 +196,12 @@ func WhatsNext(c character.Character, ds store.DataStore) []Step {
 	})
 	sort.SliceStable(open, func(i, j int) bool {
 		a, b := open[i], open[j]
+		if a.near != b.near {
+			return a.near
+		}
+		if a.here != b.here {
+			return a.here
+		}
 		if (a.diff < 0) != (b.diff < 0) {
 			return b.diff < 0
 		}

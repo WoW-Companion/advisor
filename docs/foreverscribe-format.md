@@ -34,13 +34,15 @@ A malformed file is a `*lua.ParseError`, whose message starts `line N:`.
 | `snapshot.bags.items[itemID]` | `itemID`, `count`, `name`, `link`, `quality` | `bags` (`ItemStack`) | `Core.lua` `ScanContainers` |
 | `bank.items[itemID]` | the same shape; present only after the player opened the bank with the addon running | `Bank`; `BankCaptured` is false when the section is absent | `Core.lua` `ScanInventory` |
 | `snapshot.quests[i]` | `questID`, `title`, `level`, `zone`, `complete`, `failed`, `obj[j] {text, have, need, done, type}` | `quests` | `Core.lua` `QuestLog()` |
+| `snapshot.location` | `zone`, `subzone`, `mapName`, `mapID`, `x`, `y` (map percent): the player's own position at save time | `Location` | `Core.lua` |
+| `npcs["<npcID>:<uiMapID>"]` | `id`, `name`, `map`, `zone`, `subzone`, `x`, `y` (map percent), `kind` (`quest` or `gossip`), `first`, `t` (last seen, epoch), `n` (interactions), `r`, `spots[] {x, y, t, n}`; read from the character record, else the snapshot; every field optional | `NPCs` | NPC sightings |
 | `snapshot.questsCompleted` | sorted list of completed quest IDs | `completed_quest_ids` | `Core.lua` `CompletedQuests()` |
 | `snapshot.skills[i]` | `name`, `skillID`, `rank`, `max`, `mod`, `group` (the header the skill sat under) | `Skills`; `Professions` is the subset whose group names professions, merged with any `professions` list and listed once each (by skill id, else name) | `Core.lua` `Skills()` |
 | `snapshot.talents` | `system` (`traits` or `classic`), `loadout`, `unspent`, `trees[i] {name, points, currency {spent, unspent, max, spentInTree}, groups[k] {name, order, spent}, talents[j] {nodeID, name, group, rank, max, spellID}}`. Forever's trait trees split one class tree into groups (the old tabs: "Discipline", "Holy"); the spec is the group with most points | `Talents` | `Collect.lua` `C.Talents`, `TraitTree` |
 | `reputation.factions[i]` | `id`, `name`, `standing`, `value`, `min`, `max`, `atWar`, `group` | `reputations` | `Collect.lua` `C.Reputation` |
 
 Sections the reader does not model (spellbook, stats, durability summary, Legacy trees,
-achievements, mail, auctions, NPC sightings, events) are present in the file and ignored.
+achievements, mail, auctions, events) are present in the file and ignored.
 
 ## Rules the reader follows
 
@@ -59,3 +61,12 @@ achievements, mail, auctions, NPC sightings, events) are present in the file and
   (`docs/CAPTURE-MATRIX.md`, "Teardown rule"), so a section can be older than `captured_at`.
 - Several sections are marked *unverified* in the capture matrix (reputation, for one). The
   fixtures follow the writer's code, not a real file.
+
+## Progress and quest givers in advice
+
+- Open quests with at least 75% of objectives done (or complete) rank first, then quests whose zone
+  matches the last known position. Objective progress shows as "Quest: 3/8 Item".
+- Last known position is `snapshot.location` when it has coordinates; otherwise the most recent
+  `npcs[*].t` sighting, labelled approximate.
+- "Quest giver you've met nearby" lists up to 5 `kind="quest"` NPCs on the same map, nearest first
+  (straight-line map percent). They *may have* quests; the advisor never names one.

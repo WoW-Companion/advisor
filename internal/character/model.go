@@ -41,6 +41,28 @@ type Quest struct {
 	Objectives []Objective
 }
 
+// Spot is one place an NPC was seen (map percent) and when.
+type Spot struct {
+	X, Y *float64
+	T    *int64
+	N    *int
+}
+
+// NPC is one NPC sighting (ForeverScribe npcs["<npcID>:<uiMapID>"]). Kind is "quest" or "gossip".
+type NPC struct {
+	ID      int
+	Name    string
+	MapID   *int
+	Zone    string
+	Subzone string
+	X, Y    *float64
+	Kind    string
+	First   *int64
+	Seen    *int64 // t: last interaction, epoch seconds
+	Count   *int   // n: interactions
+	Spots   []Spot
+}
+
 // Location is where the character stood at the last save (ForeverScribe snapshot.location). X and
 // Y are percent of the map (0 to 100) and nil when the client gave no position.
 type Location struct {
@@ -135,6 +157,7 @@ type Character struct {
 	Bank         []ItemStack
 	BankCaptured bool // false until the player has opened the bank with ForeverScribe running
 
+	NPCs            []NPC // nil when the capture holds no npcs table
 	Quests          []Quest
 	QuestsCaptured  bool
 	CompletedQuests []int

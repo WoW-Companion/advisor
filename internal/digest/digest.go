@@ -148,6 +148,9 @@ func Build(c character.Character, ds store.DataStore, opt Options) Digest {
 			continue
 		}
 		text := s.Title
+		if s.Progress != "" {
+			text = s.Progress
+		}
 		if s.Zone != "" {
 			text += " (" + s.Zone + ")"
 		}
@@ -158,6 +161,9 @@ func Build(c character.Character, ds store.DataStore, opt Options) Digest {
 	}
 	ups, note := upgradeLines(c, ds)
 	notes = append(notes, note...)
+	if g := c.GiverLines(opt.Now, 1); len(g) > 0 {
+		notes = append(notes, Line{Text: clip(strings.Replace(g[0], "Quest giver you've met nearby: ", "Giver nearby: ", 1))})
+	}
 	notes = append(notes, captureNotes(c, ds, opt)...)
 
 	for _, s := range []Section{
