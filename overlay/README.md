@@ -22,7 +22,11 @@ In WoW, set **Display Mode** to **Windowed (Fullscreen)** (System, Graphics). A 
 cannot show anything above it; Windowed (Fullscreen) looks the same and lets the overlay appear on top.
 
 The app needs the same setup as the rest of the advisor: ForeverScribe and the WoW Companion addon
-installed, and an AI agent configured (see `docs/quickstart.md`). It finds your SavedVariables itself.
+installed. It finds your SavedVariables itself, and shows your characters and NEXT list without an AI
+client. To ask questions it needs one: it picks the first of Claude Code, Codex and Gemini CLI it finds
+(search places in `docs/ask.md`). Choose another in the settings panel, **AI client** (Auto, Claude, Codex,
+Gemini or a custom command); the choice is kept and the advisor restarts with it. With none installed the
+app shows a calm notice with links to each install page.
 
 ## Modes
 

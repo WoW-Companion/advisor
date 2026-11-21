@@ -43,6 +43,9 @@ const (
 	maxEntries         = 200
 )
 
+// ErrNoAgent is what asking says when no AI client is set up.
+const ErrNoAgent = "No AI client set up yet: install Claude Code, Codex or Gemini CLI, or choose one in settings."
+
 // Config is one companion's settings.
 type Config struct {
 	ForeverScribe string     // ForeverScribe.lua, polled for game data
@@ -446,6 +449,10 @@ func (s *Server) ask(w http.ResponseWriter, r *http.Request) {
 		return
 	case utf8.RuneCountInString(req.Text) > MaxQuestion:
 		http.Error(w, fmt.Sprintf("question longer than %d characters", MaxQuestion), http.StatusRequestEntityTooLarge)
+		return
+	}
+	if len(s.cfg.Ask.Command) == 0 {
+		http.Error(w, ErrNoAgent, http.StatusConflict)
 		return
 	}
 	client, _, _ := net.SplitHostPort(r.RemoteAddr)

@@ -21,10 +21,26 @@
     <span id="banner-text"></span>
     <button id="retry" type="button">Reconnect</button>
   </div>
+  <div id="aibar" class="notice calm" hidden>
+    Answers need an AI client. Install
+    <a href="#" data-page="https://docs.claude.com/en/docs/claude-code/setup">Claude Code</a>,
+    <a href="#" data-page="https://github.com/openai/codex">Codex</a> or
+    <a href="#" data-page="https://github.com/google-gemini/gemini-cli">Gemini CLI</a>.
+  </div>
   <div id="notice" class="notice" hidden></div>
 
   <section id="settings" class="settings" hidden>
     <label>Opacity <input id="opacity" type="range" min="40" max="100" step="5"> <output id="opacity-out"></output></label>
+    <label>AI client
+      <select id="agent">
+        <option value="auto">Auto</option>
+        <option value="claude">Claude</option>
+        <option value="codex">Codex</option>
+        <option value="gemini">Gemini</option>
+        <option value="custom">Custom command</option>
+      </select>
+    </label>
+    <label id="agent-cmd-row" hidden>Command <input id="agent-cmd" placeholder="my-agent --flag"></label>
     <label>Show / hide <input id="key-vis" class="key" readonly></label>
     <label>Click-through <input id="key-ct" class="key" readonly></label>
     <small>Focus a shortcut box and press the new keys (with Ctrl, Shift or Alt).</small>

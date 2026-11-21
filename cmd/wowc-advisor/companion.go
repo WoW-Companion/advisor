@@ -26,9 +26,9 @@ func companionCmd(ctx context.Context, args []string, stdout, stderr io.Writer) 
 	var cfg server.Config
 	fs.StringVar(&cfg.Dataset, "dataset", "", "dataset directory (default: $"+server.DatasetEnv+", else the cached dataset)")
 	fs.StringVar(&cfg.SavedVariables, "savedvariables", "", "ForeverScribe.lua file (default: $"+server.SavedVariablesEnv+")")
-	f := askFlags{}
+	f := askFlags{optional: true}
 	fs.StringVar(&f.cache, "cache", "", "dataset cache directory (default: per-user cache)")
-	fs.StringVar(&f.agent, "agent", "", "agent command or preset: claude, codex, gemini (default: \"agent\" in the config file)")
+	fs.StringVar(&f.agent, "agent", "", "agent command or preset: claude, codex, gemini, or auto (default: \"agent\" in the config file, else the first of claude, codex, gemini found)")
 	fs.StringVar(&f.confPath, "config", "", "config file (default: <user config dir>/wowc-advisor/ask.json)")
 	fs.StringVar(&f.addonSV, "addon-savedvariables", "", "the addon's WoWCompanion.lua (default: next to ForeverScribe.lua)")
 	fs.StringVar(&f.answers, "answers-path", "", "Answers.lua to write (default: derived from the SavedVariables path)")
@@ -36,7 +36,7 @@ func companionCmd(ctx context.Context, args []string, stdout, stderr io.Writer) 
 	fs.IntVar(&f.max, "max", ask.DefaultMaxPerRun, "most in-game questions answered per pass")
 	port := fs.Int("port", 4317, "first port to try; the next free one is used when it is taken")
 	noOpen := fs.Bool("no-open", false, "do not open the browser")
-	handshake := fs.Bool("handshake", false, "for the desktop app: pick a free port, print one JSON line {\"url\",\"token\"} and never open a browser")
+	handshake := fs.Bool("handshake", false, "for the desktop app: pick a free port, print one JSON line {\"url\",\"token\",\"agent\",\"agent_source\"} and never open a browser")
 	lan := fs.Bool("lan", false, "listen on all interfaces so a phone or another PC can open it (anyone with the URL can ask your agent)")
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -66,11 +66,11 @@ func companionCmd(ctx context.Context, args []string, stdout, stderr io.Writer) 
 	}
 	s := companion.New(companion.Config{
 		ForeverScribe: cfg.SavedVariables, Ask: ac, LAN: *lan, App: *handshake, Dataset: cfg.Dataset,
-		Stream: filepath.Base(strings.TrimSuffix(strings.ToLower(ac.Command[0]), ".exe")) == "claude",
+		Stream: len(ac.Command) > 0 && filepath.Base(strings.TrimSuffix(strings.ToLower(ac.Command[0]), ".exe")) == "claude",
 	})
 	p := ln.Addr().(*net.TCPAddr).Port
 	if *handshake {
-		fmt.Fprintln(stdout, handshakeLine(p, s.Token))
+		fmt.Fprintln(stdout, handshakeLine(p, s.Token, ac.Name, ac.Source))
 		return s.Serve(ctx, ln)
 	}
 	local := fmt.Sprintf("http://127.0.0.1:%d/?token=%s", p, s.Token)
@@ -85,11 +85,17 @@ func companionCmd(ctx context.Context, args []string, stdout, stderr io.Writer) 
 }
 
 // handshakeLine is the one line the desktop app reads from the sidecar's stdout.
-func handshakeLine(port int, token string) string {
+// agent is the AI client's short name ("" when none), source where it came from: flag, config, auto or none.
+func handshakeLine(port int, token, agent, source string) string {
+	if source == "" {
+		source = ask.SourceNone
+	}
 	b, _ := json.Marshal(struct {
-		URL   string `json:"url"`
-		Token string `json:"token"`
-	}{fmt.Sprintf("http://127.0.0.1:%d", port), token})
+		URL         string `json:"url"`
+		Token       string `json:"token"`
+		Agent       string `json:"agent"`
+		AgentSource string `json:"agent_source"`
+	}{fmt.Sprintf("http://127.0.0.1:%d", port), token, agent, source})
 	return string(b)
 }
 

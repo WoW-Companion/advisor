@@ -19,6 +19,24 @@ use tauri_plugin_window_state::StateFlags;
 struct Conn {
     url: String,
     token: String,
+    /// The AI client the sidecar will use ("" when none) and where it came from: flag, config,
+    /// auto or none.
+    #[serde(default)]
+    agent: String,
+    #[serde(default)]
+    agent_source: String,
+}
+
+/// Where the AI client choice is kept: "" (no choice), "auto", a preset name or a command.
+fn agent_file(app: &AppHandle) -> Option<std::path::PathBuf> {
+    app.path().app_config_dir().ok().map(|d| d.join("agent.txt"))
+}
+
+fn saved_agent(app: &AppHandle) -> String {
+    agent_file(app)
+        .and_then(|p| std::fs::read_to_string(p).ok())
+        .map(|s| s.trim().to_string())
+        .unwrap_or_default()
 }
 
 /// The sidecar's current run. `generation` tells a stale run's exit from the current one's.
@@ -119,7 +137,13 @@ fn start_sidecar(app: &AppHandle) {
     sc.error.lock().unwrap().clear();
     let mine = sc.generation.load(Ordering::SeqCst);
     let cmd = match app.shell().sidecar("wowc-advisor") {
-        Ok(c) => c.args(["companion", "--handshake"]),
+        Ok(c) => {
+            let c = c.args(["companion", "--handshake"]);
+            match saved_agent(app).as_str() {
+                "" => c,
+                a => c.args(["--agent", a]),
+            }
+        }
         Err(e) => return sidecar_down(app, e.to_string()),
     };
     let (mut rx, child) = match cmd.spawn() {
@@ -168,6 +192,39 @@ fn get_status(sc: State<Sidecar>) -> Status {
 #[tauri::command]
 fn restart_sidecar(app: AppHandle) {
     start_sidecar(&app);
+}
+
+#[tauri::command]
+fn get_agent(app: AppHandle) -> String {
+    saved_agent(&app)
+}
+
+/// Saves the AI client choice ("" clears it) and restarts the sidecar with it.
+#[tauri::command]
+fn set_agent(app: AppHandle, agent: String) -> Result<(), String> {
+    let path = agent_file(&app).ok_or("no config directory")?;
+    if let Some(dir) = path.parent() {
+        std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
+    }
+    std::fs::write(&path, agent.trim()).map_err(|e| e.to_string())?;
+    start_sidecar(&app);
+    Ok(())
+}
+
+/// The official install pages of the AI clients; the page may open these and nothing else.
+const INSTALL_PAGES: [&str; 3] = [
+    "https://docs.claude.com/en/docs/claude-code/setup",
+    "https://github.com/openai/codex",
+    "https://github.com/google-gemini/gemini-cli",
+];
+
+#[tauri::command]
+#[allow(deprecated)]
+fn open_install_page(app: AppHandle, url: String) -> Result<(), String> {
+    if !INSTALL_PAGES.contains(&url.as_str()) {
+        return Err("not an install page".into());
+    }
+    app.shell().open(url, None).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -286,6 +343,9 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             get_status,
             restart_sidecar,
+            get_agent,
+            set_agent,
+            open_install_page,
             get_ui,
             set_mode,
             set_click_through,
