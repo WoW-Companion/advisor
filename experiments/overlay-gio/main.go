@@ -80,6 +80,7 @@ func main() {
 		w := new(app.Window)
 		w.Option(app.Title("WoW Companion"), app.Size(320, 260), app.Decorated(false), app.TopMost(true))
 		if err := o.loop(w); err != nil {
+			showError("overlay-gio", err)
 			log.Println(err)
 			os.Exit(1)
 		}

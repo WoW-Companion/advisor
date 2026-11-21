@@ -6,7 +6,8 @@ real overlay uses. They are separate Go modules, so they are not part of `make v
 
 Both show a borderless, always-on-top 320×260 panel (dark, translucent, thin gold border, title
 "WoW Companion"), a scrolling text area that streams a fixed fake answer (20 characters every
-50 ms, restarting on Enter) and a one-line input. Drag the title to move it.
+50 ms, restarting on Enter) and a one-line input. Drag the title to move it. Close it with Alt+F4 while it has focus. A startup failure also
+shows in a message box, since the binaries are `-H windowsgui`.
 
 | Hotkey | Action |
 | --- | --- |
@@ -18,15 +19,25 @@ Hotkeys use `RegisterHotKey` only. No hooks, no access to any other process.
 
 ## Install (Windows)
 
+cmd:
+
 ```
 set GOPROXY=direct
 go install github.com/WoW-Companion/advisor/experiments/overlay-gio@main
 go install github.com/WoW-Companion/advisor/experiments/overlay-webview2@main
 ```
 
+PowerShell:
+
+```
+$env:GOPROXY = "direct"
+go install github.com/WoW-Companion/advisor/experiments/overlay-gio@main
+go install github.com/WoW-Companion/advisor/experiments/overlay-webview2@main
+```
+
 `overlay-webview2` needs the Evergreen WebView2 runtime (present on current Windows 10/11).
 Binaries land in `%GOPATH%\bin`. Building from a checkout: `cd experiments/overlay-gio` then
-`set CGO_ENABLED=0` and `go build -ldflags "-s -w -H windowsgui"`.
+`set CGO_ENABLED=0` (PowerShell: `$env:CGO_ENABLED = "0"`) and `go build -ldflags "-s -w -H windowsgui"`.
 
 ## Translucency modes
 

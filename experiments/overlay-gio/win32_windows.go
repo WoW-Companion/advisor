@@ -14,6 +14,7 @@ var (
 	procRegisterHotKey             = user32.NewProc("RegisterHotKey")
 	procUnregisterHotKey           = user32.NewProc("UnregisterHotKey")
 	procGetMessageW                = user32.NewProc("GetMessageW")
+	procMessageBoxW                = user32.NewProc("MessageBoxW")
 	procShowWindow                 = user32.NewProc("ShowWindow")
 	procGetWindowLongW             = user32.NewProc("GetWindowLongW")
 	procSetWindowLongW             = user32.NewProc("SetWindowLongW")
@@ -108,4 +109,12 @@ func setClickThrough(hwnd uintptr, on bool, alpha uint8) {
 		s &^= wsExTranspar
 	}
 	setExStyle(hwnd, s)
+}
+
+// showError reports a startup failure in a message box, because a -H windowsgui binary has no
+// console to print to.
+func showError(title string, err error) {
+	t, _ := windows.UTF16PtrFromString(title)
+	m, _ := windows.UTF16PtrFromString(err.Error())
+	procMessageBoxW.Call(0, uintptr(unsafe.Pointer(m)), uintptr(unsafe.Pointer(t)), 0x10) // MB_ICONERROR
 }
