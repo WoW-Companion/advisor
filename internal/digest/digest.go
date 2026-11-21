@@ -1,4 +1,4 @@
-// Package digest builds the in-game digest the WoWCompanion_Digest slot addon shows (schema 1, see
+// Package digest builds the in-game digest the WoWCompanion_Digest slot addon shows (schema 1.2, see
 // docs/digest.md). It adds no advice logic of its own: quests come from advice.WhatsNext, gear from
 // gear.Find, and the rest is read from the capture.
 package digest
@@ -14,13 +14,14 @@ import (
 	"github.com/WoW-Companion/advisor/internal/brief"
 	"github.com/WoW-Companion/advisor/internal/character"
 	"github.com/WoW-Companion/advisor/internal/dataset"
+	"github.com/WoW-Companion/advisor/internal/dungeons"
 	"github.com/WoW-Companion/advisor/internal/gear"
 	"github.com/WoW-Companion/advisor/internal/store"
 	"github.com/WoW-Companion/advisor/internal/talents"
 )
 
 // Schema is the digest format version this package writes.
-const Schema = 1
+const Schema = "1.2"
 
 // Section ids the panel knows.
 const (
@@ -36,6 +37,8 @@ const (
 	MaxUpgrades  = 8
 	MaxMaterials = 10
 	MaxNotes     = 6
+	MaxDungeons  = 3
+	MaxTalents   = 3
 	MaxText      = 60
 )
 
@@ -46,6 +49,20 @@ type Line struct {
 	Quest int
 }
 
+// DungeonLine is one dungeons entry: the dungeon, its level fit and top upgrade; Item is zero when
+// absent.
+type DungeonLine struct {
+	Name string
+	Line string
+	Item int
+}
+
+// TalentLine is one talents entry: the next point to spend; Spell is zero when the dataset has none.
+type TalentLine struct {
+	Line  string
+	Spell int
+}
+
 // Section is an ordered group of lines.
 type Section struct {
 	ID    string
@@ -54,11 +71,13 @@ type Section struct {
 
 // Digest is the whole file.
 type Digest struct {
-	Schema    int
+	Schema    string
 	Generated int64
 	Build     string
 	Character string
 	Sections  []Section
+	Dungeons  []DungeonLine // optional, at most MaxDungeons
+	Talents   []TalentLine  // optional, at most MaxTalents
 }
 
 // Options is what Build needs besides the capture and the dataset.
@@ -123,7 +142,65 @@ func Build(c character.Character, ds store.DataStore, opt Options) Digest {
 			d.Sections = append(d.Sections, s)
 		}
 	}
+	d.Dungeons = dungeonLines(c, ds)
+	d.Talents = talentLines(c, ds)
 	return d
+}
+
+// dungeonLines is the top MaxDungeons dungeons of dungeons.Plan that have an upgrade to show.
+func dungeonLines(c character.Character, ds store.DataStore) []DungeonLine {
+	res, err := dungeons.Plan(c, ds)
+	if err != nil {
+		return nil
+	}
+	var out []DungeonLine
+	for _, p := range res.Picks {
+		if len(out) == MaxDungeons {
+			break
+		}
+		if len(p.Drops) == 0 {
+			continue
+		}
+		d := p.Drops[0]
+		item := d.Item
+		if item == "" {
+			item = fmt.Sprintf("item %d", d.ItemID)
+		}
+		out = append(out, DungeonLine{Name: clip(p.Name), Line: clip(fitText(p) + ": " + item), Item: int(d.ItemID)})
+	}
+	return out
+}
+
+// fitText is the dungeon's level range and how the character sits against it.
+func fitText(p dungeons.DungeonPick) string {
+	s := fmt.Sprintf("lvl %d-%d", *p.MinLevel, *p.MaxLevel)
+	if p.Fit > 0 {
+		s += fmt.Sprintf(" (%d off)", p.Fit)
+	}
+	return s
+}
+
+// talentLines is the next MaxTalents points of talents.Plan, with the node's spell id when the
+// dataset has one.
+func talentLines(c character.Character, ds store.DataStore) []TalentLine {
+	if ds == nil {
+		return nil
+	}
+	var out []TalentLine
+	for _, p := range talents.Plan(c, ds, talents.Options{Limit: MaxTalents}).Next {
+		out = append(out, TalentLine{Line: clip(fmt.Sprintf("%s rank %d", p.Name, p.Rank)), Spell: spellID(ds, p.NodeID)})
+	}
+	return out
+}
+
+// spellID is the spell of a talent node, 0 when the dataset has none.
+func spellID(ds store.DataStore, node int64) int {
+	rows, err := ds.Filter("talent_nodes", store.Range{Column: "node_id", Min: node, Max: node})
+	if err != nil || len(rows) == 0 {
+		return 0
+	}
+	n, _ := rows[0]["spell_id"].(int64)
+	return int(n)
 }
 
 func capLines(l []Line, n int) []Line {

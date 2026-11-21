@@ -1,6 +1,6 @@
 -- Data only: written by wowc-advisor; overwritten on every update. See docs/digest-format.md in the addon repo.
 WoWCompanionDigest = {
-  schema = 1,
+  schema = "1.2",
   generated = 1800000000,
   build = "1.60.0.64000",
   character = "Testpriest",
@@ -20,10 +20,18 @@ WoWCompanionDigest = {
       { text = "Copper Bar x5", item = 2840 },
     } },
     { id = "notes", lines = {
-      { text = "Spend 2 unspent talent points" },
+      { text = "Spend 2 unspent talent points: Penance" },
       { text = "1 failed quest: abandon" },
       { text = "Bank not captured: open your bank once" },
       { text = "Dataset is build 1.59.0.63000, game is 64000" },
     } },
+  },
+  dungeons = {
+    { name = "Wolf Den", line = "lvl 10-14: Cloth Hood of the \"Sage\"", item_id = 1 },
+  },
+  talents = {
+    { line = "Penance rank 1", spell_id = 1001 },
+    { line = "Power Word: Shield rank 1" },
+    { line = "Power Word: Shield rank 2" },
   },
 }

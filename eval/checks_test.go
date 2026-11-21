@@ -587,7 +587,7 @@ func digestPassesSlotRules(e *env) error {
 		return fmt.Errorf("does not parse: %w", err)
 	}
 	d, _ := vars["WoWCompanionDigest"].(lua.Table)
-	if d["character"] != e.c.Name || d["schema"] != int64(digest.Schema) && d["schema"] != float64(digest.Schema) {
+	if d["character"] != e.c.Name || d["schema"] != digest.Schema {
 		return fmt.Errorf("round trip gave character %v, schema %v", d["character"], d["schema"])
 	}
 	return nil
