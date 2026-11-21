@@ -6,7 +6,7 @@ const win = window.__TAURI__.window.getCurrentWindow();
 
 const $ = id => document.getElementById(id);
 const log = $('log'), who = $('who'), badge = $('badge'), text = $('text'), send = $('send');
-const DEFAULTS = { opacity: 92, solidHover: false, mode: 'overlay', keyVis: 'Ctrl+Shift+W', keyCt: 'Ctrl+Shift+T', nextOpen: null, settingsOpen: false, chatOpen: true, size: 'M', checkUpdates: true, cleared: [], who: '', setupSeen: false, setupHidden: [], gameDir: '', length: 'standard', byClient: {}, usage: true };
+const DEFAULTS = { opacity: 92, solidHover: false, mode: 'overlay', keyVis: 'Ctrl+Shift+W', keyCt: 'Ctrl+Shift+T', nextOpen: null, settingsOpen: false, chatOpen: true, size: 'M', checkUpdates: true, cleared: [], who: '', setupSeen: false, setupHidden: [], gameDir: '', length: 'standard', byClient: {}, usage: true, groups: { ai: true } };
 // nextOpen null means automatic: open until the chat has a message, then collapsed. A click makes it a choice.
 const cfg = { ...DEFAULTS, ...JSON.parse(localStorage.getItem('wowc') || '{}') };
 const save = () => localStorage.setItem('wowc', JSON.stringify(cfg));
@@ -127,8 +127,9 @@ $('retry').onclick = () => restart('Reconnecting…');
 // a preset name or a custom command. Changing it restarts the sidecar.
 
 const PRESETS = ['claude', 'codex', 'agy', 'gemini'];
-// Display names; Gemini CLI is legacy (API keys only since 2026-06-18).
-const AGENT_NAMES = { claude: 'Claude', codex: 'Codex', agy: 'Antigravity', gemini: 'Gemini CLI (legacy)' };
+// The one place client ids become the names people know; anything else shows as given.
+const CLIENT_NAMES = { claude: 'Claude Code', codex: 'Codex', agy: 'Antigravity', gemini: 'Gemini CLI' };
+const clientName = id => CLIENT_NAMES[id] || id;
 let agentChoice = '';
 
 function showAgent() {
@@ -138,10 +139,10 @@ function showAgent() {
   $('agent-cmd-row').hidden = $('agent').value !== 'custom';
   if (!known) $('agent-cmd').value = agentChoice;
   const auto = $('agent').options[0], found = conn && conn.agent_source === 'auto' && conn.agent;
-  auto.textContent = 'Auto' + (found ? ' (' + (AGENT_NAMES[conn.agent] || conn.agent[0].toUpperCase() + conn.agent.slice(1)) + ')' : conn && !conn.agent ? ' (none found)' : '');
+  auto.textContent = 'Auto' + (found ? ' (' + clientName(conn.agent) + ')' : conn && !conn.agent ? ' (none found)' : '');
   // The picker's tooltip names what is in use and where it was found.
   $('agent').title = !conn ? '' : !conn.agent ? 'No AI client found. Install one, then Re-scan.'
-    : 'Using ' + conn.agent + (conn.agent_path ? ' at ' + conn.agent_path : ' (' + conn.agent_source + ')');
+    : 'Using ' + clientName(conn.agent) + (conn.agent_path ? ' at ' + conn.agent_path : ' (' + conn.agent_source + ')');
 }
 async function chooseAgent(value) {
   agentChoice = value;
@@ -186,6 +187,12 @@ function showPanes() {
   $('size').value = cfg.size;
 }
 const nextOpen = () => cfg.nextOpen === null ? !log.children.length : cfg.nextOpen;
+// Settings groups: the AI group starts open, the rest closed; each remembers what the user chose.
+for (const d of document.querySelectorAll('details[data-group]')) {
+  const g = d.dataset.group;
+  d.open = g in cfg.groups ? !!cfg.groups[g] : g === 'ai';
+  d.ontoggle = () => { cfg.groups[g] = d.open; save(); };
+}
 $('settings-btn').onclick = () => { cfg.settingsOpen = !cfg.settingsOpen; save(); showPanes(); };
 $('next-head').onclick = () => { cfg.nextOpen = !nextOpen(); save(); showPanes(); };
 $('chat-toggle').onclick = () => { cfg.chatOpen = !cfg.chatOpen; save(); showPanes(); if (cfg.chatOpen) scrollDown(true); };

@@ -57,16 +57,24 @@ button:disabled { opacity: .5; cursor: default; }
 #close:hover { background: rgba(179, 64, 47, .55); }
 
 .banner { display: flex; gap: 8px; align-items: center; justify-content: space-between; padding: 6px 12px; background: rgba(150, 45, 32, calc(var(--alpha) * .9)); font-size: 12px; }
-.notice.calm a { color: inherit; text-decoration: underline; cursor: pointer; }
 .notice { padding: 5px 12px; background: rgba(217, 176, 90, calc(var(--alpha) * .18)); font-size: 12px; animation: fade .25s ease-out; }
-.settings { display: grid; gap: 6px; padding: 8px 12px; border-bottom: 1px solid rgba(217, 176, 90, .2); background: rgba(0, 0, 0, calc(var(--alpha) * .22)); font-size: 12px; }
-.settings label { display: flex; gap: 8px; align-items: center; justify-content: space-between; }
-.settings select { min-width: 0; flex: 1; }
-.settings #agent-rescan { padding: 2px 8px; font-size: 12px; }
-.settings input[type=range] { flex: 1; accent-color: var(--gold); }
-.settings .key { width: 150px; text-shadow: inherit; background: linear-gradient(rgba(255, 255, 255, .06), rgba(255, 255, 255, .06)), rgba(var(--slate), .65); border: 1px solid rgba(217, 176, 90, .3); border-radius: 6px; padding: 2px 8px; text-align: center; }
+.settings { display: flex; flex-direction: column; min-height: 0; flex: 0 1 auto; padding: 8px 12px 6px; border-bottom: 1px solid rgba(217, 176, 90, .2); background: rgba(0, 0, 0, calc(var(--alpha) * .22)); font-size: 12px; }
+/* The groups scroll inside the panel; the version line below stays put. */
+.settings-body { flex: 1 1 auto; min-height: 0; overflow-x: hidden; overflow-y: auto; display: grid; gap: 4px; align-content: start; scrollbar-width: thin; scrollbar-color: var(--gold-dim) transparent; }
+.settings .grp { border: 1px solid rgba(217, 176, 90, .18); border-radius: 8px; padding: 2px 8px; }
+.settings .grp[open] { padding-bottom: 6px; display: grid; gap: 6px; }
+.settings summary { cursor: pointer; font: 600 11px Cinzel, serif; letter-spacing: .1em; text-transform: uppercase; color: var(--gold); padding: 3px 0; }
+/* One grid for every setting row: label left, control right; a long label wraps instead of pushing the control. */
+.settings .row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 8px; align-items: center; }
+.settings .lbl { min-width: 0; overflow-wrap: anywhere; }
+.settings .ctl { display: flex; gap: 6px; align-items: center; justify-content: flex-end; min-width: 0; }
+.settings .ctl input:not([type=checkbox]):not([type=range]), .settings .ctl select { min-width: 0; flex: 1; }
+.settings #agent-rescan { padding: 2px 8px; font-size: 12px; flex: none; }
+.settings input[type=range] { flex: 1; min-width: 0; accent-color: var(--gold); }
+.settings input[type=checkbox] { accent-color: var(--gold); margin: 0; }
+.settings .key { width: auto; text-shadow: inherit; background: linear-gradient(rgba(255, 255, 255, .06), rgba(255, 255, 255, .06)), rgba(var(--slate), .65); border: 1px solid rgba(217, 176, 90, .3); border-radius: 6px; padding: 2px 8px; text-align: center; }
 .settings small { color: var(--muted); }
-.settings .version { font-size: 11px; }
+.settings .version { flex: none; margin-top: 4px; font-size: 11px; }
 .settings .version a { color: inherit; text-decoration: underline; cursor: pointer; }
 
 .bar { display: flex; align-items: center; gap: 6px; padding: 6px 12px 3px; }
@@ -123,3 +131,7 @@ button:disabled { opacity: .5; cursor: default; }
 .setup .setup-folder { display: flex; gap: 6px; }
 .setup .setup-folder input { flex: 1; min-width: 0; }
 .setup small { color: var(--muted); }
+/* Every link is gold and underlined; no default link colour may show on the dark panel. */
+a, a:link, a:visited { color: var(--gold); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+a:hover { color: #f0cf85; text-decoration-thickness: 2px; }
+a:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; border-radius: 2px; }

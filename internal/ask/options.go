@@ -195,6 +195,22 @@ func ModelUsed(command []string, o Options) string {
 	return "default model"
 }
 
+// DisplayName is the name people know a client by (Claude Code, Codex, Antigravity, Gemini CLI);
+// any other id comes back as given. The overlay keeps the same table in app.js.
+func DisplayName(id string) string {
+	switch strings.ToLower(id) {
+	case "claude":
+		return "Claude Code"
+	case "codex":
+		return "Codex"
+	case "agy", "antigravity":
+		return "Antigravity"
+	case "gemini":
+		return "Gemini CLI"
+	}
+	return id
+}
+
 // ClientName is the preset name (claude, codex, agy, gemini) of an agent command, or "" for any other.
 func ClientName(command []string) string {
 	if len(command) == 0 {
