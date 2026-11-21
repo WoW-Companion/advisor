@@ -17,9 +17,30 @@ wowc-advisor ask --agent claude --watch     # poll the file; remind to /reload a
 
 | Preset | Runs |
 | ------ | ---- |
-| `claude` | `claude -p <prompt> --mcp-config <file>` |
-| `codex` | `codex exec <prompt>` |
-| `gemini` | `gemini -p <prompt>` |
+| `claude` | `claude -p <prompt> --mcp-config <file> --strict-mcp-config --allowedTools mcp__wowc-advisor --disallowedTools Bash Edit Write NotebookEdit WebFetch WebSearch Read Glob Grep` |
+| `codex` | `codex exec --skip-git-repo-check -s read-only -c 'mcp_servers.wowc-advisor={ command, args, env, default_tools_approval_mode = "approve" }' <prompt>` |
+| `gemini` | `gemini --allowed-mcp-server-names wowc-advisor --policy <file> -p <prompt>` |
+
+### What each preset allows
+
+A headless run cannot ask permission, so a tool that is not pre-approved is refused. Each preset
+pre-approves the advisor's tools and nothing else. They are read-only, except `update_digest`, which
+writes the digest file.
+
+| Preset | Advisor tools | Everything else | The player's other MCP servers |
+| ------ | ------------- | --------------- | ------------------------------ |
+| `claude` | allowed (`mcp__wowc-advisor`, the whole server) | denied by name: shell, edit, write, web, file read and search | not loaded (`--strict-mcp-config`) |
+| `codex` | server defined on the command line (nothing is written to `~/.codex`), its tools set to `approve` | read-only sandbox; no approval bypass | still loaded from the player's Codex config |
+| `gemini` | `--policy` file (generated beside the MCP config) allows server `wowc-advisor` | the same file denies shell, file writes and web fetch/search; no `--yolo` | only `wowc-advisor` is enabled (`--allowed-mcp-server-names`) |
+
+Gemini does not take an MCP server on the command line: the server must already be in
+`~/.gemini/settings.json` (`wowc-advisor setup gemini`, see `docs/clients.md`), and the preset only
+approves it. Codex's `exec` mode has had cases of cancelling MCP calls it should have approved; if
+Codex answers that the tools were not available, update Codex or use `--agent claude`.
+
+The prompt tells the agent to use the tools for anything about the character, never to tell the player
+to change permissions or settings, and, if the tools are refused or missing, to answer "The advisor's
+tools weren't available to the AI client (setup problem)."
 
 ### The config file
 
@@ -50,8 +71,8 @@ line: `"agent":"claude","agent_source":"auto"` (`agent_source` is `flag`, `confi
 
 A custom command gets the prompt as its last argument, or wherever `{prompt}` / `{mcp_config}` appear.
 The agent's environment also has `WOWC_QUESTION`, `WOWC_CHARACTER` and `WOWC_MCP_CONFIG`. The MCP
-config starts `wowc-advisor serve --stdio` on your capture: codex and gemini need the same server
-added in their own settings (see `docs/clients.md`). The capture file itself is never sent; the agent
+config starts `wowc-advisor serve --stdio` on your capture; claude and codex are handed it, gemini needs the
+same server in its own settings (see `docs/clients.md`). The capture file itself is never sent; the agent
 gets the question and the character key, and reads facts through the tools.
 
 ## Limits
