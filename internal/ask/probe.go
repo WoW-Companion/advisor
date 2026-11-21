@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"os/exec"
 	"strings"
 	"time"
@@ -23,13 +22,15 @@ func Probe(ctx context.Context, command []string, prompt string) (string, error)
 	}
 	ctx, cancel := context.WithTimeout(ctx, ProbeTimeout)
 	defer cancel()
-	cmd := Command(ctx, Argv(command, prompt, ""))
-	cmd.Env = append(os.Environ(), "WOWC_QUESTION="+prompt)
+	cmd, err := Launch(ctx, Argv(command, prompt, ""), "WOWC_QUESTION="+prompt)
+	if err != nil {
+		return "", err
+	}
 	cmd.WaitDelay = time.Second
 	var out, errOut bytes.Buffer
 	cmd.Stdout = &capped{w: &out, left: 4096}
 	cmd.Stderr = &capped{w: &errOut, left: 2048}
-	err := cmd.Run()
+	err = cmd.Run()
 	switch {
 	case ctx.Err() == context.DeadlineExceeded:
 		return "", fmt.Errorf("no answer within %s", ProbeTimeout)
@@ -46,7 +47,7 @@ func Probe(ctx context.Context, command []string, prompt string) (string, error)
 		if errors.As(err, &ee) {
 			return "", fmt.Errorf("the agent exited with status %d", ee.ExitCode())
 		}
-		return "", errors.New("the agent did not start")
+		return "", startError(cmd.Path, err)
 	}
 	l := firstLine(out.String())
 	if l == "" {
