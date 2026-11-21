@@ -13,7 +13,11 @@ import (
 	"os/signal"
 	"strconv"
 	"strings"
+	"time"
 
+	"github.com/modelcontextprotocol/go-sdk/mcp"
+
+	"github.com/WoW-Companion/advisor/internal/hosted"
 	"github.com/WoW-Companion/advisor/internal/server"
 )
 
@@ -29,6 +33,7 @@ func main() {
 }
 
 const usage = `usage: wowc-advisor serve [--stdio | --http] [--host ADDR] [--port N] [--dataset DIR] [--cache DIR] [--savedvariables FILE]
+       wowc-advisor serve --http --knowledge-only --dataset-url URL [--timeout D] [--max-response BYTES] [--max-concurrent N]
        wowc-advisor dataset update [--build BUILD] [--cache DIR] [--savedvariables FILE]
        wowc-advisor dataset status [--cache DIR] [--savedvariables FILE]
        wowc-advisor digest [NAME] [--dataset DIR] [--cache DIR] [--savedvariables FILE] [--digest-path FILE]
@@ -106,17 +111,42 @@ func serve(ctx context.Context, args []string, stderr io.Writer) error {
 	fs.StringVar(&cfg.Dataset, "dataset", "", "dataset directory (default: $"+server.DatasetEnv+")")
 	fs.StringVar(&cfg.SavedVariables, "savedvariables", "", "ForeverScribe.lua file (default: $"+server.SavedVariablesEnv+")")
 	cache := fs.String("cache", "", "dataset cache directory (default: per-user cache)")
+	knowledgeOnly := fs.Bool("knowledge-only", false, "serve game data only, read from --dataset-url; no character tools (needs --http)")
+	datasetURL := fs.String("dataset-url", "", "base URL of a published dataset (manifest.json and <table>.parquet)")
+	lim := hosted.DefaultLimits()
+	fs.DurationVar(&lim.Timeout, "timeout", lim.Timeout, "knowledge-only: timeout of each request to the dataset host")
+	fs.Int64Var(&lim.MaxResponseBytes, "max-response", lim.MaxResponseBytes, "knowledge-only: largest response body accepted from the dataset host, in bytes")
+	fs.IntVar(&lim.MaxConcurrent, "max-concurrent", lim.MaxConcurrent, "knowledge-only: requests to the dataset host in flight at once")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
 	if *stdio && *httpMode {
 		return errors.New("--stdio and --http are mutually exclusive")
 	}
-	cfg = cfg.FromEnv()
-	if cfg.Dataset == "" {
-		cfg.Dataset = autoDataset(ctx, *cache, cfg.SavedVariables, stderr)
+	var s *mcp.Server
+	if *knowledgeOnly || *datasetURL != "" {
+		if !*knowledgeOnly || !*httpMode || *datasetURL == "" {
+			return errors.New("--knowledge-only needs --http and --dataset-url, and --dataset-url needs --knowledge-only")
+		}
+		if cfg.Dataset != "" || cfg.SavedVariables != "" {
+			return errors.New("--knowledge-only reads no local dataset or SavedVariables file")
+		}
+		openCtx, cancel := context.WithTimeout(ctx, time.Minute)
+		d, err := hosted.Open(openCtx, *datasetURL, lim)
+		cancel()
+		if err != nil {
+			return err
+		}
+		fmt.Fprintf(stderr, "wowc-advisor: knowledge-only, dataset %s build %s, %d item names indexed (about %d KB)\n",
+			d.Base, d.Manifest.GameBuild, d.Names.Len(), d.Names.Bytes()/1024)
+		s = hosted.New(d)
+	} else {
+		cfg = cfg.FromEnv()
+		if cfg.Dataset == "" {
+			cfg.Dataset = autoDataset(ctx, *cache, cfg.SavedVariables, stderr)
+		}
+		s = server.New(cfg)
 	}
-	s := server.New(cfg)
 	if !*httpMode {
 		return server.ServeStdio(ctx, s)
 	}

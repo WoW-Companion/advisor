@@ -341,6 +341,10 @@ func (s Store) download(ctx context.Context, build string) error {
 	return nil
 }
 
+// ParseManifest decodes and checks manifest.json bytes: a game build and tables with safe paths and
+// sha256 sums.
+func ParseManifest(data []byte) (Manifest, error) { return parseManifest(data) }
+
 func parseManifest(data []byte) (Manifest, error) {
 	var m Manifest
 	if err := json.Unmarshal(data, &m); err != nil {
