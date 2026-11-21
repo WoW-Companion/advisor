@@ -30,9 +30,11 @@ func zone2(b int) string { return fmt.Sprintf("Evalzone %d-B", b) }
 // ---- dataset ----
 
 type questRow struct {
-	ID    int64   `parquet:"id"`
-	Level *int32  `parquet:"level,optional"`
-	Zone  *string `parquet:"zone,optional"`
+	ID       int64   `parquet:"id"`
+	Level    *int32  `parquet:"level,optional"`
+	Zone     *string `parquet:"zone,optional"`
+	ZoneName *string `parquet:"zone_name,optional"` // the dungeon a quest points at, by name
+	MapID    *int64  `parquet:"map_id,optional"`    // the dungeon a quest points at, by map
 }
 
 type itemRow struct {
@@ -47,6 +49,52 @@ type itemRow struct {
 	ClassMask     int32   `parquet:"allowable_class_mask"`
 	StatTypes     []int16 `parquet:"stat_types,list"`
 	StatsStatus   string  `parquet:"stats_status"`
+	SellPrice     *int64  `parquet:"sell_price,optional"`
+}
+
+type recipeRow struct {
+	SpellID     int64  `parquet:"spell_id"`
+	Name        string `parquet:"name"`
+	SkillLine   string `parquet:"skill_line_name"`
+	LearnSkill  *int32 `parquet:"learn_skill,optional"`
+	YellowSkill *int32 `parquet:"yellow_skill,optional"`
+	GreySkill   *int32 `parquet:"grey_skill,optional"`
+}
+
+type reagentRow struct {
+	SpellID int64 `parquet:"spell_id"`
+	Item    int64 `parquet:"reagent_item_id"`
+	Count   int32 `parquet:"count"`
+}
+
+type buildRow struct {
+	Class     string `parquet:"class"`
+	Spec      string `parquet:"spec"`
+	Band      string `parquet:"band"`
+	Rationale string `parquet:"rationale"`
+	Order     int64  `parquet:"order"`
+	Node      int64  `parquet:"node_id"`
+	Points    int32  `parquet:"points"`
+}
+
+type nodeRow struct {
+	Node int64  `parquet:"node_id"`
+	Name string `parquet:"name"`
+}
+
+type instanceRow struct {
+	MapID      int64  `parquet:"map_id"`
+	Name       string `parquet:"name"`
+	Type       string `parquet:"instance_type"`
+	MinLevel   *int32 `parquet:"min_level,optional"`
+	MaxLevel   *int32 `parquet:"max_level,optional"`
+	MaxPlayers *int32 `parquet:"max_players,optional"`
+}
+
+type bossRow struct {
+	MapID    int64  `parquet:"map_id"`
+	Name     string `parquet:"name"`
+	Creature *int64 `parquet:"creature_id,optional"` // nil: the encounter is not tied to a creature
 }
 
 type lootRow struct {
@@ -66,7 +114,7 @@ type npcRow struct {
 
 // Item classes, armor and weapon subclasses, inventory types and stat types of the client's tables.
 const (
-	clsWeapon, clsArmor                                     = 2, 4
+	clsWeapon, clsArmor, clsMisc                            = 2, 4, 15
 	cloth, leather, mail, plate                             = 1, 2, 3, 4
 	mace1H, staff, fist, dagger, wand                       = 4, 10, 13, 15, 19
 	slotHead, slotRing, slotOne, slotChest, slotLegs        = 1, 11, 13, 5, 7
@@ -91,6 +139,7 @@ type itemSpec struct {
 	stats            []int16
 	creature, far    bool   // drops from an in-range creature, from a creature far above the band
 	other            string // another source kind, with the id band*10+9
+	sell             int    // vendor price in copper; 0 when the dataset holds none
 }
 
 // bandItems is the gear of one band. ilvl and req are offsets from the band level.
@@ -117,9 +166,10 @@ var bandItems = []itemSpec{
 	{n: 20, name: "Future Hood", ilvl: 20, req: 10, q: 3, class: clsArmor, sub: cloth, slot: slotHead, mask: maskNone, stats: []int16{statInt}, creature: true},
 	{n: 21, name: "Rogue-Only Mace", ilvl: 8, req: -2, q: 3, class: clsWeapon, sub: mace1H, slot: slotOne, mask: maskRogue, stats: []int16{statAgi, statSta}, creature: true},
 	{n: 22, name: "Priest-Only Dagger", ilvl: 8, req: -2, q: 3, class: clsWeapon, sub: dagger, slot: slotOne, mask: maskPriest, stats: []int16{statInt, statSta}, creature: true},
-	{n: 23, name: "Junk Hood", ilvl: 30, req: -2, q: 0, class: clsArmor, sub: cloth, slot: slotHead, mask: maskNone, stats: []int16{statInt}},
+	{n: 23, name: "Junk Hood", ilvl: 30, req: -2, q: 0, class: clsArmor, sub: cloth, slot: slotHead, mask: maskNone, stats: []int16{statInt}, sell: 50},
 	{n: 24, name: "Weak Hood", ilvl: -10, req: -8, q: 2, class: clsArmor, sub: cloth, slot: slotHead, mask: maskNone, stats: []int16{statInt, statSta}, creature: true},
 	{n: 25, name: "Weak Cap", ilvl: -10, req: -8, q: 2, class: clsArmor, sub: leather, slot: slotHead, mask: maskNone, stats: []int16{statAgi, statSta}, creature: true},
+	{n: 26, name: "Broken Trinket", ilvl: 0, req: 0, q: 0, class: clsMisc, sub: 0, slot: 0, mask: maskNone},
 	// What the characters start out wearing (ids band*1000+9xx).
 	{n: 901, name: "Worn Cloth Cap", ilvl: -8, req: -10, q: 1, class: clsArmor, sub: cloth, slot: slotHead, mask: maskNone, stats: []int16{statInt, statSta}},
 	{n: 902, name: "Worn Leather Cap", ilvl: -8, req: -10, q: 1, class: clsArmor, sub: leather, slot: slotHead, mask: maskNone, stats: []int16{statAgi, statSta}},
@@ -134,13 +184,24 @@ func datasetTables() map[string]any {
 	var items []itemRow
 	var loot []lootRow
 	var npcs []npcRow
+	var insts []instanceRow
+	var bosses []bossRow
 	for _, b := range allBands {
 		qb := int64(b * 100)
 		quests = append(quests,
-			questRow{qb + q1, i32(b), str(zone1(b))}, questRow{qb + q2, i32(b + 1), str(zone1(b))},
-			questRow{qb + q3, i32(b + 1), str(zone2(b))}, questRow{qb + q4, i32(b - 8), str(zone1(b))},
-			questRow{qb + q5, i32(b + 8), str(zone2(b))}, questRow{qb + q6, i32(b), str(zone2(b))},
-			questRow{qb + q7, i32(b), str(zone1(b))})
+			questRow{ID: qb + q1, Level: i32(b), Zone: str(zone1(b))}, questRow{ID: qb + q2, Level: i32(b + 1), Zone: str(zone1(b))},
+			questRow{ID: qb + q3, Level: i32(b + 1), Zone: str(zone2(b))}, questRow{ID: qb + q4, Level: i32(b - 8), Zone: str(zone1(b))},
+			questRow{ID: qb + q5, Level: i32(b + 8), Zone: str(zone2(b))}, questRow{ID: qb + q6, Level: i32(b), Zone: str(zone2(b))},
+			questRow{ID: qb + q7, Level: i32(b), Zone: str(zone1(b))})
+		for i := range quests[len(quests)-7:] {
+			q := &quests[len(quests)-7+i]
+			if k, ok := questDungeon[int(q.ID-qb)]; ok {
+				m := int64(b*100 + k)
+				q.MapID = &m
+			}
+		}
+		in, bs := dungeonTables(b)
+		insts, bosses = append(insts, in...), append(bosses, bs...)
 		near, farID := int64(b*10+1), int64(b*10+2)
 		npcs = append(npcs,
 			npcRow{near, fmt.Sprintf("Eval Wolf %d", b), i32(b - 1), i32(b + 1)},
@@ -151,8 +212,13 @@ func datasetTables() map[string]any {
 			if s.stats == nil {
 				status = "unknown"
 			}
+			var price *int64
+			if s.sell > 0 {
+				p := int64(s.sell)
+				price = &p
+			}
 			items = append(items, itemRow{id, fmt.Sprintf("Eval %s %d", s.name, b), int32(b + s.ilvl), int32(b + s.req), int32(s.q),
-				int32(s.class), int32(s.sub), int32(s.slot), int32(s.mask), s.stats, status})
+				int32(s.class), int32(s.sub), int32(s.slot), int32(s.mask), s.stats, status, price})
 			if s.creature {
 				loot = append(loot, lootRow{id, "creature", near, 100, 7})
 			}
@@ -164,8 +230,12 @@ func datasetTables() map[string]any {
 			}
 		}
 	}
+	recipes, reagents, mats := professionTables()
+	items = append(items, mats...)
+	builds, nodes := talentTables()
 	sort.SliceStable(items, func(i, j int) bool { return items[i].ID < items[j].ID })
-	return map[string]any{"quests": quests, "items": items, "loot_sources": loot, "npcs": npcs}
+	return map[string]any{"quests": quests, "items": items, "loot_sources": loot, "npcs": npcs, "recipes": recipes,
+		"recipe_reagents": reagents, "talent_builds": builds, "talent_nodes": nodes, "instances": insts, "instance_bosses": bosses}
 }
 
 func writeParquet[T any](path string, rows []T) error {
@@ -183,6 +253,18 @@ func writeTable(path string, rows any) error {
 	case []itemRow:
 		return writeParquet(path, r)
 	case []lootRow:
+		return writeParquet(path, r)
+	case []recipeRow:
+		return writeParquet(path, r)
+	case []reagentRow:
+		return writeParquet(path, r)
+	case []buildRow:
+		return writeParquet(path, r)
+	case []nodeRow:
+		return writeParquet(path, r)
+	case []instanceRow:
+		return writeParquet(path, r)
+	case []bossRow:
 		return writeParquet(path, r)
 	default:
 		return writeParquet(path, rows.([]npcRow))
@@ -303,15 +385,20 @@ func (s charSpec) lua() string {
 		equip[w.slot] = e
 	}
 	var items []any
-	ids := 0
 	names := make([]string, 0, len(s.bags))
 	for n := range s.bags {
 		names = append(names, n)
 	}
 	sort.Strings(names)
 	for _, n := range names {
-		ids++
-		items = append(items, map[string]any{"itemID": 800000 + b*10 + ids, "count": s.bags[n], "name": n})
+		items = append(items, map[string]any{"itemID": int(bagItemID(n)), "count": s.bags[n], "name": n})
+	}
+	for _, n := range stash {
+		for _, it := range bandItems {
+			if it.n == n {
+				items = append(items, map[string]any{"itemID": b*1000 + n, "count": 1, "name": fmt.Sprintf("Eval %s %d", it.name, b)})
+			}
+		}
 	}
 	quest := func(id int, title string, level int, zone string, complete, failed bool) any {
 		q := map[string]any{"questID": id, "title": title, "complete": complete, "failed": failed}

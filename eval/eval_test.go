@@ -55,6 +55,7 @@ type questionSet struct {
 // env is what a check is given: the character, the dataset and the capture's client, and a clock
 // fixed ten minutes after the capture.
 type env struct {
+	file   string // the capture, without .lua
 	c      character.Character
 	ds     store.DataStore
 	client character.Client
@@ -93,7 +94,7 @@ func TestQuestions(t *testing.T) {
 	total := 0
 	for _, file := range files {
 		c, client := loadCharacter(t, file)
-		e := &env{c: c, ds: ds, client: client, now: time.Unix(capturedAt+600, 0)}
+		e := &env{file: file, c: c, ds: ds, client: client, now: time.Unix(capturedAt+600, 0)}
 		for i, q := range set.Characters[file] {
 			total++
 			ck, ok := checks[q.Check]
@@ -114,7 +115,7 @@ func TestQuestions(t *testing.T) {
 }
 
 // TestSetShape guards the size of the set: six characters (Priest and Rogue at levels 12, 24 and
-// 40), 8 to 12 questions each, 48 or more in all, every property used and no question twice.
+// 40), 8 to 40 questions each, 48 or more in all, at least 4 per tool, every property used and no question twice.
 func TestSetShape(t *testing.T) {
 	raw, err := os.ReadFile("questions.json")
 	if err != nil {
@@ -132,8 +133,8 @@ func TestSetShape(t *testing.T) {
 			t.Errorf("unexpected character %q", file)
 		}
 		delete(want, file)
-		if len(qs) < 8 || len(qs) > 12 {
-			t.Errorf("%s has %d questions, want 8 to 12", file, len(qs))
+		if len(qs) < 8 || len(qs) > 40 {
+			t.Errorf("%s has %d questions, want 8 to 40", file, len(qs))
 		}
 		seen := map[string]bool{}
 		for _, q := range qs {
