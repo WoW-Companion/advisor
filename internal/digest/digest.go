@@ -1,4 +1,4 @@
-// Package digest builds the in-game digest the WoWCompanion_Digest slot addon shows (schema 1.2, see
+// Package digest builds the in-game digest the WoWCompanion_Digest slot addon shows (schema 2.0, one 1.2 entry per character, see
 // docs/digest.md). It adds no advice logic of its own: quests come from advice.WhatsNext, gear from
 // gear.Find, and the rest is read from the capture.
 package digest
@@ -20,8 +20,14 @@ import (
 	"github.com/WoW-Companion/advisor/internal/talents"
 )
 
-// Schema is the digest format version this package writes.
-const Schema = "1.2"
+// Schema is the version of one character's entry; EnvelopeSchema is the file's.
+const (
+	Schema         = "1.2"
+	EnvelopeSchema = "2.0"
+)
+
+// MaxCharacters is the most characters one file holds.
+const MaxCharacters = 30
 
 // Section ids the panel knows.
 const (
@@ -145,6 +151,29 @@ func Build(c character.Character, ds store.DataStore, opt Options) Digest {
 	d.Dungeons = dungeonLines(c, ds)
 	d.Talents = talentLines(c, ds)
 	return d
+}
+
+// Select picks the characters a file holds: the most recently captured first, at most MaxCharacters,
+// one per name (the first wins). The rest come back as skipped.
+func Select(chars []character.Character) (kept, skipped []character.Character) {
+	sorted := append([]character.Character(nil), chars...)
+	sort.SliceStable(sorted, func(i, j int) bool {
+		a, b := sorted[i].CapturedAt, sorted[j].CapturedAt
+		if a == nil || b == nil {
+			return a != nil && b == nil
+		}
+		return *a > *b
+	})
+	seen := map[string]bool{}
+	for _, c := range sorted {
+		if n := name(c); len(kept) < MaxCharacters && !seen[n] {
+			seen[n] = true
+			kept = append(kept, c)
+		} else {
+			skipped = append(skipped, c)
+		}
+	}
+	return kept, skipped
 }
 
 // dungeonLines is the top MaxDungeons dungeons of dungeons.Plan that have an upgrade to show.

@@ -1,8 +1,29 @@
 # In-game digest
 
 `wowc-advisor digest [NAME]` (and the MCP tool `update_digest`) writes the data-only
-`WoWCompanion_Digest/Digest.lua` the WoW Companion panel shows (format: schema 1.2, the addon repo's
-`docs/digest-format.md`). Type `/reload` in game afterwards.
+`WoWCompanion_Digest/Digest.lua` the WoW Companion panel shows (format: schema 2.0, one schema 1.2 entry
+per character; the addon repo's `docs/digest-format.md`). Type `/reload` in game afterwards.
+
+**Every captured character.** The file holds one entry for each character in your SavedVariables, so an
+alt gets advice without asking again:
+
+```lua
+WoWCompanionDigest = {
+  schema = "2.0",
+  generated = 1795271211,        -- unix seconds, when the file was written
+  characters = {
+    ["Testchar"] = { schema = "1.2", ... },   -- exactly the 1.2 digest below, for that character
+    ["Otherchar"] = { schema = "1.2", ... },
+  },
+}
+```
+
+The key is the character name as captured (what `UnitName("player")` returns), with no realm. At most
+30 characters are written, the most recently captured first; the rest, and a repeated name, are listed
+as skipped. `NAME` (or `update_digest`'s optional `character`) does not choose one: it is checked to be
+captured. If it is not, nothing is written and the command exits non-zero with "<NAME> isn't in your
+SavedVariables yet. In game, /reload on that character so ForeverScribe saves it, then run this again."
+It prints each character's section counts and the `/reload` reminder.
 
 The digest adds no advice logic: it is built from `whats_next` and `upgrade_finder`.
 
@@ -13,7 +34,7 @@ The digest adds no advice logic: it is built from `whats_next` and `upgrade_find
 | `keep_materials` | bag and bank reagents of the character's professions' recipes still worth making (`professions.KeepList`), most numerous first | 10 |
 | `notes` | unspent talents, (naming the build's next node, see talents.md), failed quests, no dataset, bank not captured, dataset build differs from the game | 6 |
 
-Schema 1.2 adds two optional top-level lists beside `sections`. Readers that only know 1.0 or 1.1 ignore
+The entry's schema 1.2 adds two optional top-level lists beside `sections`. Readers that only know 1.0 or 1.1 ignore
 unknown keys.
 
 | Key | From | Entry | Cap |
@@ -39,4 +60,4 @@ not a created folder, when the slot addon is not installed. `--digest-path FILE`
 must exist). The file is replaced atomically (temp file, then rename).
 
 **Data only.** Strings are escaped and the file holds one `WoWCompanionDigest = {...}` assignment of
-literals. The tests run a Go port of the addon repo's `tests/slotcheck.lua` over the output.
+literals, keys included. The tests run a Go port of the addon repo's `tests/slotcheck.lua` over the output.

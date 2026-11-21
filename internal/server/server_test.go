@@ -199,7 +199,7 @@ func TestWriteDigest(t *testing.T) {
 	}
 	got, _ := os.ReadFile(filepath.Join(slot, "Digest.lua"))
 	if out.Path != filepath.Join(slot, "Digest.lua") || !strings.Contains(out.Text, "/reload") ||
-		!strings.Contains(string(got), `character = "Testpriest"`) || out.Lines["notes"] == 0 {
+		!strings.Contains(string(got), `["Testpriest"] = {`) || !strings.Contains(string(got), `schema = "2.0"`) || out.Lines["Testpriest"]["notes"] == 0 {
 		t.Errorf("out = %+v\n%s", out, got)
 	}
 	override := filepath.Join(t.TempDir(), "d.lua")
@@ -208,5 +208,32 @@ func TestWriteDigest(t *testing.T) {
 	}
 	if _, err := os.Stat(override); err != nil {
 		t.Errorf("--digest-path ignored: %v", err)
+	}
+}
+
+// The digest holds every captured character whatever name is asked for, and an uncaptured name
+// writes nothing and says what to do.
+func TestWriteDigestEveryCharacter(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "Digest.lua")
+	cfg := Config{SavedVariables: fixture("two_characters.lua"), DigestPath: path}
+
+	_, err := WriteDigest(cfg, "Nobody")
+	if want := "Nobody isn't in your SavedVariables yet. In game, /reload on that character so ForeverScribe saves it, then run this again."; err == nil || err.Error() != want {
+		t.Errorf("unknown name: %v", err)
+	}
+	if _, err := os.Stat(path); err == nil {
+		t.Error("an unknown name wrote the file")
+	}
+	for _, name := range []string{"", "testbeta"} {
+		out, err := WriteDigest(cfg, name)
+		if err != nil || len(out.Characters) != 2 || len(out.Lines) != 2 || !strings.Contains(out.Text, "/reload") {
+			t.Fatalf("WriteDigest(%q) = %+v, %v", name, out, err)
+		}
+	}
+	got, _ := os.ReadFile(path)
+	for _, k := range []string{`["Testalpha"] = {`, `["Testbeta"] = {`} {
+		if !strings.Contains(string(got), k) {
+			t.Errorf("no %s in\n%s", k, got)
+		}
 	}
 }

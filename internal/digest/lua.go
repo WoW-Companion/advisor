@@ -27,11 +27,13 @@ func Quote(s string) string {
 	return b.String()
 }
 
-// Lua renders the digest as the one data-only `WoWCompanionDigest = {...}` assignment.
+// header is the comment line that opens the file.
+const header = "-- Data only: written by wowc-advisor; overwritten on every update. See docs/digest-format.md in the addon repo.\n"
+
+// Lua renders the digest as a one-character entry body: the `{ ... }` table, without its key.
 func (d Digest) Lua() string {
 	var b strings.Builder
-	b.WriteString("-- Data only: written by wowc-advisor; overwritten on every update. See docs/digest-format.md in the addon repo.\n")
-	b.WriteString("WoWCompanionDigest = {\n")
+	b.WriteString("{\n")
 	fmt.Fprintf(&b, "  schema = %s,\n  generated = %d,\n  build = %s,\n  character = %s,\n  sections = {\n", Quote(d.Schema), d.Generated, Quote(d.Build), Quote(d.Character))
 	for _, s := range d.Sections {
 		fmt.Fprintf(&b, "    { id = %s, lines = {\n", Quote(s.ID))
@@ -70,6 +72,27 @@ func (d Digest) Lua() string {
 		}
 		b.WriteString("  },\n")
 	}
-	b.WriteString("}\n")
+	b.WriteString("}")
+	return b.String()
+}
+
+// Envelope is the whole file, schema 2.0: one entry per captured character, keyed by the name as
+// captured.
+type Envelope struct {
+	Generated  int64
+	Characters []Digest // in file order; each Character is its key
+}
+
+// Lua renders the envelope as the one data-only `WoWCompanionDigest = {...}` assignment.
+func (e Envelope) Lua() string {
+	var b strings.Builder
+	b.WriteString(header)
+	b.WriteString("WoWCompanionDigest = {\n")
+	fmt.Fprintf(&b, "  schema = %s,\n  generated = %d,\n  characters = {\n", Quote(EnvelopeSchema), e.Generated)
+	for _, d := range e.Characters {
+		entry := strings.ReplaceAll(strings.TrimSuffix(d.Lua(), "\n"), "\n", "\n    ")
+		fmt.Fprintf(&b, "    [%s] = %s,\n", Quote(d.Character), entry)
+	}
+	b.WriteString("  },\n}\n")
 	return b.String()
 }

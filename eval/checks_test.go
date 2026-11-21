@@ -578,7 +578,7 @@ func slotRules(src string) error {
 
 // The digest is the data-only file the slot addon accepts, and parses back as the same character.
 func digestPassesSlotRules(e *env) error {
-	src := buildDigest(e).Lua()
+	src := digest.Envelope{Generated: e.now.Unix(), Characters: []digest.Digest{buildDigest(e)}}.Lua()
 	if err := slotRules(src); err != nil {
 		return err
 	}
@@ -586,8 +586,10 @@ func digestPassesSlotRules(e *env) error {
 	if err != nil {
 		return fmt.Errorf("does not parse: %w", err)
 	}
-	d, _ := vars["WoWCompanionDigest"].(lua.Table)
-	if d["character"] != e.c.Name || d["schema"] != digest.Schema {
+	root, _ := vars["WoWCompanionDigest"].(lua.Table)
+	chars, _ := root["characters"].(lua.Table)
+	d, _ := chars[e.c.Name].(lua.Table)
+	if root["schema"] != digest.EnvelopeSchema || d["character"] != e.c.Name || d["schema"] != digest.Schema {
 		return fmt.Errorf("round trip gave character %v, schema %v", d["character"], d["schema"])
 	}
 	return nil

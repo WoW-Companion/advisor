@@ -3,6 +3,7 @@ package digest
 import (
 	"bytes"
 	"flag"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -187,6 +188,9 @@ func synthRogue() character.Character {
 
 var synthOpt = Options{Now: time.Unix(1800000000, 0), Client: character.Client{Version: "1.60.0", Build: "64000"}, DatasetBuild: "1.59.0.63000"}
 
+// one wraps a single entry in the file envelope.
+func one(d Digest) Envelope { return Envelope{Generated: d.Generated, Characters: []Digest{d}} }
+
 func TestBuildGolden(t *testing.T) {
 	cases := []struct {
 		name, golden string
@@ -202,7 +206,7 @@ func TestBuildGolden(t *testing.T) {
 		if tc.ds {
 			ds = synthStore(t)
 		}
-		got := Build(tc.c, ds, synthOpt).Lua()
+		got := one(Build(tc.c, ds, synthOpt)).Lua()
 		path := filepath.Join("..", "..", "testdata", "digest", tc.golden)
 		if *update {
 			os.WriteFile(path, []byte(got), 0o644)
@@ -218,6 +222,65 @@ func TestBuildGolden(t *testing.T) {
 			t.Errorf("%s: does not parse: %v", tc.name, err)
 		}
 	}
+}
+
+// Two characters in one capture: each entry is what the single-character build gives, indented, and
+// the file is the golden, passes the slot check and parses with both names as keys.
+func TestEnvelopeTwoCharacters(t *testing.T) {
+	ds := synthStore(t)
+	a, b := synthChar(), synthRogue()
+	a.Name, b.Name = "Testchar", "Otherchar"
+	da, db := Build(a, ds, synthOpt), Build(b, ds, synthOpt)
+	got := Envelope{Generated: synthOpt.Now.Unix(), Characters: []Digest{da, db}}.Lua()
+	path := filepath.Join("..", "..", "testdata", "digest", "two.lua")
+	if *update {
+		os.WriteFile(path, []byte(got), 0o644)
+	}
+	if want, err := os.ReadFile(path); err != nil || got != string(want) {
+		t.Errorf("differs from %s (-update rewrites it):\n%s", path, got)
+	}
+	if err := SlotCheck(got); err != nil {
+		t.Error(err)
+	}
+	for _, d := range []Digest{da, db} {
+		if want := strings.ReplaceAll(d.Lua(), "\n", "\n    "); !strings.Contains(got, "["+Quote(d.Character)+"] = "+want+",\n") {
+			t.Errorf("entry %s is not the single-character build", d.Character)
+		}
+	}
+	parsed, err := lua.Parse(got)
+	root, _ := parsed["WoWCompanionDigest"].(lua.Table)
+	chars, _ := root["characters"].(lua.Table)
+	if err != nil || root["schema"] != "2.0" || len(chars) != 2 || chars["Testchar"] == nil || chars["Otherchar"] == nil {
+		t.Errorf("parse: %v %v", err, parsed)
+	}
+	if e, _ := chars["Testchar"].(lua.Table); e["schema"] != "1.2" || e["character"] != "Testchar" {
+		t.Errorf("entry = %v", e)
+	}
+}
+
+func TestSelect(t *testing.T) {
+	at := func(n int64) *int64 { return &n }
+	chars := []character.Character{{Name: "Old", CapturedAt: at(1)}, {Name: "Never"}, {Name: "New", CapturedAt: at(9)}, {Name: "New", CapturedAt: at(5)}}
+	kept, skipped := Select(chars)
+	if got := names(kept); got != "New,Old,Never" || names(skipped) != "New" {
+		t.Errorf("kept %s skipped %s", got, names(skipped))
+	}
+	var many []character.Character
+	for i := 0; i < MaxCharacters+3; i++ {
+		many = append(many, character.Character{Name: fmt.Sprint("C", i), CapturedAt: at(int64(i))})
+	}
+	kept, skipped = Select(many)
+	if len(kept) != MaxCharacters || len(skipped) != 3 || kept[0].Name != "C32" || skipped[0].Name != "C2" {
+		t.Errorf("kept %d skipped %s", len(kept), names(skipped))
+	}
+}
+
+func names(cs []character.Character) string {
+	var n []string
+	for _, c := range cs {
+		n = append(n, c.Name)
+	}
+	return strings.Join(n, ",")
 }
 
 func TestCaps(t *testing.T) {
@@ -260,7 +323,7 @@ func TestSchema12Sections(t *testing.T) {
 		c    character.Character
 		ds   store.DataStore
 	}{{"no dataset", synthChar(), nil}, {"no level", character.Character{Class: "PRIEST"}, ds}} {
-		if d := Build(c.c, c.ds, synthOpt); len(d.Dungeons)+len(d.Talents) != 0 || strings.Contains(d.Lua(), "dungeons =") || strings.Contains(d.Lua(), "talents =") {
+		if d := Build(c.c, c.ds, synthOpt); len(d.Dungeons)+len(d.Talents) != 0 || strings.Contains(one(d).Lua(), "dungeons =") || strings.Contains(one(d).Lua(), "talents =") {
 			t.Errorf("%s: %+v", c.name, d)
 		}
 	}
@@ -309,15 +372,26 @@ func TestQuote(t *testing.T) {
 	}
 }
 
+// Hostile text in any entry, its key included, stays data and comes back as it went in.
 func TestHostileTextStaysData(t *testing.T) {
-	d := Digest{Schema: "1.2", Build: `"}; os.execute("x") --`, Character: "a\nb", Sections: []Section{{ID: Notes, Lines: []Line{{Text: "\\\"]]; f() --\n"}}}}}
-	src := d.Lua()
+	hostile := func(n string) Digest {
+		return Digest{Schema: "1.2", Build: `"}; os.execute("x") --` + n, Character: "a\nb\"]] f() --" + n, Sections: []Section{{ID: Notes, Lines: []Line{{Text: "\\\"]]; f() --\n" + n}}}}}
+	}
+	ds := []Digest{hostile("1"), hostile("2")}
+	src := Envelope{Generated: 1, Characters: ds}.Lua()
 	if err := SlotCheck(src); err != nil {
 		t.Fatal(err)
 	}
 	got, err := lua.Parse(src)
-	if err != nil || got["WoWCompanionDigest"].(lua.Table)["build"] != d.Build {
-		t.Errorf("round trip: %v, %v", got, err)
+	if err != nil {
+		t.Fatal(err)
+	}
+	chars, _ := got["WoWCompanionDigest"].(lua.Table)["characters"].(lua.Table)
+	for _, d := range ds {
+		e, _ := chars[d.Character].(lua.Table)
+		if len(chars) != 2 || e["build"] != d.Build || e["character"] != d.Character {
+			t.Errorf("round trip of %q: %v", d.Character, chars)
+		}
 	}
 }
 
@@ -347,7 +421,7 @@ func TestWriteIsAtomicAndNeedsTheAddon(t *testing.T) {
 	if err := CheckInstalled(path); err == nil || !strings.Contains(err.Error(), "not installed") {
 		t.Errorf("missing addon: %v", err)
 	}
-	if err := Write(path, Digest{}); err == nil {
+	if err := Write(path, Envelope{}); err == nil {
 		t.Error("Write created the missing addon folder")
 	}
 	os.MkdirAll(filepath.Dir(path), 0o755)
@@ -355,10 +429,10 @@ func TestWriteIsAtomicAndNeedsTheAddon(t *testing.T) {
 	if err := CheckInstalled(path); err != nil {
 		t.Fatal(err)
 	}
-	if err := Write(path, Digest{Schema: "1.2", Character: "A"}); err != nil {
+	if err := Write(path, one(Digest{Schema: "1.2", Character: "A"})); err != nil {
 		t.Fatal(err)
 	}
-	if b, _ := os.ReadFile(path); !strings.Contains(string(b), `character = "A"`) {
+	if b, _ := os.ReadFile(path); !strings.Contains(string(b), `["A"] = {`) {
 		t.Errorf("not replaced: %s", b)
 	}
 	if left, _ := filepath.Glob(filepath.Join(filepath.Dir(path), "*.tmp")); len(left) != 0 {
