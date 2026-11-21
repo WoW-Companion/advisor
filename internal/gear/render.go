@@ -53,7 +53,11 @@ func (c Candidate) Describe() string {
 		}
 		src = "from " + strings.Join(parts, "; ")
 	}
-	return fmt.Sprintf("%s (ilvl %d, requires level %d; %s, by %s): %s", name, c.Item.ItemLevel, c.Item.RequiredLevel, gain, c.Basis, src)
+	req := "level unknown"
+	if c.Item.RequiredLevel > 0 {
+		req = fmt.Sprintf("level %d", c.Item.RequiredLevel)
+	}
+	return fmt.Sprintf("%s (ilvl %d, requires %s; %s, by %s): %s", name, c.Item.ItemLevel, req, gain, c.Basis, src)
 }
 
 // Render is the plain-text answer. Slots are listed in the capture's slot order.

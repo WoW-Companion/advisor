@@ -62,7 +62,8 @@ func table(t *testing.T, rows any) store.SizedReaderAt {
 const (
 	cloth, leather, plate = 1, 2, 4
 	headSlot, chestSlot   = 1, 5
-	ringSlot, offhandSlot = 11, 22
+	neckSlot, ringSlot    = 2, 11
+	offhandSlot           = 22
 	oneHand               = 13
 )
 
@@ -91,6 +92,8 @@ func items(status string) []itemRow {
 		it(12, "Plain Robe", 15, 8, 1, 4, cloth, 20, 5),             // robe fits chest
 		it(13, "Statless Hat", 17, 9, 2, 4, leather, headSlot),      // unknown stats
 		it(14, "Junk", 99, 1, 0, 4, cloth, headSlot, 5),             // poor quality
+		it(15, "Plain Amulet", 10, 0, 2, 4, 0, neckSlot, 5),         // no listed required level, low item level
+		it(16, "Endgame Amulet", 60, 0, 3, 4, 0, neckSlot, 5),       // no listed required level, high item level
 	}
 	rows[10].ClassMask = 1 << (4 - 1) // rogue only
 	if status != "" {
@@ -158,6 +161,8 @@ func TestUpgrades(t *testing.T) {
 		{"no stats: item level only", char("PRIEST", 12, nil), "Holy", "unknown", "head", "Spirit Hood,Cloth Hood", BasisItemLevel},
 		{"no spec: item level only", char("PRIEST", 12, nil), "", "", "head", "Spirit Hood,Cloth Hood", BasisItemLevel},
 		{"nothing beats the worn item", char("PRIEST", 12, worn(2, 24, 2)), "Holy", "unknown", "head", "", BasisItemLevel},
+		{"required level 0 is unknown: low item level only", char("PRIEST", 12, nil), "Holy", "", "neck", "Plain Amulet", BasisStats},
+		{"required level 0, level 60", char("PRIEST", 60, nil), "Holy", "", "neck", "Endgame Amulet,Plain Amulet", BasisStats},
 		{"robe fits chest", char("PRIEST", 12, nil), "Holy", "", "chest", "Plain Robe", BasisStats},
 	}
 	for _, c := range cases {

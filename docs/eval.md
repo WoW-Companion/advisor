@@ -67,3 +67,30 @@ questions build a healthy setup in a temporary directory, break one thing and ru
    and see the question fail by name; then revert.
 
 `go test ./eval/...` needs no network and runs in about a second.
+
+## Real-data integration run
+
+`make integration` is the other half of the evaluation: it runs every tool against a **real** built
+dataset instead of the synthetic one, to catch what a fixture cannot, such as a wrong column or
+source-kind name (which gives silent nulls, not an error) or a slow path at real size. It needs the
+network and is **not** part of `make verify`.
+
+```
+make integration                        # latest dataset release, else build from ../data
+make integration DATASET=/path/to/dir   # a dataset directory you already built
+make integration DATA_REPO=~/src/wowc/data BUILD=1.60.1.71037
+```
+
+The dataset comes from `wowc-advisor dataset update` into a temporary cache; when the data repo has
+no release yet, the target runs the data repo's `fetch` and `build` into a temporary directory
+(nothing is written to the data repo) and checks the manifest. Then `integration/` builds six
+synthetic captures (a Priest and a Rogue at 12, 24 and 40; the level 24 Priest also carries a
+tree with talent node ids) whose items, quests, recipes and talent nodes are real ids read from the
+dataset, with invented names, and calls each tool over an in-memory MCP session. The knowledge-only
+lookups run against the dataset served over HTTP. Nothing real is committed or kept.
+
+It prints one row per tool and character (non-empty, empty or ERROR, the number of results and the
+latency) and, per tool, every field that was null, zero or empty in every answer. Read the second
+list: a field that should have a value and never does is a mismatch, in the advisor or in the data.
+The run fails on a tool error or an answer slower than 1 s. `WOWC_INTEGRATION_TEXT=Priestmid` (a
+comma-separated list of character names, or `knowledge-only`) also prints those answers.

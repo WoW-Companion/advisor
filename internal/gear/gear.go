@@ -211,6 +211,12 @@ func Find(c character.Character, ds store.DataStore, group string, opt Options) 
 			!allowsClass(int32(i64(row["allowable_class_mask"])), rl.ID) {
 			continue
 		}
+		// A required level of 0 is what the client table holds for many high-level items (the real
+		// dataset has 2,330 equippable ones, up to item level 83), so 0 is "unknown", not "none":
+		// offer such an item only when its item level is within the window itself.
+		if it.RequiredLevel == 0 && it.ItemLevel > *c.Level+EquipWindow {
+			continue
+		}
 		anyStats = anyStats || it.StatsKnown
 		for _, slot := range rl.fitsSlots(int8(it.Slot)) {
 			if opt.Slot == "" || opt.Slot == slot {
