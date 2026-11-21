@@ -1,0 +1,76 @@
+name: release
+
+# Publishes a release when VERSION changes on main (or when run by hand), unless the
+# tag v<VERSION> already exists. It builds the six platform archives with `make dist`.
+on:
+  push:
+    branches: [main]
+    paths: [VERSION]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Read VERSION and look for its tag
+        id: ver
+        run: |
+          version="$(tr -d '[:space:]' < VERSION)"
+          case "$version" in
+            [0-9]*.[0-9]*.[0-9]*) ;;
+            *) echo "VERSION must look like 1.2.3, got '$version'" >&2; exit 1 ;;
+          esac
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          if git ls-remote --exit-code --tags origin "refs/tags/v$version" >/dev/null 2>&1; then
+            echo "Tag v$version already exists; nothing to do."
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-go@v5
+        if: steps.ver.outputs.exists == 'false'
+        with:
+          go-version-file: go.mod
+
+      - name: Build the archives
+        if: steps.ver.outputs.exists == 'false'
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
+        run: |
+          export COMMIT="$(git rev-parse --short=12 HEAD)"
+          make dist
+          ls -l dist
+          (cd dist && sha256sum -c SHA256SUMS)
+
+      - name: Write the release notes
+        if: steps.ver.outputs.exists == 'false'
+        run: |
+          if prev="$(git describe --tags --abbrev=0 --match 'v*' 2>/dev/null)"; then
+            git log --no-merges --pretty='- %s' "$prev..HEAD" > notes.md
+          else
+            git log --no-merges --pretty='- %s' > notes.md
+          fi
+          [ -s notes.md ] || echo "- No changes since the previous release." > notes.md
+          cat notes.md
+
+      - name: Create the tag and the release
+        if: steps.ver.outputs.exists == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.ver.outputs.version }}
+        run: |
+          gh release create "v$VERSION" dist/*.zip dist/*.tar.gz dist/SHA256SUMS \
+            --target "$GITHUB_SHA" --title "wowc-advisor $VERSION" --notes-file notes.md

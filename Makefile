@@ -1,20 +1,22 @@
-VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 PLATFORMS := windows/amd64 windows/arm64 darwin/amd64 darwin/arm64 linux/amd64 linux/arm64
 
-.PHONY: verify build bench integration
+.PHONY: verify dist cross-check bench integration
 verify:
 	@out="$$(gofmt -l .)"; if [ -n "$$out" ]; then echo "gofmt needed on:"; echo "$$out"; exit 1; fi
 	go vet ./...
 	go test ./...
 
-# Static binaries for every platform in dist/ (git-ignored).
-build:
-	@rm -rf dist && mkdir -p dist
+# The release archives and SHA256SUMS for every platform in dist/ (git-ignored): the same script the
+# release workflow runs. VERSION and COMMIT override the VERSION file and git's HEAD.
+dist:
+	scripts/dist.sh
+
+# Compiles the advisor for all six release platforms with no cgo, and writes nothing. About 10 s
+# warm, so it is its own target and not part of verify.
+cross-check:
 	@for p in $(PLATFORMS); do \
-		os=$${p%/*}; arch=$${p#*/}; ext=""; [ $$os = windows ] && ext=".exe"; \
-		echo "dist/wowc-advisor-$$os-$$arch$$ext"; \
-		CGO_ENABLED=0 GOOS=$$os GOARCH=$$arch go build -trimpath -ldflags "-s -w" \
-			-o dist/wowc-advisor-$$os-$$arch$$ext ./cmd/wowc-advisor || exit 1; \
+		echo "cross-check $$p"; \
+		CGO_ENABLED=0 GOOS=$${p%/*} GOARCH=$${p#*/} go build -trimpath -o /dev/null ./cmd/wowc-advisor || exit 1; \
 	done
 
 bench:

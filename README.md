@@ -22,8 +22,10 @@ are in [clients/](clients/) and [docs/try-it.md](docs/try-it.md).
 
 Setup for all three, step by step, is the [quickstart](docs/quickstart.md). Developers can run the advisor
 alone: `wowc-advisor serve --stdio` (default) or `serve --http --port 8000` (streamable HTTP at `/mcp`).
-Binaries are on the [releases page](https://github.com/WoW-Companion/advisor/releases) once published, or
-`$env:GOPROXY="direct"; go install github.com/WoW-Companion/advisor/cmd/wowc-advisor@main`.
+Download the advisor archive for Windows, macOS or Linux (amd64 or arm64) from the
+[releases page](https://github.com/WoW-Companion/advisor/releases); it is one static program, not
+code-signed (the quickstart explains the Windows and macOS warnings). Or with Go:
+`go install github.com/WoW-Companion/advisor/cmd/wowc-advisor@latest`.
 
 Point the server at a dataset directory (Parquet tables plus `manifest.json`) with
 `--dataset DIR` or `WOWC_DATASET`. Without one, `server_info` reports "no dataset configured".

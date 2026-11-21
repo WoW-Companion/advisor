@@ -23,11 +23,11 @@ is the standard WoW layout and is **unverified** for Forever. Use the file that 
 
 ## 3. Install the advisor
 
-Download `wowc-advisor-windows-amd64.exe` (or `-arm64.exe` on an ARM PC) from the
-[releases page](https://github.com/WoW-Companion/advisor/releases), and save it, for example, as
-`C:\Users\you\wowc-advisor.exe`. It is one static file: nothing else to install. Developers can
-build it with `make build` or `go install github.com/WoW-Companion/advisor/cmd/wowc-advisor@latest`.
-Whether a release is published yet is **unverified**.
+Download `wowc-advisor_<version>_windows_amd64.zip` (or `_arm64.zip` on an ARM PC) from the
+[releases page](https://github.com/WoW-Companion/advisor/releases) and unzip it anywhere. It is one
+static program: nothing else to install. See step 3 of the [quickstart](quickstart.md) for the
+SmartScreen and Gatekeeper warnings. Developers can build it with `make dist` or
+`go install github.com/WoW-Companion/advisor/cmd/wowc-advisor@latest`.
 
 ## 4. Add the server to Claude Desktop
 

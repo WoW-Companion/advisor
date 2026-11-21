@@ -29,18 +29,29 @@ admin rights. Windows SmartScreen warns because the installer is unsigned: click
 
 Success: WoW Companion is in the Start menu and opens a small panel.
 
-**Alternative: `wowc-advisor` alone** (no overlay; you get the browser companion instead). Once release
-v0.1.0 exists, download `wowc-advisor-windows-amd64.exe` (`-arm64.exe` on an ARM PC) from the
-[releases page](https://github.com/WoW-Companion/advisor/releases). Until then, with Go installed, in
-PowerShell:
+**Alternative: `wowc-advisor` alone** (no overlay; you get the browser companion instead). Download the
+archive for your system from the [releases page](https://github.com/WoW-Companion/advisor/releases). Each is
+named `wowc-advisor_<version>_<os>_<arch>`: `.zip` for Windows, `.tar.gz` for macOS and Linux, with `amd64`
+for most PCs and Intel Macs and `arm64` for ARM PCs and Apple Silicon Macs. Each holds one static program,
+the license, the third-party notices and a short readme. `SHA256SUMS` on the same page lets you check the
+download.
+
+- **Windows:** unzip it anywhere, then run `wowc-advisor.exe doctor` in that folder. The binary is
+  **not signed**, because signing and notarization need paid certificates, so SmartScreen may say it
+  "protected your PC". Click **More info**, then **Run anyway**.
+- **macOS:** unpack it (`tar -xzf <file>`). If Gatekeeper blocks the downloaded binary (it is not
+  notarized), run `xattr -d com.apple.quarantine wowc-advisor` in that folder.
+- **Linux (Wine or Proton setups):** unpack it with `tar -xzf <file>`.
+- **You have Go?** In PowerShell:
 
 ```
-$env:GOPROXY="direct"; go install github.com/WoW-Companion/advisor/cmd/wowc-advisor@main
+$env:GOPROXY="direct"; go install github.com/WoW-Companion/advisor/cmd/wowc-advisor@latest
 ```
 
-(`@latest` can serve a stale build; `GOPROXY=direct` skips the proxy cache.) Success:
-`wowc-advisor version` prints a version. The binary lands in `%USERPROFILE%\go\bin`, which may not be on
-PATH; run it by full path if so.
+(`GOPROXY=direct` skips the proxy cache, which can serve a stale build.) Success: `wowc-advisor version`
+(`wowc-advisor.exe version` on Windows) prints `wowc-advisor` and a version. `doctor --check` also says
+whether a newer release exists; it never downloads or replaces anything. A `go install` binary lands in
+`%USERPROFILE%\go\bin`, which may not be on PATH; run it by full path if so.
 
 ## 3. Install an AI client
 

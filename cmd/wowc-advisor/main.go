@@ -21,7 +21,16 @@ import (
 	"github.com/WoW-Companion/advisor/internal/server"
 )
 
+// version and commit are set at link time (-ldflags "-X main.version=… -X main.commit=…").
+var (
+	version = ""
+	commit  = ""
+)
+
 func main() {
+	if version != "" {
+		server.Version = version
+	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 	if err := run(ctx, os.Args[1:], os.Stderr); err != nil {
@@ -41,7 +50,7 @@ const usage = `usage: wowc-advisor serve [--stdio | --http] [--host ADDR] [--por
        wowc-advisor companion [--handshake] [--port N] [--no-open] [--lan] [--agent PRESET|COMMAND] [--timeout D] [--config FILE] [--dataset DIR] [--cache DIR] [--savedvariables FILE] [--addon-savedvariables FILE] [--answers-path FILE]
        wowc-advisor config path | config set agent PRESET|COMMAND|auto
        wowc-advisor setup CLIENT [--write] [--savedvariables FILE] [--binary FILE] [--os OS]   (CLIENT: claude-desktop, claude-code, codex, gemini)
-       wowc-advisor doctor [--savedvariables FILE] [--cache DIR]
+       wowc-advisor doctor [--savedvariables FILE] [--cache DIR] [--check]
        wowc-advisor version`
 
 func run(ctx context.Context, args []string, stderr io.Writer) error {
@@ -50,7 +59,7 @@ func run(ctx context.Context, args []string, stderr io.Writer) error {
 	}
 	switch args[0] {
 	case "version":
-		fmt.Fprintln(os.Stdout, "wowc-advisor", server.Version)
+		fmt.Fprintln(os.Stdout, versionLine())
 		return nil
 	case "serve":
 		return serve(ctx, args[1:], stderr)
@@ -70,6 +79,14 @@ func run(ctx context.Context, args []string, stderr io.Writer) error {
 		return companionCmd(ctx, args[1:], os.Stdout, stderr)
 	}
 	return fmt.Errorf("unknown command %q\n%s", args[0], usage)
+}
+
+// versionLine is the version, with the short commit when the build recorded one.
+func versionLine() string {
+	if commit == "" {
+		return "wowc-advisor " + server.Version
+	}
+	return "wowc-advisor " + server.Version + " (" + commit + ")"
 }
 
 func digestCmd(ctx context.Context, args []string, stdout, stderr io.Writer) error {

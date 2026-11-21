@@ -37,8 +37,8 @@ import (
 	"github.com/WoW-Companion/advisor/internal/talents"
 )
 
-// Version is the advisor's version.
-const Version = "0.2.0"
+// Version is the advisor's version. Release builds set it from main at link time.
+var Version = "dev"
 
 const (
 	DatasetEnv        = "WOWC_DATASET"
