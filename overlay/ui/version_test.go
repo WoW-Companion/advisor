@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"os/exec"
 	"strings"
 	"testing"
 )
@@ -9,12 +10,12 @@ import (
 // page only through the shell's fixed list; the installer upgrades in place via the patched template.
 func TestVersionLineAndInstallerWiring(t *testing.T) {
 	html, js := read(t, "index.html"), read(t, "app.js")
-	for _, want := range []string{`id="version"`, `id="check-updates"`} {
+	for _, want := range []string{`id="version"`, `id="check-updates"`, `src="version.js"`} {
 		if !strings.Contains(html, want) {
 			t.Errorf("index.html lacks %s", want)
 		}
 	}
-	for _, want := range []string{"checkUpdates: true", "/api/update", " advisor ", "12 * 60 * 60 * 1000", "open_install_page"} {
+	for _, want := range []string{"checkUpdates: true", "/api/update", "versionLine.onConnect()", "open_install_page"} {
 		if !strings.Contains(js, want) {
 			t.Errorf("app.js lacks %q", want)
 		}
@@ -44,5 +45,17 @@ func TestModelAndReasoningDropdowns(t *testing.T) {
 		if !strings.Contains(js, want) {
 			t.Errorf("app.js lacks %q", want)
 		}
+	}
+}
+
+// The version line and update check run as real code under Node (no browser): before and after the
+// handshake, after a restart, the check on start and on the timer, and a silent failure.
+func TestVersionLogicUnderNode(t *testing.T) {
+	node, err := exec.LookPath("node")
+	if err != nil {
+		t.Skip("node is not installed")
+	}
+	if out, err := exec.Command(node, "version_logic_test.js").CombinedOutput(); err != nil {
+		t.Fatalf("%v\n%s", err, out)
 	}
 }
