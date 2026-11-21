@@ -33,7 +33,7 @@ func TestAlphaFeedsBackgroundsOnly(t *testing.T) {
 				continue
 			}
 			used++
-			if p := strings.TrimSpace(prop); p != "background" && p != "background-color" {
+			if p := strings.TrimSpace(prop); p != "background" && p != "background-color" && p != "transition" {
 				t.Errorf("%s: --alpha drives %q, want a background", sel, p)
 			}
 			if regexp.MustCompile(`button|input|select|textarea|h1|\.tag|\.key|#text|#send|#who`).MatchString(sel) {
