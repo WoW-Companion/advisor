@@ -70,7 +70,7 @@ async function loadSoon(c) {
 // Restarts the sidecar and waits for its handshake; if none comes in time, say why once.
 let restartTimer = 0;
 async function restart(msg, go = () => invoke('restart_sidecar')) {
-  conn = null; showAgent();
+  conn = null; showAgent(); versionLine.onDisconnect();
   if (events) events.close();
   setPhase('reconnecting', msg);
   clearTimeout(restartTimer);
@@ -88,6 +88,7 @@ async function connect(c) {
   if (events) events.close();
   setPhase(c.agent ? 'ready' : 'ready-no-agent');
   showAgent();
+  versionLine.onConnect();
   try {
     await loadSoon(c);
   } catch (e) {
@@ -115,7 +116,7 @@ async function connect(c) {
 }
 
 listen('sidecar-up', ev => connect(ev.payload));
-listen('sidecar-down', ev => { conn = null; showAgent(); if (events) events.close(); clearTimeout(restartTimer); setPhase('stopped', 'The advisor stopped.' + (ev.payload ? ' ' + ev.payload : '')); });
+listen('sidecar-down', ev => { conn = null; showAgent(); versionLine.onDisconnect(); if (events) events.close(); clearTimeout(restartTimer); setPhase('stopped', 'The advisor stopped.' + (ev.payload ? ' ' + ev.payload : '')); });
 listen('notice', ev => notice(ev.payload));
 listen('mode', ev => { cfg.mode = ev.payload; save(); showMode(); });
 listen('clickthrough', ev => { $('ct').hidden = !ev.payload; showCt(); });
@@ -370,33 +371,20 @@ setInterval(() => showBadge(), 30000);
 // updates" is on) finds a newer release. "available" opens the release page on click; nothing is
 // downloaded or installed. A failed lookup shows nothing.
 const RELEASE_PAGE = 'https://github.com/WoW-Companion/advisor/releases/latest';
-let appVersion = '', latest = '';
-function versionText(appV, advisorV) {
-  return 'WoW Companion ' + appV + (advisorV ? ' \u00b7 advisor ' + advisorV : '');
-}
-function showVersion() {
-  const el = $('version');
-  el.textContent = versionText(appVersion, conn && conn.version);
-  if (!latest) return;
-  el.append(' \u00b7 ' + latest + ' ');
-  const a = document.createElement('a');
-  a.href = '#'; a.textContent = 'available';
-  a.onclick = ev => { ev.preventDefault(); invoke('open_install_page', { url: RELEASE_PAGE }).catch(e => notice(String(e))); };
-  el.append(a);
-}
-async function checkUpdates() {
-  if (!cfg.checkUpdates || !conn) return;
-  try {
-    const r = await api('/api/update');
-    const n = r.ok ? await r.json() : {};
-    latest = n.available ? n.latest : '';
-  } catch { latest = ''; }
-  showVersion();
-}
+const versionLine = WowcVersion.createVersionLine({
+  el: $('version'),
+  getConn: () => conn,
+  enabled: () => cfg.checkUpdates,
+  fetchUpdate: async () => { const r = await api('/api/update'); return r.ok ? r.json() : {}; },
+  openPage: () => invoke('open_install_page', { url: RELEASE_PAGE }).catch(e => notice(String(e))),
+  setTimeout: (f, ms) => setTimeout(f, ms),
+  setInterval: (f, ms) => setInterval(f, ms),
+});
 $('check-updates').checked = cfg.checkUpdates;
-$('check-updates').onchange = ev => { cfg.checkUpdates = ev.target.checked; save(); if (!cfg.checkUpdates) { latest = ''; showVersion(); } else checkUpdates(); };
-setInterval(checkUpdates, 12 * 60 * 60 * 1000);
-window.__TAURI__.app.getVersion().then(v => { appVersion = v; showVersion(); });
+$('check-updates').onchange = ev => { cfg.checkUpdates = ev.target.checked; save(); if (!cfg.checkUpdates) versionLine.clearNotice(); else versionLine.check(); };
+versionLine.startTimer();
+versionLine.render();
+window.__TAURI__.app.getVersion().then(v => versionLine.setAppVersion(v));
 
 // --- start ---------------------------------------------------------------------------------
 
