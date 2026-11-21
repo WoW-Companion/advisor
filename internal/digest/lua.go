@@ -5,9 +5,9 @@ import (
 	"strings"
 )
 
-// quote renders s as a Lua string literal: backslash, quote and control bytes are escaped, so the
+// Quote renders s as a Lua string literal: backslash, quote and control bytes are escaped, so the
 // result holds no raw newline and nothing that could end the literal early.
-func quote(s string) string {
+func Quote(s string) string {
 	var b strings.Builder
 	b.WriteByte('"')
 	for i := 0; i < len(s); i++ {
@@ -32,11 +32,11 @@ func (d Digest) Lua() string {
 	var b strings.Builder
 	b.WriteString("-- Data only: written by wowc-advisor; overwritten on every update. See docs/digest-format.md in the addon repo.\n")
 	b.WriteString("WoWCompanionDigest = {\n")
-	fmt.Fprintf(&b, "  schema = %d,\n  generated = %d,\n  build = %s,\n  character = %s,\n  sections = {\n", d.Schema, d.Generated, quote(d.Build), quote(d.Character))
+	fmt.Fprintf(&b, "  schema = %d,\n  generated = %d,\n  build = %s,\n  character = %s,\n  sections = {\n", d.Schema, d.Generated, Quote(d.Build), Quote(d.Character))
 	for _, s := range d.Sections {
-		fmt.Fprintf(&b, "    { id = %s, lines = {\n", quote(s.ID))
+		fmt.Fprintf(&b, "    { id = %s, lines = {\n", Quote(s.ID))
 		for _, l := range s.Lines {
-			fmt.Fprintf(&b, "      { text = %s", quote(l.Text))
+			fmt.Fprintf(&b, "      { text = %s", Quote(l.Text))
 			if l.Item != 0 {
 				fmt.Fprintf(&b, ", item = %d", l.Item)
 			}

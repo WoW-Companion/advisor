@@ -32,6 +32,7 @@ const usage = `usage: wowc-advisor serve [--stdio | --http] [--host ADDR] [--por
        wowc-advisor dataset update [--build BUILD] [--cache DIR] [--savedvariables FILE]
        wowc-advisor dataset status [--cache DIR] [--savedvariables FILE]
        wowc-advisor digest [NAME] [--dataset DIR] [--cache DIR] [--savedvariables FILE] [--digest-path FILE]
+       wowc-advisor ask [--agent PRESET|COMMAND] [--watch] [--timeout D] [--max N] [--config FILE] [--dataset DIR] [--cache DIR] [--savedvariables FILE] [--addon-savedvariables FILE] [--answers-path FILE]
        wowc-advisor version`
 
 func run(ctx context.Context, args []string, stderr io.Writer) error {
@@ -48,6 +49,8 @@ func run(ctx context.Context, args []string, stderr io.Writer) error {
 		return datasetCmd(ctx, args[1:], os.Stdout, stderr)
 	case "digest":
 		return digestCmd(ctx, args[1:], os.Stdout, stderr)
+	case "ask":
+		return askCmd(ctx, args[1:], os.Stdout, stderr)
 	}
 	return fmt.Errorf("unknown command %q\n%s", args[0], usage)
 }
