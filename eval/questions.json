@@ -1,0 +1,88 @@
+{
+  "characters": {
+    "priest12": [
+      {"ask": "What should I do next? Are my turn-ins first?", "tool": "whats_next", "check": "first_turn_in_first"},
+      {"ask": "Which quests are worth doing now? Is any of them grey?", "tool": "whats_next", "check": "no_grey_quest"},
+      {"ask": "Which quests are worth doing now? Is any of them too hard?", "tool": "whats_next", "check": "no_too_hard_quest"},
+      {"ask": "Where does each piece of advice come from?", "tool": "whats_next", "check": "steps_have_sources"},
+      {"ask": "Do I have talent points to spend?", "tool": "whats_next", "check": "talent_step_matches_unspent"},
+      {"ask": "Who is this character: level, class, spec, talent points?", "tool": "character_brief", "check": "brief_states_identity"},
+      {"ask": "Which armor can I upgrade? Is it all my armor type?", "tool": "upgrade_finder", "check": "no_wrong_armor"},
+      {"ask": "Where do I get those upgrades?", "tool": "upgrade_finder", "check": "sources_or_unknown"},
+      {"ask": "Which equipment slots are empty?", "tool": "character_brief", "check": "brief_names_empty_slots"},
+      {"ask": "What should I do about my failed quests?", "tool": "whats_next", "check": "failed_quest_last"},
+      {"ask": "Is the in-game digest valid for the slot addon?", "tool": "update_digest", "check": "digest_passes_slot_rules"},
+      {"ask": "Does the digest fit the panel?", "tool": "update_digest", "check": "digest_caps"}
+    ],
+    "priest24": [
+      {"ask": "What should I do next? Are my turn-ins first?", "tool": "whats_next", "check": "first_turn_in_first"},
+      {"ask": "Which quests are worth doing now? Is any of them grey?", "tool": "whats_next", "check": "no_grey_quest"},
+      {"ask": "Which quests are worth doing now? Is any of them too hard?", "tool": "whats_next", "check": "no_too_hard_quest"},
+      {"ask": "Where does each piece of advice come from?", "tool": "whats_next", "check": "steps_have_sources"},
+      {"ask": "Do I have talent points to spend?", "tool": "whats_next", "check": "talent_step_matches_unspent"},
+      {"ask": "Who is this character: level, class, spec, talent points?", "tool": "character_brief", "check": "brief_states_identity"},
+      {"ask": "Which armor can I upgrade? Is it all my armor type?", "tool": "upgrade_finder", "check": "no_wrong_armor"},
+      {"ask": "Where do I get those upgrades?", "tool": "upgrade_finder", "check": "sources_or_unknown"},
+      {"ask": "What about quests whose level is not known?", "tool": "whats_next", "check": "unknown_level_flagged"},
+      {"ask": "How were those upgrades ranked?", "tool": "upgrade_finder", "check": "states_basis"},
+      {"ask": "Is the in-game digest valid for the slot addon?", "tool": "update_digest", "check": "digest_passes_slot_rules"},
+      {"ask": "Does the digest remind me of unspent talents?", "tool": "update_digest", "check": "digest_mentions_unspent"}
+    ],
+    "priest40": [
+      {"ask": "What should I do next? Are my turn-ins first?", "tool": "whats_next", "check": "first_turn_in_first"},
+      {"ask": "Which quests are worth doing now? Is any of them grey?", "tool": "whats_next", "check": "no_grey_quest"},
+      {"ask": "Which quests are worth doing now? Is any of them too hard?", "tool": "whats_next", "check": "no_too_hard_quest"},
+      {"ask": "Where does each piece of advice come from?", "tool": "whats_next", "check": "steps_have_sources"},
+      {"ask": "Do I have talent points to spend?", "tool": "whats_next", "check": "talent_step_matches_unspent"},
+      {"ask": "Who is this character: level, class, spec, talent points?", "tool": "character_brief", "check": "brief_states_identity"},
+      {"ask": "Which armor can I upgrade? Is it all my armor type?", "tool": "upgrade_finder", "check": "no_wrong_armor"},
+      {"ask": "Where do I get those upgrades?", "tool": "upgrade_finder", "check": "sources_or_unknown"},
+      {"ask": "Is this capture current?", "tool": "character_brief", "check": "brief_stale_warning"},
+      {"ask": "Are any upgrades locked to another class?", "tool": "upgrade_finder", "check": "respects_class_lock"},
+      {"ask": "Is the in-game digest valid for the slot addon?", "tool": "update_digest", "check": "digest_passes_slot_rules"},
+      {"ask": "Does the digest fit the panel?", "tool": "update_digest", "check": "digest_caps"}
+    ],
+    "rogue12": [
+      {"ask": "What should I do next? Are my turn-ins first?", "tool": "whats_next", "check": "first_turn_in_first"},
+      {"ask": "Which quests are worth doing now? Is any of them grey?", "tool": "whats_next", "check": "no_grey_quest"},
+      {"ask": "Which quests are worth doing now? Is any of them too hard?", "tool": "whats_next", "check": "no_too_hard_quest"},
+      {"ask": "Where does each piece of advice come from?", "tool": "whats_next", "check": "steps_have_sources"},
+      {"ask": "Do I have talent points to spend?", "tool": "whats_next", "check": "talent_step_matches_unspent"},
+      {"ask": "Who is this character: level, class, spec, talent points?", "tool": "character_brief", "check": "brief_states_identity"},
+      {"ask": "Which armor can I upgrade? Is it all my armor type?", "tool": "upgrade_finder", "check": "no_wrong_armor"},
+      {"ask": "Where do I get those upgrades?", "tool": "upgrade_finder", "check": "sources_or_unknown"},
+      {"ask": "What is in my bank?", "tool": "character_brief", "check": "brief_flags_bank_gap"},
+      {"ask": "Can I equip those upgrades at my level?", "tool": "upgrade_finder", "check": "within_equip_window"},
+      {"ask": "Is the in-game digest valid for the slot addon?", "tool": "update_digest", "check": "digest_passes_slot_rules"},
+      {"ask": "Which weapons can I upgrade to?", "tool": "upgrade_finder", "check": "weapons_fit_class"}
+    ],
+    "rogue24": [
+      {"ask": "What should I do next? Are my turn-ins first?", "tool": "whats_next", "check": "first_turn_in_first"},
+      {"ask": "Which quests are worth doing now? Is any of them grey?", "tool": "whats_next", "check": "no_grey_quest"},
+      {"ask": "Which quests are worth doing now? Is any of them too hard?", "tool": "whats_next", "check": "no_too_hard_quest"},
+      {"ask": "Where does each piece of advice come from?", "tool": "whats_next", "check": "steps_have_sources"},
+      {"ask": "Do I have talent points to spend?", "tool": "whats_next", "check": "talent_step_matches_unspent"},
+      {"ask": "Who is this character: level, class, spec, talent points?", "tool": "character_brief", "check": "brief_states_identity"},
+      {"ask": "Which armor can I upgrade? Is it all my armor type?", "tool": "upgrade_finder", "check": "no_wrong_armor"},
+      {"ask": "Where do I get those upgrades?", "tool": "upgrade_finder", "check": "sources_or_unknown"},
+      {"ask": "Are any upgrades locked to another class?", "tool": "upgrade_finder", "check": "respects_class_lock"},
+      {"ask": "Does the digest remind me of unspent talents?", "tool": "update_digest", "check": "digest_mentions_unspent"},
+      {"ask": "Is the in-game digest valid for the slot addon?", "tool": "update_digest", "check": "digest_passes_slot_rules"},
+      {"ask": "How were those upgrades ranked?", "tool": "upgrade_finder", "check": "states_basis"}
+    ],
+    "rogue40": [
+      {"ask": "What should I do next? Are my turn-ins first?", "tool": "whats_next", "check": "first_turn_in_first"},
+      {"ask": "Which quests are worth doing now? Is any of them grey?", "tool": "whats_next", "check": "no_grey_quest"},
+      {"ask": "Which quests are worth doing now? Is any of them too hard?", "tool": "whats_next", "check": "no_too_hard_quest"},
+      {"ask": "Where does each piece of advice come from?", "tool": "whats_next", "check": "steps_have_sources"},
+      {"ask": "Do I have talent points to spend?", "tool": "whats_next", "check": "talent_step_matches_unspent"},
+      {"ask": "Who is this character: level, class, spec, talent points?", "tool": "character_brief", "check": "brief_states_identity"},
+      {"ask": "Which armor can I upgrade? Is it all my armor type?", "tool": "upgrade_finder", "check": "no_wrong_armor"},
+      {"ask": "Where do I get those upgrades?", "tool": "upgrade_finder", "check": "sources_or_unknown"},
+      {"ask": "Are those really upgrades, best first?", "tool": "upgrade_finder", "check": "only_upgrades_best_first"},
+      {"ask": "Does the digest list the same quests as whats_next?", "tool": "update_digest", "check": "digest_matches_whats_next"},
+      {"ask": "Is the in-game digest valid for the slot addon?", "tool": "update_digest", "check": "digest_passes_slot_rules"},
+      {"ask": "Which weapons can I upgrade to?", "tool": "upgrade_finder", "check": "weapons_fit_class"}
+    ]
+  }
+}
