@@ -216,8 +216,8 @@ func TestQuote(t *testing.T) {
 		{"naïve", `"naïve"`},
 	}
 	for _, tc := range cases {
-		if got := quote(tc.in); got != tc.want {
-			t.Errorf("quote(%q) = %s, want %s", tc.in, got, tc.want)
+		if got := Quote(tc.in); got != tc.want {
+			t.Errorf("Quote(%q) = %s, want %s", tc.in, got, tc.want)
 		}
 	}
 }

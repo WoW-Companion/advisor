@@ -15,6 +15,15 @@ const SlotAddon = "WoWCompanion_Digest"
 // <game>/WTF/Account/<acct>/SavedVariables/<file> gives <game>/Interface/AddOns/WoWCompanion_Digest/Digest.lua.
 // Both Windows and Unix paths are accepted, and the result keeps the input's separator.
 func DigestPath(savedVariables string) (string, error) {
+	if p, ok := SlotPath(savedVariables, SlotAddon, "Digest.lua"); ok {
+		return p, nil
+	}
+	return "", fmt.Errorf("cannot derive the digest path from %q: expected <game>/WTF/Account/<account>/SavedVariables/<file>; use --digest-path", savedVariables)
+}
+
+// SlotPath derives <game>/Interface/AddOns/<addon>/<file> from a SavedVariables path; ok is false
+// when the path is not <game>/WTF/Account/<account>/SavedVariables/<file>.
+func SlotPath(savedVariables, addon, file string) (path string, ok bool) {
 	sep := "/"
 	if strings.Contains(savedVariables, `\`) && !strings.Contains(savedVariables, "/") {
 		sep = `\`
@@ -24,9 +33,9 @@ func DigestPath(savedVariables string) (string, error) {
 	if i := len(segs) - 5; i >= 0 && strings.EqualFold(segs[i], "WTF") && strings.EqualFold(segs[i+1], "Account") &&
 		segs[i+2] != "" && strings.EqualFold(segs[i+3], "SavedVariables") && segs[i+4] != "" {
 		game := strings.Join(segs[:i], sep)
-		return strings.Join([]string{game, "Interface", "AddOns", SlotAddon, "Digest.lua"}, sep), nil
+		return strings.Join([]string{game, "Interface", "AddOns", addon, file}, sep), true
 	}
-	return "", fmt.Errorf("cannot derive the digest path from %q: expected <game>/WTF/Account/<account>/SavedVariables/<file>; use --digest-path", savedVariables)
+	return "", false
 }
 
 // CheckInstalled is an error when the slot addon's folder is not there. Nothing is created.
