@@ -7,9 +7,12 @@ import (
 	"unicode"
 
 	"github.com/WoW-Companion/advisor/internal/character"
+	"github.com/WoW-Companion/advisor/internal/professions"
+	"github.com/WoW-Companion/advisor/internal/store"
 )
 
-// The dataset holds no reagent data yet, so keep_materials is a name match: a bag item is kept when
+// keep_materials comes from the dataset's recipes (professions.KeepList). Only when the dataset has
+// no recipes for the character's professions does it fall back to a name match: a bag item is kept when
 // a whole word (or word run) of its name is one of its profession's fragments and no exclusion
 // phrase appears in the name. Fragments are lower case. A profession missing here keeps nothing.
 var professionFragments = map[string][]string{
@@ -55,8 +58,22 @@ func isMaterial(itemName string, professions []string) bool {
 	return false
 }
 
-// materials are the bag items the character's professions use, most numerous first.
-func materials(c character.Character) []Line {
+// materials are the bag and bank items the character's professions use, most numerous first: the
+// reagents of recipes still worth making, or the name guess when the dataset lacks recipes.
+func materials(c character.Character, ds store.DataStore) []Line {
+	keep, err := professions.KeepList(c, ds)
+	if err != nil {
+		return guessMaterials(c)
+	}
+	var out []Line
+	for _, k := range keep {
+		out = append(out, Line{Text: clip(fmt.Sprintf("%s x%d", k.Name, k.Count)), Item: int(k.ItemID)})
+	}
+	return out
+}
+
+// guessMaterials is the name-fragment fallback, over the bags.
+func guessMaterials(c character.Character) []Line {
 	var profs []string
 	for _, p := range c.Professions {
 		profs = append(profs, p.Name)
