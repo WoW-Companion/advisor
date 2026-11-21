@@ -23,9 +23,11 @@ is the standard WoW layout and is **unverified** for Forever. Use the file that 
 
 ## 3. Install the advisor
 
-Install [uv](https://docs.astral.sh/uv/) and Python 3.12+, then clone this repository, for
-example to `C:\Users\you\advisor`, and run `uv sync` there. (Windows install commands for uv:
-see its docs; **unverified** here.)
+Download `wowc-advisor-windows-amd64.exe` (or `-arm64.exe` on an ARM PC) from the
+[releases page](https://github.com/WoW-Companion/advisor/releases), and save it, for example, as
+`C:\Users\you\wowc-advisor.exe`. It is one static file: nothing else to install. Developers can
+build it with `make build` or `go install github.com/WoW-Companion/advisor/cmd/wowc-advisor@latest`.
+Whether a release is published yet is **unverified**.
 
 ## 4. Add the server to Claude Desktop
 
@@ -37,8 +39,8 @@ backslashes in the paths, then fully restart Claude Desktop:
 {
   "mcpServers": {
     "wowc-advisor": {
-      "command": "uv",
-      "args": ["run", "--directory", "C:/Users/you/advisor", "wowc-advisor", "serve", "--stdio"],
+      "command": "C:/Users/you/wowc-advisor.exe",
+      "args": ["serve", "--stdio"],
       "env": {
         "WOWC_SAVEDVARIABLES": "C:/Program Files (x86)/World of Warcraft/_forever_/WTF/Account/ACCOUNT/SavedVariables/ForeverScribe.lua"
       }
@@ -47,9 +49,9 @@ backslashes in the paths, then fully restart Claude Desktop:
 }
 ```
 
-Ask Claude to call `server_info`: it reports whether the file was found and how many characters it
-holds. Whether Claude Desktop finds `uv` on your Windows PATH is **unverified**; if it does not,
-put the full path to `uv.exe` in `command`.
+Ask Claude to call `server_info`: it reports whether the file was found, how many characters it
+holds and the game client version and build that wrote the capture. Use the full path to the `.exe` in `command`. Windows may ask you to confirm running a downloaded
+program the first time (the binary is not code-signed).
 
 ## 5. Install the skill
 
