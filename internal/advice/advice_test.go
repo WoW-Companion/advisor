@@ -202,3 +202,24 @@ func TestWhatsNextChain(t *testing.T) {
 		})
 	}
 }
+
+func TestOpenQuestsRankNearlyDoneThenHere(t *testing.T) {
+	f, err := character.LoadFile("../../testdata/foreverscribe/quest_progress.lua")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var titles []string
+	for _, s := range WhatsNext(f.Characters[0], nil) {
+		titles = append(titles, s.Title)
+	}
+	// Test Boars has 3 of 4 objectives done (75%), so it is first; then Testzone quests (where the last NPC
+	// was met) before Otherzone; then by title.
+	want := "Test Boars,Test Bare,Test Claws,Test Far"
+	if got := strings.Join(titles, ","); got != want {
+		t.Errorf("order = %s, want %s", got, want)
+	}
+	steps := WhatsNext(f.Characters[0], nil)
+	if !strings.Contains(steps[0].Reason, "7/8 Boars slain") {
+		t.Errorf("reason lacks progress: %q", steps[0].Reason)
+	}
+}

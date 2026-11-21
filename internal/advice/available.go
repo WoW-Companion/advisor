@@ -83,6 +83,9 @@ func AvailableQuests(c character.Character, ds store.DataStore) Available {
 			}
 		}
 	}
+	if p := c.LastKnownPosition(); p != nil && p.Zone != "" {
+		here[p.Zone] = true
+	}
 	for _, q := range c.Quests {
 		logged[int64(q.QuestID)] = true
 		if z := lookup(q, ds).zone; z != "" {

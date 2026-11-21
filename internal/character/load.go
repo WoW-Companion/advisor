@@ -141,6 +141,16 @@ func quest(e lua.Table) (Quest, bool) {
 	}, true
 }
 
+func npc(e lua.Table) (NPC, bool) {
+	n := NPC{ID: derefInt(asInt(e["id"])), Name: asStr(e["name"]), MapID: asInt(e["map"]), Zone: asStr(e["zone"]),
+		Subzone: asStr(e["subzone"]), X: asFloat(e["x"]), Y: asFloat(e["y"]), Kind: asStr(e["kind"]),
+		First: asInt64(e["first"]), Seen: asInt64(e["t"]), Count: asInt(e["n"])}
+	n.Spots, _ = each(e["spots"], func(s lua.Table) (Spot, bool) {
+		return Spot{X: asFloat(s["x"]), Y: asFloat(s["y"]), T: asInt64(s["t"]), N: asInt(s["n"])}, true
+	})
+	return n, n.Name != "" || n.ID != 0
+}
+
 func rank(n lua.Table) (int, *int) {
 	r := 0
 	for _, k := range []string{"rank", "currentRank", "spent"} {
@@ -331,6 +341,12 @@ func LoadCharacter(key string, rec lua.Table) Character {
 			c.CompletedQuests = append(c.CompletedQuests, *i)
 		}
 	}
+	// The npcs table sits on the character record; older captures may keep it in the snapshot.
+	npcs := rec["npcs"]
+	if npcs == nil {
+		npcs = snap["npcs"]
+	}
+	c.NPCs, _ = each(npcs, npc)
 	c.Skills, c.SkillsCaptured = each(snap["skills"], skill)
 	listed, listedOK := each(snap["professions"], skill)
 	if c.SkillsCaptured || listedOK {

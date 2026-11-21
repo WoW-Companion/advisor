@@ -51,3 +51,16 @@ func TestFactsWithoutDatasetSaySo(t *testing.T) {
 		t.Errorf("facts without a dataset do not say so: %q", got)
 	}
 }
+
+func TestFactsCarryProgressAndGivers(t *testing.T) {
+	cfg := Config{SavedVariables: "../../testdata/foreverscribe/quest_progress.lua"}
+	p := cfg.Prompt(Question{Character: "Testrealm:Testscout", Text: "What should I do next?"})
+	for _, want := range []string{"3/8 Test Claws", "Quest giver you've met nearby: Test Near Giver, Test Dock (61.6, 20.7)", "approximate"} {
+		if !strings.Contains(p, want) {
+			t.Errorf("prompt lacks %q", want)
+		}
+	}
+	if n := len([]rune(p)); n > promptBudget {
+		t.Errorf("prompt is %d characters, budget %d", n, promptBudget)
+	}
+}
