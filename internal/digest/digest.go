@@ -102,6 +102,22 @@ func clip(s string) string {
 	return strings.TrimRight(string(r[:MaxText-3]), " ") + "..."
 }
 
+// clipWords is clip that never cuts a word: it ends at the last space that leaves room for "...".
+func clipWords(s string) string {
+	if utf8.RuneCountInString(s) <= MaxText {
+		return s
+	}
+	head := string([]rune(s)[:MaxText-3])
+	if i := strings.LastIndex(head, " "); i > 0 {
+		// A word ends where the next rune is a space.
+		if r := []rune(s); r[MaxText-3] == ' ' {
+			return strings.TrimRight(head, " ") + "..."
+		}
+		return strings.TrimRight(head[:i], " ") + "..."
+	}
+	return clip(s)
+}
+
 func name(c character.Character) string {
 	if c.Name != "" {
 		return c.Name
@@ -321,16 +337,23 @@ func upgradeLines(c character.Character, ds store.DataStore) (lines, notes []Lin
 		if item == "" {
 			item = fmt.Sprintf("item %d", cd.Item.ID)
 		}
-		text := fmt.Sprintf("%s: %s (ilvl %d)", slot, item, cd.Item.ItemLevel)
+		text := fmt.Sprintf("%s: %s (ilvl %d", slot, item, cd.Item.ItemLevel)
+		if cd.Soon {
+			text += fmt.Sprintf(", at level %d", cd.Item.ReqLevel)
+		}
+		text += ")"
 		if len(cd.Sources) > 0 {
 			s := cd.Sources[0]
 			src := s.Name
 			if src == "" {
 				src = fmt.Sprintf("%s %d", s.Kind, s.ID)
 			}
-			text += " from " + src
+			// The source goes on only whole: when it would push the line past the cap it is dropped.
+			if with := text + " from " + src; utf8.RuneCountInString(with) <= MaxText {
+				text = with
+			}
 		}
-		lines = append(lines, Line{Text: clip(text), Item: int(cd.Item.ID)})
+		lines = append(lines, Line{Text: clipWords(text), Item: int(cd.Item.ID)})
 	}
 	return lines, nil
 }

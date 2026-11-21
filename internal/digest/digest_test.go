@@ -439,3 +439,17 @@ func TestWriteIsAtomicAndNeedsTheAddon(t *testing.T) {
 		t.Errorf("temp files left: %v", left)
 	}
 }
+
+func TestClipWords(t *testing.T) {
+	long := "head: Restored Plate Helm of the Fallen Champion (ilvl 12) from Someone"
+	for _, tc := range []struct{ in, want string }{
+		{"head: Cloth Hood (ilvl 20)", "head: Cloth Hood (ilvl 20)"},
+		{long, "head: Restored Plate Helm of the Fallen Champion (ilvl..."},
+		{strings.Repeat("x", 70), strings.Repeat("x", 57) + "..."},
+	} {
+		got := clipWords(tc.in)
+		if got != tc.want || len([]rune(got)) > MaxText {
+			t.Errorf("clipWords(%q) = %q, want %q", tc.in, got, tc.want)
+		}
+	}
+}

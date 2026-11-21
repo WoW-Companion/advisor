@@ -38,7 +38,8 @@ const (
 //
 //   - Armor in the slots head, shoulder, chest, waist, legs, feet, wrist and hands must be of the
 //     class's one armor type (the type it gets its armor bonus from); lighter types are not
-//     suggested even where the game lets the class wear them.
+//     suggested even where the game lets the class wear them. Warriors and paladins wear mail, and
+//     hunters and shamans leather, until level ArmorLevel, when the class gains its own type.
 //   - Cloaks, necks, rings and trinkets are never restricted by armor type.
 //   - Shields only for classes with Shield set.
 //   - Weapons by subclass from Weapons. A one-hand weapon goes in the off hand only for classes
@@ -50,20 +51,36 @@ type classRules struct {
 	Shield    bool
 	DualWield bool
 	Weapons   []int
+	// LowArmor is the armor type worn before level ArmorLevel; 0 when Armor is worn from level 1.
+	LowArmor   int
+	ArmorLevel int
+}
+
+// armorGainLevel is the level at which the plate and mail classes gain their armor type: Classic Era
+// trainer spells Plate Mail (warrior, paladin) and Mail (hunter, shaman), both learned at 40. Not
+// verifiable from the dataset, which holds no spell or trainer data; see docs/gear.md.
+const armorGainLevel = 40
+
+// armorAt is the armor type the class is assumed to wear at level.
+func (r classRules) armorAt(level int) int {
+	if r.LowArmor != 0 && level < r.ArmorLevel {
+		return r.LowArmor
+	}
+	return r.Armor
 }
 
 // rules is keyed by the class token a ForeverScribe capture writes. Classes without an entry are
 // reported as unsupported rather than guessed.
 var rules = map[string]classRules{
-	"WARRIOR": {1, armorPlate, true, true, []int{axe1H, axe2H, bow, crossbow, dagger, fist, gun, mace1H, mace2H, polearm, staff, sword1H, sword2H, thrown}},
-	"PALADIN": {2, armorPlate, true, false, []int{axe1H, axe2H, mace1H, mace2H, polearm, sword1H, sword2H}},
-	"HUNTER":  {3, armorMail, false, true, []int{axe1H, axe2H, bow, crossbow, dagger, fist, gun, polearm, staff, sword1H, sword2H, thrown}},
-	"ROGUE":   {4, armorLeather, false, true, []int{axe1H, bow, crossbow, dagger, fist, gun, mace1H, sword1H, thrown}},
-	"PRIEST":  {5, armorCloth, false, false, []int{dagger, mace1H, staff, wand}},
-	"SHAMAN":  {7, armorMail, true, true, []int{axe1H, axe2H, dagger, fist, mace1H, mace2H, staff}},
-	"MAGE":    {8, armorCloth, false, false, []int{dagger, staff, sword1H, wand}},
-	"WARLOCK": {9, armorCloth, false, false, []int{dagger, staff, sword1H, wand}},
-	"DRUID":   {11, armorLeather, false, false, []int{dagger, fist, mace1H, mace2H, polearm, staff}},
+	"WARRIOR": {1, armorPlate, true, true, []int{axe1H, axe2H, bow, crossbow, dagger, fist, gun, mace1H, mace2H, polearm, staff, sword1H, sword2H, thrown}, armorMail, armorGainLevel},
+	"PALADIN": {2, armorPlate, true, false, []int{axe1H, axe2H, mace1H, mace2H, polearm, sword1H, sword2H}, armorMail, armorGainLevel},
+	"HUNTER":  {3, armorMail, false, true, []int{axe1H, axe2H, bow, crossbow, dagger, fist, gun, polearm, staff, sword1H, sword2H, thrown}, armorLeather, armorGainLevel},
+	"ROGUE":   {4, armorLeather, false, true, []int{axe1H, bow, crossbow, dagger, fist, gun, mace1H, sword1H, thrown}, 0, 0},
+	"PRIEST":  {5, armorCloth, false, false, []int{dagger, mace1H, staff, wand}, 0, 0},
+	"SHAMAN":  {7, armorMail, true, true, []int{axe1H, axe2H, dagger, fist, mace1H, mace2H, staff}, armorLeather, armorGainLevel},
+	"MAGE":    {8, armorCloth, false, false, []int{dagger, staff, sword1H, wand}, 0, 0},
+	"WARLOCK": {9, armorCloth, false, false, []int{dagger, staff, sword1H, wand}, 0, 0},
+	"DRUID":   {11, armorLeather, false, false, []int{dagger, fist, mace1H, mace2H, polearm, staff}, 0, 0},
 }
 
 // Item slots (inventory types) by the capture slots they fit.
@@ -86,14 +103,14 @@ func (r classRules) fitsSlots(slot int8) []string {
 	return out
 }
 
-// canUse reports whether the class may equip an item of the given class, subclass and slot.
-func (r classRules) canUse(classID, subclass int8, slot int8) bool {
+// canUse reports whether a class at level may equip an item of the given class, subclass and slot.
+func (r classRules) canUse(classID, subclass int8, slot int8, level int) bool {
 	switch classID {
 	case classArmor:
 		if slot == 14 || int(subclass) == armorShield {
 			return r.Shield
 		}
-		return anyArmorSlot[slot] || int(subclass) == r.Armor
+		return anyArmorSlot[slot] || int(subclass) == r.armorAt(level)
 	case classWeapon:
 		if slot == 22 && !r.DualWield {
 			return false

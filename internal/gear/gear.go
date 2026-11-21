@@ -18,8 +18,27 @@ import (
 	"github.com/WoW-Companion/advisor/internal/store"
 )
 
-// EquipWindow is how many levels above the character an item may require.
-const EquipWindow = 3
+// EquipWindow is how many levels above the character an item may require (known or estimated).
+const EquipWindow = 2
+
+// EstimateOffset is how far below its item level an item's required level is estimated to sit when
+// the dataset holds 0 (unknown) for it: required level ~ max(1, item level - EstimateOffset).
+const EstimateOffset = 5
+
+// EstimateRequiredLevel is the required level assumed for an item whose dataset value is unknown.
+func EstimateRequiredLevel(itemLevel int) int { return max(1, itemLevel-EstimateOffset) }
+
+// EstimateGap is how far the estimate may exceed a known required level before the known one is
+// distrusted: the dataset holds required level 1 for about 80 equippable items of item level 30 to
+// 70 (scaling and event items), which are no use to a level-5 character. Real level-60 gear stays
+// within it (item level 83 needs 60).
+const EstimateGap = 20
+
+// unequippableBonding are the bonding values of quest items (the client's bonding 4 and 5).
+func unequippableBonding(b int) bool { return b == 4 || b == 5 }
+
+// qualityArtifact is the quality no ordinary character equips as an upgrade.
+const qualityArtifact = 6
 
 // Source level window: a creature is "in range" when its levels reach into
 // [level-SourceBelow, level+SourceAbove].
@@ -89,9 +108,12 @@ type Item struct {
 	ID            int64
 	Name          string
 	ItemLevel     int
-	RequiredLevel int
+	RequiredLevel int // the dataset's; 0 is unknown
+	ReqLevel      int // what the search used: RequiredLevel, or an estimate when that is 0
+	Estimated     bool
 	Quality       int
 	Slot          int
+	Bonding       int
 	StatTypes     []int64
 	StatsKnown    bool
 }
@@ -117,6 +139,7 @@ type Candidate struct {
 	Delta   float64 // score minus the equipped item's; the full score for an empty slot
 	Basis   string  // BasisStats or BasisItemLevel
 	Empty   bool    // the slot is empty
+	Soon    bool    // the item's ReqLevel is above the character's level (within EquipWindow)
 	Sources []Source
 }
 
@@ -148,7 +171,7 @@ func i64(v any) int64 { n, _ := v.(int64); return n }
 func itemOf(row store.Row) Item {
 	it := Item{
 		ID: i64(row["id"]), ItemLevel: int(i64(row["item_level"])), RequiredLevel: int(i64(row["required_level"])),
-		Quality: int(i64(row["quality"])), Slot: int(i64(row["slot"])),
+		Quality: int(i64(row["quality"])), Slot: int(i64(row["slot"])), Bonding: int(i64(row["bonding"])),
 		StatsKnown: row["stats_status"] == "known",
 	}
 	it.Name, _ = row["name"].(string)
@@ -198,7 +221,8 @@ func Find(c character.Character, ds store.DataStore, group string, opt Options) 
 		res.Reason = fmt.Sprintf("no stat weights for %q", group)
 	}
 
-	rows, err := ds.Filter("items", store.Range{Column: "required_level", Min: 0, Max: *c.Level + EquipWindow})
+	level := *c.Level
+	rows, err := ds.Filter("items", store.Range{Column: "required_level", Min: 0, Max: level + EquipWindow})
 	if err != nil {
 		return res, fmt.Errorf("items table: %w", err)
 	}
@@ -206,22 +230,26 @@ func Find(c character.Character, ds store.DataStore, group string, opt Options) 
 	anyStats := false
 	for _, row := range rows {
 		it := itemOf(row)
-		if it.ItemLevel <= 0 || it.Quality <= 0 {
+		if it.ItemLevel <= 0 || it.Quality <= 0 || it.Quality == qualityArtifact || unequippableBonding(it.Bonding) {
 			continue
 		}
-		if !rl.canUse(int8(i64(row["class_id"])), int8(i64(row["subclass_id"])), int8(it.Slot)) ||
+		if !rl.canUse(int8(i64(row["class_id"])), int8(i64(row["subclass_id"])), int8(it.Slot), level) ||
 			!allowsClass(int32(i64(row["allowable_class_mask"])), rl.ID) {
 			continue
 		}
 		// A required level of 0 is what the client table holds for many high-level items (the real
 		// dataset has 2,330 equippable ones, up to item level 83), so 0 is "unknown", not "none":
-		// offer such an item only when its item level is within the window itself.
-		if it.RequiredLevel == 0 && it.ItemLevel > *c.Level+EquipWindow {
+		// the level is estimated from the item level and put through the same window.
+		it.ReqLevel = it.RequiredLevel
+		if est := EstimateRequiredLevel(it.ItemLevel); it.RequiredLevel == 0 || est-it.RequiredLevel > EstimateGap {
+			it.ReqLevel, it.Estimated = est, true
+		}
+		if it.ReqLevel > level+EquipWindow {
 			continue
 		}
 		anyStats = anyStats || it.StatsKnown
 		for _, slot := range rl.fitsSlots(int8(it.Slot)) {
-			if opt.Slot == "" || opt.Slot == slot {
+			if wanted(opt.Slot, slot) {
 				bySlot[slot] = append(bySlot[slot], it)
 			}
 		}
@@ -230,13 +258,22 @@ func Find(c character.Character, ds store.DataStore, group string, opt Options) 
 		res.Reason = "the dataset has no stats for these items"
 	}
 
+	ranked := map[string][]Candidate{}
 	for slot, items := range bySlot {
-		cands := rank(c, ds, slot, items, w)
+		ranked[slot] = rank(c, ds, slot, items, w)
+	}
+	for _, pair := range pairedSlots {
+		dedupe(ranked, c, pair[0], pair[1], opt.Limit)
+	}
+	for slot, cands := range ranked {
+		if opt.Slot != "" && opt.Slot != slot {
+			continue
+		}
 		if opt.Limit > 0 && len(cands) > opt.Limit {
 			cands = cands[:opt.Limit]
 		}
 		for i := range cands {
-			cands[i].Sources = sources(ds, cands[i].Item.ID, *c.Level)
+			cands[i].Sources = sources(ds, cands[i].Item.ID, level)
 			if cands[i].Basis == BasisStats {
 				res.ItemLevelOnly = false
 			}
@@ -249,6 +286,62 @@ func Find(c character.Character, ds store.DataStore, group string, opt Options) 
 		res.Reason = "no candidate had stats to weigh"
 	}
 	return res, nil
+}
+
+// pairedSlots are the capture slots that hold two of the same kind of item.
+var pairedSlots = [][2]string{{"finger1", "finger2"}, {"trinket1", "trinket2"}}
+
+// wanted reports whether slot must be searched for a request for only (empty for all): the slot
+// itself, and the other of its pair, which the duplicate rule needs.
+func wanted(only, slot string) bool {
+	if only == "" || only == slot {
+		return true
+	}
+	for _, p := range pairedSlots {
+		if only == p[0] && slot == p[1] || only == p[1] && slot == p[0] {
+			return true
+		}
+	}
+	return false
+}
+
+// dedupe makes the two slots of a pair never offer the same item id: the first slot keeps its
+// candidates, and the second takes the next ones instead. Neither offers the item the other wears.
+func dedupe(ranked map[string][]Candidate, c character.Character, a, b string, limit int) {
+	worn := func(slot string) int64 {
+		if eq, ok := c.Equipment[slot]; ok && eq.ItemID != nil {
+			return int64(*eq.ItemID)
+		}
+		return 0
+	}
+	first := ranked[a]
+	taken := map[int64]bool{}
+	if id := worn(b); id != 0 {
+		taken[id] = true
+	}
+	var kept []Candidate
+	for _, cd := range first {
+		if !taken[cd.Item.ID] {
+			kept = append(kept, cd)
+		}
+	}
+	ranked[a] = kept
+	taken = map[int64]bool{}
+	if id := worn(a); id != 0 {
+		taken[id] = true
+	}
+	for i, cd := range kept {
+		if limit == 0 || i < limit {
+			taken[cd.Item.ID] = true
+		}
+	}
+	var second []Candidate
+	for _, cd := range ranked[b] {
+		if !taken[cd.Item.ID] {
+			second = append(second, cd)
+		}
+	}
+	ranked[b] = second
 }
 
 // rank scores the items against what the character wears in slot and keeps the upgrades.
@@ -273,7 +366,12 @@ func rank(c character.Character, ds store.DataStore, slot string, items []Item, 
 	var out []Candidate
 	for _, it := range items {
 		byStats := w != nil && it.StatsKnown && (!worn || curKnown && cur.StatsKnown)
+		// An item that is not above what is worn, or a placeholder for an empty slot, is no upgrade.
+		if worn && it.ItemLevel <= cur.ItemLevel || !worn && it.ItemLevel <= 1 {
+			continue
+		}
 		cand := Candidate{Item: it, Slot: slot, Basis: BasisItemLevel, Empty: !worn}
+		cand.Soon = it.ReqLevel > *c.Level
 		if byStats {
 			cand.Basis = BasisStats
 		}
