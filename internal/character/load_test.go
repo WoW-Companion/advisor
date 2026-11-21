@@ -122,3 +122,17 @@ func TestLoadErrors(t *testing.T) {
 		t.Error("a file without ForeverScribeDB must fail")
 	}
 }
+
+func TestLocationAndHearth(t *testing.T) {
+	c := LoadCharacter("R:N", lua.Table{"snapshot": lua.Table{
+		"hearth":   "Testville",
+		"location": lua.Table{"zone": "Testisle", "subzone": "Kelp Cove", "mapID": float64(77), "x": 41.5, "y": 20.25},
+	}})
+	l := c.Location
+	if l == nil || l.Zone != "Testisle" || l.Subzone != "Kelp Cove" || *l.MapID != 77 || *l.X != 41.5 || c.Hearth != "Testville" {
+		t.Errorf("location = %+v hearth %q", l, c.Hearth)
+	}
+	if got := LoadCharacter("R:N", lua.Table{}); got.Location != nil {
+		t.Errorf("no location section must stay nil: %+v", got.Location)
+	}
+}

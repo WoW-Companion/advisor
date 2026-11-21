@@ -279,6 +279,22 @@ func firstClient(vs ...any) Client {
 }
 
 // LoadCharacter builds one character from its record. key is the record's key in `chars`.
+func asFloat(v any) *float64 {
+	if f, ok := v.(float64); ok {
+		return &f
+	}
+	return nil
+}
+
+func location(v any) *Location {
+	t := table(v)
+	if len(t) == 0 {
+		return nil
+	}
+	return &Location{Zone: asStr(t["zone"]), Subzone: asStr(t["subzone"]), MapName: asStr(t["mapName"]),
+		MapID: asInt(t["mapID"]), X: asFloat(t["x"]), Y: asFloat(t["y"])}
+}
+
 func LoadCharacter(key string, rec lua.Table) Character {
 	snap := table(rec["snapshot"])
 	ident := table(snap["identity"])
@@ -291,6 +307,7 @@ func LoadCharacter(key string, rec lua.Table) Character {
 		Addon:     asStr(snap["addonVersion"]),
 		Client:    firstClient(ident["client"], snap["client"], rec["client"]),
 		Equipment: equipment(snap["equipment"]), Talents: talents(snap["talents"]),
+		Location: location(snap["location"]), Hearth: asStr(snap["hearth"]),
 	}
 	// The key is "Realm:Name"; with no realm captured the client leaves it empty, so key by name.
 	c.Key = key

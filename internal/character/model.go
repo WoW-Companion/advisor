@@ -41,6 +41,16 @@ type Quest struct {
 	Objectives []Objective
 }
 
+// Location is where the character stood at the last save (ForeverScribe snapshot.location). X and
+// Y are percent of the map (0 to 100) and nil when the client gave no position.
+type Location struct {
+	Zone    string
+	Subzone string
+	MapName string
+	MapID   *int
+	X, Y    *float64
+}
+
 type Talent struct {
 	Name    string
 	Group   string
@@ -116,6 +126,8 @@ type Character struct {
 	CapturedAt *int64
 	Addon      string
 	Client     Client
+	Location   *Location // nil when the capture holds none
+	Hearth     string    // the hearthstone's bind location name
 
 	Equipment    map[string]EquippedItem // nil when not captured
 	Bags         []ItemStack
