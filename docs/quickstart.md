@@ -1,81 +1,130 @@
 # Quickstart: from download to in-game advice
 
-One path, eight steps. Each step is one command or one click, and says what success looks like.
-`<you>` is your Windows user name and `<account>` your WoW account folder; use your own.
+One path for a new Windows player, top to bottom. Each step is one action and says what success looks
+like. `<you>` is your Windows user name and `<account>` your WoW account folder; use your own.
 
-## 1. Install ForeverScribe and the WoW Companion addon
+## 1. Install the addons
 
-Click: install [ForeverScribe](https://github.com/MattMaximo/foreverscribe) into your game's
-`Interface\AddOns` folder. Then get the WoW Companion addon zip (a release, or `make package` in the
-addon repo, which writes `dist/WoWCompanion-<version>.zip`) and unzip it into the same folder.
+Action: install [ForeverScribe](https://github.com/MattMaximo/foreverscribe) into your game's
+`_forever_\Interface\AddOns` folder. Then add the three WoW Companion folders (`WoWCompanion`,
+`WoWCompanion_Digest`, `WoWCompanion_Answers`) to the same folder. There is no player-friendly download
+for them yet: take them from the [addon repository](https://github.com/WoW-Companion/addon) (GitHub's
+**Code**, then **Download ZIP**, and copy just those three folders out of it), or build a zip with
+`make package` there. Then **quit the game completely and start it again**: the game only finds a new
+addon folder at startup, so `/reload` is not enough the first time.
 
-Success: `Interface\AddOns` holds `WoWCompanion`, `WoWCompanion_Digest` and `WoWCompanion_Answers`
-side by side, next to the ForeverScribe folder.
+Success: in game, `/wowc status` prints the addon version. After your first `/reload` or logout,
+ForeverScribe has written `WTF\Account\<account>\SavedVariables\ForeverScribe.lua`.
 
-## 2. `/reload` in game
+## 2. Get WoW Companion
 
-Command: type `/reload` in the game chat.
+**Recommended: the overlay app.** It bundles the advisor, so there is nothing else to install.
 
-Success: `/wowc status` prints the addon version, and ForeverScribe has written
-`WTF\Account\<account>\SavedVariables\ForeverScribe.lua`.
+Action: on the [advisor repository](https://github.com/WoW-Companion/advisor), open **Actions**, then the
+**overlay** workflow, then the newest run with a green check on the `main` branch. Under **Artifacts**
+download `wow-companion-installer` and unzip it. (Artifacts need a GitHub sign-in and are kept 14 days; the
+overlay does not ship in the releases yet.) Run the installer; it installs for your user and asks for no
+admin rights. Windows SmartScreen warns because the installer is unsigned: click **More info**, then
+**Run anyway**.
 
-## 3. Get `wowc-advisor`
+Success: WoW Companion is in the Start menu and opens a small panel.
 
-Click: download `wowc-advisor-windows-amd64.exe` (`-arm64.exe` on an ARM PC) from the
-[releases page](https://github.com/WoW-Companion/advisor/releases) and save it, for example, as
-`C:\Users\<you>\wowc-advisor.exe`. It is one static file. Windows may ask you to confirm running it.
-
-Success: `C:\Users\<you>\wowc-advisor.exe version` prints `wowc-advisor` and a version.
-
-## 4. Connect your AI client
-
-On a standard install you can skip the `--savedvariables` path here: the advisor finds
-`ForeverScribe.lua` itself (see the FAQ). The client entry still has to be written once.
-
-Command (Claude Desktop shown; the others are `claude-code`, `codex` and `gemini`):
+**Alternative: `wowc-advisor` alone** (no overlay; you get the browser companion instead). Once release
+v0.1.0 exists, download `wowc-advisor-windows-amd64.exe` (`-arm64.exe` on an ARM PC) from the
+[releases page](https://github.com/WoW-Companion/advisor/releases). Until then, with Go installed, in
+PowerShell:
 
 ```
-wowc-advisor setup claude-desktop --savedvariables "C:\Program Files (x86)\World of Warcraft\_forever_\WTF\Account\<account>\SavedVariables\ForeverScribe.lua" --write
+$env:GOPROXY="direct"; go install github.com/WoW-Companion/advisor/cmd/wowc-advisor@main
 ```
 
-Without `--write` it only prints the entry and the file it belongs in. Then fully restart the client.
-Details per client are in [clients.md](clients.md).
+(`@latest` can serve a stale build; `GOPROXY=direct` skips the proxy cache.) Success:
+`wowc-advisor version` prints a version. The binary lands in `%USERPROFILE%\go\bin`, which may not be on
+PATH; run it by full path if so.
 
-Success: the command names the config file it wrote and keeps a `.bak` copy of the old one.
+## 3. Install an AI client
 
-## 5. Check the setup
+Answers need one AI client. Advice lists, the NEXT list and the panel work without it.
 
-Command: `wowc-advisor doctor` (add `--savedvariables "<the path>"` only if your WoW is not in a
-standard folder)
+Action: install Claude Code with its official installer, in PowerShell:
+`irm https://claude.ai/install.ps1 | iex`. Then run `claude` once in a terminal and sign in. It must be
+signed in once before it can answer headlessly.
 
-Success: every check passes, and the SavedVariables line says `(auto-detected)` or where else the path came from. A failing check prints the fix for it. The game dataset is downloaded
-on first use and cached; the check says if it is missing.
+The installer puts `claude.exe` in `%USERPROFILE%\.local\bin`, which is often not on PATH, so `claude` may
+not work in a new terminal. You do not need to fix that for the overlay: it looks there (and in the other
+usual places) itself. See [overlay/README.md](../overlay/README.md).
 
-## 6. Ask your AI client
+Alternatives: [Codex](https://github.com/openai/codex) or
+[Gemini CLI](https://github.com/google-gemini/gemini-cli), each from its own install page; sign in once
+too. Gemini also needs `wowc-advisor setup gemini --write`.
 
-Ask: "what should I do next?" and then "refresh my digest".
+Success: `claude` answers in a terminal, or the overlay (next step) shows the client's name.
 
-Success: the first answer names the "ForeverScribe capture at ..." time and ranked steps; the second
-says it wrote the digest into the `WoWCompanion_Digest` addon.
+## 4. Set up the overlay
 
-## 7. `/reload` to see the panel
+Open WoW Companion from the Start menu.
 
-Command: `/reload`, then `/wowc` in game.
+- **Windowed (Fullscreen).** In WoW, System, Graphics, set **Display Mode** to **Windowed (Fullscreen)**.
+  The overlay only draws over the game in that mode; in true Fullscreen it is hidden behind the game.
+- **Modes.** The pin/window button in the title bar switches **Overlay** (always on top, no taskbar entry)
+  and **Window** (a normal window). The settings (the gear) hold **Opacity** (0% to 100%) and
+  **Solid on hover**. Opacity fades only the panel background, never text or controls; with Solid on
+  hover the panel turns mostly opaque while the mouse is over it.
+- **Click-through.** `Ctrl+Shift+T` lets mouse clicks pass through the panel to the game (a small icon
+  shows it is on). Press it again, or use the tray icon's **Click-through**, to get the panel back. It is
+  always off when the app starts.
+- **Shortcuts and tray.** `Ctrl+Shift+W` shows or hides the panel. Change either shortcut in the settings:
+  click its box and press the new keys. The tray icon has Show/Hide, Overlay mode, Click-through and
+  Quit. The title bar's **-** hides to the tray; **x** quits. If the panel is invisible at 0% opacity,
+  use `Ctrl+Shift+W` or the tray.
+- **AI client.** The settings' **AI client** box says **Auto** and names what it found. Pick Claude,
+  Codex, Gemini or a custom command instead if you like. After installing a client while the overlay is
+  open, press **Re-scan**; no restart of the app is needed.
+- **Text size.** Settings, **Text size**: Small, Medium or Large.
+- **Collapsing.** The gear toggles the settings, the **Next** header collapses the NEXT list and the arrow
+  by **Clear** collapses the chat. The panels remember it. NEXT opens by itself until you ask something,
+  unless you chose.
+- **The age chip.** Next to the character box, a chip shows how old the game data is: `now`, `5m`, `2h`,
+  `1d`. It turns amber after 30 minutes and red after 2 hours; `/reload` in game refreshes it.
+- **The game is never touched.** The app does not inject into, read or send input to WoW. It is an ordinary
+  window that talks to the advisor over 127.0.0.1.
 
-Success: the panel opens and shows your next quests, upgrades, materials and notes, with the digest's age.
+Success: the panel shows your most recently played character, its NEXT list and an age chip. Settings
+live in the app's own storage, not a file you edit; see the FAQ.
 
-## 8. Ask from inside the game
+## 5. Put the digest in the game panel
 
-Command: type `/ask <question>` in game (or use the Ask box in the panel). `/reload` once to send it
-out, run `wowc-advisor ask --agent claude` (or `--watch` to keep
-polling), then `/reload` again.
+The overlay has no digest button; the advisor writes the in-game digest from the capture, when asked.
 
-Success: the answer appears under your question in the panel. `claude`, `codex` and `gemini` are the
-agent presets; see [ask.md](ask.md). The advisor's tools are pre-allowed for
-these runs and read-only (apart from `update_digest`, which writes the digest file); nothing else is.
-The presets pass the permission flags themselves, so you never allow anything in the AI client.
+Action: type "refresh my digest" in the overlay's Ask box (or to any connected AI client), or, with the
+standalone binary, run `wowc-advisor digest` in a terminal. Then type `/reload` in game and `/wowc`.
 
-## Live answers beside the game
+Success: the answer (or command) says it wrote the `WoWCompanion_Digest` addon; the panel opens
+with your next quests, upgrades and materials. Every character you have played is kept, so one digest
+covers them all.
+
+## 6. Ask
+
+Pick the way that suits you:
+
+- **The overlay's Ask box (preferred).** Type a question and press **Ask**. The answer streams in beside
+  the game; no `/reload` needed. The age chip tells you how fresh the data is.
+- **The browser companion**, `wowc-advisor companion --agent claude`, is the same chat in a browser tab
+  (see below). Use it without the overlay.
+- **In game, `/ask <question>`.** Slowest: `/reload` to send it out, run `wowc-advisor ask --agent claude`
+  (or `--watch` to keep polling), then `/reload` again for the answer. `claude`, `codex` and `gemini` are
+  the agent presets; see [ask.md](ask.md).
+
+The advisor's tools are pre-allowed for these runs and read-only (apart from `update_digest`, which writes
+the digest file); nothing else is. The presets pass the permission flags themselves, so you never approve
+anything in the AI client. Advice reflects the last ForeverScribe save, so `/reload` before asking if
+you just played.
+
+To connect an AI client you use yourself (Claude Desktop, Claude Code, Codex, Gemini) to the advisor, run
+`wowc-advisor setup claude-desktop --write` (or `claude-code`, `codex`, `gemini`); without `--write` it
+only prints the entry. Check everything with `wowc-advisor doctor`. Details: [clients.md](clients.md).
+
+## The browser companion (no overlay)
 
 Command: `wowc-advisor companion --agent claude`
 
@@ -89,8 +138,8 @@ SavedVariables are written only on `/reload` or logout, and addon files are read
 `/reload`, so an in-game question needs one `/reload` to go out and another to bring the answer back.
 The companion sits beside the game instead of inside it, and changes nothing in the client.
 
-- **Second monitor:** drag the browser window over. **Over the game:** run WoW in windowed fullscreen
-  and put the window on top or beside it.
+- **Second monitor:** drag the browser window over. **Over the game:** run WoW in Windowed (Fullscreen)
+  and put the window on top or beside it; the overlay app does that for you.
 - **Phone or another PC:** `wowc-advisor companion --lan` listens on all interfaces and prints a LAN
   URL with the token. Anyone with that URL can ask your AI agent, so use it on a network you trust.
   `--port N` picks the first port to try (default 4317; the next free one is used), `--no-open`
@@ -123,7 +172,45 @@ The companion sits beside the game instead of inside it, and changes nothing in 
 | `update_digest` | Writes the in-game digest the panel shows. |
 | `doctor` | Checks the whole setup and says how to fix each failure. |
 
-## FAQ
+## FAQ and troubleshooting
+
+**"Auto (none found)" in the AI client box.** No client was found. Install one (step 3), sign in once,
+then press **Re-scan**.
+
+**The AI says the advisor's tools are not allowed.** Your build is outdated: the permission flags were
+added later. Install a newer overlay (step 2) or rebuild with `@main`.
+
+**The data is stale, or the age chip is amber or red.** The advice reflects the last ForeverScribe save.
+Type `/reload` in game (or log out) and the chip returns to `now`. For the in-game panel run
+`wowc-advisor digest` then `/reload`; it asks for a refresh after 12 hours.
+
+**The overlay does not show over the game.** Set WoW's Display Mode to **Windowed (Fullscreen)**
+(System, Graphics). In true Fullscreen nothing can draw above the game. Also check the panel is not
+hidden (`Ctrl+Shift+W`) or at 0% opacity with click-through on.
+
+**Windows SmartScreen says "Windows protected your PC".** The installer is not code-signed. Click
+**More info**, then **Run anyway**.
+
+**The addon does not appear in game.** A newly added addon folder needs a full game restart; `/reload`
+does not find it. Check that all three folders sit in `_forever_\Interface\AddOns`.
+
+**A digest for another character.** `/reload` on that character so ForeverScribe captures it, then run
+`wowc-advisor digest` (every captured character is kept in one digest) and `/reload`. In the overlay pick
+the character in the box at the top.
+
+**The overlay is black or blank.** It needs the Microsoft Edge WebView2 runtime. Windows 11 has it;
+otherwise install it from
+[Microsoft](https://developer.microsoft.com/microsoft-edge/webview2/#download-section).
+
+**Where are settings and logs?** The overlay keeps its look settings (opacity, text size, shortcuts,
+collapsed panes) in its WebView2 storage under `%LOCALAPPDATA%\app.wowcompanion.overlay`, and the AI
+client choice in `%APPDATA%\app.wowcompanion.overlay\agent.txt`. It writes no log file: if the advisor
+stops, the red bar names its last error; press **Reconnect**. Run `wowc-advisor doctor` for the setup.
+
+**`go install ...@latest` gives an old build.** Use `$env:GOPROXY="direct"` and `@main` (step 2).
+
+**`claude` is not recognized in a terminal.** `%USERPROFILE%\.local\bin` is not on PATH. The overlay
+finds it anyway; to use it in a terminal add that folder to your user PATH.
 
 **The realm shows blank.** The game client sometimes captures an empty realm. The advisor keeps it
 blank and finds the character by name; nothing is wrong. See [foreverscribe-format.md](foreverscribe-format.md).
@@ -132,13 +219,6 @@ blank and finds the character by name; nothing is wrong. See [foreverscribe-form
 
 **Quests say "level unknown".** Neither the capture nor the dataset has that quest's level. The advisor
 lists those quests last and never guesses. See [advice.md](advice.md).
-
-**Switching characters.** `/reload` on the new one, then ask for a digest update; every character you've
-played is kept.
-
-**The digest is stale.** The panel shows its age and asks for a refresh after 12 hours. Ask your AI
-client to "refresh my digest" (or run `wowc-advisor digest`), then `/reload`. If the capture itself is
-old, `/reload` in game first so ForeverScribe writes a new one.
 
 **Where does it look for `ForeverScribe.lua`?** With no `--savedvariables` and no `WOWC_SAVEDVARIABLES`,
 the advisor searches `C:\Program Files (x86)\World of Warcraft`, `C:\Program Files\World of Warcraft`, the same
@@ -153,17 +233,3 @@ the others. To use a different file, pass `--savedvariables` or run
 `Program Files (x86)`. The capture is at
 `World of Warcraft\_forever_\WTF\Account\<account>\SavedVariables\ForeverScribe.lua`; use the file that
 exists on your PC. More in [try-it.md](try-it.md).
-
-## Optional: the overlay app
-
-Instead of the browser window, a small desktop app can sit over the game (or beside it).
-
-Click: on the repository's Actions page open the latest **overlay** run and download the
-`wow-companion-installer` artifact; run the installer. Windows SmartScreen warns because it is unsigned:
-**More info**, then **Run anyway**.
-
-In WoW use **Display Mode: Windowed (Fullscreen)**. Press `Ctrl+Shift+W` to show or hide the app and
-`Ctrl+Shift+T` for click-through (Overlay mode). It never touches the game process. Details:
-[overlay/README.md](../overlay/README.md).
-
-Success: the app opens with your most recently played character selected and a "data from game" time.

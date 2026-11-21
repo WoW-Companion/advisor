@@ -6,8 +6,10 @@ as a sidecar and talks to it over 127.0.0.1. There is no game logic in the app.
 
 ## Get it
 
-Every change under `overlay/`, `cmd/` or `internal/` builds on GitHub Actions (workflow **overlay**).
-Open the repository's **Actions** tab, pick a run of **overlay**, and download from **Artifacts**:
+Releases do not include the overlay yet. Every change under `overlay/`, `cmd/` or `internal/` builds on
+GitHub Actions (workflow **overlay**). Open the repository's **Actions** tab, pick the newest green run of
+**overlay** on `main`, and download from **Artifacts** (a GitHub sign-in is needed). The full path from
+download to advice is the [quickstart](../docs/quickstart.md).
 
 - `wow-companion-installer`: the NSIS installer (`WoW Companion_<version>_x64-setup.exe`). Installs for
   your user only; no admin prompt.
@@ -63,6 +65,22 @@ argument quoted. For `.cmd` the prompt's line breaks become spaces, `"` becomes 
 
 Switch with the pin / window icon button in the title bar (tooltip names the mode), or the tray menu. The window is see-through
 outside the rounded panel. Position, size, mode and opacity are remembered.
+
+## The panel
+
+- **Title bar:** drag to move; the gear toggles the settings, then the mode button, **-** (hide to tray)
+  and **x** (quit). A small icon shows when click-through is on.
+- **Settings:** Opacity, Solid on hover, AI client (with **Re-scan**), the two shortcuts and **Text size**
+  (Small, Medium, Large).
+- **Character bar:** the character box, the age chip (`now`, `5m`, `2h`, `1d`: amber after 30 minutes, red
+  after 2 hours; `/reload` in game refreshes it), **Clear** and an arrow that collapses the chat.
+- **Next:** the header collapses the character's NEXT list. It is open until the chat has a message, unless
+  you chose. Settings, Next and the chat remember their state.
+- **Ask:** type a question (up to 1,000 characters) and press **Ask**. The overlay does not write the
+  in-game digest; ask it to "refresh my digest", or run `wowc-advisor digest`, then `/reload`.
+- **Storage:** look settings are in the app's WebView2 storage under `%LOCALAPPDATA%\app.wowcompanion.overlay`;
+  the AI client choice is `agent.txt` in `%APPDATA%\app.wowcompanion.overlay`. There is no log file. A black
+  or blank window means the Edge WebView2 runtime is missing (Windows 11 has it).
 
 ## Shortcuts and click-through
 
