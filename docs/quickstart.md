@@ -151,3 +151,17 @@ the others. To use a different file, pass `--savedvariables` or run
 `Program Files (x86)`. The capture is at
 `World of Warcraft\_forever_\WTF\Account\<account>\SavedVariables\ForeverScribe.lua`; use the file that
 exists on your PC. More in [try-it.md](try-it.md).
+
+## Optional: the overlay app
+
+Instead of the browser window, a small desktop app can sit over the game (or beside it).
+
+Click: on the repository's Actions page open the latest **overlay** run and download the
+`wow-companion-installer` artifact; run the installer. Windows SmartScreen warns because it is unsigned:
+**More info**, then **Run anyway**.
+
+In WoW use **Display Mode: Windowed (Fullscreen)**. Press `Ctrl+Shift+W` to show or hide the app and
+`Ctrl+Shift+T` for click-through (Overlay mode). It never touches the game process. Details:
+[overlay/README.md](../overlay/README.md).
+
+Success: the app opens with your most recently played character selected and a "data from game" time.

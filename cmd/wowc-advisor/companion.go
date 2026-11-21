@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -35,12 +36,16 @@ func companionCmd(ctx context.Context, args []string, stdout, stderr io.Writer) 
 	fs.IntVar(&f.max, "max", ask.DefaultMaxPerRun, "most in-game questions answered per pass")
 	port := fs.Int("port", 4317, "first port to try; the next free one is used when it is taken")
 	noOpen := fs.Bool("no-open", false, "do not open the browser")
+	handshake := fs.Bool("handshake", false, "for the desktop app: pick a free port, print one JSON line {\"url\",\"token\"} and never open a browser")
 	lan := fs.Bool("lan", false, "listen on all interfaces so a phone or another PC can open it (anyone with the URL can ask your agent)")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
 	if fs.NArg() > 0 {
 		return errors.New("companion takes no arguments\n" + usage)
+	}
+	if *handshake && *lan {
+		return errors.New("--handshake serves the desktop app on this machine only; it cannot be combined with --lan")
 	}
 	ac, cleanup, err := askSetup(ctx, &cfg, f, stderr)
 	if err != nil {
@@ -51,15 +56,23 @@ func companionCmd(ctx context.Context, args []string, stdout, stderr io.Writer) 
 	if *lan {
 		bind = "0.0.0.0"
 	}
-	ln, err := listenFrom(bind, *port)
+	start := *port
+	if *handshake {
+		start = 0 // any free port
+	}
+	ln, err := listenFrom(bind, start)
 	if err != nil {
 		return err
 	}
 	s := companion.New(companion.Config{
-		ForeverScribe: cfg.SavedVariables, Ask: ac, LAN: *lan,
+		ForeverScribe: cfg.SavedVariables, Ask: ac, LAN: *lan, App: *handshake, Dataset: cfg.Dataset,
 		Stream: filepath.Base(strings.TrimSuffix(strings.ToLower(ac.Command[0]), ".exe")) == "claude",
 	})
 	p := ln.Addr().(*net.TCPAddr).Port
+	if *handshake {
+		fmt.Fprintln(stdout, handshakeLine(p, s.Token))
+		return s.Serve(ctx, ln)
+	}
 	local := fmt.Sprintf("http://127.0.0.1:%d/?token=%s", p, s.Token)
 	fmt.Fprintf(stdout, "companion: %s\n(Ctrl-C to stop; it also answers questions asked in game, so do not run ask --watch alongside)\n", local)
 	if *lan {
@@ -71,8 +84,20 @@ func companionCmd(ctx context.Context, args []string, stdout, stderr io.Writer) 
 	return s.Serve(ctx, ln)
 }
 
-// listenFrom listens on the first free port from start on.
+// handshakeLine is the one line the desktop app reads from the sidecar's stdout.
+func handshakeLine(port int, token string) string {
+	b, _ := json.Marshal(struct {
+		URL   string `json:"url"`
+		Token string `json:"token"`
+	}{fmt.Sprintf("http://127.0.0.1:%d", port), token})
+	return string(b)
+}
+
+// listenFrom listens on the first free port from start on; start 0 asks the system for one.
 func listenFrom(host string, start int) (net.Listener, error) {
+	if start == 0 {
+		return net.Listen("tcp", net.JoinHostPort(host, "0"))
+	}
 	var err error
 	for p := start; p < start+50 && p <= 65535; p++ {
 		var ln net.Listener

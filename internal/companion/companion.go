@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -23,6 +24,8 @@ import (
 
 	"github.com/WoW-Companion/advisor/internal/ask"
 	"github.com/WoW-Companion/advisor/internal/character"
+	"github.com/WoW-Companion/advisor/internal/digest"
+	"github.com/WoW-Companion/advisor/internal/store"
 )
 
 //go:embed page.html
@@ -46,6 +49,8 @@ type Config struct {
 	Ask           ask.Config // the agent; SavedVariables and AnswersPath serve in-game questions
 	Stream        bool       // the agent command is Claude's and can print stream-json
 	LAN           bool       // listening on all interfaces
+	App           bool       // the desktop app's webview is the client: its origins pass, and the token may come in a header or query
+	Dataset       string     // dataset directory, for each character's next quests (empty: none)
 	Poll          time.Duration
 }
 
@@ -63,12 +68,19 @@ type Entry struct {
 
 // CharInfo is one captured character.
 type CharInfo struct {
-	Key        string `json:"key"`
-	Name       string `json:"name"`
-	Class      string `json:"class"`
-	Level      int    `json:"level"`
-	CapturedAt int64  `json:"captured_at"`
+	Key        string   `json:"key"`
+	Name       string   `json:"name"`
+	Class      string   `json:"class"`
+	Level      int      `json:"level"`
+	CapturedAt int64    `json:"captured_at"`
+	Next       []string `json:"next,omitempty"` // the top next quests, from the digest
 }
+
+// NextQuests is how many next quests each character carries.
+const NextQuests = 3
+
+// AppOrigins are the webview origins of the desktop app (Tauri on Windows, and elsewhere).
+var AppOrigins = []string{"http://tauri.localhost", "https://tauri.localhost", "tauri://localhost"}
 
 // State is what the page loads and what a "game" event carries.
 type State struct {
@@ -159,6 +171,13 @@ func (s *Server) Handler() http.Handler {
 			http.Error(w, msg, http.StatusForbidden)
 			return
 		}
+		if s.cfg.App && s.cors(w, r) {
+			return
+		}
+		if s.cfg.App && s.appToken(r) {
+			mux.ServeHTTP(w, r)
+			return
+		}
 		if r.URL.Path == "/" && r.URL.Query().Get("token") != "" {
 			// The token in the opened URL becomes a cookie, then leaves the address bar.
 			if !s.tokenOK(r.URL.Query().Get("token")) {
@@ -175,6 +194,41 @@ func (s *Server) Handler() http.Handler {
 		}
 		mux.ServeHTTP(w, r)
 	})
+}
+
+// cors answers the app origin's cross-origin rules: it names the origin on every response and
+// ends a preflight, which carries no token, there.
+func (s *Server) cors(w http.ResponseWriter, r *http.Request) (preflight bool) {
+	o := r.Header.Get("Origin")
+	if o == "" || !slices.Contains(AppOrigins, o) {
+		return false
+	}
+	h := w.Header()
+	h.Set("Access-Control-Allow-Origin", o)
+	h.Set("Access-Control-Allow-Headers", "Content-Type, "+TokenHeader)
+	h.Set("Access-Control-Allow-Methods", "GET, POST")
+	h.Add("Vary", "Origin")
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusNoContent)
+		return true
+	}
+	return false
+}
+
+// TokenHeader carries the token for the app, whose origin cannot hold the cookie.
+const TokenHeader = "X-Wowc-Token"
+
+// appToken is true when an /api request carries the token in the header, or in the query for
+// EventSource, which cannot set headers.
+func (s *Server) appToken(r *http.Request) bool {
+	if !strings.HasPrefix(r.URL.Path, "/api/") {
+		return false
+	}
+	v := r.Header.Get(TokenHeader)
+	if v == "" {
+		v = r.URL.Query().Get("token")
+	}
+	return s.tokenOK(v)
 }
 
 func (s *Server) cookieName() string { return "wowc_token_" + s.port }
@@ -199,6 +253,9 @@ func (s *Server) reject(r *http.Request) string {
 		return "bad Host"
 	}
 	if o := r.Header.Get("Origin"); o != "" {
+		if s.cfg.App && slices.Contains(AppOrigins, o) {
+			return ""
+		}
 		if u, err := url.Parse(o); err != nil || u.Scheme != "http" || u.Host != r.Host {
 			return "bad Origin"
 		}
@@ -235,6 +292,10 @@ func (s *Server) snapshot() State {
 // reload re-reads ForeverScribe.lua; the previous list stays when it cannot be read.
 func (s *Server) reload() {
 	f, err := character.LoadFile(s.cfg.ForeverScribe)
+	var ds store.DataStore
+	if s.cfg.Dataset != "" {
+		ds = store.NewDir(s.cfg.Dataset)
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if err != nil {
@@ -243,7 +304,7 @@ func (s *Server) reload() {
 	}
 	s.loadErr, s.chars, s.captured = "", nil, 0
 	for _, c := range f.Characters {
-		ci := CharInfo{Key: c.Key, Name: c.Name, Class: c.Class}
+		ci := CharInfo{Key: c.Key, Name: c.Name, Class: c.Class, Next: nextQuests(c, f, ds)}
 		if c.Level != nil {
 			ci.Level = *c.Level
 		}
@@ -493,4 +554,20 @@ func (s *Server) stream(w http.ResponseWriter, r *http.Request) {
 func readFile(p string) (string, error) {
 	b, err := os.ReadFile(p)
 	return string(b), err
+}
+
+// nextQuests is the top NextQuests lines of the character's digest "next quests" section.
+func nextQuests(c character.Character, f character.File, ds store.DataStore) []string {
+	d := digest.Build(c, ds, digest.Options{Now: time.Now(), Client: f.ClientOf(c)})
+	for _, sec := range d.Sections {
+		if sec.ID != digest.NextQuests {
+			continue
+		}
+		var out []string
+		for _, l := range sec.Lines[:min(len(sec.Lines), NextQuests)] {
+			out = append(out, l.Text)
+		}
+		return out
+	}
+	return nil
 }
