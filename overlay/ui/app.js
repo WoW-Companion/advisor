@@ -520,6 +520,12 @@ async function setupAct(it, btn) {
       const j = await r.json();
       if (j.items) setupItems = j.items;
       setupMsg(j.error || j.message);
+    } else if (it.action === 'download-dataset') {
+      setupMsg('Downloading the game data (under 1 MB)…');
+      const r = await api('/api/setup/download-dataset', { method: 'POST' });
+      const j = await r.json();
+      if (j.items) setupItems = j.items;
+      setupMsg(j.error || j.message);
     } else if (it.action === 'test-ai') {
       setupMsg('Asking your AI client…');
       const r = await api('/api/setup/test-ai', { method: 'POST' });

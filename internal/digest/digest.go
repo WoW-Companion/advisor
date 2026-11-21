@@ -93,6 +93,9 @@ type Options struct {
 	DatasetBuild string           // the dataset's game build; empty when none
 }
 
+// NoDataText is what NEXT says when no game dataset has downloaded.
+const NoDataText = "Game data not downloaded yet; see Setup"
+
 // clip shortens s to MaxText characters.
 func clip(s string) string {
 	if utf8.RuneCountInString(s) <= MaxText {
@@ -149,6 +152,9 @@ func Build(c character.Character, ds store.DataStore, opt Options) Digest {
 			text += " (" + s.Zone + ")"
 		}
 		quests = append(quests, Line{Text: clip(text), Quest: s.QuestID})
+	}
+	if ds == nil {
+		quests = []Line{{Text: NoDataText}}
 	}
 	ups, note := upgradeLines(c, ds)
 	notes = append(notes, note...)
@@ -292,7 +298,7 @@ func captureNotes(c character.Character, ds store.DataStore, opt Options) []Line
 	}
 	switch {
 	case ds == nil:
-		out = append(out, Line{Text: "No dataset: zones and gear are limited"})
+		// The NEXT section says so (NoDataText); no second line here.
 	case opt.DatasetBuild != "" && opt.Client.Build != "" && !dataset.Matches(opt.DatasetBuild, opt.Client.Version, opt.Client.Build):
 		out = append(out, Line{Text: clip(fmt.Sprintf("Dataset is build %s, game is %s", opt.DatasetBuild, opt.Client.Build))})
 	}

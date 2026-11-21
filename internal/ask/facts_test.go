@@ -43,3 +43,11 @@ func TestFactsAreCutAndOptional(t *testing.T) {
 		}
 	}
 }
+
+func TestFactsWithoutDatasetSaySo(t *testing.T) {
+	cfg := Config{SavedVariables: syntheticCapture}
+	got := Facts(cfg, Question{Character: "Testrealm:Testmage", Text: "What now?"})
+	if !strings.Contains(got, "Game data not downloaded yet; see Setup") {
+		t.Errorf("facts without a dataset do not say so: %q", got)
+	}
+}
