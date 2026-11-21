@@ -31,6 +31,11 @@ type npcRow struct {
 	MinLevel *int16  `parquet:"min_level,optional"`
 	MaxLevel *int16  `parquet:"max_level,optional"`
 	Zone     *string `parquet:"zone_name,optional"`
+	// The npcs shape since the Everloot-named rows: these columns are nullable.
+	Classification *string `parquet:"classification,optional"`
+	CreatureType   *int16  `parquet:"creature_type,optional"`
+	FamilyID       *int32  `parquet:"family_id,optional"`
+	NameSource     *string `parquet:"name_source,optional"`
 }
 
 func table[T any](t *testing.T, rows []T) store.SizedReaderAt {
@@ -53,12 +58,14 @@ func synth(t *testing.T) store.DataStore {
 		"items": table(t, []itemRow{{1, "Linen Cloth"}, {2, "Linen Bandage"}, {3, "Linen Robe"}, {4, "linen"}}),
 		"loot_sources": table(t, []lootRow{
 			{1, "creature", 10, 100, 50}, {1, "creature", 11, 60, 5}, {1, "creature", 11, 40, 5},
-			{1, "creature", 12, 0, 0}, {1, "creature", 13, 10, 3}, {1, "creature", 14, 10, 9},
+			{1, "creature", 12, 0, 0}, {1, "creature", 13, 10, 3}, {1, "creature", 14, 10, 9}, {1, "creature", 15, 10, 2},
 			{1, "object", 50, 10, 8}, {1, "crafting", 7, 0, 0}, {1, "quest", 8, 0, 0}, {2, "crafting", 7, 0, 0},
 		}),
 		"npcs": table(t, []npcRow{
-			{10, "Low Boar", i16(1), i16(2), sp("Elwynn")}, {11, "Mid Wolf", i16(10), i16(12), sp("Westfall")},
-			{12, "Mid Bear", i16(10), i16(12), sp("Duskwood")}, {13, "Mid Fox", i16(10), i16(12), nil},
+			{ID: 10, Name: "Low Boar", MinLevel: i16(1), MaxLevel: i16(2), Zone: sp("Elwynn")}, {ID: 11, Name: "Mid Wolf", MinLevel: i16(10), MaxLevel: i16(12), Zone: sp("Westfall")},
+			{ID: 12, Name: "Mid Bear", MinLevel: i16(10), MaxLevel: i16(12), Zone: sp("Duskwood")}, {ID: 13, Name: "Mid Fox", MinLevel: i16(10), MaxLevel: i16(12), Zone: nil},
+			// Everloot-named: id and name only, every other column null.
+			{ID: 15, Name: "Everloot Imp", NameSource: sp("everloot sourceName")},
 		}),
 	})
 }
@@ -84,9 +91,9 @@ func TestSpots(t *testing.T) {
 	}{
 		// level 10: window 5..13 fits 11, 12, 13; the rest follow by chance; unknown chance after
 		// known within a group; the nameless creature and the object have no level, so are out of range.
-		{"mid", 10, "c13 c11 c12 c14 o50 c10"},
+		{"mid", 10, "c13 c11 c12 c14 o50 c10 c15"},
 		// level 1: only the boar (1-2) is in range, then the rest by chance.
-		{"low", 1, "c10 c14 o50 c13 c11 c12"},
+		{"low", 1, "c10 c14 o50 c13 c15 c11 c12"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			if got := order(Spots(at(tc.level), ds, 1)); got != tc.want {
@@ -114,8 +121,14 @@ func TestSpotFields(t *testing.T) {
 	if n := by[14]; n.Name != "" || n.MinLevel != nil || n.InRange || n.Zone != "" {
 		t.Errorf("nameless = %+v", n)
 	}
-	if len(by) != 6 {
-		t.Errorf("%d spots, want 6 (crafting and quest sources left out)", len(by))
+	if e := by[15]; !e.Everloot || e.Name != "Everloot Imp" || e.MinLevel != nil || e.Zone != "" || e.InRange {
+		t.Errorf("everloot = %+v", e)
+	}
+	if w := by[11]; w.Everloot {
+		t.Errorf("client-named wolf marked Everloot")
+	}
+	if len(by) != 7 {
+		t.Errorf("%d spots, want 7 (crafting and quest sources left out)", len(by))
 	}
 	if got := Spots(character.Character{}, ds, 1); got[0].InRange {
 		t.Errorf("no character level: %+v marked in range", got[0])
@@ -158,10 +171,16 @@ func TestRender(t *testing.T) {
 		"1. Mid Fox (creature 13): level 10-12, zone unknown, 30.0% of 10 loot windows, in your level range",
 		"2. Mid Wolf (creature 11): level 10-12, Westfall (from npcs.zone_name), 10.0% of 100 loot windows",
 		"3. Mid Bear (creature 12): level 10-12, Duskwood (from npcs.zone_name), chance unknown",
-		"(3 more not shown)", "profession_plan",
+		"(4 more not shown)", "profession_plan",
 	} {
 		if !strings.Contains(text, want) {
 			t.Errorf("text lacks %q:\n%s", want, text)
+		}
+	}
+	all := Render("Linen Cloth", Spots(at(10), ds, 1), false, 20)
+	for _, want := range []string{"Everloot Imp (creature 15) (name from Everloot): level unknown, zone unknown", ": level unknown, zone unknown, 90.0%"} {
+		if !strings.Contains(all, want) {
+			t.Errorf("text lacks %q:\n%s", want, all)
 		}
 	}
 	if got := Render("X", nil, false, 5); !strings.Contains(got, "No creature or object") {

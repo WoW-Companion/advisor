@@ -269,3 +269,24 @@ func TestCanUse(t *testing.T) {
 		t.Error("allowsClass")
 	}
 }
+
+func TestSourceNames(t *testing.T) {
+	for _, tc := range []struct {
+		src  Source
+		want string
+	}{
+		{Source{Kind: "creature", ID: 7, Name: "Wolf"}, "Wolf, zone unknown, drop chance unknown"},
+		{Source{Kind: "creature", ID: 7, Name: "Imp", Everloot: true}, "Imp (name from Everloot), zone unknown, drop chance unknown"},
+		{Source{Kind: "creature", ID: 7}, "creature 7, zone unknown, drop chance unknown"},
+	} {
+		if got := tc.src.String(); got != tc.want {
+			t.Errorf("String() = %q, want %q", got, tc.want)
+		}
+	}
+	str := "everloot sourceName"
+	for v, want := range map[any]bool{str: true, nil: false, "": false, int64(3): false} {
+		if got := FromEverloot(v); got != want {
+			t.Errorf("FromEverloot(%v) = %v, want %v", v, got, want)
+		}
+	}
+}

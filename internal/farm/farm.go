@@ -15,9 +15,11 @@ import (
 
 // Spot is one creature or object that drops the item.
 type Spot struct {
-	Kind     string // creature or object
-	ID       int64
-	Name     string // empty when the dataset has no name
+	Kind string // creature or object
+	ID   int64
+	Name string // empty when the dataset has no name
+	// Everloot is true when the name comes from Everloot's drop rows (npcs.name_source).
+	Everloot bool
 	MinLevel *int
 	MaxLevel *int
 	// InRange is true when the level range is known and overlaps the character's level window.
@@ -90,6 +92,7 @@ func Spots(c character.Character, ds store.DataStore, itemID int64) []Spot {
 		if s.Kind == "creature" {
 			if n, err := ds.Get("npcs", s.ID); err == nil {
 				s.Name = str(n["name"])
+				s.Everloot = gear.FromEverloot(n["name_source"])
 				s.MinLevel, s.MaxLevel = optInt(n["min_level"]), optInt(n["max_level"])
 				if z := str(n["zone_name"]); z != "" {
 					s.Zone = z
