@@ -9,10 +9,15 @@
 <body>
 <main class="panel" id="panel">
   <header class="titlebar" data-tauri-drag-region>
-    <h1 data-tauri-drag-region>WoW Companion</h1>
-    <span id="ct" class="tag" hidden title="Click-through is on; use the shortcut or the tray to turn it off">click-through</span>
+    <h1 data-tauri-drag-region><span class="wow">WoW </span>Companion</h1>
+    <span id="ct" class="ct" hidden role="img" aria-label="Click-through on" title="Click-through on (Ctrl+Shift+T)">
+      <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M4 2.5l8 5.2-3.4.9 2 3.6-1.5.9-2-3.6L5 11.5z" fill="currentColor"/><path d="M1.5 1.5l13 13" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+    </span>
     <button id="settings-btn" type="button" title="Settings" aria-label="Settings">&#9881;</button>
-    <button id="mode" type="button" title="Switch between Overlay and Window"></button>
+    <button id="mode" type="button" data-mode="overlay" aria-label="Overlay mode" title="Overlay mode: always on top (click for Window)">
+      <svg class="i-overlay" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M9.5 1.5l5 5-1.2 1.2-.9-.4-2.4 2.4.1 2.1-1.2 1.2L6.4 9.9 2.7 13.6 2 13l3.7-3.7L2.9 6.5 4.1 5.3l2.1.1 2.4-2.4-.4-.9z" fill="currentColor"/></svg>
+      <svg class="i-window" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><rect x="2" y="3" width="12" height="10" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M2 6h12" stroke="currentColor" stroke-width="1.5"/></svg>
+    </button>
     <button id="tray" type="button" title="Hide to tray" aria-label="Hide to tray">&#8211;</button>
     <button id="close" type="button" title="Quit" aria-label="Quit">&#215;</button>
   </header>

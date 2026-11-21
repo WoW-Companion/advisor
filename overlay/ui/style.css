@@ -34,16 +34,22 @@ body { font: 13.5px/1.5 Inter, system-ui, sans-serif; color: var(--ink); --o: rg
 }
 
 .titlebar { display: flex; align-items: center; gap: 4px; padding: 6px 8px 6px 12px; border-bottom: 1px solid rgba(217, 176, 90, .28); user-select: none; }
-.titlebar h1 { flex: 1 1 auto; margin: 0; font: 600 15px Cinzel, serif; letter-spacing: .06em; color: var(--gold); text-shadow: 0 1px 2px #000, 1px 0 0 var(--o), -1px 0 0 var(--o), 0 -1px 0 var(--o); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.tag { font-size: 10px; padding: 1px 6px; border: 1px solid var(--gold-dim); border-radius: 8px; color: var(--gold); }
+.titlebar h1 { flex: 1 1 0; min-width: 0; margin: 0; font: 600 15px Cinzel, serif; letter-spacing: .04em; color: var(--gold); text-shadow: 0 1px 2px #000, 1px 0 0 var(--o), -1px 0 0 var(--o), 0 -1px 0 var(--o); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Click-through indicator: a gold "pointer off" glyph (a strip would cost a row of the panel). */
+.ct { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 24px; color: var(--gold); filter: drop-shadow(0 1px 1px #000); }
+.ct[hidden] { display: none; }
 button, select, textarea, input { font: inherit; color: inherit; }
 /* Controls keep a background of their own so they stay findable at 0%. */
 button, select, textarea { text-shadow: inherit; background: linear-gradient(rgba(255, 255, 255, .06), rgba(255, 255, 255, .06)), rgba(var(--slate), .65); border: 1px solid rgba(217, 176, 90, .3); border-radius: 6px; padding: 3px 9px; }
 button { cursor: pointer; transition: background .15s, border-color .15s; }
 button:hover:not(:disabled) { background: rgba(217, 176, 90, .16); border-color: var(--gold); }
 button:disabled { opacity: .5; cursor: default; }
-.titlebar button { padding: 0 7px; min-width: 24px; height: 24px; line-height: 1; font-size: 13px; }
-#mode { font-size: 11px; }
+/* Equal 28px square hit areas; none may shrink, wrap or clip. */
+.titlebar button { flex: none; display: inline-flex; align-items: center; justify-content: center; padding: 0; width: 28px; height: 28px; line-height: 1; font-size: 15px; white-space: nowrap; }
+#mode svg { display: none; }
+#mode[data-mode="overlay"] .i-overlay, #mode[data-mode="window"] .i-window { display: block; }
+/* Narrow panel: the title gives up "WoW " (and a little size) so it is never cut. */
+@media (max-width: 319px) { .titlebar h1 { font-size: 14px; } .titlebar h1 .wow { display: none; } }
 #close:hover { background: rgba(179, 64, 47, .55); }
 
 .banner { display: flex; gap: 8px; align-items: center; justify-content: space-between; padding: 6px 12px; background: rgba(150, 45, 32, calc(var(--alpha) * .9)); font-size: 12px; }
