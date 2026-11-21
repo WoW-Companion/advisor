@@ -446,10 +446,10 @@ func sourcesOrUnknown(e *env) error {
 	})
 }
 
-// No item requires more than 3 levels above the character.
+// No item requires more than gear.EquipWindow levels above the character.
 func withinEquipWindow(e *env) error {
 	return each(e, func(slot string, c gear.Candidate, r store.Row) error {
-		if req := num(r, "required_level"); req > level(e)+3 {
+		if req := num(r, "required_level"); req > level(e)+gear.EquipWindow {
 			return fmt.Errorf("requires level %d, character is %d", req, level(e))
 		}
 		return nil

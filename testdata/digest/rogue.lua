@@ -11,7 +11,6 @@ WoWCompanionDigest = {
       sections = {
         { id = "upgrades", lines = {
           { text = "finger1: Ring of Mind (ilvl 18) from object 900", item = 6 },
-          { text = "finger2: Ring of Mind (ilvl 18) from object 900", item = 6 },
         } },
         { id = "notes", lines = {
           { text = "Dataset is build 1.59.0.63000, game is 64000" },

@@ -16,7 +16,6 @@ WoWCompanionDigest = {
         { id = "upgrades", lines = {
           { text = "head: Cloth Hood of the \"Sage\" (ilvl 20) from Near Wolf", item = 1 },
           { text = "finger1: Ring of Mind (ilvl 18) from object 900", item = 6 },
-          { text = "finger2: Ring of Mind (ilvl 18) from object 900", item = 6 },
         } },
         { id = "keep_materials", lines = {
           { text = "Copper Ore x20", item = 2770 },

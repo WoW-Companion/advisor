@@ -24,6 +24,7 @@ type itemRow struct {
 	ClassMask     int32   `parquet:"allowable_class_mask"`
 	StatTypes     []int16 `parquet:"stat_types,list"`
 	StatsStatus   string  `parquet:"stats_status"`
+	Bonding       int32   `parquet:"bonding"`
 }
 
 type lootRow struct {
@@ -72,7 +73,7 @@ func it(id int64, name string, ilvl, req, q, class, sub, slot int32, stats ...in
 	if stats == nil {
 		status = "unknown"
 	}
-	return itemRow{id, name, ilvl, req, q, class, sub, slot, -1, stats, status}
+	return itemRow{id, name, ilvl, req, q, class, sub, slot, -1, stats, status, 0}
 }
 
 // items: cloth, leather and plate gear; weapons; a class-locked item; a too-high-level item.
@@ -153,7 +154,8 @@ func TestUpgrades(t *testing.T) {
 		{"priest head, empty, stats", char("PRIEST", 12, nil), "Test Holy", "", "head", "Spirit Hood,Cloth Hood", BasisStats},
 		{"priest head, worn plain hood", char("PRIEST", 12, worn(1, 20, 2)), "Test Holy", "", "head", "Spirit Hood", BasisStats},
 		{"level 12 cannot equip level 20", char("PRIEST", 12, nil), "Discipline", "", "head", "Spirit Hood,Cloth Hood", BasisStats},
-		{"level 17 can", char("PRIEST", 17, nil), "Discipline", "", "head", "Future Hood,Spirit Hood,Cloth Hood", BasisStats},
+		{"level 18 can", char("PRIEST", 18, nil), "Discipline", "", "head", "Future Hood,Spirit Hood,Cloth Hood", BasisStats},
+		{"level 17 is two short of 20", char("PRIEST", 17, nil), "Discipline", "", "head", "Spirit Hood,Cloth Hood", BasisStats},
 		{"rogue head is leather only", char("ROGUE", 12, nil), "Assassination", "", "head", "Leather Cap,Statless Hat,Bound Hood", BasisStats},
 		{"rogue dual-wields, priest cannot", char("ROGUE", 12, nil), "Combat", "", "offhand", "Rogue Fist,Off-hand Dagger,Priest Mace", BasisStats},
 		{"priest weapon", char("PRIEST", 12, nil), "Shadow", "", "mainhand", "Priest Mace", BasisStats},
@@ -161,7 +163,7 @@ func TestUpgrades(t *testing.T) {
 		{"no stats: item level only", char("PRIEST", 12, nil), "Holy", "unknown", "head", "Spirit Hood,Cloth Hood", BasisItemLevel},
 		{"no spec: item level only", char("PRIEST", 12, nil), "", "", "head", "Spirit Hood,Cloth Hood", BasisItemLevel},
 		{"nothing beats the worn item", char("PRIEST", 12, worn(2, 24, 2)), "Holy", "unknown", "head", "", BasisItemLevel},
-		{"required level 0 is unknown: low item level only", char("PRIEST", 12, nil), "Holy", "", "neck", "Plain Amulet", BasisStats},
+		{"required level 0 is estimated: low item level only", char("PRIEST", 12, nil), "Holy", "", "neck", "Plain Amulet", BasisStats},
 		{"required level 0, level 60", char("PRIEST", 60, nil), "Holy", "", "neck", "Endgame Amulet,Plain Amulet", BasisStats},
 		{"robe fits chest", char("PRIEST", 12, nil), "Holy", "", "chest", "Plain Robe", BasisStats},
 	}
@@ -179,8 +181,8 @@ func TestUpgrades(t *testing.T) {
 			if cd.Basis != c.basis && !(c.basis == BasisStats && cd.Item.Name == "Statless Hat") {
 				t.Errorf("%s: %s basis %s, want %s", c.name, cd.Item.Name, cd.Basis, c.basis)
 			}
-			if cd.Item.RequiredLevel > *c.char.Level+EquipWindow {
-				t.Errorf("%s: %s requires level %d", c.name, cd.Item.Name, cd.Item.RequiredLevel)
+			if cd.Item.ReqLevel > *c.char.Level+EquipWindow {
+				t.Errorf("%s: %s requires level %d", c.name, cd.Item.Name, cd.Item.ReqLevel)
 			}
 		}
 		if res.ItemLevelOnly != (c.basis == BasisItemLevel) {
@@ -190,6 +192,13 @@ func TestUpgrades(t *testing.T) {
 }
 
 func TestUpgradesWholeMap(t *testing.T) {
+	res, err := Find(char("PRIEST", 12, nil), synth(t, ""), "Holy", Options{Limit: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res.Slots["finger1"]) != 1 || len(res.Slots["finger2"]) != 1 || res.Slots["finger1"][0].Item.ID == res.Slots["finger2"][0].Item.ID {
+		t.Errorf("rings = %v", res.Slots)
+	}
 	m, err := Upgrades(char("PRIEST", 12, nil), synth(t, ""), "Holy")
 	if err != nil {
 		t.Fatal(err)
@@ -201,7 +210,7 @@ func TestUpgradesWholeMap(t *testing.T) {
 			}
 		}
 	}
-	if len(m["finger1"]) == 0 || len(m["finger2"]) == 0 || len(m["offhand"]) != 0 {
+	if len(m["finger1"]) == 0 || len(m["offhand"]) != 0 {
 		t.Errorf("slots = %v", fmt.Sprint(m))
 	}
 }
@@ -215,8 +224,8 @@ func TestSourcesAndRender(t *testing.T) {
 	text := Render(c, res)
 	for _, want := range []string{
 		"Ranked by item level weighted by Holy stat types; advisor defaults, not authoritative",
-		"Cloth Hood (ilvl 20, requires level 14; empty slot, by stats): from Near Wolf, level 10-12, zone unknown, drops 5.0% of kills; Far Boss, level 40-42, zone unknown, drops 25.0% of kills",
-		"Spirit Hood (ilvl 24, requires level 14; empty slot, by stats): from object 900, zone unknown, drop chance unknown",
+		"Cloth Hood (ilvl 20, at level 14; empty slot, by stats): from Near Wolf, level 10-12, zone unknown, drops 5.0% of kills; Far Boss, level 40-42, zone unknown, drops 25.0% of kills",
+		"Spirit Hood (ilvl 24, at level 14; empty slot, by stats): from object 900, zone unknown, drop chance unknown",
 		"Plain Robe (ilvl 15, requires level 8; empty slot, by stats): source unknown",
 	} {
 		if !strings.Contains(text, want) {
@@ -261,7 +270,7 @@ func TestCanUse(t *testing.T) {
 		{rogue, 2, 15, 22, true}, {rogue, 2, 5, 17, false}, {priest, 2, 19, 26, true},
 	}
 	for i, c := range cases {
-		if got := c.r.canUse(c.class, c.sub, c.slot); got != c.want {
+		if got := c.r.canUse(c.class, c.sub, c.slot, 60); got != c.want {
 			t.Errorf("case %d: canUse = %v", i, got)
 		}
 	}
@@ -287,6 +296,110 @@ func TestSourceNames(t *testing.T) {
 	for v, want := range map[any]bool{str: true, nil: false, "": false, int64(3): false} {
 		if got := FromEverloot(v); got != want {
 			t.Errorf("FromEverloot(%v) = %v, want %v", v, got, want)
+		}
+	}
+}
+
+func TestEstimateRequiredLevel(t *testing.T) {
+	for ilvl, want := range map[int]int{1: 1, 5: 1, 6: 1, 7: 2, 10: 5, 54: 49} {
+		if got := EstimateRequiredLevel(ilvl); got != want {
+			t.Errorf("EstimateRequiredLevel(%d) = %d, want %d", ilvl, got, want)
+		}
+	}
+}
+
+// ladder is a dataset for the level, placeholder, proficiency, paired-slot and bonding rules.
+func ladder(t *testing.T) store.DataStore {
+	t.Helper()
+	const mail, trinketSlot, backSlot, waistSlot = 3, 12, 16, 6
+	rows := []itemRow{
+		it(1, "Low Hood", 8, 3, 2, 4, cloth, headSlot, 5),
+		it(2, "Edge Hood", 10, 7, 2, 4, cloth, headSlot, 5),        // level 5 + 2: allowed, at level 7
+		it(3, "Far Hood", 11, 8, 2, 4, cloth, headSlot, 5),         // level 8: one past the window
+		it(4, "Placeholder Hood", 1, 1, 2, 4, cloth, headSlot, 5),  // ilvl 1
+		it(5, "Unknown Hood", 11, 0, 2, 4, cloth, headSlot, 5),     // estimated level 6
+		it(6, "Unknown Amulet", 54, 0, 2, 4, 0, neckSlot, 5),       // estimated level 49
+		it(7, "Ring A", 12, 4, 2, 4, 0, ringSlot, 5),               //
+		it(8, "Ring B", 11, 4, 2, 4, 0, ringSlot, 5),               //
+		it(9, "Ring C", 10, 4, 2, 4, 0, ringSlot, 5),               //
+		it(10, "Trinket A", 12, 4, 2, 4, 0, trinketSlot, 5),        //
+		it(11, "Trinket B", 11, 4, 2, 4, 0, trinketSlot, 5),        //
+		it(12, "Field Cloak", 12, 4, 2, 4, 0, backSlot, 5),         // a cloak in the back slot only
+		it(13, "Mail Belt", 20, 5, 2, 4, mail, waistSlot, 4),       //
+		it(14, "Plate Belt", 40, 5, 2, 4, plate, waistSlot, 4),     //
+		it(15, "Leather Belt", 20, 5, 2, 4, leather, waistSlot, 3), //
+		it(16, "Quest Hood", 14, 4, 2, 4, cloth, headSlot, 5),      // quest bonding
+		it(17, "Artifact Hood", 14, 4, 6, 4, cloth, headSlot, 5),   // artifact quality
+		it(18, "Worn Level Hood", 9, 4, 2, 4, cloth, headSlot, 5),  // ilvl 9
+		it(19, "Cut Word Hood Of The Eagle", 12, 4, 2, 4, cloth, headSlot, 5),
+	}
+	rows[15].Bonding = 4
+	return store.New(store.ReaderSource{"items": table(t, rows)})
+}
+
+func TestUpgradeRules(t *testing.T) {
+	worn := func(slot string, id, ilvl int) map[string]character.EquippedItem {
+		return map[string]character.EquippedItem{slot: {Slot: slot, ItemID: ip(id), ItemLevel: ip(ilvl), Quality: ip(2)}}
+	}
+	cases := []struct {
+		name  string
+		char  character.Character
+		slot  string
+		limit int
+		want  string
+	}{
+		// Level.
+		{"level 5: window ends at 7, placeholder and bad bonding/quality out", char("PRIEST", 5, nil), "head", 0, "Cut Word Hood Of The Eagle,Unknown Hood,Edge Hood,Worn Level Hood,Low Hood"},
+		{"level 5: estimated level 49 is out", char("PRIEST", 5, nil), "neck", 0, ""},
+		{"level 40: estimated level 49 is still out", char("PRIEST", 40, nil), "neck", 0, ""},
+		{"level 47: estimated level 49 is in", char("PRIEST", 47, nil), "neck", 0, "Unknown Amulet"},
+		// Not an upgrade.
+		{"worn ilvl 10 hides ilvl 10 and below", char("PRIEST", 5, worn("head", 1, 10)), "head", 0, "Cut Word Hood Of The Eagle,Unknown Hood"},
+		// Slot.
+		{"cloak only in back", char("PRIEST", 20, nil), "back", 0, "Field Cloak"},
+		{"cloak not in trinket", char("PRIEST", 20, nil), "trinket1", 0, "Trinket A,Trinket B"},
+		// Proficiency by level.
+		{"level 5 warrior wears mail", char("WARRIOR", 5, nil), "waist", 0, "Mail Belt"},
+		{"level 40 warrior wears plate", char("WARRIOR", 40, nil), "waist", 0, "Plate Belt"},
+		{"level 20 hunter wears leather", char("HUNTER", 20, nil), "waist", 0, "Leather Belt"},
+		{"level 40 hunter wears mail", char("HUNTER", 40, nil), "waist", 0, "Mail Belt"},
+		{"level 40 rogue stays in leather", char("ROGUE", 40, nil), "waist", 0, "Leather Belt"},
+		// Paired slots.
+		{"finger1 takes the best", char("PRIEST", 5, nil), "finger1", 1, "Ring A"},
+		{"finger2 takes the next, not the same", char("PRIEST", 5, nil), "finger2", 1, "Ring B"},
+		{"finger2 skips what finger1 wears", char("PRIEST", 5, worn("finger1", 7, 12)), "finger2", 3, "Ring B,Ring C"},
+		{"trinket2 takes the next", char("PRIEST", 5, nil), "trinket2", 1, "Trinket B"},
+	}
+	ds := ladder(t)
+	for _, c := range cases {
+		res, err := Find(c.char, ds, "", Options{Slot: c.slot, Limit: c.limit})
+		if err != nil {
+			t.Fatalf("%s: %v", c.name, err)
+		}
+		got := res.Slots[c.slot]
+		if names(got) != c.want {
+			t.Errorf("%s: got %q, want %q", c.name, names(got), c.want)
+		}
+		for _, cd := range got {
+			if cd.Item.ReqLevel > *c.char.Level+EquipWindow || cd.Soon != (cd.Item.ReqLevel > *c.char.Level) {
+				t.Errorf("%s: %s req %d soon %v", c.name, cd.Item.Name, cd.Item.ReqLevel, cd.Soon)
+			}
+		}
+	}
+}
+
+func TestLevelText(t *testing.T) {
+	for _, tc := range []struct {
+		c    Candidate
+		want string
+	}{
+		{Candidate{Item: Item{ReqLevel: 5}}, "requires level 5"},
+		{Candidate{Item: Item{ReqLevel: 7}, Soon: true}, "at level 7"},
+		{Candidate{Item: Item{ReqLevel: 7, Estimated: true}, Soon: true}, "at level 7 (estimated)"},
+		{Candidate{Item: Item{ReqLevel: 3, Estimated: true}}, "requires level 3 (estimated)"},
+	} {
+		if got := tc.c.LevelText(); got != tc.want {
+			t.Errorf("LevelText() = %q, want %q", got, tc.want)
 		}
 	}
 }

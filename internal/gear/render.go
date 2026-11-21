@@ -38,6 +38,20 @@ func (s Source) String() string {
 	return b.String()
 }
 
+// LevelText is how soon the character can equip the candidate: "requires level N" when they can
+// now, "at level N" when they must reach it first, and "(estimated)" when N is a guess from item
+// level because the dataset holds no required level.
+func (c Candidate) LevelText() string {
+	t := fmt.Sprintf("requires level %d", c.Item.ReqLevel)
+	if c.Soon {
+		t = fmt.Sprintf("at level %d", c.Item.ReqLevel)
+	}
+	if c.Item.Estimated {
+		t += " (estimated)"
+	}
+	return t
+}
+
 // Describe is the one-line text of a candidate.
 func (c Candidate) Describe() string {
 	name := c.Item.Name
@@ -56,11 +70,7 @@ func (c Candidate) Describe() string {
 		}
 		src = "from " + strings.Join(parts, "; ")
 	}
-	req := "level unknown"
-	if c.Item.RequiredLevel > 0 {
-		req = fmt.Sprintf("level %d", c.Item.RequiredLevel)
-	}
-	return fmt.Sprintf("%s (ilvl %d, requires %s; %s, by %s): %s", name, c.Item.ItemLevel, req, gain, c.Basis, src)
+	return fmt.Sprintf("%s (ilvl %d, %s; %s, by %s): %s", name, c.Item.ItemLevel, c.LevelText(), gain, c.Basis, src)
 }
 
 // Render is the plain-text answer. Slots are listed in the capture's slot order.

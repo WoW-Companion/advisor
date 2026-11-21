@@ -15,15 +15,23 @@ level range. There is no object table and no zone on any of them, so object sour
 
 ## Which items
 
-- Required level at most the character's level + 3. A required level of 0 is read as unknown, not
-  as "none" (the client holds 0 for many high-level items, about 2,300 equippable ones in the
-  1.60.1 dataset): such an item is offered only when its item level is at most the character's
-  level + 3, and is shown as "requires level unknown". Poor-quality items and items with no item level
-  are skipped.
+- Required level at most the character's level + 2. An item above the character's level is shown
+  as "at level N" (the digest line adds ", at level N" inside its brackets). A required level of 0
+  is read as unknown, not as "none" (the client holds 0 for many high-level items, about 2,300
+  equippable ones in the 1.60.1 dataset): the level is estimated as `max(1, item level - 5)` and
+  put through the same window, and the tool output says "(estimated)". Poor-quality items, artifact
+  quality, quest-bonding items (bonding 4 and 5) and items with no item level are skipped.
+- An item is an upgrade only when its item level is above the equipped item's, and above 1 when the
+  slot is empty (level 1 items are placeholders and cosmetics).
+- The two slots of a pair (finger1/finger2, trinket1/trinket2) never offer the same item id: the
+  first slot keeps its candidates and the second takes the next ones, and neither offers the item
+  the other wears.
 - The item's `allowable_class_mask` must include the class.
 - Armor: head, shoulder, chest (robes too), waist, legs, feet, wrist and hands must be the
-  class's own armor type (Priest cloth, Rogue leather; mail and plate for the classes that wear
-  them). Cloaks, necks, rings and trinkets are never restricted. Shields only for Warrior,
+  class's own armor type (Priest cloth, Rogue leather). Warriors and paladins wear mail, and
+  hunters and shamans leather, until level 40, when they gain plate and mail. The level 40 rule
+  is the Classic Era trainer rule from general game knowledge; the dataset holds no spell or
+  trainer data to check it against. Cloaks, necks, rings and trinkets are never restricted. Shields only for Warrior,
   Paladin and Shaman.
 - Weapons by subclass from the table in `rules.go` (Priest: dagger, one-hand mace, staff, wand;
   Rogue: dagger, fist, one-hand sword, mace and axe, bow, crossbow, gun, thrown). One-hand weapons
