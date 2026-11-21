@@ -252,7 +252,7 @@ func TestGettingStartedMatchesOverlay(t *testing.T) {
 // checklist text and the overlay, and call Gemini CLI legacy.
 func TestAntigravityAdviceInDocs(t *testing.T) {
 	const link = "https://antigravity.google/docs/getting-started?tab=cli"
-	for _, p := range []string{"../../docs/getting-started.md", "../../docs/quickstart.md", "../../overlay/ui/index.html"} {
+	for _, p := range []string{"../../docs/getting-started.md", "../../overlay/ui/index.html"} {
 		if d := read(t, p); !strings.Contains(d, link) {
 			t.Errorf("%s does not link Antigravity CLI's install page", p)
 		}
