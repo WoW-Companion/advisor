@@ -24,18 +24,22 @@ function sse(path) { return new EventSource(conn.url + path + (path.includes('?'
 //   starting         -> ready            the handshake arrived and the sidecar has an AI client
 //   starting         -> ready-no-agent   the handshake arrived and it has none: only the calm
 //                                        "Answers need an AI client" notice shows
-//   ready*           -> stopped          the sidecar exited, or the first data call failed
-//   stopped / ready* -> starting         Reconnect, Re-scan or a new AI client choice restarts it
+//   ready*           -> stopped          the sidecar exited, or its data stayed unreachable
+//   stopped / ready* -> reconnecting     Reconnect, Re-scan or a new AI client choice restarts it
+//   reconnecting     -> ready*|stopped   the new handshake arrives, or ~10 s pass without one
 //
 // "Starting" ends with the handshake, not later. The handshake and the page's own start-up
 // status query race, so only a state that is still `starting` may be set from a start-up answer
-// (see the start block). The red banner is for starting (with Reconnect) and stopped only.
+// (see the start block). The red banner (with Reconnect) is for `stopped` only and always carries
+// a message; starting and reconnecting show a calm status line instead.
 let phase = 'starting';
 function setPhase(next, msg) {
   phase = next;
-  const bar = next === 'starting' || next === 'stopped';
-  $('banner').hidden = !bar;
-  $('banner-text').textContent = bar ? msg || (next === 'starting' ? 'Starting the advisor…' : 'The advisor stopped.') : '';
+  const waiting = next === 'starting' || next === 'reconnecting';
+  $('banner').hidden = next !== 'stopped';
+  $('banner-text').textContent = next === 'stopped' ? msg || 'The advisor stopped.' : '';
+  $('status').hidden = !waiting;
+  $('status').textContent = waiting ? msg || (next === 'starting' ? 'Starting the advisor…' : 'Reconnecting…') : '';
   $('aibar').hidden = next !== 'ready-no-agent';
 }
 function notice(msg) {
@@ -45,33 +49,75 @@ function notice(msg) {
   notice.t = setTimeout(() => { n.hidden = true; }, 6000);
 }
 
+const RECONNECT_MS = 10000;
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+// The sidecar's last stderr line, when the shell has one.
+async function lastError() {
+  try { return (await invoke('get_status')).error || ''; } catch { return ''; }
+}
+// load() with a short backoff: right after a (re)start the data endpoint may not answer yet.
+async function loadSoon(c) {
+  const until = Date.now() + RECONNECT_MS;
+  for (let wait = 150; ; wait = Math.min(wait * 2, 1000)) {
+    try { return await load(); } catch (e) {
+      if (conn !== c) throw e;
+      if (Date.now() + wait > until) throw e;
+      await sleep(wait);
+    }
+  }
+}
+// Restarts the sidecar and waits for its handshake; if none comes in time, say why once.
+let restartTimer = 0;
+async function restart(msg, go = () => invoke('restart_sidecar')) {
+  conn = null; showAgent();
+  if (events) events.close();
+  setPhase('reconnecting', msg);
+  clearTimeout(restartTimer);
+  const mine = restartTimer = setTimeout(async () => {
+    if (conn || phase !== 'reconnecting') return;
+    const err = await lastError();
+    if (restartTimer === mine && !conn && phase === 'reconnecting') setPhase('stopped', 'The advisor did not start.' + (err ? ' ' + err : ''));
+  }, RECONNECT_MS);
+  try { await go(); } catch (e) { clearTimeout(restartTimer); setPhase('stopped', 'Could not restart the advisor: ' + e); }
+}
+
 async function connect(c) {
   conn = c;
+  clearTimeout(restartTimer);
   if (events) events.close();
   setPhase(c.agent ? 'ready' : 'ready-no-agent');
   showAgent();
   try {
-    await load();
+    await loadSoon(c);
   } catch (e) {
     if (conn !== c) return; // a newer run took over
-    return setPhase('stopped', 'The advisor did not answer. ' + e.message);
+    const err = await lastError();
+    return setPhase('stopped', 'The advisor did not answer. ' + (err || e.message));
   }
+  if (conn !== c) return;
   events = sse('/api/events');
+  const es = events;
   events.addEventListener('game', ev => { state = JSON.parse(ev.data); setChars(); showBadge(true); });
   events.addEventListener('history', ev => render(JSON.parse(ev.data).filter(e => e.source === 'game')));
   events.onerror = () => {
-    // The stream drops when the sidecar dies; the shell's "sidecar-down" explains why.
-    events.close();
-    api('/api/state').catch(() => setPhase('stopped', 'Lost the advisor. Reconnect to start it again.'));
+    // The stream drops when the sidecar dies or is restarted; only a drop of the current stream
+    // while nothing is restarting is news. The shell's "sidecar-down" explains why.
+    es.close();
+    if (conn !== c || events !== es) return;
+    api('/api/state').catch(async () => {
+      if (conn !== c || events !== es) return;
+      const err = await lastError();
+      setPhase('stopped', 'Lost the advisor.' + (err ? ' ' + err : ' Reconnect to start it again.'));
+    });
   };
 }
 
 listen('sidecar-up', ev => connect(ev.payload));
-listen('sidecar-down', ev => { conn = null; showAgent(); if (events) events.close(); setPhase('stopped', 'The advisor stopped.' + (ev.payload ? ' ' + ev.payload : '')); });
+listen('sidecar-down', ev => { conn = null; showAgent(); if (events) events.close(); clearTimeout(restartTimer); setPhase('stopped', 'The advisor stopped.' + (ev.payload ? ' ' + ev.payload : '')); });
 listen('notice', ev => notice(ev.payload));
 listen('mode', ev => { cfg.mode = ev.payload; save(); showMode(); });
 listen('clickthrough', ev => { $('ct').hidden = !ev.payload; showCt(); });
-$('retry').onclick = () => { setPhase('starting'); invoke('restart_sidecar'); };
+$('retry').onclick = () => restart('Reconnecting…');
 
 // --- AI client -----------------------------------------------------------------------------
 // The choice is kept by the shell and passed to the sidecar as --agent: "" (no choice), "auto",
@@ -94,15 +140,14 @@ function showAgent() {
 }
 async function chooseAgent(value) {
   agentChoice = value;
-  setPhase('starting', 'Restarting the advisor…');
-  try { await invoke('set_agent', { agent: value }); } catch (e) { setPhase('stopped', 'Could not save the AI client: ' + e); }
+  await restart('Restarting the advisor…', () => invoke('set_agent', { agent: value }));
 }
 $('agent').onchange = ev => {
   if (ev.target.value === 'custom') { agentChoice = $('agent-cmd').value.trim() || 'custom'; showAgent(); $('agent-cmd').focus(); }
   else chooseAgent(ev.target.value);
 };
 // The sidecar looks for AI clients when it starts, so looking again is a restart.
-$('agent-rescan').onclick = () => { setPhase('starting', 'Looking for AI clients…'); invoke('restart_sidecar'); };
+$('agent-rescan').onclick = () => restart('Looking for AI clients…');
 $('agent-cmd').onchange = ev => { if (ev.target.value.trim()) chooseAgent(ev.target.value.trim()); };
 for (const a of document.querySelectorAll('#aibar a')) {
   a.onclick = ev => { ev.preventDefault(); invoke('open_install_page', { url: a.dataset.page }).catch(e => notice(String(e))); };

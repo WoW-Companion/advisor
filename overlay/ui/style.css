@@ -17,6 +17,8 @@
   --leather: 36, 31, 26;
 }
 * { box-sizing: border-box; }
+/* Author rules such as .banner { display: flex } beat the user-agent [hidden] rule, so hidden must win. */
+[hidden] { display: none !important; }
 html, body { height: 100%; margin: 0; background: transparent; overflow: hidden; }
 html { transition: --alpha .25s ease, --outline .25s ease; }
 /* WoW-style 1px dark outline, faded in by --outline so text reads over snow, sky and caves alike. */
@@ -37,7 +39,6 @@ body { font: 13.5px/1.5 Inter, system-ui, sans-serif; color: var(--ink); --o: rg
 .titlebar h1 { flex: 1 1 0; min-width: 0; margin: 0; font: 600 15px Cinzel, serif; letter-spacing: .04em; color: var(--gold); text-shadow: 0 1px 2px #000, 1px 0 0 var(--o), -1px 0 0 var(--o), 0 -1px 0 var(--o); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* Click-through indicator: a gold "pointer off" glyph (a strip would cost a row of the panel). */
 .ct { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 24px; color: var(--gold); filter: drop-shadow(0 1px 1px #000); }
-.ct[hidden] { display: none; }
 button, select, textarea, input { font: inherit; color: inherit; }
 /* Controls keep a background of their own so they stay findable at 0%. */
 button, select, textarea { text-shadow: inherit; background: linear-gradient(rgba(255, 255, 255, .06), rgba(255, 255, 255, .06)), rgba(var(--slate), .65); border: 1px solid rgba(217, 176, 90, .3); border-radius: 6px; padding: 3px 9px; }
