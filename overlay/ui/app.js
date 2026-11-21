@@ -6,7 +6,7 @@ const win = window.__TAURI__.window.getCurrentWindow();
 
 const $ = id => document.getElementById(id);
 const log = $('log'), who = $('who'), badge = $('badge'), text = $('text'), send = $('send');
-const DEFAULTS = { opacity: 92, solidHover: false, mode: 'overlay', keyVis: 'Ctrl+Shift+W', keyCt: 'Ctrl+Shift+T', nextOpen: null, settingsOpen: false, chatOpen: true, size: 'M', cleared: [], who: '', setupSeen: false, setupHidden: [], gameDir: '' };
+const DEFAULTS = { opacity: 92, solidHover: false, mode: 'overlay', keyVis: 'Ctrl+Shift+W', keyCt: 'Ctrl+Shift+T', nextOpen: null, settingsOpen: false, chatOpen: true, size: 'M', cleared: [], who: '', setupSeen: false, setupHidden: [], gameDir: '', length: 'standard', model: 'efficient', customModel: '', usage: true };
 // nextOpen null means automatic: open until the chat has a message, then collapsed. A click makes it a choice.
 const cfg = { ...DEFAULTS, ...JSON.parse(localStorage.getItem('wowc') || '{}') };
 const save = () => localStorage.setItem('wowc', JSON.stringify(cfg));
@@ -258,6 +258,23 @@ function showDigest() {
   $('auto-digest').checked = cfg.autoDigest !== false;
   $('auto-digest-note').textContent = d && d.status === 'addon not found' ? 'addon not found' : d && d.status === 'error' ? d.error : '';
 }
+// Answer length, model tier and the usage line are kept here and pushed to the advisor, which
+// applies them to the next ask; no restart. The tooltip says what the tiers mean for this client.
+function showAnswerSettings() {
+  $('length').value = cfg.length; $('model').value = cfg.model; $('usage').checked = cfg.usage !== false;
+  $('model-custom').value = cfg.customModel;
+  $('model-custom-row').hidden = cfg.model !== 'custom';
+  const note = state && state.settings && state.settings.model_note;
+  $('model').title = note || 'Efficient is the AI client\'s small, fast tier. For a custom command the tiers do nothing; use Custom with a model name.';
+}
+async function pushSettings() {
+  showAnswerSettings();
+  try { await api('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ length: cfg.length, model: cfg.model, custom_model: cfg.customModel, usage: cfg.usage !== false }) }); } catch (e) { /* the next state load pushes again */ }
+}
+$('length').onchange = ev => { cfg.length = ev.target.value; save(); pushSettings(); };
+$('model').onchange = ev => { cfg.model = ev.target.value; save(); pushSettings(); if (cfg.model === 'custom') $('model-custom').focus(); };
+$('model-custom').onchange = ev => { cfg.customModel = ev.target.value.trim(); save(); pushSettings(); };
+$('usage').onchange = ev => { cfg.usage = ev.target.checked; save(); pushSettings(); };
 async function pushDigest() {
   try { await api('/api/auto-digest', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ on: cfg.autoDigest !== false }) }); } catch (e) { /* shown by the next state load */ }
 }
@@ -331,6 +348,7 @@ async function load() {
   if (!r.ok) throw new Error('HTTP ' + r.status);
   state = await r.json();
   if (state.digest && state.digest.enabled !== (cfg.autoDigest !== false)) pushDigest(); // the saved choice wins over the sidecar's default
+  pushSettings(); // the saved choices win over the sidecar's defaults
   setChars();
   showBadge();
   render(state.history);
@@ -354,6 +372,7 @@ function ask(question) {
         const e = JSON.parse(ev.data);
         es.close(); a.textContent = e.answer; scrollDown();
         if (e.status === 'error') a.classList.add('err');
+        if (e.usage) { const s = document.createElement('small'); s.textContent = e.usage; a.appendChild(s); }
         stop();
       });
       es.onerror = () => { es.close(); if (busy) { a.textContent = got || 'The connection dropped.'; stop(); } };

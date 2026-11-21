@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"time"
 
 	"github.com/WoW-Companion/advisor/internal/ask"
@@ -29,6 +30,8 @@ func askCmd(ctx context.Context, args []string, stdout, stderr io.Writer) error 
 	addonSV := fs.String("addon-savedvariables", "", "the addon's WoWCompanion.lua (default: next to ForeverScribe.lua)")
 	answersFile := fs.Bool("answers-file", false, "DEPRECATED: write Answers.lua for the old WoWCompanion_Answers addon (the overlay is recommended: it answers in-game questions itself)")
 	answers := fs.String("answers-path", "", "Answers.lua to write with --answers-file (default: derived from the SavedVariables path)")
+	length := fs.String("length", ask.LengthStandard, "answer length: brief, standard or detailed")
+	model := fs.String("model", ask.TierEfficient, "model tier: efficient, balanced, best, or a model name")
 	timeout := fs.Duration("timeout", ask.DefaultTimeout, "time limit for each agent run")
 	max := fs.Int("max", ask.DefaultMaxPerRun, "most questions answered per pass")
 	watch := fs.Bool("watch", false, "keep running and answer whenever the SavedVariables file changes")
@@ -43,7 +46,11 @@ func askCmd(ctx context.Context, args []string, stdout, stderr io.Writer) error 
 		return errors.New("ask now only writes Answers.lua for the old WoWCompanion_Answers addon: pass --answers-file to keep doing that (deprecated).\n" +
 			"The recommended way is the overlay (wowc-advisor companion): it answers questions queued in game, in the overlay, and writes nothing to the game folder.")
 	}
-	ac, cleanup, err := askSetup(ctx, &cfg, askFlags{answersFile: true, cache: *cache, agent: *agent, confPath: *confPath, addonSV: *addonSV, answers: *answers, timeout: *timeout, max: *max}, stderr)
+	opts, err := parseOptions(*length, *model)
+	if err != nil {
+		return err
+	}
+	ac, cleanup, err := askSetup(ctx, &cfg, askFlags{answersFile: true, opts: opts, cache: *cache, agent: *agent, confPath: *confPath, addonSV: *addonSV, answers: *answers, timeout: *timeout, max: *max}, stderr)
 	if err != nil {
 		return err
 	}
@@ -66,6 +73,7 @@ type askFlags struct {
 	answersFile                              bool // write Answers.lua (deprecated; ask always, the companion with --answers-file)
 	timeout                                  time.Duration
 	max                                      int
+	opts                                     ask.Options
 	optional                                 bool // run without an agent: detect one, or leave Command empty
 }
 
@@ -89,7 +97,7 @@ func askSetup(ctx context.Context, cfg *server.Config, f askFlags, stderr io.Wri
 	if err != nil {
 		return ac, cleanup, err
 	}
-	ac = ask.Config{Command: ag.Command, Name: ag.Name, Source: ag.Source, Timeout: f.timeout, MaxPerRun: f.max, SavedVariables: f.addonSV, AnswersPath: f.answers}
+	ac = ask.Config{Command: ag.Command, Name: ag.Name, Source: ag.Source, Options: f.opts, Timeout: f.timeout, MaxPerRun: f.max, SavedVariables: f.addonSV, AnswersPath: f.answers}
 	derivedSV, derivedAnswers, derr := ask.Paths(cfg.SavedVariables)
 	if ac.SavedVariables == "" {
 		ac.SavedVariables = derivedSV
@@ -129,4 +137,20 @@ func askSetup(ctx context.Context, cfg *server.Config, f askFlags, stderr io.Wri
 		return ac, func() {}, err
 	}
 	return ac, cleanup, nil
+}
+
+// parseOptions checks the --length and --model flag values; a --model that is not a tier is a
+// custom model name.
+func parseOptions(length, model string) (ask.Options, error) {
+	o := ask.Options{Length: length, Tier: model}
+	if !slices.Contains(ask.Lengths, length) {
+		return o, fmt.Errorf("--length %q: use brief, standard or detailed", length)
+	}
+	if !slices.Contains(ask.Tiers, model) {
+		o.Tier, o.Custom = ask.TierCustom, model
+	}
+	if o.Normalize() != o && o.Tier == ask.TierCustom {
+		return o, fmt.Errorf("--model %q: use efficient, balanced, best or a model name", model)
+	}
+	return o.Normalize(), nil
 }

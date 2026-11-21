@@ -38,7 +38,7 @@ var page []byte
 const (
 	MaxBody            = 8 << 10
 	MaxQuestion        = 1000
-	HistoryTurns       = 6
+	HistoryTurns       = 4
 	HistoryChars       = 4000
 	HistoryAnswerChars = 600
 	maxEntries         = 200
@@ -56,6 +56,7 @@ type Config struct {
 	App           bool       // the desktop app's webview is the client: its origins pass, and the token may come in a header or query
 	Dataset       string     // dataset directory, for each character's next quests (empty: none)
 	Poll          time.Duration
+	NoUsage       bool          // start with the usage line off
 	AutoDigest    bool          // rewrite the in-game digest when ForeverScribe saves
 	DigestPath    string        // Digest.lua; empty derives it from ForeverScribe
 	Debounce      time.Duration // quiet time after a save before the digest is written (default 2s)
@@ -89,6 +90,7 @@ type Entry struct {
 	Answer    string `json:"answer"`
 	Status    string `json:"status"` // "waiting", "done" or "error"
 	Streamed  bool   `json:"streamed"`
+	Usage     string `json:"usage,omitempty"` // "≈3.1k tokens", when the CLI reported it and the setting is on
 	At        int64  `json:"at"`
 }
 
@@ -117,6 +119,7 @@ type State struct {
 	History    []Entry     `json:"history"`
 	Streaming  bool        `json:"streaming"`
 	Digest     DigestState `json:"digest"`
+	Settings   Settings    `json:"settings"`
 }
 
 type event struct{ name, data string }
@@ -158,6 +161,8 @@ type Server struct {
 	seq      int
 	subs     map[chan event]bool
 	digest   DigestState
+	opts     ask.Options
+	usageOn  bool
 	setup    setupCache
 }
 
@@ -173,6 +178,7 @@ func New(cfg Config) *Server {
 	}
 	s := &Server{cfg: cfg, Token: hex.EncodeToString(b), turns: map[string]*turn{}, busy: map[string]bool{}, subs: map[chan event]bool{}}
 	s.digest = DigestState{Enabled: cfg.AutoDigest}
+	s.opts, s.usageOn = cfg.Ask.Options.Normalize(), !cfg.NoUsage
 	s.digest.Status = s.digestStatus(cfg.AutoDigest)
 	return s
 }
@@ -202,6 +208,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/events", s.events)
 	mux.HandleFunc("POST /api/ask", s.ask)
 	mux.HandleFunc("POST /api/auto-digest", s.autoDigest)
+	mux.HandleFunc("POST /api/settings", s.setSettings)
 	mux.HandleFunc("GET /api/stream/{id}", s.stream)
 	mux.HandleFunc("GET /api/setup", s.setupState)
 	mux.HandleFunc("POST /api/setup/install-addon", s.setupInstall)
@@ -318,7 +325,7 @@ func (s *Server) state(w http.ResponseWriter, r *http.Request) {
 func (s *Server) snapshot() State {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	st := State{Characters: s.chars, CapturedAt: s.captured, Error: s.loadErr, Streaming: s.cfg.Stream, Digest: s.digest}
+	st := State{Characters: s.chars, CapturedAt: s.captured, Error: s.loadErr, Streaming: s.cfg.Stream, Digest: s.digest, Settings: s.settingsLocked()}
 	var best int64 = -1
 	for _, c := range s.chars {
 		if c.CapturedAt > best {
@@ -409,7 +416,7 @@ func (s *Server) gameQuestions(ctx context.Context) {
 		return
 	}
 	if s.cfg.Ask.AnswersPath != "" { // the deprecated --answers-file mode: Answers.lua too
-		if res, err := ask.Run(ctx, s.cfg.Ask); err == nil && res.Answered > 0 {
+		if res, err := ask.Run(ctx, s.askCfg()); err == nil && res.Answered > 0 {
 			s.showGame()
 		}
 		return
@@ -438,7 +445,8 @@ func (s *Server) answerGame(ctx context.Context) {
 		if ctx.Err() != nil {
 			return
 		}
-		text, _, err := ask.Respond(ctx, s.cfg.Ask, ask.Question{ID: q.ID, Character: q.Character, Text: q.Text}, ask.Prompt(q), s.cfg.Stream, nil)
+		ac := s.askCfg()
+		text, _, err := ask.Respond(ctx, ac, ask.Question{ID: q.ID, Character: q.Character, Text: q.Text}, ask.PromptFor(q, ac.Options.Length), s.cfg.Stream, nil)
 		e := Entry{Answer: text, Status: "done"}
 		if err != nil {
 			e.Answer, e.Status = "Could not answer: "+err.Error(), "error"
@@ -599,10 +607,14 @@ func (s *Server) historyFor(char string) string {
 func (s *Server) answer(id, client string, t *turn, req askRequest, history string) {
 	q := ask.Question{ID: id, Character: req.Character, Text: history + req.Text}
 	e := Entry{ID: id, Source: "web", Character: req.Character, Question: req.Text, At: time.Now().Unix()}
-	text, streamed, err := ask.Respond(s.ctx, s.cfg.Ask, q, ask.Prompt(q), s.cfg.Stream, func(chunk string) {
+	ac := s.askCfg()
+	text, streamed, usage, err := ask.RespondUsage(s.ctx, ac, q, ask.PromptFor(q, ac.Options.Length), s.cfg.Stream, func(chunk string) {
 		t.emit("chunk", map[string]string{"text": chunk}, false)
 	})
 	e.Answer, e.Streamed, e.Status = text, streamed, "done"
+	if s.settings().Usage {
+		e.Usage = usage.Line()
+	}
 	if err != nil {
 		e.Answer, e.Status = err.Error(), "error"
 	}

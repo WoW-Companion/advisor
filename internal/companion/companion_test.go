@@ -370,7 +370,7 @@ func TestHistoryFor(t *testing.T) {
 	}{
 		{"none", nil, nil, true, 0, ""},
 		{"other character and failures skipped", append(mk(1, "x"), Entry{Character: "d", Question: "other", Status: "done"}, Entry{Character: "c", Question: "bad", Status: "error"}), []string{"q0"}, false, 0, "other"},
-		{"turn cap keeps the newest", mk(10, "x"), []string{"q4", "q5", "q6", "q7", "q8", "q9"}, false, 0, "q3"},
+		{"turn cap keeps the newest", mk(10, "x"), []string{"q6", "q7", "q8", "q9"}, false, 0, "q5"},
 		{"answers cut", mk(1, long), []string{"q0"}, false, 1300, ""},
 		{"size cap drops the oldest", mk(6, strings.Repeat("b", 590)), []string{"q5"}, false, HistoryChars + 200, "q0"},
 	} {

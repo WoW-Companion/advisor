@@ -22,6 +22,10 @@ func TestMain(m *testing.M) {
 	case "argv":
 		os.WriteFile(os.Getenv("FAKE_ARGV_OUT"), []byte(strings.Join(os.Args[1:], "\x00")), 0o644)
 		fmt.Println("ok")
+	case "stream": // a Claude stream-json fixture: one text delta, then the result with usage
+		fmt.Println(`{"type":"system","subtype":"init"}`)
+		fmt.Println(`{"type":"stream_event","event":{"type":"content_block_delta","delta":{"type":"text_delta","text":"Do the turn-in."}}}`)
+		fmt.Println(`{"type":"result","is_error":false,"result":"Do the turn-in.","total_cost_usd":0.0123,"usage":{"input_tokens":100,"output_tokens":300,"cache_creation_input_tokens":2000,"cache_read_input_tokens":700}}`)
 	case "fail":
 		fmt.Fprintln(os.Stderr, "boom")
 		os.Exit(3)
