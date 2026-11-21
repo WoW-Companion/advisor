@@ -16,7 +16,7 @@ import (
 const ServerName = "wowc-advisor"
 
 // Clients lists the accepted client names.
-var Clients = []string{"claude-desktop", "claude-code", "codex", "gemini"}
+var Clients = []string{"claude-desktop", "claude-code", "codex", "agy", "gemini"}
 
 // Entry is what the client launches.
 type Entry struct {
@@ -60,6 +60,10 @@ func Path(client string, e Env) (string, error) {
 		return filepath.Join(e.Home, ".codex", "config.toml"), nil
 	case "gemini":
 		return filepath.Join(e.Home, ".gemini", "settings.json"), nil
+	case "agy":
+		// Antigravity CLI's settings, https://antigravity.google/docs/cli/reference/. The advisor itself is
+		// defined per run (see ask.AgyWorkspace); only the permission rule has to live here.
+		return filepath.Join(e.Home, ".gemini", "antigravity-cli", "settings.json"), nil
 	}
 	return "", fmt.Errorf("unknown client %q (want one of %s)", client, strings.Join(Clients, ", "))
 }
@@ -76,6 +80,9 @@ func Snippet(client string, e Entry) (string, error) {
 	}
 	if _, err := Path(client, Env{}); err != nil {
 		return "", err
+	}
+	if client == "agy" {
+		return marshal(map[string]any{"permissions": map[string]any{"allow": []string{AgyRule}}})
 	}
 	return marshal(map[string]any{"mcpServers": map[string]server{ServerName: e.server()}})
 }
@@ -103,9 +110,12 @@ func Write(client string, e Entry, env Env) (path, backup string, err error) {
 		return "", "", err
 	}
 	var out string
-	if client == "codex" {
+	switch client {
+	case "codex":
 		out, err = mergeTOML(string(old), e)
-	} else {
+	case "agy":
+		out, err = mergeAgy(old)
+	default:
 		out, err = mergeJSON(old, e)
 	}
 	if err != nil {
@@ -163,6 +173,45 @@ func mergeJSON(old []byte, e Entry) (string, error) {
 	}
 	servers[ServerName] = entry
 	if doc["mcpServers"], err = json.Marshal(servers); err != nil {
+		return "", err
+	}
+	return marshal(doc)
+}
+
+// AgyRule lets Antigravity CLI run the advisor's MCP tools without asking; the same text as
+// ask.AgyRule (the packages do not import each other). A test keeps them equal.
+const AgyRule = "mcp(" + ServerName + "/*)"
+
+// mergeAgy adds AgyRule to permissions.allow and keeps every other setting and rule.
+func mergeAgy(old []byte) (string, error) {
+	doc := map[string]json.RawMessage{}
+	if len(bytes.TrimSpace(old)) > 0 {
+		if err := json.Unmarshal(old, &doc); err != nil {
+			return "", fmt.Errorf("not valid JSON, edit it by hand: %w", err)
+		}
+	}
+	perms := map[string]json.RawMessage{}
+	if raw, ok := doc["permissions"]; ok {
+		if err := json.Unmarshal(raw, &perms); err != nil {
+			return "", fmt.Errorf("permissions is not an object, edit it by hand: %w", err)
+		}
+	}
+	var allow []string
+	if raw, ok := perms["allow"]; ok {
+		if err := json.Unmarshal(raw, &allow); err != nil {
+			return "", fmt.Errorf("permissions.allow is not a list of strings, edit it by hand: %w", err)
+		}
+	}
+	for _, a := range allow {
+		if a == AgyRule {
+			return marshal(doc)
+		}
+	}
+	var err error
+	if perms["allow"], err = json.Marshal(append(allow, AgyRule)); err != nil {
+		return "", err
+	}
+	if doc["permissions"], err = json.Marshal(perms); err != nil {
 		return "", err
 	}
 	return marshal(doc)

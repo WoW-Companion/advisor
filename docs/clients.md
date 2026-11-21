@@ -8,7 +8,7 @@ Fastest route: `wowc-advisor setup <client> --savedvariables /path/to/ForeverScr
 entry for your OS and the file it belongs in; add `--write` to merge it into that file. `--write`
 keeps a `.bak` copy first, keeps every other server and setting, and refuses a file it cannot parse
 (or a Codex file that already has a `wowc-advisor` table). `<client>` is `claude-desktop`,
-`claude-code`, `codex` or `gemini`; `--binary` and `--os` override the detected values.
+`claude-code`, `codex`, `agy` or `gemini`; `--binary` and `--os` override the detected values.
 
 In the snippets below, `/path/to/wowc-advisor` is the binary you downloaded (on Windows
 `wowc-advisor.exe`, written with doubled backslashes in JSON) and `WOWC_SAVEDVARIABLES` is your
@@ -99,7 +99,19 @@ project root. Codex reads one file per directory, and `AGENTS.override.md` wins 
 Check it works: `codex mcp get wowc-advisor` shows `enabled: true`; in a session, ask it to call
 `server_info`.
 
-## Gemini CLI
+## Antigravity CLI (agy)
+
+Docs: <https://antigravity.google/docs/permissions?tab=cli>, <https://antigravity.google/docs/mcp/>
+
+`wowc-advisor setup agy --write` adds `mcp(wowc-advisor/*)` to `permissions.allow` in
+`~/.gemini/antigravity-cli/settings.json`. That is all the in-app Ask needs: the advisor server itself is
+defined per run. To use the advisor in your own agy sessions too, put it in `~/.gemini/config/mcp_config.json`
+(`mcpServers`, same shape as the snippet `setup claude-code` prints).
+
+## Gemini CLI (legacy, API key only)
+
+Gemini CLI stopped serving Google AI Pro/Ultra and free Code Assist users on June 18, 2026; it works only with a
+paid Gemini API or Enterprise key. Use Antigravity CLI otherwise.
 
 Docs: <https://geminicli.com/docs/tools/mcp-server/>, <https://geminicli.com/docs/cli/gemini-md/>
 

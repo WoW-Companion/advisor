@@ -15,14 +15,14 @@ import (
 )
 
 // ResolveAgent turns the --agent value, or else the config file's "agent" field, into an argv.
-// A preset name (claude, codex, gemini) expands to its command; anything else is split on spaces.
+// A preset name (claude, codex, agy, gemini) expands to its command; anything else is split on spaces.
 func ResolveAgent(flagValue, configPath string) ([]string, error) {
 	spec, _, err := agentSpec(flagValue, configPath)
 	if err != nil {
 		return nil, err
 	}
 	if spec == "" {
-		return nil, errors.New("no agent command: pass --agent (claude, codex, gemini or a command) or set \"agent\" in the config file")
+		return nil, errors.New("no agent command: pass --agent (claude, codex, agy, gemini or a command) or set \"agent\" in the config file")
 	}
 	return expand(spec), nil
 }
@@ -131,6 +131,25 @@ func PolicyPath(mcpConfig string) string {
 		return ""
 	}
 	return filepath.Join(filepath.Dir(mcpConfig), "gemini-policy.toml")
+}
+
+// AgyWorkspace is the folder an Antigravity run starts in: it holds .agents/mcp_config.json, the
+// workspace MCP config agy reads (https://antigravity.google/docs/mcp/), beside the generated config.
+func AgyWorkspace(mcpConfig string) string {
+	return filepath.Join(filepath.Dir(mcpConfig), "agy")
+}
+
+// AgyRule is the permission rule that lets agy run the advisor's MCP tools without asking
+// (https://antigravity.google/docs/permissions?tab=cli: mcp(server/*) matches every tool of one server).
+const AgyRule = "mcp(" + ServerName + "/*)"
+
+// WriteAgyWorkspace writes mcpConfig's contents to AgyWorkspace's .agents/mcp_config.json.
+func WriteAgyWorkspace(mcpConfig string, data []byte) error {
+	d := filepath.Join(AgyWorkspace(mcpConfig), ".agents")
+	if err := os.MkdirAll(d, 0o700); err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(d, "mcp_config.json"), data, 0o600)
 }
 
 // GeminiPolicy is the Gemini CLI policy file: the advisor's tools run without asking, and shell,

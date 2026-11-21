@@ -126,9 +126,9 @@ $('retry').onclick = () => restart('Reconnecting…');
 // The choice is kept by the shell and passed to the sidecar as --agent: "" (no choice), "auto",
 // a preset name or a custom command. Changing it restarts the sidecar.
 
-const PRESETS = ['claude', 'codex', 'gemini'];
+const PRESETS = ['claude', 'codex', 'agy', 'gemini'];
 // The one place client ids become the names people know; anything else shows as given.
-const CLIENT_NAMES = { claude: 'Claude Code', codex: 'Codex', antigravity: 'Antigravity', gemini: 'Gemini CLI' };
+const CLIENT_NAMES = { claude: 'Claude Code', codex: 'Codex', agy: 'Antigravity', gemini: 'Gemini CLI' };
 const clientName = id => CLIENT_NAMES[id] || id;
 let agentChoice = '';
 

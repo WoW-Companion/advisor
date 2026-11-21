@@ -25,7 +25,8 @@ wowc-advisor ask --answers-file --agent claude --watch     # poll the file; remi
 | ------ | ---- |
 | `claude` | `claude -p <prompt> --mcp-config <file> --strict-mcp-config --allowedTools mcp__wowc-advisor --disallowedTools Bash Edit Write NotebookEdit WebFetch WebSearch Read Glob Grep` |
 | `codex` | `codex exec --skip-git-repo-check -s read-only -c 'mcp_servers.wowc-advisor={ command, args, env, default_tools_approval_mode = "approve" }' <prompt>` |
-| `gemini` | `gemini --allowed-mcp-server-names wowc-advisor --policy <file> -p <prompt>` |
+| `agy` | `agy -p <prompt>` (run in a per-run folder holding `.agents/mcp_config.json`; `--effort <level>` is added) |
+| `gemini` (legacy, API key only) | `gemini --allowed-mcp-server-names wowc-advisor --policy <file> -p <prompt>` |
 
 ### What each preset allows
 
@@ -37,9 +38,21 @@ writes the digest file.
 | ------ | ------------- | --------------- | ------------------------------ |
 | `claude` | allowed (`mcp__wowc-advisor`, the whole server) | denied by name: shell, edit, write, web, file read and search | not loaded (`--strict-mcp-config`) |
 | `codex` | server defined on the command line (nothing is written to `~/.codex`), its tools set to `approve` | read-only sandbox; no approval bypass | still loaded from the player's Codex config |
+| `agy` | the one rule `mcp(wowc-advisor/*)` in `permissions.allow` of agy's settings, added by `wowc-advisor setup agy --write` | not allowed: shell, file writes and the web stay at agy's default (Ask), which a headless run refuses; no `--dangerously-skip-permissions` | the player's global MCP servers still load, but nothing allows their tools |
 | `gemini` | `--policy` file (generated beside the MCP config) allows server `wowc-advisor` | the same file denies shell, file writes and web fetch/search; no `--yolo` | only `wowc-advisor` is enabled (`--allowed-mcp-server-names`) |
 
-Gemini does not take an MCP server on the command line: the server must already be in
+Antigravity CLI (`agy`) has no flag for an MCP config or a settings file ([headless docs](https://antigravity.google/docs/cli/headless/),
+[CLI reference](https://antigravity.google/docs/cli/reference/)). The advisor server is therefore written for each
+run to `<temp>/agy/.agents/mcp_config.json`, the workspace config agy reads ([MCP docs](https://antigravity.google/docs/mcp/)), and agy starts in
+that folder; your `~/.gemini/config/mcp_config.json` is not touched. Pre-approving the tools is only possible in
+agy's global settings (`~/.gemini/antigravity-cli/settings.json`, [permissions](https://antigravity.google/docs/permissions?tab=cli)), so run
+`wowc-advisor setup agy --write` once; it adds `mcp(wowc-advisor/*)` and keeps your other settings. Answers are
+read as text: agy's `stream-json` is not used yet, so agy answers appear whole and show no token line.
+On Windows `agy.exe` is installed to `%LOCALAPPDATA%\agy\bin`.
+
+Gemini CLI is legacy: since June 18, 2026 it serves only paid Gemini API and Enterprise keys, not Google AI
+Pro/Ultra or free Code Assist accounts (Google's developer blog post "Transitioning Gemini CLI to Antigravity CLI"). Auto picks it only when no
+other client is installed. It does not take an MCP server on the command line: the server must already be in
 `~/.gemini/settings.json` (`wowc-advisor setup gemini`, see `docs/clients.md`), and the preset only
 approves it. Codex's `exec` mode has had cases of cancelling MCP calls it should have approved; if
 Codex answers that the tools were not available, update Codex or use `--agent claude`.
@@ -63,12 +76,12 @@ tools weren't available to the AI client (setup problem)."
 
 `wowc-advisor companion` starts with no agent at all: the character list, game-data badge, NEXT strip and
 digest work, and asking answers "No AI client set up yet…". When no `--agent` or config value is set (or the
-value is `auto`) it looks for `claude`, `codex` and `gemini`, in that order, and uses the first found. For
+value is `auto`) it looks for `claude`, `codex`, `agy` and `gemini` (legacy), in that order, and uses the first found. For
 each name it checks every directory of `PATH` first, then these (`.exe`, `.cmd`, `.bat` and `.com` on Windows):
 
 | System | Extra directories |
 | ------ | ----------------- |
-| Windows | `%USERPROFILE%\.local\bin`, `%USERPROFILE%\.claude\local`, `%APPDATA%\npm`, `%LOCALAPPDATA%\Programs\claude`, `%USERPROFILE%\scoop\shims`, `%ProgramFiles%\nodejs` |
+| Windows | `%USERPROFILE%\.local\bin`, `%USERPROFILE%\.claude\local`, `%APPDATA%\npm`, `%LOCALAPPDATA%\Programs\claude`, `%LOCALAPPDATA%\agy\bin`, `%USERPROFILE%\scoop\shims`, `%ProgramFiles%\nodejs` |
 | macOS, Linux | `~/.local/bin`, `~/.claude/local`, `~/.npm-global/bin`, `/opt/homebrew/bin`, `/usr/local/bin` |
 
 An explicit `--agent` or config value always wins. `companion --handshake` reports the result in its JSON
@@ -77,7 +90,7 @@ line: `"agent":"claude","agent_source":"auto"` (`agent_source` is `flag`, `confi
 
 A custom command gets the prompt as its last argument, or wherever `{prompt}` / `{mcp_config}` appear.
 The agent's environment also has `WOWC_QUESTION`, `WOWC_CHARACTER` and `WOWC_MCP_CONFIG`. The MCP
-config starts `wowc-advisor serve --stdio` on your capture; claude and codex are handed it, gemini needs the
+config starts `wowc-advisor serve --stdio` on your capture; claude, codex and agy are handed it, gemini needs the
 same server in its own settings (see `docs/clients.md`). The capture file itself is never sent; the agent
 gets the question and the character key, and reads facts through the tools.
 

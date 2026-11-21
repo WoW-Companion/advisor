@@ -49,7 +49,7 @@ const usage = `usage: wowc-advisor serve [--stdio | --http] [--host ADDR] [--por
        wowc-advisor ask [--agent PRESET|COMMAND] [--watch] [--timeout D] [--max N] [--config FILE] [--dataset DIR] [--cache DIR] [--savedvariables FILE] [--addon-savedvariables FILE] --answers-file [--answers-path FILE]   (deprecated; prefer the overlay)
        wowc-advisor companion [--handshake] [--port N] [--no-open] [--lan] [--agent PRESET|COMMAND] [--timeout D] [--config FILE] [--dataset DIR] [--cache DIR] [--savedvariables FILE] [--addon-savedvariables FILE] [--answers-file [--answers-path FILE]]
        wowc-advisor config path | config set agent PRESET|COMMAND|auto
-       wowc-advisor setup CLIENT [--write] [--savedvariables FILE] [--binary FILE] [--os OS]   (CLIENT: claude-desktop, claude-code, codex, gemini)
+       wowc-advisor setup CLIENT [--write] [--savedvariables FILE] [--binary FILE] [--os OS]   (CLIENT: claude-desktop, claude-code, codex, agy, gemini)
        wowc-advisor doctor [--savedvariables FILE] [--cache DIR] [--check]
        wowc-advisor version`
 

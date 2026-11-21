@@ -61,8 +61,9 @@ not work in a new terminal. You do not need to fix that for the overlay: it look
 usual places) itself. See [overlay/README.md](../overlay/README.md).
 
 Alternatives: [Codex](https://github.com/openai/codex) or
-[Gemini CLI](https://github.com/google-gemini/gemini-cli), each from its own install page; sign in once
-too. Gemini also needs `wowc-advisor setup gemini --write`.
+[Antigravity CLI](https://antigravity.google/docs/getting-started?tab=cli) (`agy`, the Google account option), each from its own install page; sign in once
+too. Antigravity also needs `wowc-advisor setup agy --write` once. Gemini CLI is legacy and works only with a
+paid Gemini API key.
 
 Success: `claude` answers in a terminal, or the overlay (next step) shows the client's name.
 
@@ -84,7 +85,7 @@ Open WoW Companion from the Start menu.
   Quit. The title bar's **-** hides to the tray; **x** quits. If the panel is invisible at 0% opacity,
   use `Ctrl+Shift+W` or the tray.
 - **AI client.** The settings' **AI client** box says **Auto** and names what it found. Pick Claude,
-  Codex, Gemini or a custom command instead if you like. After installing a client while the overlay is
+  Codex, Antigravity or a custom command instead if you like. After installing a client while the overlay is
   open, press **Re-scan**; no restart of the app is needed.
 - **Text size.** Settings, **Text size**: Small, Medium or Large.
 - **Collapsing.** The gear toggles the settings, the **Next** header collapses the NEXT list and the arrow
@@ -146,7 +147,7 @@ Pick the way that suits you:
 - **The browser companion**, `wowc-advisor companion --agent claude`, is the same chat in a browser tab
   (see below). Use it without the overlay.
 - **Queued in game** (addon installed): right-click **Ask about this**, then `/reload`. The question shows
-  up in the overlay marked "asked in game" and is answered there. `claude`, `codex` and `gemini` are the
+  up in the overlay marked "asked in game" and is answered there. `claude`, `codex`, `agy` and `gemini` (legacy) are the
   agent presets; see [ask.md](ask.md).
 
 The advisor's tools are pre-allowed for these runs and read-only (apart from `update_digest`, which writes
@@ -154,8 +155,8 @@ the digest file); nothing else is. The presets pass the permission flags themsel
 anything in the AI client. Advice reflects the last ForeverScribe save, so `/reload` before asking if
 you just played.
 
-To connect an AI client you use yourself (Claude Desktop, Claude Code, Codex, Gemini) to the advisor, run
-`wowc-advisor setup claude-desktop --write` (or `claude-code`, `codex`, `gemini`); without `--write` it
+To connect an AI client you use yourself (Claude Desktop, Claude Code, Codex, Antigravity, Gemini) to the advisor, run
+`wowc-advisor setup claude-desktop --write` (or `claude-code`, `codex`, `agy`, `gemini`); without `--write` it
 only prints the entry. Check everything with `wowc-advisor doctor`. Details: [clients.md](clients.md).
 
 ## The browser companion (no overlay)
@@ -178,7 +179,7 @@ The companion sits beside the game, not inside it, and changes nothing in the cl
 - **Questions asked in game** show up in the page marked "asked in game", and are answered there, once each. Nothing is written
   to the game folder. (`--answers-file` also writes Answers.lua for the old `WoWCompanion_Answers` addon;
   it is deprecated.)
-- **Streaming:** Claude (`--agent claude`) streams text as it arrives. Codex and Gemini answers appear
+- **Streaming:** Claude (`--agent claude`) streams text as it arrives. Codex, Antigravity and Gemini answers appear
   once finished, marked "not streamed".
 - **Context:** the last 6 turns about the same character (at most 4,000 characters, answers cut to 600)
   are sent with each question. Questions are limited to 1,000 characters, and one answer runs at a time.
@@ -239,8 +240,8 @@ the character in the box at the top.
 length** is Brief (a few lines, the top 1-3 actions), Standard (a short numbered plan, the default) or
 Detailed (a fuller plan with alternatives); on the command line it is `--length` on `ask` and `companion`.
 **Model** picks the AI client's small, fast tier (Efficient, the default), Balanced, Best, or Custom with a
-model name you type (`--model`). Efficient is `haiku` for Claude Code and `flash-lite` for Gemini CLI; Codex
-has no stable model alias, so it keeps its own model and the tiers set its reasoning effort instead. Each
+model name you type (`--model`). Efficient is `haiku` for Claude Code and `flash-lite` for Gemini CLI; Codex and Antigravity
+have no stable model alias, so it keeps its own model and the tiers set its reasoning effort instead. Each
 ask also sends only your last 4 exchanges and Claude Code is capped at 10 turns. **Show tokens used** puts a
 muted line such as "≈3.1k tokens" under an answer when the client reports it (Claude Code does; the others
 show nothing); `--no-usage` turns it off.

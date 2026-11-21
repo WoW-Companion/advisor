@@ -71,7 +71,7 @@ func TestClientDisplayNames(t *testing.T) {
 	if strings.Contains(js, "[0].toUpperCase() + conn.agent") {
 		t.Error("app.js still builds a client name by capitalising the id")
 	}
-	if !strings.Contains(html, ">Claude Code</option>") || !strings.Contains(html, ">Gemini CLI</option>") {
+	if !strings.Contains(html, ">Claude Code</option>") || !strings.Contains(html, ">Gemini CLI (legacy, API key only)</option>") {
 		t.Error("the picker must use display names")
 	}
 }
