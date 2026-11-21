@@ -120,6 +120,9 @@ func (s *ParquetStore) open(table string) (*parquet.File, error) {
 	return f, nil
 }
 
+// OpenFile returns the table's Parquet file, opened once and kept.
+func (s *ParquetStore) OpenFile(table string) (*parquet.File, error) { return s.open(table) }
+
 func columnIndex(f *parquet.File, name string) (int, error) {
 	for i, c := range f.Schema().Columns() {
 		if len(c) == 1 && c[0] == name {

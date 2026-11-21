@@ -137,8 +137,7 @@ func serve(ctx context.Context, args []string, stderr io.Writer) error {
 		if err != nil {
 			return err
 		}
-		fmt.Fprintf(stderr, "wowc-advisor: knowledge-only, dataset %s build %s, %d item names indexed (about %d KB)\n",
-			d.Base, d.Manifest.GameBuild, d.Names.Len(), d.Names.Bytes()/1024)
+		fmt.Fprintf(stderr, "wowc-advisor: knowledge-only, dataset %s build %s\n", d.Base, d.Manifest.GameBuild)
 		s = hosted.New(d)
 	} else {
 		cfg = cfg.FromEnv()

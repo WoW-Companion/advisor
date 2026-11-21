@@ -18,21 +18,20 @@ The base URL must serve, with `Range` and `HEAD` support (object storage and CDN
   `quest_lines`, and refuses to start without them.
 
 At startup the server fetches and checks the manifest, reads the footer and one column of every
-required table (which proves range support and that each file is Parquet), then builds the item name
-index. It does **not** re-hash the tables: that would download all of them, which is what range reads
+required table (which proves range support and that each file is Parquet). It does **not** re-hash the tables: that would download all of them, which is what range reads
 avoid. Serve the dataset over HTTPS from a bucket only you can write.
 
 ## Tools
 
 | Tool | Answers |
 | --- | --- |
-| `server_info` | version, dataset URL (credentials stripped), game build, name index size, limits |
+| `server_info` | version, dataset URL (credentials stripped), game build, limits |
 | `item_lookup` | one item by `id` or `name` (a name matching several items lists them with ids) |
 | `quest_lookup` | one quest by `id`, with its quest line |
-| `npc_lookup` | a creature by `id` or part of its `name` |
+| `npc_lookup` | a creature by `id` or its `name` (exact, then the start of it) |
 | `where_drops` | an item's sources by `id` or `name`, best drop rate first, with the creature's zone |
-| `dungeon_info` | a dungeon or raid by `map_id` or part of its `name`, with its bosses |
-| `recipe_lookup` | a recipe by `spell_id` or part of its `name`, with reagents |
+| `dungeon_info` | a dungeon or raid by `map_id` or its `name` (exact, then the start of it), with its bosses |
+| `recipe_lookup` | a recipe by `spell_id` or its `name` (exact, then the start of it), with reagents |
 
 The character tools (`list_characters`, `character_brief`, `whats_next`, `upgrade_finder`,
 `profession_plan`, `talent_plan`, `dungeon_plan`, `farm_spots`, `quest_chain`, `inventory_review`, `update_digest`, `doctor`) are not
@@ -42,11 +41,13 @@ refuses `--dataset`, `--savedvariables` and the stdio transport, and never reads
 
 ## Name index
 
-Item names are searched in a small in-memory index built at startup from the items table's `id` and
-`name` columns (the data pipeline writes no name index). It costs one read of two columns, and heap:
-about 2.8 MB measured for 19,400 items with 35-character names (the server prints its own estimate at
-startup, and `server_info` reports it). Creature and recipe names are not indexed: a name lookup of
-either reads that table's `name` column over the network, which costs more requests than an id lookup.
+Item, creature and recipe names are found through the dataset's `names.parquet` (columns `norm`, `name`,
+`table`, `id`, sorted by `norm` with a Bloom filter on it): the server normalises the name (lower case,
+accents folded, apostrophes dropped), reads only the row groups whose `norm` range and Bloom filter
+admit it, and matches exactly, else by prefix. Nothing is built at startup. A name in the middle of a
+longer one (`bandage` for `Heavy Linen Bandage`) is not found. A dataset published without
+`names.parquet` is searched by scanning the table's `name` column instead, matching any part of the
+name, and the server logs that it did.
 
 ## Limits
 
@@ -70,11 +71,12 @@ and the open files are kept, so the cost after the first lookup of a table is wh
 
 | Step | Requests | Time at 20 ms |
 | --- | --- | --- |
-| startup, whole fixture | 69 | about 1.4 s |
-| `item_lookup` by id or by name | 8 | about 0.18 s |
-| `where_drops` by name (3 sources) | 18 | about 0.4 s |
+| startup, whole fixture | 65 | about 1.4 s |
+| `item_lookup` by id | 8 | about 0.18 s |
+| `item_lookup` by name (index) | 18 | about 0.4 s |
+| `where_drops` by name (3 sources) | 22 | about 0.48 s |
 | `dungeon_info` by name | 8 | about 0.17 s |
-| `npc_lookup` by name (column scan) | 4 | about 0.09 s |
+| `npc_lookup` by name (index, then the row) | 12 | about 0.26 s |
 
 Requests are sequential per lookup. Real tables have more row groups and pages, so expect more
 requests, and a `where_drops` over a common item more again; re-run the test with `-v` against a

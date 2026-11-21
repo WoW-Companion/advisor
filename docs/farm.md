@@ -1,9 +1,10 @@
 # farm_spots
 
 `farm_spots(character, item, limit=5)` lists the creatures and objects that drop an item. `item`
-is an item id or a name; a name is matched exactly (ignoring case), then as a unique partial match,
-and an ambiguous one lists the candidates. Names are found by a scan of the `items` table
-(`SearchName`); the knowledge-only server refuses this tool because it reads the character.
+is an item id or a name; a name is matched exactly, then by prefix, after folding case, accents and punctuation
+(`Thunderfury's` is `thunderfurys`), and an ambiguous one lists the candidates. Names are found
+through the dataset's `names.parquet` index; a dataset without it is scanned by the `items` table's
+`name` column instead (any part of a name matches), and the server logs that it did; the knowledge-only server refuses this tool because it reads the character.
 
 - **Sources** come from `loot_sources` rows with kind `creature` or `object`, one spot per source
   (rows of the same source are summed).

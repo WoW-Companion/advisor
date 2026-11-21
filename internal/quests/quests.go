@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/WoW-Companion/advisor/internal/names"
 	"github.com/WoW-Companion/advisor/internal/store"
 )
 
@@ -88,29 +89,15 @@ func questName(ds store.DataStore, id int64) string {
 	return str(row["name"])
 }
 
-// Resolve turns a quest id or name into a quest id and name. A name is matched exactly, ignoring
-// case, before a unique partial match; otherwise it returns the candidates and id 0.
+// Resolve turns a quest id or name into a quest id and name. The name index lists no quests, so a
+// name is matched by scanning the quests table: exactly before partially; otherwise it returns the
+// candidates and id 0.
 func Resolve(ds store.DataStore, text string) (id int64, name string, candidates []string) {
 	text = strings.TrimSpace(text)
 	if n, err := strconv.ParseInt(text, 10, 64); err == nil && n > 0 {
 		return n, questName(ds, n), nil
 	}
-	rows, err := ds.SearchName("quests", text, 10)
-	if err != nil || len(rows) == 0 {
-		return 0, "", nil
-	}
-	for _, r := range rows {
-		if strings.EqualFold(str(r["name"]), text) {
-			return i64(r["id"]), str(r["name"]), nil
-		}
-	}
-	if len(rows) == 1 {
-		return i64(rows[0]["id"]), str(rows[0]["name"]), nil
-	}
-	for _, r := range rows {
-		candidates = append(candidates, str(r["name"])+" ("+strconv.FormatInt(i64(r["id"]), 10)+")")
-	}
-	return 0, "", candidates
+	return names.Resolve(ds, "quests", text)
 }
 
 // Render is the plain-text form. name is the asked-for quest's name, which may be empty.

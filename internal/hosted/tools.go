@@ -9,6 +9,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
+	"github.com/WoW-Companion/advisor/internal/names"
 	"github.com/WoW-Companion/advisor/internal/server"
 	"github.com/WoW-Companion/advisor/internal/store"
 )
@@ -34,8 +35,6 @@ type Info struct {
 	ManifestVersion string `json:"manifest_version"`
 	GameBuild       string `json:"game_build"`
 	Tables          int    `json:"tables"`
-	NameIndexItems  int    `json:"name_index_items"`
-	NameIndexBytes  int64  `json:"name_index_bytes" jsonschema:"estimated heap held by the item name index"`
 	TimeoutMS       int64  `json:"request_timeout_ms"`
 	MaxResponse     int64  `json:"max_response_bytes"`
 	MaxConcurrent   int    `json:"max_concurrent_requests"`
@@ -44,7 +43,7 @@ type Info struct {
 // Describe reports on this server and its dataset.
 func (d *Dataset) Describe() Info {
 	return Info{Version: server.Version, Mode: "knowledge-only", Dataset: d.Base, ManifestVersion: d.Manifest.DatasetVersion,
-		GameBuild: d.Manifest.GameBuild, Tables: len(d.Manifest.Tables), NameIndexItems: d.Names.Len(), NameIndexBytes: d.Names.Bytes(),
+		GameBuild: d.Manifest.GameBuild, Tables: len(d.Manifest.Tables),
 		TimeoutMS: d.Limits.Timeout.Milliseconds(), MaxResponse: d.Limits.MaxResponseBytes, MaxConcurrent: d.Limits.MaxConcurrent}
 }
 
@@ -129,7 +128,13 @@ func (d *Dataset) resolveItem(in ItemInput) (id int64, msg string) {
 	if strings.TrimSpace(in.Name) == "" {
 		return 0, "Give an item id or a name."
 	}
-	hits, more := d.Names.Find(in.Name, maxMatches)
+	hits, more, err := names.Find(d.Store, names.Items, in.Name, maxMatches+1)
+	if err != nil {
+		return 0, "Lookup failed: " + err.Error()
+	}
+	if more = len(hits) > maxMatches; more {
+		hits = hits[:maxMatches]
+	}
 	switch len(hits) {
 	case 0:
 		return 0, "No item is named '" + in.Name + "'."
@@ -211,10 +216,16 @@ func (d *Dataset) npcLookup(_ context.Context, _ *mcp.CallToolRequest, in IDName
 		}
 		rows = []store.Row{row}
 	case strings.TrimSpace(in.Name) != "":
-		// npcs have no prebuilt index: this reads the name column.
-		var err error
-		if rows, err = d.Store.SearchName("npcs", in.Name, maxMatches); err != nil {
+		hits, _, err := names.Find(d.Store, names.Npcs, in.Name, maxMatches)
+		if err != nil {
 			return fail(err)
+		}
+		for _, h := range hits {
+			row, err := d.Store.Get("npcs", h.ID)
+			if err != nil {
+				return fail(err)
+			}
+			rows = append(rows, row)
 		}
 		if len(rows) == 0 {
 			return missing("No creature is named '" + in.Name + "'.")
@@ -281,19 +292,27 @@ func orUnknown(s string) string {
 }
 
 func (d *Dataset) dungeonInfo(_ context.Context, _ *mcp.CallToolRequest, in DungeonInput) (*mcp.CallToolResult, Result, error) {
-	all, err := d.Store.Filter("instances", store.Range{Column: "map_id", Min: int64(0)})
-	if err != nil {
-		return fail(err)
-	}
-	needle := strings.ToLower(strings.TrimSpace(in.Name))
-	if in.MapID <= 0 && needle == "" {
+	if in.MapID <= 0 && strings.TrimSpace(in.Name) == "" {
 		return missing("Give a map id or a dungeon name.")
 	}
-	var rows []store.Row
-	for _, r := range all {
-		if in.MapID > 0 && i64(r["map_id"]) == in.MapID || in.MapID <= 0 && strings.Contains(strings.ToLower(str(r["name"])), needle) {
-			rows = append(rows, r)
+	ids := []int64{in.MapID}
+	if in.MapID <= 0 {
+		hits, _, err := names.Find(d.Store, names.Instances, in.Name, maxMatches)
+		if err != nil {
+			return fail(err)
 		}
+		ids = ids[:0]
+		for _, h := range hits {
+			ids = append(ids, h.ID)
+		}
+	}
+	var rows []store.Row
+	for _, id := range ids {
+		r, err := d.Store.Filter("instances", store.Range{Column: "map_id", Min: id, Max: id})
+		if err != nil {
+			return fail(err)
+		}
+		rows = append(rows, r...)
 	}
 	if len(rows) == 0 {
 		return missing("No dungeon or raid matches.")
@@ -328,8 +347,16 @@ func (d *Dataset) recipeLookup(_ context.Context, _ *mcp.CallToolRequest, in Rec
 	case in.SpellID > 0:
 		rows, err = d.Store.Filter("recipes", store.Range{Column: "spell_id", Min: in.SpellID, Max: in.SpellID})
 	case strings.TrimSpace(in.Name) != "":
-		// recipes have no prebuilt index: this reads the name column.
-		rows, err = d.Store.SearchName("recipes", in.Name, maxMatches)
+		var hits []names.Match
+		if hits, _, err = names.Find(d.Store, names.Recipes, in.Name, maxMatches); err == nil {
+			for _, h := range hits {
+				var r []store.Row
+				if r, err = d.Store.Filter("recipes", store.Range{Column: "spell_id", Min: h.ID, Max: h.ID}); err != nil {
+					break
+				}
+				rows = append(rows, r...)
+			}
+		}
 	default:
 		return missing("Give a recipe spell id or a name.")
 	}
