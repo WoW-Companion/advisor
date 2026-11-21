@@ -61,7 +61,7 @@ func exercise(t *testing.T, cs *mcp.ClientSession) {
 	for _, tool := range tools.Tools {
 		names = append(names, tool.Name)
 	}
-	if strings.Join(names, ",") != "character_brief,dungeon_plan,inventory_review,list_characters,profession_plan,server_info,talent_plan,update_digest,upgrade_finder,whats_next" {
+	if strings.Join(names, ",") != "character_brief,doctor,dungeon_plan,inventory_review,list_characters,profession_plan,server_info,talent_plan,update_digest,upgrade_finder,whats_next" {
 		t.Errorf("tools = %v", names)
 	}
 	call := func(name string, args map[string]any) (string, bool) {
@@ -73,6 +73,9 @@ func exercise(t *testing.T, cs *mcp.ClientSession) {
 	}
 	if text, isErr := call("server_info", nil); isErr || !strings.Contains(text, `"build":"99999"`) {
 		t.Errorf("server_info = %s", text)
+	}
+	if text, isErr := call("doctor", nil); isErr || !strings.Contains(text, `"ok":false`) || !strings.Contains(text, `"name":"SavedVariables","status":"pass"`) {
+		t.Errorf("doctor = %s", text)
 	}
 	if text, isErr := call("list_characters", nil); isErr || !strings.Contains(text, `"name":"Testpriest"`) {
 		t.Errorf("list_characters = %s", text)

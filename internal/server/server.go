@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"net/http"
 	"os"
+	"runtime"
 	"slices"
 	"strconv"
 	"strings"
@@ -20,11 +21,13 @@ import (
 	"github.com/WoW-Companion/advisor/internal/character"
 	"github.com/WoW-Companion/advisor/internal/dataset"
 	"github.com/WoW-Companion/advisor/internal/digest"
+	"github.com/WoW-Companion/advisor/internal/doctor"
 	"github.com/WoW-Companion/advisor/internal/dungeons"
 	"github.com/WoW-Companion/advisor/internal/gear"
 	"github.com/WoW-Companion/advisor/internal/inventory"
 	"github.com/WoW-Companion/advisor/internal/lua"
 	"github.com/WoW-Companion/advisor/internal/professions"
+	"github.com/WoW-Companion/advisor/internal/setup"
 	"github.com/WoW-Companion/advisor/internal/store"
 	"github.com/WoW-Companion/advisor/internal/talents"
 )
@@ -43,6 +46,7 @@ type Config struct {
 	Dataset        string
 	SavedVariables string
 	DigestPath     string // the digest file to write; empty derives it from SavedVariables
+	Cache          string // dataset cache directory for doctor; empty is the per-user cache
 }
 
 // FromEnv fills empty fields from $WOWC_DATASET and $WOWC_SAVEDVARIABLES.
@@ -384,6 +388,14 @@ func WriteDigest(cfg Config, name string) (DigestOutput, error) {
 	return out, nil
 }
 
+// Diagnose checks the whole setup for the configured SavedVariables file.
+func Diagnose(cfg Config) doctor.Report {
+	env := setup.Env{GOOS: runtime.GOOS, AppData: os.Getenv("APPDATA")}
+	env.Home, _ = os.UserHomeDir()
+	env.Cwd, _ = os.Getwd()
+	return doctor.Run(doctor.Options{SavedVariables: cfg.SavedVariables, Cache: cfg.Cache, Env: env})
+}
+
 // New builds the server with its tools. The character file is read on every call.
 func New(cfg Config) *mcp.Server {
 	s := mcp.NewServer(&mcp.Implementation{Name: "wowc-advisor", Version: Version}, nil)
@@ -645,6 +657,14 @@ func New(cfg Config) *mcp.Server {
 			return toolError(err.Error()), DigestOutput{Lines: map[string]int{}}, nil
 		}
 		return nil, out, nil
+	})
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "doctor",
+		Description: "Check the whole setup and say how to fix each failure: the SavedVariables file, the capture's age, the three WoW Companion addons, " +
+			"the dataset cache and its build against the capture's client, whether the digest and answers files can be written, and which AI client configs mention wowc-advisor (informational).",
+	}, func(context.Context, *mcp.CallToolRequest, noInput) (*mcp.CallToolResult, doctor.Report, error) {
+		return nil, Diagnose(cfg), nil
 	})
 	return s
 }

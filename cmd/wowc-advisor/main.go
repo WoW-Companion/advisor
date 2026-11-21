@@ -34,6 +34,7 @@ const usage = `usage: wowc-advisor serve [--stdio | --http] [--host ADDR] [--por
        wowc-advisor digest [NAME] [--dataset DIR] [--cache DIR] [--savedvariables FILE] [--digest-path FILE]
        wowc-advisor ask [--agent PRESET|COMMAND] [--watch] [--timeout D] [--max N] [--config FILE] [--dataset DIR] [--cache DIR] [--savedvariables FILE] [--addon-savedvariables FILE] [--answers-path FILE]
        wowc-advisor setup CLIENT [--write] [--savedvariables FILE] [--binary FILE] [--os OS]   (CLIENT: claude-desktop, claude-code, codex, gemini)
+       wowc-advisor doctor [--savedvariables FILE] [--cache DIR]
        wowc-advisor version`
 
 func run(ctx context.Context, args []string, stderr io.Writer) error {
@@ -52,6 +53,8 @@ func run(ctx context.Context, args []string, stderr io.Writer) error {
 		return digestCmd(ctx, args[1:], os.Stdout, stderr)
 	case "setup":
 		return setupCmd(args[1:], os.Stdout, stderr)
+	case "doctor":
+		return doctorCmd(args[1:], os.Stdout, stderr)
 	case "ask":
 		return askCmd(ctx, args[1:], os.Stdout, stderr)
 	}

@@ -65,6 +65,7 @@ fails a check or stops half way is thrown away and the cache is untouched. Once 
 offline. `server_info` reports the dataset build and warns when it differs from your client's build.
 
 - `wowc-advisor dataset status` lists the cached builds and whether each still verifies.
+- `wowc-advisor doctor --savedvariables /path/to/ForeverScribe.lua` checks the whole setup (the capture and its age, the three addons and their versions, the dataset cache and its build, the digest and answers files, and which client configs mention wowc-advisor) and prints a fix for each failure. Your AI client can run the same check with the `doctor` tool.
 - `wowc-advisor dataset update` fetches the capture's build, or the newest release without a capture.
   Use `--build 71037` to name one.
 - `serve --dataset DIR` (or `WOWC_DATASET`) uses your own directory instead; `--cache DIR` moves the cache.

@@ -46,7 +46,7 @@ func TestServeStdioContract(t *testing.T) {
 	for _, tool := range tools.Tools {
 		names = append(names, tool.Name)
 	}
-	if got := strings.Join(names, ","); got != "character_brief,dungeon_plan,inventory_review,list_characters,profession_plan,server_info,talent_plan,update_digest,upgrade_finder,whats_next" {
+	if got := strings.Join(names, ","); got != "character_brief,doctor,dungeon_plan,inventory_review,list_characters,profession_plan,server_info,talent_plan,update_digest,upgrade_finder,whats_next" {
 		t.Errorf("tools = %s", got)
 	}
 }
