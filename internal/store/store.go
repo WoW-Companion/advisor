@@ -399,6 +399,25 @@ func (s *ParquetStore) SearchName(table, text string, limit int) ([]Row, error) 
 	}, nil, limit)
 }
 
+// Column returns every value of one column in file order, reading only that column's pages.
+func (s *ParquetStore) Column(table, column string) ([]any, error) {
+	f, err := s.open(table)
+	if err != nil {
+		return nil, err
+	}
+	ci, err := columnIndex(f, column)
+	if err != nil {
+		return nil, err
+	}
+	var out []any
+	for _, rg := range f.RowGroups() {
+		if _, err := scan(rg.ColumnChunks()[ci], func(v any) bool { out = append(out, v); return false }, 0); err != nil {
+			return nil, err
+		}
+	}
+	return out, nil
+}
+
 // ReadManifest reads `<dir>/manifest.json`; it returns nil, nil when there is none.
 func ReadManifest(dir string) (map[string]any, error) {
 	data, err := os.ReadFile(filepath.Join(dir, "manifest.json"))
