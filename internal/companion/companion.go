@@ -92,8 +92,9 @@ type Entry struct {
 	Answer    string `json:"answer"`
 	Status    string `json:"status"` // "waiting", "done" or "error"
 	Streamed  bool   `json:"streamed"`
-	Usage     string `json:"usage,omitempty"`  // "≈3.1k tokens · haiku": tokens when the CLI reported them, and the model; only with the setting on
-	Notice    string `json:"notice,omitempty"` // a one-line notice, e.g. the reasoning setting was dropped
+	UsageTip  string `json:"usage_tip,omitempty"` // the usage line's tooltip: cached tokens are cheaper but may still count
+	Usage     string `json:"usage,omitempty"`     // "≈3.1k tokens · haiku": tokens when the CLI reported them, and the model; only with the setting on
+	Notice    string `json:"notice,omitempty"`    // a one-line notice, e.g. the reasoning setting was dropped
 	At        int64  `json:"at"`
 }
 
@@ -450,7 +451,7 @@ func (s *Server) answerGame(ctx context.Context) {
 			return
 		}
 		ac := s.askCfg()
-		text, _, err := ask.Respond(ctx, ac, ask.Question{ID: q.ID, Character: q.Character, Text: q.Text}, ask.PromptFor(q, ac.Options.Length), s.cfg.Stream, nil)
+		text, _, err := ask.Respond(ctx, ac, ask.Question{ID: q.ID, Character: q.Character, Text: q.Text}, ac.Prompt(q), s.cfg.Stream, nil)
 		e := Entry{Answer: text, Status: "done"}
 		if err != nil {
 			e.Answer, e.Status = "Could not answer: "+err.Error(), "error"
@@ -612,12 +613,15 @@ func (s *Server) answer(id, client string, t *turn, req askRequest, history stri
 	q := ask.Question{ID: id, Character: req.Character, Text: history + req.Text}
 	e := Entry{ID: id, Source: "web", Character: req.Character, Question: req.Text, At: time.Now().Unix()}
 	ac := s.askCfg()
-	text, streamed, usage, err := ask.RespondUsage(s.ctx, ac, q, ask.PromptFor(q, ac.Options.Length), s.cfg.Stream, func(chunk string) {
+	text, streamed, usage, err := ask.RespondUsage(s.ctx, ac, q, ac.Prompt(q), s.cfg.Stream, func(chunk string) {
 		t.emit("chunk", map[string]string{"text": chunk}, false)
 	})
 	e.Answer, e.Streamed, e.Status = text, streamed, "done"
 	if s.settings().Usage {
 		e.Usage = usage.Line()
+		if usage.Cached > 0 {
+			e.UsageTip = ask.UsageTip
+		}
 	}
 	e.Notice = usage.Notice
 	if err != nil {

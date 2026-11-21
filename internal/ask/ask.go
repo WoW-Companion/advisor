@@ -46,14 +46,18 @@ const ServerName = "wowc-advisor"
 // Each preset pre-allows the advisor's tools and nothing else, because a headless run refuses what
 // it cannot ask about.
 var Presets = map[string][]string{
-	// --allowedTools names the whole server; every other tool is denied by name as well, and
-	// --strict-mcp-config keeps the player's own MCP servers out.
+	// Only the advisor's context reaches the model: --strict-mcp-config keeps the player's own MCP
+	// servers out, --tools "" removes every built-in tool schema (the MCP tools stay), --setting-sources ""
+	// loads no user, project or local settings, --disable-slash-commands drops skills and commands, and
+	// --exclude-dynamic-system-prompt-sections keeps the system prompt cacheable across machines.
+	// --allowedTools names the whole server, as a headless run refuses what it cannot ask about. (--bare
+	// would also skip CLAUDE.md and memory, but it needs an API key, so it is not used.)
 	"claude": {"claude", "-p", "{prompt}", "--mcp-config", "{mcp_config}", "--strict-mcp-config",
-		"--allowedTools", "mcp__" + ServerName,
-		"--disallowedTools", "Bash", "Edit", "Write", "NotebookEdit", "WebFetch", "WebSearch", "Read", "Glob", "Grep"},
+		"--tools", "", "--setting-sources", "", "--disable-slash-commands", "--no-session-persistence",
+		"--exclude-dynamic-system-prompt-sections", "--allowedTools", "mcp__" + ServerName},
 	// The server is defined and its tools approved on the command line (nothing written to the
 	// player's config); the sandbox is read-only.
-	"codex": {"codex", "exec", "--skip-git-repo-check", "-s", "read-only", "-c", "mcp_servers." + ServerName + "={mcp_codex}", "{prompt}"},
+	"codex": {"codex", "exec", "--skip-git-repo-check", "--ephemeral", "-s", "read-only", "-c", "mcp_servers." + ServerName + "={mcp_codex}", "{prompt}"},
 	// The server comes from the player's gemini settings (setup gemini); the policy allows its
 	// tools and denies shell, file writes and the web.
 	// Antigravity CLI (docs: https://antigravity.google/docs/cli/headless/): -p runs one prompt
@@ -119,6 +123,7 @@ type Config struct {
 	AnswersPath    string       // Answers.lua to write
 	Command        []string     // the agent argv, see Presets; empty when no agent is set up (the companion only)
 	Name, Source   string       // the agent's short name and where it came from (see Agent); may be empty
+	Dataset        string       // dataset directory for the pre-fetched next steps (empty: none)
 	MCPConfig      string       // path of the MCP config file handed to the agent; may be empty
 	Options        Options      // answer length, model tier and reasoning, see Options
 	Notice         func(string) // told a one-line notice, e.g. that the CLI rejected a flag (may be nil)
@@ -197,7 +202,7 @@ func fileExists(p string) bool { _, err := os.Stat(p); return err == nil }
 // runAgent runs the agent for q. The error is short and fit to show the player.
 func runAgent(ctx context.Context, cfg Config, q Question) (string, error) {
 	var out bytes.Buffer
-	if err := execAgent(ctx, cfg, q, PromptFor(q, cfg.Options.Length), nil, &capped{w: &out, left: MaxOutput}); err != nil {
+	if err := execAgent(ctx, cfg, q, cfg.Prompt(q), nil, &capped{w: &out, left: MaxOutput}); err != nil {
 		return "", err
 	}
 	if strings.TrimSpace(out.String()) == "" {

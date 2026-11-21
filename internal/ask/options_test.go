@@ -112,6 +112,12 @@ func TestUsageLine(t *testing.T) {
 	if got := (Usage{Tokens: 3123, Model: "haiku"}).Line(); got != "≈3.1k tokens · haiku" {
 		t.Errorf("%q", got)
 	}
+	if got := (Usage{Tokens: 56700, In: 4100, Out: 600, Cached: 52000, Model: "haiku"}).Line(); got != "≈4.1k in · 600 out · 52k cached · haiku" {
+		t.Errorf("%q", got)
+	}
+	if got := (Usage{Tokens: 900, In: 700, Out: 200}).Line(); got != "≈700 in · 200 out" {
+		t.Errorf("%q", got)
+	}
 	if got := (Usage{Model: "default model"}).Line(); got != "default model" {
 		t.Errorf("%q", got)
 	}

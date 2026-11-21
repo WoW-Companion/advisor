@@ -23,8 +23,8 @@ wowc-advisor ask --answers-file --agent claude --watch     # poll the file; remi
 
 | Preset | Runs |
 | ------ | ---- |
-| `claude` | `claude -p <prompt> --mcp-config <file> --strict-mcp-config --allowedTools mcp__wowc-advisor --disallowedTools Bash Edit Write NotebookEdit WebFetch WebSearch Read Glob Grep` |
-| `codex` | `codex exec --skip-git-repo-check -s read-only -c 'mcp_servers.wowc-advisor={ command, args, env, default_tools_approval_mode = "approve" }' <prompt>` |
+| `claude` | `claude -p <prompt> --mcp-config <file> --strict-mcp-config --tools "" --setting-sources "" --disable-slash-commands --no-session-persistence --exclude-dynamic-system-prompt-sections --allowedTools mcp__wowc-advisor` |
+| `codex` | `codex exec --skip-git-repo-check --ephemeral -s read-only -c 'mcp_servers.wowc-advisor={ command, args, env, default_tools_approval_mode = "approve" }' <prompt>` |
 | `agy` | `agy -p <prompt>` (run in a per-run folder holding `.agents/mcp_config.json`; `--effort <level>` is added) |
 | `gemini` (legacy, API key only) | `gemini --allowed-mcp-server-names wowc-advisor --policy <file> -p <prompt>` |
 
@@ -36,7 +36,7 @@ writes the digest file.
 
 | Preset | Advisor tools | Everything else | The player's other MCP servers |
 | ------ | ------------- | --------------- | ------------------------------ |
-| `claude` | allowed (`mcp__wowc-advisor`, the whole server) | denied by name: shell, edit, write, web, file read and search | not loaded (`--strict-mcp-config`) |
+| `claude` | allowed (`mcp__wowc-advisor`, the whole server) | no built-in tools (`--tools ""`); only the advisor server is callable | not loaded (`--strict-mcp-config`) |
 | `codex` | server defined on the command line (nothing is written to `~/.codex`), its tools set to `approve` | read-only sandbox; no approval bypass | still loaded from the player's Codex config |
 | `agy` | the one rule `mcp(wowc-advisor/*)` in `permissions.allow` of agy's settings, added by `wowc-advisor setup agy --write` | not allowed: shell, file writes and the web stay at agy's default (Ask), which a headless run refuses; no `--dangerously-skip-permissions` | the player's global MCP servers still load, but nothing allows their tools |
 | `gemini` | `--policy` file (generated beside the MCP config) allows server `wowc-advisor` | the same file denies shell, file writes and web fetch/search; no `--yolo` | only `wowc-advisor` is enabled (`--allowed-mcp-server-names`) |

@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -322,19 +323,19 @@ func TestPresetsPreAllowOnlyTheAdvisor(t *testing.T) {
 		!strings.HasSuffix(after(claude, "--mcp-config"), "mcp.json") {
 		t.Errorf("claude argv: %q", claude)
 	}
-	for i, a := range claude {
-		if a == "--allowedTools" && claude[i+2] != "--disallowedTools" {
-			t.Errorf("claude allows more than the advisor: %q", claude)
-		}
+	// Nothing built in is offered, and nothing but the advisor is allowed.
+	if i := slices.Index(claude, "--tools"); i < 0 || claude[i+1] != "" {
+		t.Errorf("claude keeps built-in tools: %q", claude)
 	}
-	for _, tool := range []string{"Bash", "Edit", "Write", "WebFetch", "Read"} {
-		if !strings.Contains(strings.Join(claude, " "), " "+tool) {
-			t.Errorf("claude does not deny %s", tool)
-		}
+	if i := slices.Index(claude, "--allowedTools"); i < 0 || i+2 < len(claude) && !strings.HasPrefix(claude[i+2], "--") {
+		t.Errorf("claude allows more than the advisor: %q", claude)
 	}
 
 	codex := runPreset(t, "codex")
 	srv := after(codex, "-c")
+	if !slices.Contains(codex, "--ephemeral") {
+		t.Errorf("codex keeps session files: %q", codex)
+	}
 	if after(codex, "-s") != "read-only" || !strings.HasPrefix(srv, "mcp_servers.wowc-advisor={ command = 'C:\\bin\\wowc.exe', args = ['serve', '--stdio']") ||
 		!strings.Contains(srv, `'WOWC_SAVEDVARIABLES' = 'C:\WoW\f.lua'`) || !strings.HasSuffix(srv, `default_tools_approval_mode = "approve" }`) {
 		t.Errorf("codex argv: %q", codex)
