@@ -80,3 +80,18 @@ func TestControlsKeepOwnBackground(t *testing.T) {
 		t.Error("controls need a fixed minimum background")
 	}
 }
+
+// Author rules such as .banner { display: flex } outrank the user-agent [hidden] rule, so a hidden
+// element would still show. One global rule must win over all of them. The rendered check (computed
+// display per UI state, in headless Chrome) is tools/status-check/run.sh.
+func TestHiddenAlwaysWins(t *testing.T) {
+	css := regexp.MustCompile(`(?s)/\*.*?\*/`).ReplaceAllString(read(t, "style.css"), "")
+	if !regexp.MustCompile(`(?m)^\[hidden\]\s*\{\s*display:\s*none\s*!important;?\s*\}`).MatchString(css) {
+		t.Error("style.css needs a global [hidden] { display: none !important; }")
+	}
+	for _, id := range []string{"banner", "status", "aibar", "notice", "settings", "agent-cmd-row", "ct"} {
+		if !regexp.MustCompile(`id="` + id + `"[^>]*\shidden`).MatchString(read(t, "index.html")) {
+			t.Errorf("#%s must start hidden", id)
+		}
+	}
+}
