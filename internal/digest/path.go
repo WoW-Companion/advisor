@@ -47,9 +47,9 @@ func CheckInstalled(digestPath string) error {
 	return nil
 }
 
-// Write replaces path with the digest atomically: a temp file in the same folder, then a rename.
+// Write replaces path with the envelope atomically: a temp file in the same folder, then a rename.
 // The folder must exist.
-func Write(path string, d Digest) error {
+func Write(path string, d Envelope) error {
 	tmp, err := os.CreateTemp(filepath.Dir(path), ".Digest-*.tmp")
 	if err != nil {
 		return err

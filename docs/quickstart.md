@@ -97,6 +97,9 @@ blank and finds the character by name; nothing is wrong. See [foreverscribe-form
 **Quests say "level unknown".** Neither the capture nor the dataset has that quest's level. The advisor
 lists those quests last and never guesses. See [advice.md](advice.md).
 
+**Switching characters.** `/reload` on the new one, then ask for a digest update; every character you've
+played is kept.
+
 **The digest is stale.** The panel shows its age and asks for a refresh after 12 hours. Ask your AI
 client to "refresh my digest" (or run `wowc-advisor digest`), then `/reload`. If the capture itself is
 old, `/reload` in game first so ForeverScribe writes a new one.
