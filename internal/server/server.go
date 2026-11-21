@@ -24,6 +24,7 @@ import (
 	"github.com/WoW-Companion/advisor/internal/lua"
 	"github.com/WoW-Companion/advisor/internal/professions"
 	"github.com/WoW-Companion/advisor/internal/store"
+	"github.com/WoW-Companion/advisor/internal/talents"
 )
 
 // Version is the advisor's version.
@@ -268,6 +269,20 @@ type PlanOutput struct {
 	Text      string                 `json:"text" jsonschema:"plain-text rendering"`
 }
 
+// TalentInput is the talent_plan argument.
+type TalentInput struct {
+	Character string `json:"character,omitempty" jsonschema:"character name; omit when only one was captured"`
+	Spec      string `json:"spec,omitempty" jsonschema:"spec to plan for (for example Shadow Magic); omit to use the group with the most points spent"`
+	Limit     int    `json:"limit,omitempty" jsonschema:"how many points to list (default 5)"`
+}
+
+// TalentOutput is the talent_plan result.
+type TalentOutput struct {
+	Character string         `json:"character"`
+	Plan      talents.Result `json:"plan"`
+	Text      string         `json:"text" jsonschema:"plain-text rendering"`
+}
+
 // DefaultUpgradeLimit is how many upgrades per slot upgrade_finder returns when none is asked for.
 const DefaultUpgradeLimit = 3
 
@@ -484,6 +499,32 @@ func New(cfg Config) *mcp.Server {
 			name = c.Key
 		}
 		return nil, PlanOutput{name, plans, professions.Render(plans)}, nil
+	})
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "talent_plan",
+		Description: "Where the next talent points go for one captured character (by name; omit if only one; optional spec and limit, default 5): " +
+			"compares the points spent with the curated build for their spec and level band and lists the next points in order with the build's reason. " +
+			"Points spent off-build are listed, not judged. With no build for the spec or band it says so and lists the builds available.",
+	}, func(_ context.Context, _ *mcp.CallToolRequest, in TalentInput) (*mcp.CallToolResult, TalentOutput, error) {
+		none := TalentOutput{}
+		f, errResult := load(cfg.SavedVariables)
+		if errResult != nil {
+			return errResult, none, nil
+		}
+		c, err := brief.Choose(f, in.Character)
+		if err != nil {
+			return toolError(err.Error()), none, nil
+		}
+		if cfg.Dataset == "" {
+			return toolError("No dataset configured (set WOWC_DATASET)."), none, nil
+		}
+		plan := talents.Plan(c, store.NewDir(cfg.Dataset), talents.Options{Spec: in.Spec, Limit: in.Limit})
+		name := c.Name
+		if name == "" {
+			name = c.Key
+		}
+		return nil, TalentOutput{name, plan, talents.Render(plan)}, nil
 	})
 
 	mcp.AddTool(s, &mcp.Tool{

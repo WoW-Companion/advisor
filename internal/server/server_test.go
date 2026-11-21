@@ -61,7 +61,7 @@ func exercise(t *testing.T, cs *mcp.ClientSession) {
 	for _, tool := range tools.Tools {
 		names = append(names, tool.Name)
 	}
-	if strings.Join(names, ",") != "character_brief,list_characters,profession_plan,server_info,update_digest,upgrade_finder,whats_next" {
+	if strings.Join(names, ",") != "character_brief,list_characters,profession_plan,server_info,talent_plan,update_digest,upgrade_finder,whats_next" {
 		t.Errorf("tools = %v", names)
 	}
 	call := func(name string, args map[string]any) (string, bool) {
@@ -91,6 +91,9 @@ func exercise(t *testing.T, cs *mcp.ClientSession) {
 	}
 	if text, isErr := call("upgrade_finder", map[string]any{"character": "testpriest", "slot": "knees"}); !isErr || !strings.Contains(text, "Unknown slot") {
 		t.Errorf("upgrade_finder bad slot = %q, error %v", text, isErr)
+	}
+	if text, isErr := call("talent_plan", map[string]any{"character": "testpriest"}); !isErr || !strings.Contains(text, "No dataset configured") {
+		t.Errorf("talent_plan without dataset = %q, error %v", text, isErr)
 	}
 	if text, isErr := call("update_digest", map[string]any{"character": "testpriest"}); !isErr || !strings.Contains(text, "cannot derive the digest path") {
 		t.Errorf("update_digest outside a game folder = %q, error %v", text, isErr)

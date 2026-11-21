@@ -11,7 +11,7 @@ The digest adds no advice logic: it is built from `whats_next` and `upgrade_find
 | `next_quests` | turn-ins and open quests from `whats_next`, with their zone and quest id | 8 |
 | `upgrades` | one line per slot: the top `upgrade_finder` candidate and its first source, with the item id | 8 |
 | `keep_materials` | bag and bank reagents of the character's professions' recipes still worth making (`professions.KeepList`), most numerous first | 10 |
-| `notes` | unspent talents, failed quests, no dataset, bank not captured, dataset build differs from the game | 6 |
+| `notes` | unspent talents, (naming the build's next node, see talents.md), failed quests, no dataset, bank not captured, dataset build differs from the game | 6 |
 
 A line is at most 60 characters. A section with nothing to say is left out.
 

@@ -16,6 +16,7 @@ import (
 	"github.com/WoW-Companion/advisor/internal/dataset"
 	"github.com/WoW-Companion/advisor/internal/gear"
 	"github.com/WoW-Companion/advisor/internal/store"
+	"github.com/WoW-Companion/advisor/internal/talents"
 )
 
 // Schema is the digest format version this package writes.
@@ -95,7 +96,7 @@ func buildOf(cl character.Client) string {
 func Build(c character.Character, ds store.DataStore, opt Options) Digest {
 	d := Digest{Schema: Schema, Generated: opt.Now.Unix(), Build: buildOf(opt.Client), Character: name(c)}
 	steps := advice.WhatsNext(c, ds)
-	notes := stepNotes(steps)
+	notes := stepNotes(c, ds, steps)
 
 	var quests []Line
 	for _, s := range steps {
@@ -133,13 +134,13 @@ func capLines(l []Line, n int) []Line {
 }
 
 // stepNotes turns the steps that are not next_quests lines into notes: unspent talents, failed quests.
-func stepNotes(steps []advice.Step) []Line {
+func stepNotes(c character.Character, ds store.DataStore, steps []advice.Step) []Line {
 	var out []Line
 	failed := 0
 	for _, s := range steps {
 		switch {
 		case s.Kind == advice.KindTalent:
-			out = append(out, Line{Text: clip(s.Title)})
+			out = append(out, Line{Text: clip(talentNote(c, ds, s.Title))})
 		case s.Kind == advice.KindQuest && strings.HasPrefix(s.Title, advice.AbandonPrefix):
 			failed++
 		}
@@ -148,6 +149,17 @@ func stepNotes(steps []advice.Step) []Line {
 		out = append(out, Line{Text: fmt.Sprintf("%d failed %s: abandon", failed, map[bool]string{true: "quest", false: "quests"}[failed == 1])})
 	}
 	return out
+}
+
+// talentNote is the unspent-points title, naming the build's next node when the dataset has one.
+func talentNote(c character.Character, ds store.DataStore, title string) string {
+	if ds == nil {
+		return title
+	}
+	if p := talents.Plan(c, ds, talents.Options{Limit: 1}); len(p.Next) > 0 {
+		return title + ": " + p.Next[0].Name
+	}
+	return title
 }
 
 // captureNotes are the gaps in the inputs the player can fix.
