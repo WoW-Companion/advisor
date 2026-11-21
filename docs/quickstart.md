@@ -3,20 +3,16 @@
 One path for a new Windows player, top to bottom. Each step is one action and says what success looks
 like. `<you>` is your Windows user name and `<account>` your WoW account folder; use your own.
 
-## 1. Install the addons
+## 1. Install ForeverScribe (required)
 
 Action: install [ForeverScribe](https://github.com/MattMaximo/foreverscribe) into your game's
-`_forever_\Interface\AddOns` folder. Then add the three WoW Companion folders (`WoWCompanion`,
-`WoWCompanion_Digest`, `WoWCompanion_Answers`) to the same folder. There is no player-friendly download
-for them yet: take them from the [addon repository](https://github.com/WoW-Companion/addon) (GitHub's
-**Code**, then **Download ZIP**, and copy just those three folders out of it), or build a zip with
-`make package` there. Then **quit the game completely and start it again**: the game only finds a new
-addon folder at startup, so `/reload` is not enough the first time.
+`_forever_\Interface\AddOns` folder, then **quit the game completely and start it again**: the game only
+finds a new addon folder at startup, so `/reload` is not enough the first time.
 
-Success: in game, `/wowc status` prints the addon version. After your first `/reload` or logout,
-ForeverScribe has written `WTF\Account\<account>\SavedVariables\ForeverScribe.lua`.
+Success: after your first `/reload` or logout, ForeverScribe has written
+`WTF\Account\<account>\SavedVariables\ForeverScribe.lua`. That file is all the overlay needs.
 
-## 2. Get WoW Companion
+## 2. Get WoW Companion (the overlay, recommended)
 
 **Recommended: the overlay app.** It bundles the advisor, so there is nothing else to install.
 
@@ -102,7 +98,25 @@ Open WoW Companion from the Start menu.
 Success: the panel shows your most recently played character, its NEXT list and an age chip. Settings
 live in the app's own storage, not a file you edit; see the FAQ.
 
-## 5. Put the digest in the game panel
+## 5. Optional: the WoW Companion addon
+
+The addon is only for in-game extras: the panel (your next quests, upgrades and materials), the tracker,
+tooltips, and the right-click **Ask about this** on a panel line. You do not need it to use the overlay.
+
+Action: add the WoW Companion folders (`WoWCompanion`, `WoWCompanion_Digest`) to the same
+`_forever_\Interface\AddOns` folder as ForeverScribe. There is no player-friendly download for them yet:
+take them from the [addon repository](https://github.com/WoW-Companion/addon) (GitHub's **Code**, then
+**Download ZIP**, and copy just those folders out of it), or build a zip with `make package` there. Quit the
+game completely and start it again.
+
+Success: in game, `/wowc status` prints the addon version.
+
+Questions you queue in game (right-click **Ask about this**) are answered in the overlay: with the overlay
+open, `/reload` in game and the question appears in the overlay chat marked "asked in game", and is answered
+there. Nothing is written back to the game folder. A leftover `WoWCompanion_Answers` folder from an older
+setup is no longer used; you can delete it.
+
+### Put the digest in the game panel
 
 With the overlay running, the advice refreshes itself; `/reload` to see it.
 
@@ -131,9 +145,9 @@ Pick the way that suits you:
   the game; no `/reload` needed. The age chip tells you how fresh the data is.
 - **The browser companion**, `wowc-advisor companion --agent claude`, is the same chat in a browser tab
   (see below). Use it without the overlay.
-- **In game, `/ask <question>`.** Slowest: `/reload` to send it out, run `wowc-advisor ask --agent claude`
-  (or `--watch` to keep polling), then `/reload` again for the answer. `claude`, `codex` and `gemini` are
-  the agent presets; see [ask.md](ask.md).
+- **Queued in game** (addon installed): right-click **Ask about this**, then `/reload`. The question shows
+  up in the overlay marked "asked in game" and is answered there. `claude`, `codex` and `gemini` are the
+  agent presets; see [ask.md](ask.md).
 
 The advisor's tools are pre-allowed for these runs and read-only (apart from `update_digest`, which writes
 the digest file); nothing else is. The presets pass the permission flags themselves, so you never approve
@@ -153,10 +167,7 @@ Success: your browser opens a chat page (URL `http://127.0.0.1:4317/?token=...`)
 writes it. The "data from game" badge shows when ForeverScribe last saved; it updates the moment you
 `/reload` or log out. Press Ctrl-C to stop.
 
-Why the in-game Ask box can't do this: the WoW client gives addons no file access at runtime.
-SavedVariables are written only on `/reload` or logout, and addon files are read only at login or
-`/reload`, so an in-game question needs one `/reload` to go out and another to bring the answer back.
-The companion sits beside the game instead of inside it, and changes nothing in the client.
+The companion sits beside the game, not inside it, and changes nothing in the client.
 
 - **Second monitor:** drag the browser window over. **Over the game:** run WoW in Windowed (Fullscreen)
   and put the window on top or beside it; the overlay app does that for you.
@@ -164,9 +175,9 @@ The companion sits beside the game instead of inside it, and changes nothing in 
   URL with the token. Anyone with that URL can ask your AI agent, so use it on a network you trust.
   `--port N` picks the first port to try (default 4317; the next free one is used), `--no-open`
   skips opening the browser.
-- **Questions asked in game** show up in the page marked "asked in game", and the companion still writes
-  Answers.lua for them, like `ask --watch`, so `/reload` in game shows them too. Do not run
-  `ask --watch` on the same file at the same time.
+- **Questions asked in game** show up in the page marked "asked in game", and are answered there, once each. Nothing is written
+  to the game folder. (`--answers-file` also writes Answers.lua for the old `WoWCompanion_Answers` addon;
+  it is deprecated.)
 - **Streaming:** Claude (`--agent claude`) streams text as it arrives. Codex and Gemini answers appear
   once finished, marked "not streamed".
 - **Context:** the last 6 turns about the same character (at most 4,000 characters, answers cut to 600)
@@ -202,7 +213,7 @@ added later. Install a newer overlay (step 2) or rebuild with `@main`.
 
 **The data is stale, or the age chip is amber or red.** The advice reflects the last ForeverScribe save.
 Type `/reload` in game (or log out) and the chip returns to `now`. The in-game panel refreshes itself
-while the overlay runs (`/reload` twice, see step 5); without the overlay run `wowc-advisor digest`
+while the overlay runs (`/reload` twice, see step 5; needs the optional addon); without the overlay run `wowc-advisor digest`
 then `/reload`. The panel asks for a refresh after 12 hours.
 
 **The overlay does not show over the game.** Set WoW's Display Mode to **Windowed (Fullscreen)**
@@ -213,7 +224,12 @@ hidden (`Ctrl+Shift+W`) or at 0% opacity with click-through on.
 **More info**, then **Run anyway**.
 
 **The addon does not appear in game.** A newly added addon folder needs a full game restart; `/reload`
-does not find it. Check that all three folders sit in `_forever_\Interface\AddOns`.
+does not find it. Check that the folders sit in `_forever_\Interface\AddOns`.
+
+**Legacy: the in-game `/ask` flow.** Older addon versions had an Ask box and a History tab, answered
+through a `WoWCompanion_Answers` folder: `/ask`, `/reload`, run `wowc-advisor ask --answers-file --agent claude`
+(or `--watch`), `/reload` again. That folder is deprecated, and `ask` only writes it with `--answers-file`.
+Use the overlay instead, and delete the folder.
 
 **A digest for another character.** `/reload` on that character so ForeverScribe captures it, then run
 `wowc-advisor digest` (every captured character is kept in one digest) and `/reload`. In the overlay pick

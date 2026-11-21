@@ -35,7 +35,19 @@
   </div>
   <div id="notice" class="notice" hidden></div>
 
+  <section id="setup" class="setup" hidden aria-label="Setup checklist">
+    <div class="setup-head"><b>Setup</b><button id="setup-close" class="tiny" type="button" title="Close the checklist">&#215;</button></div>
+    <ul id="setup-list"></ul>
+    <form id="setup-folder" class="setup-folder" hidden>
+      <input id="setup-folder-path" placeholder="C:\Program Files (x86)\World of Warcraft" aria-label="WoW folder">
+      <button type="submit">Use folder</button>
+    </form>
+    <small id="setup-msg" role="status"></small>
+    <small><a href="#" data-page="https://github.com/WoW-Companion/advisor/blob/main/docs/getting-started.md">Getting Started</a></small>
+  </section>
+
   <section id="settings" class="settings" hidden>
+    <label>Setup checklist <button id="setup-open" type="button">Setup</button></label>
     <label>Opacity <input id="opacity" type="range" min="0" max="100" step="5"> <output id="opacity-out"></output></label>
     <label>Solid on hover <input id="solid-hover" type="checkbox"></label>
     <label>AI client

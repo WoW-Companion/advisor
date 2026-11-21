@@ -53,6 +53,16 @@ const addonVars = `WoWCompanionDB = { asks = {
 } }
 `
 
+// answersPath is the Answers.lua path the legacy mode writes; the default leaves it empty.
+var legacyAnswers bool
+
+func answersPath(dir string) string {
+	if legacyAnswers {
+		return filepath.Join(dir, "Answers.lua")
+	}
+	return ""
+}
+
 type env struct {
 	base, dir, mark string
 	srv             *Server
@@ -70,7 +80,7 @@ func start(t *testing.T, mode string, stream bool) *env {
 	write(t, filepath.Join(dir, "WoWCompanion.lua"), "WoWCompanionDB = { asks = {} }\n")
 	e.srv = New(Config{
 		ForeverScribe: filepath.Join(dir, "ForeverScribe.lua"), Stream: stream, Poll: 20 * time.Millisecond,
-		Ask: ask.Config{Command: []string{os.Args[0]}, Timeout: 5 * time.Second, SavedVariables: filepath.Join(dir, "WoWCompanion.lua"), AnswersPath: filepath.Join(dir, "Answers.lua")},
+		Ask: ask.Config{Command: []string{os.Args[0]}, Timeout: 5 * time.Second, SavedVariables: filepath.Join(dir, "WoWCompanion.lua"), AnswersPath: answersPath(dir)},
 	})
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -296,8 +306,36 @@ func TestGameDataChangeEvent(t *testing.T) {
 	}
 }
 
+// A question queued in game shows up in the overlay as "game", is answered once through the agent,
+// and no Answers.lua is written by default.
 func TestInGameQuestionIsAnswered(t *testing.T) {
 	e := start(t, "text", false)
+	waitGameAnswer(t, e)
+	time.Sleep(100 * time.Millisecond) // a second pass would have re-asked by now
+	if _, err := os.Stat(filepath.Join(e.dir, "Answers.lua")); err == nil {
+		t.Error("Answers.lua was written without --answers-file")
+	}
+	e.srv.mu.Lock()
+	n := len(e.srv.gameDone)
+	e.srv.mu.Unlock()
+	if n != 1 {
+		t.Errorf("answered ids = %d, want 1", n)
+	}
+}
+
+// With --answers-file (deprecated) the answer is still written into Answers.lua.
+func TestInGameQuestionAnswersFile(t *testing.T) {
+	legacyAnswers = true
+	t.Cleanup(func() { legacyAnswers = false })
+	e := start(t, "text", false)
+	waitGameAnswer(t, e)
+	if a := ask.ReadAnswers(filepath.Join(e.dir, "Answers.lua"))["9-1"]; !strings.Contains(a.Text, "What now from the game?") {
+		t.Errorf("Answers.lua = %+v", a)
+	}
+}
+
+func waitGameAnswer(t *testing.T, e *env) {
+	t.Helper()
 	write(t, filepath.Join(e.dir, "WoWCompanion.lua"), addonVars)
 	deadline := time.Now().Add(5 * time.Second)
 	for {
@@ -312,9 +350,6 @@ func TestInGameQuestionIsAnswered(t *testing.T) {
 			t.Fatalf("no answer; history %+v", h)
 		}
 		time.Sleep(10 * time.Millisecond)
-	}
-	if a := ask.ReadAnswers(filepath.Join(e.dir, "Answers.lua"))["9-1"]; !strings.Contains(a.Text, "What now from the game?") {
-		t.Errorf("Answers.lua = %+v", a)
 	}
 }
 

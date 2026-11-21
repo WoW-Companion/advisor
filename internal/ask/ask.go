@@ -14,7 +14,6 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -208,13 +207,16 @@ func execAgent(ctx context.Context, cfg Config, q Question, prompt string, extra
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	argv := append(Argv(cfg.Command, prompt, cfg.MCPConfig), extra...)
-	cmd := Command(ctx, argv)
-	cmd.Env = append(os.Environ(), "WOWC_QUESTION="+q.Text, "WOWC_CHARACTER="+q.Character, "WOWC_MCP_CONFIG="+cfg.MCPConfig)
+	cmd, err := Launch(ctx, argv, "WOWC_QUESTION="+q.Text, "WOWC_CHARACTER="+q.Character, "WOWC_MCP_CONFIG="+cfg.MCPConfig)
+	if err != nil {
+		return err
+	}
 	cmd.WaitDelay = time.Second
 	var errOut bytes.Buffer
-	cmd.Stdout = stdout
+	out := &counter{w: stdout}
+	cmd.Stdout = out
 	cmd.Stderr = &capped{w: &errOut, left: 2048}
-	err := cmd.Run()
+	err = cmd.Run()
 	switch {
 	case ctx.Err() == context.DeadlineExceeded:
 		return fmt.Errorf("the agent took longer than %s", timeout)
@@ -223,9 +225,9 @@ func execAgent(ctx context.Context, cfg Config, q Question, prompt string, extra
 	case err != nil:
 		var ee *exec.ExitError
 		if errors.As(err, &ee) {
-			return fmt.Errorf("the agent exited with status %d", ee.ExitCode())
+			return exitError(ee, out.n > 0, errOut.String())
 		}
-		return fmt.Errorf("the agent did not start (%s)", filepath.Base(argv[0]))
+		return startError(cmd.Path, err)
 	}
 	return nil
 }

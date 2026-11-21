@@ -232,13 +232,15 @@ fn set_agent(app: AppHandle, agent: String) -> Result<(), String> {
     Ok(())
 }
 
-/// The official install pages of the AI clients, and this app's latest-release page; the page may
-/// open these and nothing else, and only from a click.
-const INSTALL_PAGES: [&str; 4] = [
+/// The official install pages of the AI clients and of ForeverScribe, the Getting Started guide, and
+/// this app's latest-release page; the page may open these and nothing else, and only from a click.
+const INSTALL_PAGES: [&str; 6] = [
     "https://github.com/WoW-Companion/advisor/releases/latest",
+    "https://github.com/MattMaximo/foreverscribe",
     "https://docs.claude.com/en/docs/claude-code/setup",
     "https://github.com/openai/codex",
     "https://github.com/google-gemini/gemini-cli",
+    "https://github.com/WoW-Companion/advisor/blob/main/docs/getting-started.md",
 ];
 
 #[tauri::command]
