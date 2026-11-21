@@ -28,3 +28,9 @@ Without a dataset, the capture alone is used. Without a captured level, no quest
 quest steps: `dungeons`, the top 3 dungeons of `dungeon_plan` that have an upgrade, each with its level
 fit and best drop, and `talents`, the next 3 points of `talent_plan`. Each is left out when its plan
 has nothing to show.
+
+**Quest chains.** When the dataset has a `quest_lines` table and a line holds a turn-in or open quest,
+its reason ends with "step N of M in <line>" and its sources name the line. A turn-in that has a next
+step also says "unlocks step N+1" and sorts ahead of the other turn-ins of its own zone; zone order is
+unchanged, so the boost is slight. A dataset without `quest_lines` leaves every step as before. See
+`chain.md`.

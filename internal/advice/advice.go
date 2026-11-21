@@ -10,6 +10,7 @@ import (
 
 	"github.com/WoW-Companion/advisor/internal/brief"
 	"github.com/WoW-Companion/advisor/internal/character"
+	"github.com/WoW-Companion/advisor/internal/quests"
 	"github.com/WoW-Companion/advisor/internal/store"
 )
 
@@ -77,6 +78,24 @@ func lookup(q character.Quest, ds store.DataStore) questInfo {
 	return info
 }
 
+// withChain appends the quest's place in its quest line to the step and reports whether turning
+// it in unlocks a next step. Without a dataset or a line, the step is unchanged.
+func withChain(s *Step, ds store.DataStore, q character.Quest, turnIn bool) bool {
+	if ds == nil || q.QuestID == 0 {
+		return false
+	}
+	c := quests.Of(ds, int64(q.QuestID))
+	if !c.Found || c.Position == 0 {
+		return false
+	}
+	s.Reason += fmt.Sprintf("; step %d of %d in %s", c.Position, c.Total(), c.Line)
+	if turnIn && c.Unlocks() {
+		s.Reason += fmt.Sprintf(", unlocks step %d", c.Position+1)
+	}
+	s.Sources = append(s.Sources, fmt.Sprintf("dataset: quest_lines line %d", c.LineID))
+	return turnIn && c.Unlocks()
+}
+
 func title(q character.Quest) string {
 	if q.Title != "" {
 		return q.Title
@@ -95,7 +114,8 @@ func plural(n int, one, many string) string {
 
 // WhatsNext returns every step for the character, best first. ds may be nil (no dataset).
 func WhatsNext(c character.Character, ds store.DataStore) []Step {
-	var turnIns, quests, failed []Step
+	var turnIns, openSteps, failed []Step
+	unlocking := map[int]bool{} // quest ids of turn-ins that unlock the next chain step
 	type scored struct {
 		step Step
 		diff int // |quest level - character level|; -1 when the level is unknown
@@ -105,17 +125,24 @@ func WhatsNext(c character.Character, ds store.DataStore) []Step {
 		info := lookup(q, ds)
 		switch {
 		case isTrue(q.Complete):
-			turnIns = append(turnIns, Step{Kind: KindTurnIn, Title: "Turn in " + title(q), Reason: "ready to turn in", Zone: info.zone, QuestID: q.QuestID, Sources: info.sources})
+			s := Step{Kind: KindTurnIn, Title: "Turn in " + title(q), Reason: "ready to turn in", Zone: info.zone, QuestID: q.QuestID, Sources: info.sources}
+			if withChain(&s, ds, q, true) {
+				unlocking[q.QuestID] = true
+			}
+			turnIns = append(turnIns, s)
 		case isTrue(q.Failed):
 			failed = append(failed, Step{Kind: KindQuest, Title: AbandonPrefix + title(q), Reason: "failed; it cannot be completed", Zone: info.zone, QuestID: q.QuestID, Sources: info.sources})
 		default:
 			s := Step{Kind: KindQuest, Title: title(q), Zone: info.zone, QuestID: q.QuestID, Sources: info.sources}
+			chained := func() { withChain(&s, ds, q, false) }
 			switch {
 			case info.level == nil:
 				s.Reason = "quest level unknown"
+				chained()
 				open = append(open, scored{s, -1})
 			case c.Level == nil:
 				s.Reason = fmt.Sprintf("level %d quest, your level is not captured", *info.level)
+				chained()
 				open = append(open, scored{s, -1})
 			default:
 				d := *info.level - *c.Level
@@ -123,6 +150,7 @@ func WhatsNext(c character.Character, ds store.DataStore) []Step {
 					continue
 				}
 				s.Reason = fmt.Sprintf("level %d quest, you are %d", *info.level, *c.Level)
+				chained()
 				if d < 0 {
 					d = -d
 				}
@@ -146,6 +174,9 @@ func WhatsNext(c character.Character, ds store.DataStore) []Step {
 			}
 			return a.Zone < b.Zone
 		}
+		if unlocking[a.QuestID] != unlocking[b.QuestID] {
+			return unlocking[a.QuestID]
+		}
 		return a.Title < b.Title
 	})
 	sort.SliceStable(open, func(i, j int) bool {
@@ -159,7 +190,7 @@ func WhatsNext(c character.Character, ds store.DataStore) []Step {
 		return a.step.Title < b.step.Title
 	})
 	for _, o := range open {
-		quests = append(quests, o.step)
+		openSteps = append(openSteps, o.step)
 	}
 	sort.SliceStable(failed, func(i, j int) bool { return failed[i].Title < failed[j].Title })
 
@@ -167,7 +198,7 @@ func WhatsNext(c character.Character, ds store.DataStore) []Step {
 	if s, ok := talentStep(c); ok {
 		out = append(out, s)
 	}
-	out = append(out, quests...)
+	out = append(out, openSteps...)
 	out = append(out, failed...)
 	// Profession steps need trainer data the dataset does not hold yet; omitted, never guessed.
 	return out
