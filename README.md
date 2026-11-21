@@ -17,7 +17,8 @@ are in [clients/](clients/) and [docs/try-it.md](docs/try-it.md).
 - **Advisor** (this repo, `wowc-advisor`): the brain. An MCP server and command line that read your
   ForeverScribe capture and a game dataset, answer with ranked advice, and write the digest.
   `wowc-advisor companion` is a browser chat beside the game.
-- **Overlay** ([overlay/](overlay/README.md)): a small Windows app that bundles the advisor, sits over the
+- **Overlay** ([overlay/](overlay/README.md)): a small Windows app (download `WoW-Companion-Setup-<version>-x64.exe`
+  from the [latest release](https://github.com/WoW-Companion/advisor/releases/latest)) that bundles the advisor, sits over the
   game (Windowed (Fullscreen) only), finds your AI client and chats about the character you are playing.
 
 Setup for all three, step by step, is the [quickstart](docs/quickstart.md). Developers can run the advisor

@@ -20,10 +20,9 @@ ForeverScribe has written `WTF\Account\<account>\SavedVariables\ForeverScribe.lu
 
 **Recommended: the overlay app.** It bundles the advisor, so there is nothing else to install.
 
-Action: on the [advisor repository](https://github.com/WoW-Companion/advisor), open **Actions**, then the
-**overlay** workflow, then the newest run with a green check on the `main` branch. Under **Artifacts**
-download `wow-companion-installer` and unzip it. (Artifacts need a GitHub sign-in and are kept 14 days; the
-overlay does not ship in the releases yet.) Run the installer; it installs for your user and asks for no
+Action: open the [latest release](https://github.com/WoW-Companion/advisor/releases/latest) of the advisor
+repository (no GitHub sign-in needed) and download the asset named `WoW-Companion-Setup-<version>-x64.exe`.
+(Builds from the **Actions** tab are preview builds of unreleased changes; use the release.) Run the installer; it installs for your user and asks for no
 admin rights. Windows SmartScreen warns because the installer is unsigned: click **More info**, then
 **Run anyway**.
 

@@ -6,16 +6,18 @@ as a sidecar and talks to it over 127.0.0.1. There is no game logic in the app.
 
 ## Get it
 
-Releases do not include the overlay yet. Every change under `overlay/`, `cmd/` or `internal/` builds on
-GitHub Actions (workflow **overlay**). Open the repository's **Actions** tab, pick the newest green run of
-**overlay** on `main`, and download from **Artifacts** (a GitHub sign-in is needed). The full path from
-download to advice is the [quickstart](../docs/quickstart.md).
+Download `WoW-Companion-Setup-<version>-x64.exe` from the
+[latest release](https://github.com/WoW-Companion/advisor/releases/latest); no GitHub sign-in is needed.
+It installs for your user only (no admin prompt). `SHA256SUMS` on the same page lets you check it. The full
+path from download to advice is the [quickstart](../docs/quickstart.md).
 
-- `wow-companion-installer`: the NSIS installer (`WoW Companion_<version>_x64-setup.exe`). Installs for
-  your user only; no admin prompt.
-- `wow-companion-exe`: the raw `wow-companion.exe` and `wowc-advisor.exe`; keep them in one folder.
+Every change under `overlay/`, `cmd/` or `internal/` also builds on GitHub Actions (workflow **overlay**).
+Those are preview builds of unreleased work: open the **Actions** tab, pick a green run and download from
+**Artifacts** (a GitHub sign-in is needed, and they are kept 14 days). `wow-companion-installer` holds the
+NSIS installer; `wow-companion-exe` holds the raw `wow-companion.exe` and `wowc-advisor.exe`, which must
+stay in one folder.
 
-Artifacts are kept 14 days. The installer is **not code-signed**, so Windows SmartScreen shows "Windows
+The installer is **not code-signed**, so Windows SmartScreen shows "Windows
 protected your PC": click **More info**, then **Run anyway**.
 
 ## Use it with the game
