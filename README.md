@@ -9,19 +9,21 @@ are in [clients/](clients/) and [docs/try-it.md](docs/try-it.md).
 
 > WoW Companion is a fan project. It is not affiliated with or endorsed by Blizzard Entertainment. World of Warcraft and Warcraft are trademarks of Blizzard Entertainment, Inc.
 
-## Quick start
+## The three pieces
 
-Download the binary for your platform (Windows, macOS or Linux; amd64 or arm64) from the
-[releases page](https://github.com/WoW-Companion/advisor/releases). It is one static file with no
-dependencies.
+- **Addon** ([WoW-Companion/addon](https://github.com/WoW-Companion/addon), with
+  [ForeverScribe](https://github.com/MattMaximo/foreverscribe)): the in-game panel and the `/ask` box. It
+  only reads game state and shows the digest.
+- **Advisor** (this repo, `wowc-advisor`): the brain. An MCP server and command line that read your
+  ForeverScribe capture and a game dataset, answer with ranked advice, and write the digest.
+  `wowc-advisor companion` is a browser chat beside the game.
+- **Overlay** ([overlay/](overlay/README.md)): a small Windows app that bundles the advisor, sits over the
+  game (Windowed (Fullscreen) only), finds your AI client and chats about the character you are playing.
 
-```bash
-wowc-advisor serve --stdio                 # default transport
-wowc-advisor serve --http --port 8000      # streamable HTTP at /mcp
-```
-
-Developers can install it with Go instead:
-`go install github.com/WoW-Companion/advisor/cmd/wowc-advisor@latest`.
+Setup for all three, step by step, is the [quickstart](docs/quickstart.md). Developers can run the advisor
+alone: `wowc-advisor serve --stdio` (default) or `serve --http --port 8000` (streamable HTTP at `/mcp`).
+Binaries are on the [releases page](https://github.com/WoW-Companion/advisor/releases) once published, or
+`$env:GOPROXY="direct"; go install github.com/WoW-Companion/advisor/cmd/wowc-advisor@main`.
 
 Point the server at a dataset directory (Parquet tables plus `manifest.json`) with
 `--dataset DIR` or `WOWC_DATASET`. Without one, `server_info` reports "no dataset configured".
@@ -34,7 +36,7 @@ Client configuration for Claude Desktop, Claude Code, Codex and Gemini CLI is in
 Character-aware advice reads the file the [ForeverScribe](https://github.com/MattMaximo/foreverscribe)
 addon (MIT) writes when you `/reload` or log out:
 `WTF/Account/<account>/SavedVariables/ForeverScribe.lua` inside your game folder (on Windows,
-`World of Warcraft\_forever_\WTF\Account\<ACCOUNT>\SavedVariables\ForeverScribe.lua`). Point the server
+`World of Warcraft\_forever_\WTF\Account\<ACCOUNT>\SavedVariables\ForeverScribe.lua`). The advisor finds it itself on a standard install; otherwise point it
 at it with `--savedvariables FILE` or `WOWC_SAVEDVARIABLES`; `server_info` then reports how many
 characters it found, when they were captured and which game client version and build wrote them. The file is only read, on your machine, by a
 parser that never executes it; it is never uploaded or written to. The format is documented in
