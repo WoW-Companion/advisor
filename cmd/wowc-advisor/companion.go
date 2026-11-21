@@ -66,11 +66,11 @@ func companionCmd(ctx context.Context, args []string, stdout, stderr io.Writer) 
 	}
 	s := companion.New(companion.Config{
 		ForeverScribe: cfg.SavedVariables, Ask: ac, LAN: *lan, App: *handshake, Dataset: cfg.Dataset,
-		Stream: len(ac.Command) > 0 && filepath.Base(strings.TrimSuffix(strings.ToLower(ac.Command[0]), ".exe")) == "claude",
+		Stream: len(ac.Command) > 0 && strings.TrimSuffix(strings.ToLower(filepath.Base(ac.Command[0])), strings.ToLower(filepath.Ext(ac.Command[0]))) == "claude",
 	})
 	p := ln.Addr().(*net.TCPAddr).Port
 	if *handshake {
-		fmt.Fprintln(stdout, handshakeLine(p, s.Token, ac.Name, ac.Source))
+		fmt.Fprintln(stdout, handshakeLine(p, s.Token, ac.Name, ac.Source, ask.DetectedPath(ac.Source, ac.Command)))
 		return s.Serve(ctx, ln)
 	}
 	local := fmt.Sprintf("http://127.0.0.1:%d/?token=%s", p, s.Token)
@@ -85,8 +85,9 @@ func companionCmd(ctx context.Context, args []string, stdout, stderr io.Writer) 
 }
 
 // handshakeLine is the one line the desktop app reads from the sidecar's stdout.
-// agent is the AI client's short name ("" when none), source where it came from: flag, config, auto or none.
-func handshakeLine(port int, token, agent, source string) string {
+// agent is the AI client's short name ("" when none), source where it came from: flag, config, auto or none,
+// path the detected executable ("" otherwise), which the settings tooltip names.
+func handshakeLine(port int, token, agent, source, path string) string {
 	if source == "" {
 		source = ask.SourceNone
 	}
@@ -95,7 +96,8 @@ func handshakeLine(port int, token, agent, source string) string {
 		Token       string `json:"token"`
 		Agent       string `json:"agent"`
 		AgentSource string `json:"agent_source"`
-	}{fmt.Sprintf("http://127.0.0.1:%d", port), token, agent, source})
+		AgentPath   string `json:"agent_path"`
+	}{fmt.Sprintf("http://127.0.0.1:%d", port), token, agent, source, path})
 	return string(b)
 }
 

@@ -16,10 +16,10 @@ func TestHandshakeLine(t *testing.T) {
 		{"", "", "none"},
 	} {
 		var got map[string]string
-		if err := json.Unmarshal([]byte(handshakeLine(4321, "abc", tc.agent, tc.source)), &got); err != nil {
+		if err := json.Unmarshal([]byte(handshakeLine(4321, "abc", tc.agent, tc.source, "/bin/"+tc.agent)), &got); err != nil {
 			t.Fatal(err)
 		}
-		want := map[string]string{"url": "http://127.0.0.1:4321", "token": "abc", "agent": tc.agent, "agent_source": tc.wantSource}
+		want := map[string]string{"url": "http://127.0.0.1:4321", "token": "abc", "agent": tc.agent, "agent_source": tc.wantSource, "agent_path": "/bin/" + tc.agent}
 		if !reflect.DeepEqual(got, want) {
 			t.Errorf("got %v, want %v", got, want)
 		}
