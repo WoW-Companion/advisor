@@ -279,5 +279,10 @@ func TestTestAI(t *testing.T) {
 	if it := AIItem("claude"); it.Action != ActTestAI {
 		t.Errorf("detected: %+v", it)
 	}
+	for id, want := range map[string]string{"claude": "Claude Code detected.", "codex": "Codex detected.", "gemini": "Gemini CLI detected.", "antigravity": "Antigravity detected."} {
+		if it := AIItem(id); it.Detail != want {
+			t.Errorf("AIItem(%q).Detail = %q, want %q", id, it.Detail, want)
+		}
+	}
 	_ = fmt.Sprint
 }

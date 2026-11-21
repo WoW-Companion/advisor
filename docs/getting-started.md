@@ -9,9 +9,9 @@ About 3 minutes to read, about 10 to do. Use your own names wherever you see `<a
 - **An account for one AI client.** Claude Code needs a Claude plan that includes it (Pro, Max, Team,
   Enterprise) or an Anthropic Console (API) account; the free Claude plan does not include it. See
   [Claude Code's setup page](https://code.claude.com/docs/en/setup). Codex signs in with a ChatGPT plan or an
-  API key ([Codex](https://github.com/openai/codex)). Gemini CLI signs in with a Google account or API key
-  ([Gemini CLI](https://github.com/google-gemini/gemini-cli)); its page says who is eligible, so check it
-  before you pick. Prices change, so look on those pages.
+  API key ([Codex](https://github.com/openai/codex)). For a Google account use
+  [Antigravity CLI](https://antigravity.google/docs/getting-started?tab=cli) (`agy`). Gemini CLI is legacy: it works only with a paid Gemini API key
+  ([Gemini CLI](https://github.com/google-gemini/gemini-cli)). Prices change, so look on those pages.
 - **About 10 minutes.**
 
 ## Steps

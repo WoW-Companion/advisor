@@ -41,20 +41,20 @@ The app needs ForeverScribe installed (required); the WoW Companion addon is opt
 (panel, tracker, tooltips, right-click "Ask about this"). Questions queued in game are answered here in the
 overlay, marked "asked in game", after `/reload`; nothing is written to the game folder. A leftover
 `WoWCompanion_Answers` folder can be deleted. It finds your SavedVariables itself, and shows your characters and NEXT list without an AI
-client. To ask questions it needs one: it picks the first of Claude Code, Codex and Gemini CLI it finds
+client. To ask questions it needs one: it picks the first of Claude Code, Codex, Antigravity CLI and Gemini CLI (legacy) it finds
 (search places in `docs/ask.md`). Choose another in the settings panel, **AI client** (Auto, Claude, Codex,
-Gemini or a custom command); the choice is kept and the advisor restarts with it. With none installed the
+Antigravity, Gemini CLI (legacy) or a custom command); the choice is kept and the advisor restarts with it. With none installed the
 app shows a calm notice with links to each install page. The picker's tooltip names the program in use;
 **Re-scan** looks again (it restarts the advisor), so installing a client while the overlay is open needs
-no restart of the app. Claude Code, Codex and Gemini CLI are supported. Each is started headless with
+no restart of the app. Claude Code, Codex, Antigravity CLI and Gemini CLI (legacy, API key only) are supported. Each is started headless with
 the advisor's tools pre-allowed and everything else (shell, file edits, web) denied or sandboxed, so you
 never approve anything in the AI client; the tools are read-only, apart from `update_digest` writing the
 digest file (`docs/ask.md` has a table of what each passes). Gemini needs the advisor in its settings
-(`wowc-advisor setup gemini`). The Command box shows only for **Custom command**.
+(`wowc-advisor setup gemini`); Antigravity needs `wowc-advisor setup agy --write` once. The Command box shows only for **Custom command**.
 
 ### Where Windows installs are found
 
-The advisor looks for `claude`, `codex` and `gemini` with the extensions in `PATHEXT` plus `.cmd`, `.bat`
+The advisor looks for `claude`, `codex`, `agy` and `gemini` with the extensions in `PATHEXT` plus `.cmd`, `.bat`
 and `.ps1`, in this order: the process's `PATH`, the user's and the system's `PATH` from the registry
 (`HKCU\Environment`, `HKLM\...\Session Manager\Environment`: an app started from the Start menu may have a
 minimal `PATH`), then these folders:
@@ -63,6 +63,7 @@ minimal `PATH`), then these folders:
 | --- | --- |
 | `%USERPROFILE%\.local\bin` | Claude Code's native installer (`claude.exe`) |
 | `%USERPROFILE%\.claude\local` | Claude Code's local install |
+| `%LOCALAPPDATA%\agy\bin` | Antigravity CLI (`agy.exe`) |
 | `%APPDATA%\npm` | `npm install -g` shims (`claude.cmd`, `codex.cmd`, `gemini.cmd`) |
 | `%LOCALAPPDATA%\Microsoft\WinGet\Links` | WinGet (`winget install Anthropic.ClaudeCode`) |
 | `%USERPROFILE%\scoop\shims` | Scoop |

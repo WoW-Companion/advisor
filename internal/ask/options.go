@@ -97,6 +97,9 @@ func (o Options) AnswerLimit() int { return lengthRule[o.Normalize().Length].lim
 //   - Gemini CLI, https://github.com/google-gemini/gemini-cli docs/cli/cli-reference.md: --model/-m
 //     takes the aliases flash-lite (lightest), flash (quick, well-rounded) and pro (complex reasoning).
 //     It has no reasoning flag (thinking is set in settings.json only), so none is passed.
+//   - Antigravity CLI, https://antigravity.google/docs/cli/headless/: --model takes a slug listed by
+//     `agy models` (no stable aliases documented), so no model is passed and the client's own default
+//     runs (--model only for Custom); --effort takes low, medium, high (xhigh and max on some models).
 //   - Codex CLI, https://developers.openai.com/codex/config-reference: `model` is a name with no
 //     stable alias, so no model is passed and the client's own default runs (--model only for Custom);
 //     `model_reasoning_effort` (low, medium, high; set with -c) is the reasoning knob.
@@ -118,6 +121,10 @@ var tierTable = map[string]clientTiers{
 		map[string]string{TierEfficient: "Flash-Lite (small)", TierBalanced: "Flash (mid)", TierBest: "Pro (large)"},
 		"Gemini CLI model aliases: Flash-Lite is small, Flash mid, Pro large.",
 		""},
+	"agy": {"--model", nil,
+		map[string]string{TierEfficient: "Antigravity default (small)"},
+		"Antigravity's model slugs change (see `agy models`), so it keeps its own default model. Pick Custom to name one.",
+		"Antigravity's --effort level. Low is the default."},
 	"codex": {"--model", nil,
 		map[string]string{TierEfficient: "Codex default (small)"},
 		"Codex has no stable model aliases, so it keeps its own default model. Pick Custom to name one.",
@@ -165,6 +172,8 @@ func reasoningArgs(client, level string) []string {
 	switch client {
 	case "claude":
 		return []string{"--effort", level}
+	case "agy":
+		return []string{"--effort", level}
 	case "codex":
 		return []string{"-c", `model_reasoning_effort="` + level + `"`}
 	}
@@ -186,7 +195,23 @@ func ModelUsed(command []string, o Options) string {
 	return "default model"
 }
 
-// ClientName is the preset name (claude, codex, gemini) of an agent command, or "" for any other.
+// DisplayName is the name people know a client by (Claude Code, Codex, Antigravity, Gemini CLI);
+// any other id comes back as given. The overlay keeps the same table in app.js.
+func DisplayName(id string) string {
+	switch strings.ToLower(id) {
+	case "claude":
+		return "Claude Code"
+	case "codex":
+		return "Codex"
+	case "agy", "antigravity":
+		return "Antigravity"
+	case "gemini":
+		return "Gemini CLI"
+	}
+	return id
+}
+
+// ClientName is the preset name (claude, codex, agy, gemini) of an agent command, or "" for any other.
 func ClientName(command []string) string {
 	if len(command) == 0 {
 		return ""

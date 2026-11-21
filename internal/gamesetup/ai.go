@@ -11,7 +11,7 @@ import (
 const AIPrompt = "Reply with the single word OK."
 
 // AIInstallNote is shown when no AI client is found.
-const AIInstallNote = "Install Claude Code, Codex or Gemini CLI, then sign in once by running it in a terminal."
+const AIInstallNote = "Install Claude Code, Codex or Antigravity CLI (agy), then sign in once by running it in a terminal."
 
 // AIItem is the AI client row; name is "" when none is detected.
 func AIItem(name string) Item {
@@ -20,7 +20,7 @@ func AIItem(name string) Item {
 		it.Status, it.Detail = Bad, "None found. "+AIInstallNote
 		return it
 	}
-	it.Status, it.Detail = OK, name+" detected."
+	it.Status, it.Detail = OK, ask.DisplayName(name)+" detected."
 	it.Action, it.Label = ActTestAI, "Test"
 	return it
 }

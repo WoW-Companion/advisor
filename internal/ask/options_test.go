@@ -2,8 +2,10 @@ package ask
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
@@ -199,5 +201,66 @@ func TestRejectedReasoningFlagIsDropped(t *testing.T) {
 	cfg.Notice = func(string) { n++ }
 	if err := execAgent(context.Background(), cfg, Question{}, "p", nil, &strings.Builder{}); err == nil || n != 0 {
 		t.Errorf("%v %d", err, n)
+	}
+}
+
+func TestAgyOptionsAndDetection(t *testing.T) {
+	// Efficient keeps agy's own model (no stable alias); reasoning maps to --effort; Custom names a model.
+	for _, tc := range []struct {
+		o    Options
+		want []string
+	}{
+		{Options{}, []string{"--effort", "low"}},
+		{Options{Reasoning: "high"}, []string{"--effort", "high"}},
+		{Options{Tier: TierCustom, Custom: "some-model", Reasoning: "medium"}, []string{"--model", "some-model", "--effort", "medium"}},
+		{Options{noReasoning: true}, nil},
+	} {
+		if got, at := ModelArgs([]string{"agy"}, tc.o); !reflect.DeepEqual(got, tc.want) || at != 1 && len(got) > 0 {
+			t.Errorf("%+v: %q at %d, want %q", tc.o, got, at, tc.want)
+		}
+	}
+	if c := ChoicesFor("agy"); len(c.Reasoning) != 3 || c.Models[0].Tier != TierEfficient {
+		t.Errorf("agy choices: %+v", c)
+	}
+	if got := WithModel([]string{"agy", "-p", "Q"}, []string{"agy"}, Options{}); !reflect.DeepEqual(got, []string{"agy", "--effort", "low", "-p", "Q"}) {
+		t.Errorf("agy argv: %q", got)
+	}
+	if want := []string{"claude", "codex", "agy", "gemini"}; !reflect.DeepEqual(DetectOrder, want) {
+		t.Errorf("DetectOrder %q", DetectOrder)
+	}
+}
+
+func TestAgyWorkspaceHoldsOnlyTheAdvisor(t *testing.T) {
+	cfg := filepath.Join(t.TempDir(), "mcp.json")
+	if err := WriteAgyWorkspace(cfg, MCPConfig("/bin/wowc", map[string]string{"WOWC_SAVEDVARIABLES": "/f.lua"})); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(filepath.Join(AgyWorkspace(cfg), ".agents", "mcp_config.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var doc struct {
+		Servers map[string]struct {
+			Command string
+			Args    []string
+			Env     map[string]string
+		} `json:"mcpServers"`
+	}
+	if err := json.Unmarshal(raw, &doc); err != nil || len(doc.Servers) != 1 || doc.Servers[ServerName].Command != "/bin/wowc" ||
+		doc.Servers[ServerName].Env["WOWC_SAVEDVARIABLES"] != "/f.lua" {
+		t.Errorf("workspace config: %s %v", raw, err)
+	}
+	if AgyRule != "mcp(wowc-advisor/*)" {
+		t.Errorf("rule %q", AgyRule)
+	}
+}
+
+func TestGeminiIsLegacyInChoices(t *testing.T) {
+	// Gemini CLI stays selectable but is only found after every other client.
+	if DetectOrder[len(DetectOrder)-1] != "gemini" {
+		t.Errorf("gemini is not last: %q", DetectOrder)
+	}
+	if _, ok := Presets["gemini"]; !ok {
+		t.Error("gemini preset removed")
 	}
 }

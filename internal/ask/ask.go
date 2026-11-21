@@ -60,6 +60,15 @@ var Presets = map[string][]string{
 	"codex": {"codex", "exec", "--skip-git-repo-check", "--ephemeral", "-s", "read-only", "-c", "mcp_servers." + ServerName + "={mcp_codex}", "{prompt}"},
 	// The server comes from the player's gemini settings (setup gemini); the policy allows its
 	// tools and denies shell, file writes and the web.
+	// Antigravity CLI (docs: https://antigravity.google/docs/cli/headless/): -p runs one prompt
+	// non-interactively. It has no flag for an MCP config or a settings file, so the advisor server is
+	// defined in a per-run workspace file (<dir>/.agents/mcp_config.json, see AgyWorkspace) and the run
+	// starts in that folder. Tools are not pre-allowed on the command line: --dangerously-skip-permissions
+	// would also allow shell and file writes. Instead `wowc-advisor setup agy --write` adds the one
+	// rule mcp(wowc-advisor/*) to agy's permissions.allow; everything else stays Ask, which a print-mode
+	// run soft-denies.
+	"agy": {"agy", "-p", "{prompt}"},
+	// Legacy: Gemini CLI now serves only paid Gemini API and Enterprise keys (since 2026-06-18).
 	"gemini": {"gemini", "--allowed-mcp-server-names", ServerName, "--policy", "{mcp_policy}", "-p", "{prompt}"},
 }
 
@@ -246,6 +255,9 @@ func execOnce(ctx context.Context, cfg Config, q Question, prompt string, extra 
 		return false, err
 	}
 	cmd.WaitDelay = time.Second
+	if ClientName(cfg.Command) == "agy" && cfg.MCPConfig != "" {
+		cmd.Dir = AgyWorkspace(cfg.MCPConfig)
+	}
 	var errOut bytes.Buffer
 	out := &counter{w: stdout}
 	cmd.Stdout = out

@@ -46,7 +46,7 @@ const (
 )
 
 // ErrNoAgent is what asking says when no AI client is set up.
-const ErrNoAgent = "No AI client set up yet: install Claude Code, Codex or Gemini CLI, or choose one in settings."
+const ErrNoAgent = "No AI client set up yet: install Claude Code, Codex or Antigravity CLI, or choose one in settings."
 
 // Config is one companion's settings.
 type Config struct {

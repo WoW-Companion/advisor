@@ -97,3 +97,23 @@ func TestWritePreservesOthers(t *testing.T) {
 		t.Errorf("invalid file changed: %q", b)
 	}
 }
+
+func TestAgyRuleAndMerge(t *testing.T) {
+	if AgyRule != "mcp(wowc-advisor/*)" {
+		t.Errorf("rule %q", AgyRule)
+	}
+	home := t.TempDir()
+	path := filepath.Join(home, ".gemini", "antigravity-cli", "settings.json")
+	os.MkdirAll(filepath.Dir(path), 0o755)
+	os.WriteFile(path, []byte(`{"theme":"dark","permissions":{"allow":["command(git)"],"deny":["command(rm)"]}}`), 0o644)
+	for i := 0; i < 2; i++ { // the second write adds nothing
+		if _, _, err := Write("agy", entry, Env{Home: home}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	got, _ := os.ReadFile(path)
+	s := string(got)
+	if strings.Count(s, AgyRule) != 1 || !strings.Contains(s, `"command(git)"`) || !strings.Contains(s, `"command(rm)"`) || !strings.Contains(s, `"theme"`) {
+		t.Errorf("merged settings: %s", s)
+	}
+}

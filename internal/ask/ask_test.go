@@ -346,6 +346,11 @@ func TestPresetsPreAllowOnlyTheAdvisor(t *testing.T) {
 		}
 	}
 
+	agy := runPreset(t, "agy")
+	if agy[0] != "-p" || strings.Contains(strings.Join(agy, " "), "skip-permissions") || strings.Contains(strings.Join(agy, " "), "--mode") {
+		t.Errorf("agy argv: %q", agy)
+	}
+
 	gemini := runPreset(t, "gemini")
 	pol := after(gemini, "--policy")
 	if after(gemini, "--allowed-mcp-server-names") != "wowc-advisor" || filepath.Base(pol) != "gemini-policy.toml" {
