@@ -21,7 +21,7 @@ import (
 var ErrNotFound = errors.New("not found")
 
 // Row is one table row by column name. Integers are int64, floats float64, text string,
-// booleans bool, nulls nil.
+// booleans bool, nulls nil; a list column is a []any of those (empty for an empty list).
 type Row map[string]any
 
 // Range keeps rows whose Column lies in [Min, Max]; a nil bound is open. Bounds are numbers or
@@ -292,7 +292,20 @@ func readRows(f *parquet.File, rg parquet.RowGroup, rows []int64) ([]Row, error)
 		}
 		row := Row{}
 		for _, v := range buf[0] {
-			row[cols[v.Column()][0]] = scalar(v)
+			path := cols[v.Column()]
+			if len(path) == 1 {
+				row[path[0]] = scalar(v)
+				continue
+			}
+			// A list column: collect its elements; an empty list is one null value.
+			list, _ := row[path[0]].([]any)
+			if list == nil {
+				list = []any{}
+			}
+			if !v.IsNull() {
+				list = append(list, scalar(v))
+			}
+			row[path[0]] = list
 		}
 		out = append(out, row)
 	}

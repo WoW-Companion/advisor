@@ -8,7 +8,9 @@ import (
 	"io/fs"
 	"net/http"
 	"os"
+	"slices"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -17,6 +19,7 @@ import (
 	"github.com/WoW-Companion/advisor/internal/brief"
 	"github.com/WoW-Companion/advisor/internal/character"
 	"github.com/WoW-Companion/advisor/internal/dataset"
+	"github.com/WoW-Companion/advisor/internal/gear"
 	"github.com/WoW-Companion/advisor/internal/lua"
 	"github.com/WoW-Companion/advisor/internal/store"
 )
@@ -230,10 +233,32 @@ type NextOutput struct {
 	Text      string        `json:"text" jsonschema:"plain-text rendering of the steps"`
 }
 
+// UpgradeInput is the upgrade_finder argument.
+type UpgradeInput struct {
+	Character string `json:"character,omitempty" jsonschema:"character name; omit when only one was captured"`
+	Slot      string `json:"slot,omitempty" jsonschema:"one slot (head, neck, shoulder, back, chest, wrist, hands, waist, legs, feet, finger1, finger2, trinket1, trinket2, mainhand, offhand, ranged); omit for all"`
+	Limit     int    `json:"limit,omitempty" jsonschema:"most upgrades per slot (default 3)"`
+}
+
+// UpgradeOutput is the upgrade_finder result.
+type UpgradeOutput struct {
+	Character     string                      `json:"character"`
+	Spec          string                      `json:"spec,omitempty" jsonschema:"spec the stat weights are for; empty when none apply"`
+	ItemLevelOnly bool                        `json:"item_level_only" jsonschema:"true when upgrades are ranked by item level alone"`
+	Slots         map[string][]gear.Candidate `json:"slots"`
+	Text          string                      `json:"text" jsonschema:"plain-text rendering"`
+}
+
+// noUpgrades is the result accompanying an error; the output schema wants a map, not null.
+var noUpgrades = UpgradeOutput{Slots: map[string][]gear.Candidate{}}
+
+// DefaultUpgradeLimit is how many upgrades per slot upgrade_finder returns when none is asked for.
+const DefaultUpgradeLimit = 3
+
 // DefaultLimit is how many steps whats_next returns when none is asked for.
 const DefaultLimit = 8
 
-// New builds the server with its four tools. The character file is read on every call.
+// New builds the server with its tools. The character file is read on every call.
 func New(cfg Config) *mcp.Server {
 	s := mcp.NewServer(&mcp.Implementation{Name: "wowc-advisor", Version: Version}, nil)
 
@@ -305,6 +330,46 @@ func New(cfg Config) *mcp.Server {
 			name = c.Key
 		}
 		return nil, NextOutput{name, steps, len(all), advice.Render(c, steps, len(all))}, nil
+	})
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "upgrade_finder",
+		Description: "Gear upgrades for one captured character (by name; omit if only one) per slot (optional slot; limit defaults to 3 per slot): " +
+			"items their class can use and they can equip within 3 levels that beat what they wear, with where each drops. " +
+			"Ranked by item level weighted by the spec's stat types, or by item level alone when the dataset has no stats; the answer says which.",
+	}, func(_ context.Context, _ *mcp.CallToolRequest, in UpgradeInput) (*mcp.CallToolResult, UpgradeOutput, error) {
+		f, errResult := load(cfg.SavedVariables)
+		if errResult != nil {
+			return errResult, noUpgrades, nil
+		}
+		c, err := brief.Choose(f, in.Character)
+		if err != nil {
+			return toolError(err.Error()), noUpgrades, nil
+		}
+		slot := strings.ToLower(strings.TrimSpace(in.Slot))
+		if slot != "" && !slices.Contains(brief.Slots, slot) {
+			return toolError("Unknown slot '" + in.Slot + "'; use one of: " + strings.Join(brief.Slots, ", ") + "."), noUpgrades, nil
+		}
+		if cfg.Dataset == "" {
+			return toolError("No dataset configured (set WOWC_DATASET)."), noUpgrades, nil
+		}
+		limit := in.Limit
+		if limit <= 0 {
+			limit = DefaultUpgradeLimit
+		}
+		group := ""
+		if names, _ := brief.TopGroups(c.Talents); len(names) == 1 {
+			group = names[0]
+		}
+		res, err := gear.Find(c, store.NewDir(cfg.Dataset), group, gear.Options{Slot: slot, Limit: limit})
+		if err != nil {
+			return toolError("Could not find upgrades: " + err.Error()), noUpgrades, nil
+		}
+		name := c.Name
+		if name == "" {
+			name = c.Key
+		}
+		return nil, UpgradeOutput{name, res.Spec, res.ItemLevelOnly, res.Slots, gear.Render(c, res)}, nil
 	})
 	return s
 }

@@ -61,7 +61,7 @@ func exercise(t *testing.T, cs *mcp.ClientSession) {
 	for _, tool := range tools.Tools {
 		names = append(names, tool.Name)
 	}
-	if strings.Join(names, ",") != "character_brief,list_characters,server_info,whats_next" {
+	if strings.Join(names, ",") != "character_brief,list_characters,server_info,upgrade_finder,whats_next" {
 		t.Errorf("tools = %v", names)
 	}
 	call := func(name string, args map[string]any) (string, bool) {
@@ -85,6 +85,12 @@ func exercise(t *testing.T, cs *mcp.ClientSession) {
 	}
 	if text, isErr := call("whats_next", map[string]any{"character": "testpriest", "limit": 3}); isErr || !strings.Contains(text, `"steps":`) || !strings.Contains(text, "What's next for Testpriest") {
 		t.Errorf("whats_next = %s", text)
+	}
+	if text, isErr := call("upgrade_finder", map[string]any{"character": "testpriest"}); !isErr || !strings.Contains(text, "No dataset configured") {
+		t.Errorf("upgrade_finder without dataset = %q, error %v", text, isErr)
+	}
+	if text, isErr := call("upgrade_finder", map[string]any{"character": "testpriest", "slot": "knees"}); !isErr || !strings.Contains(text, "Unknown slot") {
+		t.Errorf("upgrade_finder bad slot = %q, error %v", text, isErr)
 	}
 	if text, isErr := call("character_brief", map[string]any{"character": "Nobody"}); !isErr || !strings.Contains(text, "No captured character") {
 		t.Errorf("unknown character = %q, error %v", text, isErr)
