@@ -20,6 +20,7 @@ import (
 	"github.com/WoW-Companion/advisor/internal/character"
 	"github.com/WoW-Companion/advisor/internal/dataset"
 	"github.com/WoW-Companion/advisor/internal/digest"
+	"github.com/WoW-Companion/advisor/internal/dungeons"
 	"github.com/WoW-Companion/advisor/internal/gear"
 	"github.com/WoW-Companion/advisor/internal/lua"
 	"github.com/WoW-Companion/advisor/internal/professions"
@@ -283,6 +284,23 @@ type TalentOutput struct {
 	Text      string         `json:"text" jsonschema:"plain-text rendering"`
 }
 
+// DungeonInput is the dungeon_plan argument.
+type DungeonInput struct {
+	Character string `json:"character,omitempty" jsonschema:"character name; omit when only one was captured"`
+	Limit     int    `json:"limit,omitempty" jsonschema:"how many ranked dungeons to list (default 3)"`
+}
+
+// DungeonOutput is the dungeon_plan result.
+type DungeonOutput struct {
+	Character string                 `json:"character"`
+	Picks     []dungeons.DungeonPick `json:"picks"`
+	Unknown   []dungeons.DungeonPick `json:"level_unknown"`
+	Text      string                 `json:"text" jsonschema:"plain-text rendering"`
+}
+
+// DefaultDungeonLimit is how many ranked dungeons dungeon_plan lists when none is asked for.
+const DefaultDungeonLimit = 3
+
 // DefaultUpgradeLimit is how many upgrades per slot upgrade_finder returns when none is asked for.
 const DefaultUpgradeLimit = 3
 
@@ -525,6 +543,43 @@ func New(cfg Config) *mcp.Server {
 			name = c.Key
 		}
 		return nil, TalentOutput{name, plan, talents.Render(plan)}, nil
+	})
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "dungeon_plan",
+		Description: "Which dungeons fit one captured character (by name; omit if only one; optional limit, default 3): " +
+			"dungeons whose level range is within 3 levels of theirs, ranked by how many boss drops are upgrades for their spec, then level fit, " +
+			"with the boss, drop chance and any open quests that lead there. Dungeons with no level range are listed apart, unranked; bosses with no creature link are named, not guessed.",
+	}, func(_ context.Context, _ *mcp.CallToolRequest, in DungeonInput) (*mcp.CallToolResult, DungeonOutput, error) {
+		none := DungeonOutput{}
+		f, errResult := load(cfg.SavedVariables)
+		if errResult != nil {
+			return errResult, none, nil
+		}
+		c, err := brief.Choose(f, in.Character)
+		if err != nil {
+			return toolError(err.Error()), none, nil
+		}
+		if cfg.Dataset == "" {
+			return toolError("No dataset configured (set WOWC_DATASET)."), none, nil
+		}
+		limit := in.Limit
+		if limit <= 0 {
+			limit = DefaultDungeonLimit
+		}
+		res, err := dungeons.Plan(c, store.NewDir(cfg.Dataset))
+		if err != nil {
+			return toolError("Could not plan dungeons: " + err.Error()), none, nil
+		}
+		name := c.Name
+		if name == "" {
+			name = c.Key
+		}
+		picks := res.Picks
+		if len(picks) > limit {
+			picks = picks[:limit]
+		}
+		return nil, DungeonOutput{name, picks, res.Unknown, dungeons.Render(c, res, limit)}, nil
 	})
 
 	mcp.AddTool(s, &mcp.Tool{
