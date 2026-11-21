@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 )
 
@@ -65,4 +66,17 @@ func Write(path string, d Envelope) error {
 		return err
 	}
 	return nil
+}
+
+var generatedRE = regexp.MustCompile(`generated = \d+,`)
+
+// Same reports whether the file at path already holds the envelope, ignoring the generated times
+// (they change on every build, so a rebuild of the same advice would never match byte for byte).
+func Same(path string, d Envelope) bool {
+	old, err := os.ReadFile(path)
+	if err != nil {
+		return false
+	}
+	norm := func(s string) string { return generatedRE.ReplaceAllString(s, "generated = 0,") }
+	return norm(string(old)) == norm(d.Lua())
 }

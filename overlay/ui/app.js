@@ -208,6 +208,7 @@ function setOpacity(v) {
 }
 $('panel').onmouseenter = () => { clearTimeout(leaveTimer); hovering = true; paint(); };
 $('panel').onmouseleave = () => { clearTimeout(leaveTimer); leaveTimer = setTimeout(() => { hovering = false; paint(); }, HOVER_LEAVE_MS); };
+$('auto-digest').onchange = ev => { cfg.autoDigest = ev.target.checked; save(); pushDigest(); };
 $('solid-hover').onchange = ev => { cfg.solidHover = ev.target.checked; save(); paint(); };
 $('opacity').oninput = ev => setOpacity(+ev.target.value);
 
@@ -244,12 +245,28 @@ function ago(t) {
   const s = Math.max(0, Date.now() / 1000 - t);
   return s < 60 ? 'now' : s < 3600 ? Math.floor(s / 60) + 'm' : s < 86400 ? Math.floor(s / 3600) + 'h' : Math.floor(s / 86400) + 'd';
 }
+// The tooltip's note on the in-game digest the advisor keeps up to date.
+function digestNote() {
+  const d = state && state.digest;
+  if (!d || !d.enabled || d.status === 'addon not found') return '';
+  return d.updated_at ? '\nin-game advice updated ' + new Date(d.updated_at * 1000).toLocaleTimeString() : '\nin-game advice: waiting for the next save';
+}
+// The setting under "Keep in-game advice up to date": its note says why it does nothing, if it does not.
+function showDigest() {
+  const d = state && state.digest;
+  $('auto-digest').checked = cfg.autoDigest !== false;
+  $('auto-digest-note').textContent = d && d.status === 'addon not found' ? 'addon not found' : d && d.status === 'error' ? d.error : '';
+}
+async function pushDigest() {
+  try { await api('/api/auto-digest', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ on: cfg.autoDigest !== false }) }); } catch (e) { /* shown by the next state load */ }
+}
 function showBadge() {
   if (!state) return;
+  showDigest();
   const t = state.captured_at, s = t ? Date.now() / 1000 - t : 0;
   badge.textContent = t ? ago(t) : '—';
   badge.className = 'chip' + (!t || s > 7200 ? ' red' : s > 1800 ? ' amber' : '');
-  badge.title = 'data from game: ' + (t ? new Date(t * 1000).toLocaleTimeString() : 'no capture yet') + (state.error ? ' — ' + state.error : '');
+  badge.title = 'data from game: ' + (t ? new Date(t * 1000).toLocaleTimeString() : 'no capture yet') + (state.error ? ' — ' + state.error : '') + digestNote();
 }
 function setChars() {
   const cur = who.value || cfg.who;
@@ -312,6 +329,7 @@ async function load() {
   const r = await api('/api/state');
   if (!r.ok) throw new Error('HTTP ' + r.status);
   state = await r.json();
+  if (state.digest && state.digest.enabled !== (cfg.autoDigest !== false)) pushDigest(); // the saved choice wins over the sidecar's default
   setChars();
   showBadge();
   render(state.history);

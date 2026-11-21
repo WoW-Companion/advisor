@@ -37,12 +37,18 @@ func companionCmd(ctx context.Context, args []string, stdout, stderr io.Writer) 
 	port := fs.Int("port", 4317, "first port to try; the next free one is used when it is taken")
 	noOpen := fs.Bool("no-open", false, "do not open the browser")
 	handshake := fs.Bool("handshake", false, "for the desktop app: pick a free port, print one JSON line {\"url\",\"token\",\"agent\",\"agent_source\"} and never open a browser")
+	autoDigest := fs.Bool("auto-digest", false, "rewrite the in-game digest whenever ForeverScribe saves (default: on with --handshake, off otherwise)")
 	lan := fs.Bool("lan", false, "listen on all interfaces so a phone or another PC can open it (anyone with the URL can ask your agent)")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
 	if fs.NArg() > 0 {
 		return errors.New("companion takes no arguments\n" + usage)
+	}
+	autoSet := false
+	fs.Visit(func(f *flag.Flag) { autoSet = autoSet || f.Name == "auto-digest" })
+	if !autoSet {
+		*autoDigest = *handshake
 	}
 	if *handshake && *lan {
 		return errors.New("--handshake serves the desktop app on this machine only; it cannot be combined with --lan")
@@ -65,7 +71,7 @@ func companionCmd(ctx context.Context, args []string, stdout, stderr io.Writer) 
 		return err
 	}
 	s := companion.New(companion.Config{
-		ForeverScribe: cfg.SavedVariables, Ask: ac, LAN: *lan, App: *handshake, Dataset: cfg.Dataset,
+		ForeverScribe: cfg.SavedVariables, Ask: ac, LAN: *lan, App: *handshake, Dataset: cfg.Dataset, AutoDigest: *autoDigest,
 		Stream: len(ac.Command) > 0 && strings.TrimSuffix(strings.ToLower(filepath.Base(ac.Command[0])), strings.ToLower(filepath.Ext(ac.Command[0]))) == "claude",
 	})
 	p := ln.Addr().(*net.TCPAddr).Port

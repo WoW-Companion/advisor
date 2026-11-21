@@ -104,12 +104,22 @@ live in the app's own storage, not a file you edit; see the FAQ.
 
 ## 5. Put the digest in the game panel
 
-The overlay has no digest button; the advisor writes the in-game digest from the capture, when asked.
+With the overlay running, the advice refreshes itself; `/reload` to see it.
 
-Action: type "refresh my digest" in the overlay's Ask box (or to any connected AI client), or, with the
-standalone binary, run `wowc-advisor digest` in a terminal. Then type `/reload` in game and `/wowc`.
+The overlay's advisor rewrites the in-game digest a couple of seconds after ForeverScribe saves, and
+skips the write when nothing changed. The game only saves and loads addon files on `/reload`, so the
+sequence is: your `/reload` saves, the overlay writes within a couple of seconds, and your next
+`/reload` loads it and shows it in `/wowc`. One `/reload` both saves and loads, but the load happens
+before the overlay's write, so the new advice shows on the following one. Switch it off with "Keep
+in-game advice up to date" in the overlay's settings; it shows "addon not found" and does nothing
+until the `WoWCompanion_Digest` addon folder exists. The age chip's tooltip says when the in-game
+advice was last updated.
 
-Success: the answer (or command) says it wrote the `WoWCompanion_Digest` addon; the panel opens
+Without the overlay, run `wowc-advisor digest` in a terminal (or `wowc-advisor companion --auto-digest`
+to get the same automatic writes), then `/reload` in game and `/wowc`. You can also type "refresh my
+digest" to a connected AI client.
+
+Success: the digest file is written (the command says it wrote the `WoWCompanion_Digest` addon), and the panel opens
 with your next quests, upgrades and materials. Every character you have played is kept, so one digest
 covers them all.
 
@@ -191,8 +201,9 @@ then press **Re-scan**.
 added later. Install a newer overlay (step 2) or rebuild with `@main`.
 
 **The data is stale, or the age chip is amber or red.** The advice reflects the last ForeverScribe save.
-Type `/reload` in game (or log out) and the chip returns to `now`. For the in-game panel run
-`wowc-advisor digest` then `/reload`; it asks for a refresh after 12 hours.
+Type `/reload` in game (or log out) and the chip returns to `now`. The in-game panel refreshes itself
+while the overlay runs (`/reload` twice, see step 5); without the overlay run `wowc-advisor digest`
+then `/reload`. The panel asks for a refresh after 12 hours.
 
 **The overlay does not show over the game.** Set WoW's Display Mode to **Windowed (Fullscreen)**
 (System, Graphics). In true Fullscreen nothing can draw above the game. Also check the panel is not

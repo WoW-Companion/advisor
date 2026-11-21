@@ -11,12 +11,14 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/WoW-Companion/advisor/internal/ask"
 	"github.com/WoW-Companion/advisor/internal/character"
+	"github.com/WoW-Companion/advisor/internal/digest"
 )
 
 // TestMain makes the test binary double as the fake agent CLI. "stream" prints Claude-style
@@ -424,4 +426,92 @@ func TestNoAgent(t *testing.T) {
 	if resp.StatusCode != http.StatusConflict || strings.TrimSpace(string(body)) != ErrNoAgent {
 		t.Errorf("ask: %d %q", resp.StatusCode, body)
 	}
+}
+
+// digestEnv lays out <game>/WTF/Account/A/SavedVariables/ForeverScribe.lua, with the digest slot
+// folder when withAddon is set, and returns a companion (not serving) that writes into it.
+func digestEnv(t *testing.T, withAddon, on bool) (*Server, string, string) {
+	t.Helper()
+	game := t.TempDir()
+	sv := filepath.Join(game, "WTF", "Account", "A", "SavedVariables")
+	if err := os.MkdirAll(sv, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	slot := filepath.Join(game, "Interface", "AddOns", digest.SlotAddon)
+	if withAddon {
+		if err := os.MkdirAll(slot, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	fs := filepath.Join(sv, "ForeverScribe.lua")
+	write(t, fs, capture)
+	return New(Config{ForeverScribe: fs, AutoDigest: on}), fs, filepath.Join(slot, "Digest.lua")
+}
+
+func TestAutoDigest(t *testing.T) {
+	s, fs, out := digestEnv(t, true, true)
+	if s.digest.Status != DigestOn {
+		t.Fatalf("status %q", s.digest.Status)
+	}
+	s.writeDigest()
+	first, err := os.ReadFile(out)
+	if err != nil || !strings.Contains(string(first), "New") {
+		t.Fatalf("digest not written: %v %q", err, first)
+	}
+	if s.digest.UpdatedAt == 0 {
+		t.Error("no update time")
+	}
+	// A rebuild of the same advice, even at a later second, leaves the file alone.
+	older := regexp.MustCompile(`generated = \d+,`).ReplaceAllString(string(first), "generated = 1,")
+	write(t, out, older)
+	old := time.Now().Add(-time.Hour)
+	os.Chtimes(out, old, old)
+	s.writeDigest()
+	if st, _ := os.Stat(out); st.ModTime().After(old.Add(time.Minute)) {
+		t.Error("identical digest was rewritten")
+	}
+	// A real change writes.
+	write(t, fs, strings.Replace(capture, `name = "New"`, `name = "Newer"`, 1))
+	s.writeDigest()
+	if got, _ := os.ReadFile(out); string(got) == string(first) {
+		t.Error("changed capture did not change the digest")
+	}
+}
+
+func TestAutoDigestSkips(t *testing.T) {
+	s, _, out := digestEnv(t, false, true)
+	if s.digest.Status != DigestNoAddon {
+		t.Fatalf("status %q, want addon not found", s.digest.Status)
+	}
+	s.writeDigest()
+	if _, err := os.Stat(out); err == nil || s.snapshot().Digest.Status != DigestNoAddon {
+		t.Errorf("wrote without the addon (%v) or lost the status %q", err, s.snapshot().Digest.Status)
+	}
+	s, _, out = digestEnv(t, true, false)
+	s.writeDigest()
+	if _, err := os.Stat(out); err == nil {
+		t.Error("wrote with the setting off")
+	}
+	s.SetAutoDigest(true)
+	s.writeDigest()
+	if _, err := os.Stat(out); err != nil {
+		t.Errorf("not written after turning it on: %v", err)
+	}
+}
+
+func TestAutoDigestOnSave(t *testing.T) {
+	s, fs, out := digestEnv(t, true, true)
+	s.cfg.Poll, s.cfg.Debounce = 20*time.Millisecond, 100*time.Millisecond
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go s.watch(ctx)
+	time.Sleep(60 * time.Millisecond)
+	write(t, fs, capture+"-- saved\n")
+	for i := 0; i < 100; i++ {
+		if _, err := os.Stat(out); err == nil {
+			return
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	t.Error("a save did not write the digest")
 }
