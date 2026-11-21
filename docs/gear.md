@@ -15,7 +15,10 @@ level range. There is no object table and no zone on any of them, so object sour
 
 ## Which items
 
-- Required level at most the character's level + 3. Poor-quality items and items with no item level
+- Required level at most the character's level + 3. A required level of 0 is read as unknown, not
+  as "none" (the client holds 0 for many high-level items, about 2,300 equippable ones in the
+  1.60.1 dataset): such an item is offered only when its item level is at most the character's
+  level + 3, and is shown as "requires level unknown". Poor-quality items and items with no item level
   are skipped.
 - The item's `allowable_class_mask` must include the class.
 - Armor: head, shoulder, chest (robes too), waist, legs, feet, wrist and hands must be the
