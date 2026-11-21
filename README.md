@@ -9,13 +9,17 @@ are in [skills/](skills/) and [docs/try-it.md](docs/try-it.md).
 
 ## Quick start
 
-Requires [uv](https://docs.astral.sh/uv/) and Python 3.12+.
+Download the binary for your platform (Windows, macOS or Linux; amd64 or arm64) from the
+[releases page](https://github.com/WoW-Companion/advisor/releases). It is one static file with no
+dependencies.
 
 ```bash
-uv sync
-uv run wowc-advisor serve --stdio                 # default transport
-uv run wowc-advisor serve --http --port 8000      # streamable HTTP at /mcp
+wowc-advisor serve --stdio                 # default transport
+wowc-advisor serve --http --port 8000      # streamable HTTP at /mcp
 ```
+
+Developers can install it with Go instead:
+`go install github.com/WoW-Companion/advisor/cmd/wowc-advisor@latest`.
 
 Point the server at a dataset directory (Parquet tables plus `manifest.json`) with
 `--dataset DIR` or `WOWC_DATASET`. Without one, `server_info` reports "no dataset configured".
@@ -27,17 +31,23 @@ Client configuration for Claude Desktop, Claude Code, Codex and Gemini CLI is in
 
 Character-aware advice reads the file the [ForeverScribe](https://github.com/MattMaximo/foreverscribe)
 addon (MIT) writes when you `/reload` or log out:
-`WTF/Account/<account>/SavedVariables/ForeverScribe.lua` inside your game folder. Point the server
+`WTF/Account/<account>/SavedVariables/ForeverScribe.lua` inside your game folder (on Windows,
+`World of Warcraft\_forever_\WTF\Account\<ACCOUNT>\SavedVariables\ForeverScribe.lua`). Point the server
 at it with `--savedvariables FILE` or `WOWC_SAVEDVARIABLES`; `server_info` then reports how many
-characters it found and when they were captured. The file is only read, on your machine, by a
+characters it found, when they were captured and which game client version and build wrote them. The file is only read, on your machine, by a
 parser that never executes it; it is never uploaded or written to. The format is documented in
 [docs/foreverscribe-format.md](docs/foreverscribe-format.md).
 
 ## Development
 
 ```bash
-make verify   # ruff check, ruff format --check, pytest
+make verify   # gofmt -l, go vet, go test
+make build    # static binaries for six platforms in dist/ (git-ignored)
+make bench    # DataStore benchmarks: point lookups and a range filter on a 32,000 row table
 ```
+
+Go only; CGO is disabled for every build. Layout: `cmd/wowc-advisor` (the command) and `internal/`
+(`lua` parser, `character` model, `brief`, `server` tools, `store` Parquet DataStore).
 
 ## License
 

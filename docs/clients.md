@@ -1,12 +1,12 @@
 # Client setup
 
 The server runs locally over stdio (the default) or streamable HTTP. In every entry below,
-replace `/path/to/advisor` with your checkout of this repository, and optionally set
-`WOWC_DATASET` to a dataset directory (see `server_info` for what the server found).
+replace `/path/to/wowc-advisor` with the full path of the binary you downloaded for your platform
+(on Windows, `wowc-advisor.exe`), set `WOWC_SAVEDVARIABLES` to your `ForeverScribe.lua`, and
+optionally set `WOWC_DATASET` to a dataset directory (see `server_info` for what the server found).
 
-The stdio command is `uv run --directory /path/to/advisor wowc-advisor serve --stdio`.
-For HTTP, start `uv run wowc-advisor serve --http --port 8000`; the endpoint is
-`http://127.0.0.1:8000/mcp`.
+The stdio command is `/path/to/wowc-advisor serve --stdio`. For HTTP, start
+`/path/to/wowc-advisor serve --http --port 8000`; the endpoint is `http://127.0.0.1:8000/mcp`.
 
 Each section was checked against the cited page on 2026-11-20. Nothing here was run inside the
 client itself, so treat the entries as "matches the docs", not "tested in the client".
@@ -22,9 +22,9 @@ Edit `claude_desktop_config.json` (macOS: `~/Library/Application Support/Claude/
 {
   "mcpServers": {
     "wowc-advisor": {
-      "command": "uv",
-      "args": ["run", "--directory", "/path/to/advisor", "wowc-advisor", "serve", "--stdio"],
-      "env": { "WOWC_DATASET": "/path/to/dataset" }
+      "command": "/path/to/wowc-advisor",
+      "args": ["serve", "--stdio"],
+      "env": { "WOWC_SAVEDVARIABLES": "/path/to/ForeverScribe.lua" }
     }
   }
 }
@@ -35,8 +35,8 @@ Edit `claude_desktop_config.json` (macOS: `~/Library/Application Support/Claude/
 Source: <https://code.claude.com/docs/en/mcp>
 
 ```bash
-claude mcp add --env WOWC_DATASET=/path/to/dataset --transport stdio wowc-advisor \
-  -- uv run --directory /path/to/advisor wowc-advisor serve --stdio
+claude mcp add --env WOWC_SAVEDVARIABLES=/path/to/ForeverScribe.lua --transport stdio wowc-advisor \
+  -- /path/to/wowc-advisor serve --stdio
 
 # or against a running HTTP server
 claude mcp add --transport http wowc-advisor http://127.0.0.1:8000/mcp
@@ -50,19 +50,19 @@ Source: <https://learn.chatgpt.com/docs/extend/mcp?surface=cli>
 (the older `developers.openai.com/codex/mcp` address redirects there)
 
 ```bash
-codex mcp add wowc-advisor --env WOWC_DATASET=/path/to/dataset \
-  -- uv run --directory /path/to/advisor wowc-advisor serve --stdio
+codex mcp add wowc-advisor --env WOWC_SAVEDVARIABLES=/path/to/ForeverScribe.lua \
+  -- /path/to/wowc-advisor serve --stdio
 ```
 
 Or in `~/.codex/config.toml`:
 
 ```toml
 [mcp_servers.wowc-advisor]
-command = "uv"
-args = ["run", "--directory", "/path/to/advisor", "wowc-advisor", "serve", "--stdio"]
+command = "/path/to/wowc-advisor"
+args = ["serve", "--stdio"]
 
 [mcp_servers.wowc-advisor.env]
-WOWC_DATASET = "/path/to/dataset"
+WOWC_SAVEDVARIABLES = "/path/to/ForeverScribe.lua"
 ```
 
 For HTTP use `url = "http://127.0.0.1:8000/mcp"` in place of `command`/`args`.
@@ -77,9 +77,9 @@ In `~/.gemini/settings.json` (user) or `.gemini/settings.json` (project):
 {
   "mcpServers": {
     "wowc-advisor": {
-      "command": "uv",
-      "args": ["run", "--directory", "/path/to/advisor", "wowc-advisor", "serve", "--stdio"],
-      "env": { "WOWC_DATASET": "/path/to/dataset" }
+      "command": "/path/to/wowc-advisor",
+      "args": ["serve", "--stdio"],
+      "env": { "WOWC_SAVEDVARIABLES": "/path/to/ForeverScribe.lua" }
     }
   }
 }
