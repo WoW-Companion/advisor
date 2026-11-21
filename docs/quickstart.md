@@ -235,6 +235,16 @@ Use the overlay instead, and delete the folder.
 `wowc-advisor digest` (every captured character is kept in one digest) and `/reload`. In the overlay pick
 the character in the box at the top.
 
+**Answers are too long or too short, or I want to save tokens.** Open the overlay settings. **Answer
+length** is Brief (a few lines, the top 1-3 actions), Standard (a short numbered plan, the default) or
+Detailed (a fuller plan with alternatives); on the command line it is `--length` on `ask` and `companion`.
+**Model** picks the AI client's small, fast tier (Efficient, the default), Balanced, Best, or Custom with a
+model name you type (`--model`). Efficient is `haiku` for Claude Code and `flash-lite` for Gemini CLI; Codex
+has no stable model alias, so it keeps its own model and the tiers set its reasoning effort instead. Each
+ask also sends only your last 4 exchanges and Claude Code is capped at 10 turns. **Show tokens used** puts a
+muted line such as "≈3.1k tokens" under an answer when the client reports it (Claude Code does; the others
+show nothing); `--no-usage` turns it off.
+
 **The overlay is black or blank.** It needs the Microsoft Edge WebView2 runtime. Windows 11 has it;
 otherwise install it from
 [Microsoft](https://developer.microsoft.com/microsoft-edge/webview2/#download-section).

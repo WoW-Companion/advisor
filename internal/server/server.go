@@ -274,7 +274,8 @@ type NextOutput struct {
 type UpgradeInput struct {
 	Character string `json:"character,omitempty" jsonschema:"character name; omit when only one was captured"`
 	Slot      string `json:"slot,omitempty" jsonschema:"one slot (head, neck, shoulder, back, chest, wrist, hands, waist, legs, feet, finger1, finger2, trinket1, trinket2, mainhand, offhand, ranged); omit for all"`
-	Limit     int    `json:"limit,omitempty" jsonschema:"most upgrades per slot (default 3)"`
+	Limit     int    `json:"limit,omitempty" jsonschema:"most upgrades per slot (default 3, or 1 with brief)"`
+	Brief     bool   `json:"brief,omitempty" jsonschema:"compact answer: the text rendering only, one upgrade per slot unless limit is set"`
 }
 
 // UpgradeOutput is the upgrade_finder result.
@@ -319,7 +320,8 @@ type TalentOutput struct {
 // DungeonInput is the dungeon_plan argument.
 type DungeonInput struct {
 	Character string `json:"character,omitempty" jsonschema:"character name; omit when only one was captured"`
-	Limit     int    `json:"limit,omitempty" jsonschema:"how many ranked dungeons to list (default 3)"`
+	Limit     int    `json:"limit,omitempty" jsonschema:"how many ranked dungeons to list (default 3, or 2 with brief)"`
+	Brief     bool   `json:"brief,omitempty" jsonschema:"compact answer: the text rendering only, not the same data again as fields"`
 }
 
 // DungeonOutput is the dungeon_plan result.
@@ -586,6 +588,9 @@ func New(cfg Config) *mcp.Server {
 		limit := in.Limit
 		if limit <= 0 {
 			limit = DefaultUpgradeLimit
+			if in.Brief {
+				limit = 1
+			}
 		}
 		group := ""
 		if names, _ := brief.TopGroups(c.Talents); len(names) == 1 {
@@ -599,7 +604,11 @@ func New(cfg Config) *mcp.Server {
 		if name == "" {
 			name = c.Key
 		}
-		return nil, UpgradeOutput{name, res.Spec, res.ItemLevelOnly, res.Slots, gear.Render(c, res)}, nil
+		out := UpgradeOutput{name, res.Spec, res.ItemLevelOnly, res.Slots, gear.Render(c, res)}
+		if in.Brief { // the text carries the same data; send it once
+			out.Slots = nil
+		}
+		return nil, out, nil
 	})
 
 	mcp.AddTool(s, &mcp.Tool{
@@ -687,6 +696,9 @@ func New(cfg Config) *mcp.Server {
 		limit := in.Limit
 		if limit <= 0 {
 			limit = DefaultDungeonLimit
+			if in.Brief {
+				limit = 2
+			}
 		}
 		res, err := dungeons.Plan(c, store.NewDir(cfg.Dataset))
 		if err != nil {
@@ -700,7 +712,11 @@ func New(cfg Config) *mcp.Server {
 		if len(picks) > limit {
 			picks = picks[:limit]
 		}
-		return nil, DungeonOutput{name, picks, res.Unknown, dungeons.Render(c, res, limit)}, nil
+		out := DungeonOutput{name, picks, res.Unknown, dungeons.Render(c, res, limit)}
+		if in.Brief {
+			out.Picks, out.Unknown = nil, nil
+		}
+		return nil, out, nil
 	})
 
 	mcp.AddTool(s, &mcp.Tool{

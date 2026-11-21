@@ -111,6 +111,7 @@ type Config struct {
 	Command        []string // the agent argv, see Presets; empty when no agent is set up (the companion only)
 	Name, Source   string   // the agent's short name and where it came from (see Agent); may be empty
 	MCPConfig      string   // path of the MCP config file handed to the agent; may be empty
+	Options        Options  // answer length and model tier, see Options
 	Timeout        time.Duration
 	MaxPerRun      int
 	Now            func() time.Time
@@ -186,7 +187,7 @@ func fileExists(p string) bool { _, err := os.Stat(p); return err == nil }
 // runAgent runs the agent for q. The error is short and fit to show the player.
 func runAgent(ctx context.Context, cfg Config, q Question) (string, error) {
 	var out bytes.Buffer
-	if err := execAgent(ctx, cfg, q, Prompt(q), nil, &capped{w: &out, left: MaxOutput}); err != nil {
+	if err := execAgent(ctx, cfg, q, PromptFor(q, cfg.Options.Length), nil, &capped{w: &out, left: MaxOutput}); err != nil {
 		return "", err
 	}
 	if strings.TrimSpace(out.String()) == "" {
@@ -206,7 +207,7 @@ func execAgent(ctx context.Context, cfg Config, q Question, prompt string, extra
 	}
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-	argv := append(Argv(cfg.Command, prompt, cfg.MCPConfig), extra...)
+	argv := append(WithModel(Argv(cfg.Command, prompt, cfg.MCPConfig), cfg.Command, cfg.Options), extra...)
 	cmd, err := Launch(ctx, argv, "WOWC_QUESTION="+q.Text, "WOWC_CHARACTER="+q.Character, "WOWC_MCP_CONFIG="+cfg.MCPConfig)
 	if err != nil {
 		return err
@@ -248,14 +249,17 @@ func (c *capped) Write(p []byte) (int, error) {
 	return n, err
 }
 
-// Prompt is what the agent is asked: the question and the character key, where the facts are, and
-// what to say if the tools are missing.
-func Prompt(q Question) string {
-	return fmt.Sprintf("You are the WoW Companion advisor. A World of Warcraft player asks a question from inside the game. "+
-		"Character key: %s. Use the %s MCP tools for anything about this character or the game; do not guess. "+
-		"Never tell the player to change permissions, settings or approvals. If a tool call is refused or the tools are missing, "+
-		"answer exactly: %q "+
-		"Answer in plain text, under %d characters, no markdown.\n\nQuestion: %s", q.Character, ServerName, ToolsUnavailable, MaxAnswer, q.Text)
+// Prompt is PromptFor at the default (Standard) length.
+func Prompt(q Question) string { return PromptFor(q, LengthStandard) }
+
+// PromptFor is what the agent is asked: the question and the character key, where the facts are, what
+// to say if the tools are missing, and how long the answer should be. It is kept short on purpose,
+// as it is sent with every ask.
+func PromptFor(q Question, length string) string {
+	r := lengthRule[Options{Length: length}.Normalize().Length]
+	return fmt.Sprintf("You are the WoW Companion advisor. Character key: %s. Use the %s MCP tools for facts about this character or the game (brief=true on upgrade_finder and dungeon_plan); do not guess. "+
+		"Never tell the player to change permissions or settings. If the tools are refused or missing, answer exactly: %q "+
+		"%s Plain text, under %d characters, no markdown.\n\nQuestion: %s", q.Character, ServerName, ToolsUnavailable, r.text, r.limit, q.Text)
 }
 
 // ToolsUnavailable is the answer when the AI client would not run the advisor's tools.
@@ -285,12 +289,15 @@ func Argv(tmpl []string, prompt, mcpConfig string) []string {
 }
 
 // Clean trims the agent's output and cuts it to MaxAnswer characters, at a rune boundary.
-func Clean(s string) string {
+func Clean(s string) string { return CleanTo(s, MaxAnswer) }
+
+// CleanTo is Clean with a limit of max characters.
+func CleanTo(s string, max int) string {
 	s = strings.ToValidUTF8(strings.TrimSpace(s), "")
-	if utf8.RuneCountInString(s) <= MaxAnswer {
+	if utf8.RuneCountInString(s) <= max {
 		return s
 	}
-	return strings.TrimRight(string([]rune(s)[:MaxAnswer-3]), " \n") + "..."
+	return strings.TrimRight(string([]rune(s)[:max-3]), " \n") + "..."
 }
 
 // Sources lists the advisor tools the output names, in Tools order.

@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 )
 
@@ -18,15 +19,40 @@ const maxStreamOutput = 4 << 20
 // command is Claude's: its text deltas are passed to onText as they arrive and streamed is true when
 // any did. Otherwise the output is read whole, cut like ask does, and streamed is false.
 func Respond(ctx context.Context, cfg Config, q Question, prompt string, stream bool, onText func(string)) (text string, streamed bool, err error) {
+	text, streamed, _, err = RespondUsage(ctx, cfg, q, prompt, stream, onText)
+	return
+}
+
+// Usage is what the CLI reported for one ask. Tokens is zero when it reported nothing.
+type Usage struct {
+	Tokens  int     // input, output and cache tokens together
+	CostUSD float64 // total_cost_usd, when reported
+}
+
+// Line is the small muted text shown under an answer ("≈3.1k tokens"), empty with no usage.
+func (u Usage) Line() string {
+	switch {
+	case u.Tokens <= 0:
+		return ""
+	case u.Tokens < 1000:
+		return fmt.Sprintf("≈%d tokens", u.Tokens)
+	case u.Tokens < 10000:
+		return fmt.Sprintf("≈%.1fk tokens", float64(u.Tokens)/1000)
+	}
+	return fmt.Sprintf("≈%dk tokens", (u.Tokens+500)/1000)
+}
+
+// RespondUsage is Respond that also returns the token usage Claude's stream-json result reports.
+func RespondUsage(ctx context.Context, cfg Config, q Question, prompt string, stream bool, onText func(string)) (text string, streamed bool, usage Usage, err error) {
 	if !stream {
 		var out bytes.Buffer
 		if err := execAgent(ctx, cfg, q, prompt, nil, &capped{w: &out, left: MaxOutput}); err != nil {
-			return "", false, err
+			return "", false, usage, err
 		}
 		if strings.TrimSpace(out.String()) == "" {
-			return "", false, errors.New("the agent gave no answer")
+			return "", false, usage, errors.New("the agent gave no answer")
 		}
-		return Clean(out.String()), false, nil
+		return CleanTo(out.String(), cfg.Options.AnswerLimit()), false, usage, nil
 	}
 	var acc strings.Builder
 	var result string
@@ -41,8 +67,15 @@ func Respond(ctx context.Context, cfg Config, q Question, prompt string, stream 
 					Text string `json:"text"`
 				} `json:"delta"`
 			} `json:"event"`
-			Result  string `json:"result"`
-			IsError bool   `json:"is_error"`
+			Result  string  `json:"result"`
+			IsError bool    `json:"is_error"`
+			Cost    float64 `json:"total_cost_usd"`
+			Usage   struct {
+				In        int `json:"input_tokens"`
+				Out       int `json:"output_tokens"`
+				CacheNew  int `json:"cache_creation_input_tokens"`
+				CacheRead int `json:"cache_read_input_tokens"`
+			} `json:"usage"`
 		}
 		if json.Unmarshal(line, &ev) != nil {
 			return
@@ -55,23 +88,24 @@ func Respond(ctx context.Context, cfg Config, q Question, prompt string, stream 
 			}
 		case ev.Type == "result":
 			result, failed = ev.Result, ev.IsError
+			usage = Usage{Tokens: ev.Usage.In + ev.Usage.Out + ev.Usage.CacheNew + ev.Usage.CacheRead, CostUSD: ev.Cost}
 		}
 	}}
 	if err := execAgent(ctx, cfg, q, prompt, StreamArgs, lw); err != nil {
-		return "", false, err
+		return "", false, usage, err
 	}
 	lw.flush()
 	if failed {
-		return "", false, errors.New("the agent reported an error")
+		return "", false, usage, errors.New("the agent reported an error")
 	}
 	text = strings.TrimSpace(result)
 	if text == "" {
 		text = strings.TrimSpace(acc.String())
 	}
 	if text == "" {
-		return "", false, errors.New("the agent gave no answer")
+		return "", false, usage, errors.New("the agent gave no answer")
 	}
-	return strings.ToValidUTF8(text, ""), acc.Len() > 0, nil
+	return strings.ToValidUTF8(text, ""), acc.Len() > 0, usage, nil
 }
 
 // lineWriter calls fn for each complete line written; a line longer than max is dropped.

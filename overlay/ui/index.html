@@ -61,6 +61,14 @@
       <button id="agent-rescan" type="button" title="Look for installed AI clients again">Re-scan</button>
     </label>
     <label id="agent-cmd-row" hidden>Command <input id="agent-cmd" placeholder="my-agent --flag"></label>
+    <label>Answer length
+      <select id="length"><option value="brief">Brief</option><option value="standard">Standard</option><option value="detailed">Detailed</option></select>
+    </label>
+    <label>Model
+      <select id="model"><option value="efficient">Efficient</option><option value="balanced">Balanced</option><option value="best">Best</option><option value="custom">Custom</option></select>
+    </label>
+    <label id="model-custom-row" hidden>Model name <input id="model-custom" placeholder="a model name"></label>
+    <label>Show tokens used <input id="usage" type="checkbox"></label>
     <label>Keep in-game advice up to date <input id="auto-digest" type="checkbox"> <span id="auto-digest-note"></span></label>
     <label>Show / hide <input id="key-vis" class="key" readonly></label>
     <label>Click-through <input id="key-ct" class="key" readonly></label>

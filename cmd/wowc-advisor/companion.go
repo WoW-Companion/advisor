@@ -37,6 +37,9 @@ func companionCmd(ctx context.Context, args []string, stdout, stderr io.Writer) 
 	fs.StringVar(&f.answers, "answers-path", "", "Answers.lua to write with --answers-file (default: derived from the SavedVariables path)")
 	fs.DurationVar(&f.timeout, "timeout", ask.DefaultTimeout, "time limit for each agent run")
 	fs.IntVar(&f.max, "max", ask.DefaultMaxPerRun, "most in-game questions answered per pass")
+	length := fs.String("length", ask.LengthStandard, "answer length: brief, standard or detailed (the overlay setting wins once chosen)")
+	model := fs.String("model", ask.TierEfficient, "model tier: efficient, balanced, best, or a model name")
+	noUsage := fs.Bool("no-usage", false, "do not show the token usage line under answers")
 	gameDir := fs.String("game-dir", "", "WoW folder for the setup checklist (default: found from the SavedVariables path or the standard install folders)")
 	port := fs.Int("port", 4317, "first port to try; the next free one is used when it is taken")
 	noOpen := fs.Bool("no-open", false, "do not open the browser")
@@ -48,6 +51,10 @@ func companionCmd(ctx context.Context, args []string, stdout, stderr io.Writer) 
 	}
 	if fs.NArg() > 0 {
 		return errors.New("companion takes no arguments\n" + usage)
+	}
+	var err error
+	if f.opts, err = parseOptions(*length, *model); err != nil {
+		return err
 	}
 	f.answersFile = f.answersFile || f.answers != ""
 	autoSet := false
@@ -76,7 +83,7 @@ func companionCmd(ctx context.Context, args []string, stdout, stderr io.Writer) 
 		return err
 	}
 	s := companion.New(companion.Config{
-		ForeverScribe: cfg.SavedVariables, Ask: ac, LAN: *lan, App: *handshake, Dataset: cfg.Dataset, AutoDigest: *autoDigest, GameDir: *gameDir,
+		ForeverScribe: cfg.SavedVariables, Ask: ac, LAN: *lan, App: *handshake, Dataset: cfg.Dataset, AutoDigest: *autoDigest, NoUsage: *noUsage, GameDir: *gameDir,
 		Update: func(ctx context.Context) (release.Result, error) {
 			return release.Check(ctx, http.DefaultClient, release.LatestURL, server.Version)
 		},
