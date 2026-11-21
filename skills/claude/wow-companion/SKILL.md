@@ -18,8 +18,11 @@ missing for it, so trust the `wowc-advisor` tools over anything you remember.
 
 1. Call `list_characters` to see which characters were captured. If there is one, or the
    player named one, call `character_brief` (pass `character` when there are several).
-2. Base every statement about their character on what the tools returned.
-3. Name your source in the answer: "ForeverScribe capture at <time>", as the brief states it.
+2. When the player asks what to do next, call `whats_next` (same `character` argument; `limit`
+   defaults to 8). Each step carries its reason and source; relay them, and say "unknown" where
+   a step says a level or zone is unknown.
+3. Base every statement about their character on what the tools returned.
+4. Name your source in the answer: "ForeverScribe capture at <time>", as the brief states it.
 
 ## Missing or stale data
 
@@ -33,8 +36,7 @@ missing for it, so trust the `wowc-advisor` tools over anything you remember.
 
 - Never invent items, quests, spells, talents, vendors, drop rates or numbers.
 - If you are unsure how something works in WoW: Forever, say you are unsure.
-- Advice that needs game data (upgrade lists, what to quest next) is not available yet;
-  describe what the character has and say what the tools cannot tell you.
+- Upgrade lists and profession training steps are not available yet; say so rather than guess.
 
 ## Answer shape
 
