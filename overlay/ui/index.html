@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WoW Companion</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main class="panel" id="panel">
+  <header class="titlebar" data-tauri-drag-region>
+    <h1 data-tauri-drag-region>WoW Companion</h1>
+    <span id="ct" class="tag" hidden title="Click-through is on; use the shortcut or the tray to turn it off">click-through</span>
+    <button id="settings-btn" type="button" title="Settings" aria-label="Settings">&#9881;</button>
+    <button id="mode" type="button" title="Switch between Overlay and Window"></button>
+    <button id="tray" type="button" title="Hide to tray" aria-label="Hide to tray">&#8211;</button>
+    <button id="close" type="button" title="Quit" aria-label="Quit">&#215;</button>
+  </header>
+
+  <div id="banner" class="banner" hidden>
+    <span id="banner-text"></span>
+    <button id="retry" type="button">Reconnect</button>
+  </div>
+  <div id="notice" class="notice" hidden></div>
+
+  <section id="settings" class="settings" hidden>
+    <label>Opacity <input id="opacity" type="range" min="40" max="100" step="5"> <output id="opacity-out"></output></label>
+    <label>Show / hide <input id="key-vis" class="key" readonly></label>
+    <label>Click-through <input id="key-ct" class="key" readonly></label>
+    <small>Focus a shortcut box and press the new keys (with Ctrl, Shift or Alt).</small>
+  </section>
+
+  <div class="bar">
+    <select id="who" aria-label="Character"></select>
+    <div id="badge">data from game: …</div>
+  </div>
+
+  <details id="next" class="next" open>
+    <summary>Next</summary>
+    <ol id="next-list"></ol>
+  </details>
+
+  <div id="log" aria-live="polite"></div>
+  <form id="form">
+    <textarea id="text" maxlength="1000" rows="1" placeholder="Ask about this character…"></textarea>
+    <button id="send">Ask</button>
+  </form>
+  <div id="grip" class="grip" title="Resize"></div>
+</main>
+<script src="app.js"></script>
+</body>
+</html>
