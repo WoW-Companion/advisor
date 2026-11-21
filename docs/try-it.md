@@ -76,7 +76,7 @@ Whether a release is published yet is **unverified**: the first real download is
 Source: <https://support.claude.com/en/articles/12512180-using-skills-in-claude>
 
 1. Turn on **Settings > Capabilities > Code execution and file creation** (skills need it).
-2. Make a ZIP of the `skills/claude/wow-companion` folder (the folder itself at the top of the ZIP).
+2. Make a ZIP of the `clients/claude/wow-companion` folder (the folder itself at the top of the ZIP).
 3. In Claude go to **Customize > Skills**, click **+**, **+ Create skill**, **Upload a skill**,
    and choose the ZIP. Switch the skill on.
 
