@@ -9,6 +9,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
+	"github.com/WoW-Companion/advisor/internal/gear"
 	"github.com/WoW-Companion/advisor/internal/names"
 	"github.com/WoW-Companion/advisor/internal/server"
 	"github.com/WoW-Companion/advisor/internal/store"
@@ -273,6 +274,9 @@ func (d *Dataset) whereDrops(_ context.Context, _ *mcp.CallToolRequest, in ItemI
 		if kind == "creature" {
 			if n, err := d.Store.Get("npcs", sid); err == nil {
 				who = fmt.Sprintf("%s (creature %d, %s)", str(n["name"]), sid, orUnknown(str(n["zone_name"])))
+				if gear.FromEverloot(n["name_source"]) {
+					who += " (name from Everloot)"
+				}
 			}
 		}
 		line := "  " + who

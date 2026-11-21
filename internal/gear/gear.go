@@ -98,9 +98,11 @@ type Item struct {
 
 // Source is one place an item drops or is rewarded. Level and chance fields are nil when unknown.
 type Source struct {
-	Kind     string // creature, object, quest reward
-	ID       int64
-	Name     string // empty when the dataset has no name for it
+	Kind string // creature, object, quest reward
+	ID   int64
+	Name string // empty when the dataset has no name for it
+	// Everloot is true when the name comes from Everloot's drop rows (npcs.name_source).
+	Everloot bool
 	MinLevel *int
 	MaxLevel *int
 	Chance   *float64 // percent, from drops / kills
@@ -294,6 +296,13 @@ func rank(c character.Character, ds store.DataStore, slot string, items []Item, 
 	return out
 }
 
+// FromEverloot is true when an npcs.name_source value (nil on a client row) says Everloot named the
+// creature.
+func FromEverloot(v any) bool {
+	s, _ := v.(string)
+	return strings.Contains(strings.ToLower(s), "everloot")
+}
+
 // sources lists where an item comes from, creatures in the character's level range first, then by
 // drop chance. A missing table or no rows gives none.
 func sources(ds store.DataStore, itemID int64, level int) []Source {
@@ -311,6 +320,7 @@ func sources(ds store.DataStore, itemID int64, level int) []Source {
 		if s.Kind == "creature" {
 			if n, err := ds.Get("npcs", s.ID); err == nil {
 				s.Name, _ = n["name"].(string)
+				s.Everloot = FromEverloot(n["name_source"])
 				if v, ok := n["min_level"].(int64); ok {
 					l := int(v)
 					s.MinLevel = &l

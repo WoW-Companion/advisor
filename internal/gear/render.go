@@ -17,6 +17,9 @@ func (s Source) String() string {
 	} else if s.Kind != "creature" {
 		name += " (" + s.Kind + ")"
 	}
+	if s.Everloot && s.Name != "" {
+		name += " (name from Everloot)"
+	}
 	b.WriteString(name)
 	switch {
 	case s.MinLevel != nil && s.MaxLevel != nil && *s.MinLevel != *s.MaxLevel:

@@ -175,7 +175,7 @@ func TestPlanPriest(t *testing.T) {
 	}
 	text := Render(c, r, 1)
 	for _, want := range []string{"1. Deadmines (level 15-21, 5 players): 2 upgrade(s)", "Mind Hood (head, +5.0) from Boss A, drops 20.0% of kills",
-		"boss not linked to a creature: Lost Boss", "open quest: Quest  (900)", "1 more dungeon(s) fit.", "Level unknown (unranked", "Mystery Hold (level unknown)", "drop chance unknown"} {
+		"boss drops not linked in this dataset: Lost Boss", "open quest: Quest  (900)", "1 more dungeon(s) fit.", "Level unknown (unranked", "Mystery Hold (level unknown)", "drop chance unknown"} {
 		if !strings.Contains(text, want) {
 			t.Errorf("render missing %q in:\n%s", want, text)
 		}

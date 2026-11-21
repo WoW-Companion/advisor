@@ -48,7 +48,7 @@ func (p DungeonPick) describe(b *strings.Builder, n int) {
 		b.WriteString("       " + d.String() + "\n")
 	}
 	if len(p.UnlinkedBosses) > 0 {
-		b.WriteString("       drops unknown, boss not linked to a creature: " + strings.Join(p.UnlinkedBosses, ", ") + "\n")
+		b.WriteString("       boss drops not linked in this dataset: " + strings.Join(p.UnlinkedBosses, ", ") + "\n")
 	}
 	for _, q := range p.Quests {
 		fmt.Fprintf(b, "       open quest: %s (%d)\n", q.Title, q.ID)

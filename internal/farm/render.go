@@ -37,6 +37,9 @@ func Render(item string, spots []Spot, crafted bool, limit int) string {
 			name = s.Kind + " " + itoa(s.ID)
 		} else {
 			name += " (" + s.Kind + " " + itoa(s.ID) + ")"
+			if s.Everloot {
+				name += " (name from Everloot)"
+			}
 		}
 		zone := "zone unknown"
 		if s.Zone != "" {
