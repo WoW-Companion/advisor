@@ -18,8 +18,9 @@ const (
 // names an agent.
 const AutoAgent = "auto"
 
-// DetectOrder is the order the AI CLIs are looked for in; the first one found is used.
-var DetectOrder = []string{"claude", "codex", "gemini"}
+// DetectOrder is the order the AI CLIs are looked for in; the first one found is used. Gemini CLI is
+// legacy (API keys only since 2026-06-18), so it is chosen only when nothing else is installed.
+var DetectOrder = []string{"claude", "codex", "agy", "gemini"}
 
 // Agent is a resolved agent: its argv, its short name and where it came from. A Source of
 // SourceNone has no Command.
@@ -157,6 +158,7 @@ func isExecutable(p string) bool {
 //
 //	%USERPROFILE%\.local\bin                       Claude Code's native installer (claude.exe)
 //	%USERPROFILE%\.claude\local                    Claude Code's local install
+//	%LOCALAPPDATA%\agy\bin                        Antigravity CLI's installer (agy.exe; install.ps1, https://antigravity.google/docs/getting-started)
 //	%APPDATA%\npm                                  npm install -g shims (claude.cmd, codex.cmd, gemini.cmd)
 //	%LOCALAPPDATA%\Microsoft\WinGet\Links          WinGet's command links
 //	%LOCALAPPDATA%\Programs\claude
@@ -176,6 +178,7 @@ func ExtraDirs(getenv func(string) string) []string {
 		add(getenv("APPDATA"), "npm")
 		add(local, "Microsoft", "WinGet", "Links")
 		add(local, "Programs", "claude")
+		add(local, "agy", "bin")
 		add(home, "scoop", "shims")
 		add(getenv("ProgramFiles"), "nodejs")
 		return dirs

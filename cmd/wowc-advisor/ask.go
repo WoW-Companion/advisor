@@ -25,7 +25,7 @@ func askCmd(ctx context.Context, args []string, stdout, stderr io.Writer) error 
 	fs.StringVar(&cfg.Dataset, "dataset", "", "dataset directory (default: $"+server.DatasetEnv+", else the cached dataset)")
 	fs.StringVar(&cfg.SavedVariables, "savedvariables", "", "ForeverScribe.lua file (default: $"+server.SavedVariablesEnv+")")
 	cache := fs.String("cache", "", "dataset cache directory (default: per-user cache)")
-	agent := fs.String("agent", "", "agent command or preset: claude, codex, gemini (default: \"agent\" in the config file)")
+	agent := fs.String("agent", "", "agent command or preset: claude, codex, agy, gemini (default: \"agent\" in the config file)")
 	confPath := fs.String("config", "", "config file (default: <user config dir>/wowc-advisor/ask.json)")
 	addonSV := fs.String("addon-savedvariables", "", "the addon's WoWCompanion.lua (default: next to ForeverScribe.lua)")
 	answersFile := fs.Bool("answers-file", false, "DEPRECATED: write Answers.lua for the old WoWCompanion_Answers addon (the overlay is recommended: it answers in-game questions itself)")
@@ -129,6 +129,10 @@ func askSetup(ctx context.Context, cfg *server.Config, f askFlags, stderr io.Wri
 	cleanup = func() { os.RemoveAll(dir) }
 	ac.MCPConfig = filepath.Join(dir, "mcp.json")
 	if err := os.WriteFile(ac.MCPConfig, ask.MCPConfig(exe, env), 0o600); err != nil {
+		cleanup()
+		return ac, func() {}, err
+	}
+	if err := ask.WriteAgyWorkspace(ac.MCPConfig, ask.MCPConfig(exe, env)); err != nil {
 		cleanup()
 		return ac, func() {}, err
 	}

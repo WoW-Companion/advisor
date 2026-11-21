@@ -245,3 +245,25 @@ func TestGettingStartedMatchesOverlay(t *testing.T) {
 		t.Error("getting-started does not link the feedback form")
 	}
 }
+
+// The AI-client advice must name Antigravity CLI with its official install link in the docs, the
+// checklist text and the overlay, and call Gemini CLI legacy.
+func TestAntigravityAdviceInDocs(t *testing.T) {
+	const link = "https://antigravity.google/docs/getting-started?tab=cli"
+	for _, p := range []string{"../../docs/getting-started.md", "../../docs/quickstart.md", "../../overlay/ui/index.html"} {
+		if d := read(t, p); !strings.Contains(d, link) {
+			t.Errorf("%s does not link Antigravity CLI's install page", p)
+		}
+	}
+	for _, p := range []string{"../../docs/getting-started.md", "../../docs/quickstart.md"} {
+		if d := read(t, p); !strings.Contains(d, "legacy") {
+			t.Errorf("%s does not call Gemini CLI legacy", p)
+		}
+	}
+	if d := read(t, "../../internal/gamesetup/ai.go"); !strings.Contains(d, "Antigravity") {
+		t.Error("the setup checklist's install note does not name Antigravity CLI")
+	}
+	if d := read(t, "../../overlay/src-tauri/src/main.rs"); !strings.Contains(d, link) {
+		t.Error("the overlay may not open Antigravity CLI's install page")
+	}
+}

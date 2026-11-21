@@ -34,7 +34,7 @@ code-signed (the quickstart explains the Windows and macOS warnings). Or with Go
 Point the server at a dataset directory (Parquet tables plus `manifest.json`) with
 `--dataset DIR` or `WOWC_DATASET`. Without one, `server_info` reports "no dataset configured".
 
-Client configuration for Claude Desktop, Claude Code, Codex and Gemini CLI is in
+Client configuration for Claude Desktop, Claude Code, Codex, Antigravity CLI and Gemini CLI is in
 [docs/clients.md](docs/clients.md).
 
 ## Character data

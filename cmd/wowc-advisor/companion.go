@@ -30,7 +30,7 @@ func companionCmd(ctx context.Context, args []string, stdout, stderr io.Writer) 
 	fs.StringVar(&cfg.SavedVariables, "savedvariables", "", "ForeverScribe.lua file (default: $"+server.SavedVariablesEnv+")")
 	f := askFlags{optional: true}
 	fs.StringVar(&f.cache, "cache", "", "dataset cache directory (default: per-user cache)")
-	fs.StringVar(&f.agent, "agent", "", "agent command or preset: claude, codex, gemini, or auto (default: \"agent\" in the config file, else the first of claude, codex, gemini found)")
+	fs.StringVar(&f.agent, "agent", "", "agent command or preset: claude, codex, agy, gemini, or auto (default: \"agent\" in the config file, else the first of claude, codex, agy, gemini found)")
 	fs.StringVar(&f.confPath, "config", "", "config file (default: <user config dir>/wowc-advisor/ask.json)")
 	fs.StringVar(&f.addonSV, "addon-savedvariables", "", "the addon's WoWCompanion.lua (default: next to ForeverScribe.lua)")
 	fs.BoolVar(&f.answersFile, "answers-file", false, "DEPRECATED: also write Answers.lua for the old WoWCompanion_Answers addon (in-game questions are answered in the overlay without it)")

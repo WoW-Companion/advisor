@@ -126,7 +126,9 @@ $('retry').onclick = () => restart('Reconnecting…');
 // The choice is kept by the shell and passed to the sidecar as --agent: "" (no choice), "auto",
 // a preset name or a custom command. Changing it restarts the sidecar.
 
-const PRESETS = ['claude', 'codex', 'gemini'];
+const PRESETS = ['claude', 'codex', 'agy', 'gemini'];
+// Display names; Gemini CLI is legacy (API keys only since 2026-06-18).
+const AGENT_NAMES = { claude: 'Claude', codex: 'Codex', agy: 'Antigravity', gemini: 'Gemini CLI (legacy)' };
 let agentChoice = '';
 
 function showAgent() {
@@ -136,7 +138,7 @@ function showAgent() {
   $('agent-cmd-row').hidden = $('agent').value !== 'custom';
   if (!known) $('agent-cmd').value = agentChoice;
   const auto = $('agent').options[0], found = conn && conn.agent_source === 'auto' && conn.agent;
-  auto.textContent = 'Auto' + (found ? ' (' + conn.agent[0].toUpperCase() + conn.agent.slice(1) + ')' : conn && !conn.agent ? ' (none found)' : '');
+  auto.textContent = 'Auto' + (found ? ' (' + (AGENT_NAMES[conn.agent] || conn.agent[0].toUpperCase() + conn.agent.slice(1)) + ')' : conn && !conn.agent ? ' (none found)' : '');
   // The picker's tooltip names what is in use and where it was found.
   $('agent').title = !conn ? '' : !conn.agent ? 'No AI client found. Install one, then Re-scan.'
     : 'Using ' + conn.agent + (conn.agent_path ? ' at ' + conn.agent_path : ' (' + conn.agent_source + ')');
