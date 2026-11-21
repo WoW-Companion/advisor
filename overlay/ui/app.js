@@ -6,7 +6,7 @@ const win = window.__TAURI__.window.getCurrentWindow();
 
 const $ = id => document.getElementById(id);
 const log = $('log'), who = $('who'), badge = $('badge'), text = $('text'), send = $('send');
-const DEFAULTS = { opacity: 92, mode: 'overlay', keyVis: 'Ctrl+Shift+W', keyCt: 'Ctrl+Shift+T', nextOpen: true, who: '' };
+const DEFAULTS = { opacity: 92, solidHover: false, mode: 'overlay', keyVis: 'Ctrl+Shift+W', keyCt: 'Ctrl+Shift+T', nextOpen: true, who: '' };
 const cfg = { ...DEFAULTS, ...JSON.parse(localStorage.getItem('wowc') || '{}') };
 const save = () => localStorage.setItem('wowc', JSON.stringify(cfg));
 
@@ -65,11 +65,24 @@ $('close').onclick = () => invoke('quit');
 $('grip').onmousedown = ev => { ev.preventDefault(); win.startResizeDragging('SouthEast'); };
 $('settings-btn').onclick = () => { $('settings').hidden = !$('settings').hidden; };
 
+// The slider drives the panel background's alpha (--alpha) and the text outline (--outline), never
+// the window or element opacity. The outline fades in as the background drops below ~55%.
+const HOVER_MIN = 85, HOVER_LEAVE_MS = 1000;
+let hovering = false, leaveTimer = 0;
+const outlineFor = pct => Math.min(1, Math.max(0, (55 - pct) / 35));
+function paint() {
+  const pct = hovering && cfg.solidHover ? Math.max(cfg.opacity, HOVER_MIN) : cfg.opacity;
+  const root = document.documentElement.style;
+  root.setProperty('--alpha', pct / 100);
+  root.setProperty('--outline', outlineFor(pct));
+}
 function setOpacity(v) {
-  cfg.opacity = v; save();
-  document.documentElement.style.setProperty('--alpha', v / 100);
+  cfg.opacity = v; save(); paint();
   $('opacity').value = v; $('opacity-out').textContent = v + '%';
 }
+$('panel').onmouseenter = () => { clearTimeout(leaveTimer); hovering = true; paint(); };
+$('panel').onmouseleave = () => { clearTimeout(leaveTimer); leaveTimer = setTimeout(() => { hovering = false; paint(); }, HOVER_LEAVE_MS); };
+$('solid-hover').onchange = ev => { cfg.solidHover = ev.target.checked; save(); paint(); };
 $('opacity').oninput = ev => setOpacity(+ev.target.value);
 
 // A shortcut box turns a key press into the plugin's "Ctrl+Shift+W" form.
@@ -202,6 +215,7 @@ setInterval(() => showBadge(false), 30000);
 
 (async () => {
   $('next').open = cfg.nextOpen;
+  $('solid-hover').checked = cfg.solidHover;
   setOpacity(cfg.opacity);
   showMode();
   await invoke('set_mode', { overlay: cfg.mode === 'overlay' });

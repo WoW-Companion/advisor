@@ -1,8 +1,14 @@
+@property --alpha { syntax: '<number>'; inherits: true; initial-value: .92; }
+@property --outline { syntax: '<number>'; inherits: true; initial-value: 0; }
+
 @font-face { font-family: Cinzel; src: url(fonts/Cinzel.ttf); font-weight: 400 900; font-display: swap; }
 @font-face { font-family: Inter; src: url(fonts/Inter.ttf); font-weight: 100 900; font-display: swap; }
 
 :root {
+  /* --alpha is the panel background's alpha and nothing else (app.js sets it; see opacity_test.go).
+     --outline is the text outline strength, 0 to 1, rising as the background fades. */
   --alpha: .92;
+  --outline: 0;
   --gold: #d9b05a;
   --gold-dim: #8a6d2f;
   --ink: #ece6d8;
@@ -12,7 +18,10 @@
 }
 * { box-sizing: border-box; }
 html, body { height: 100%; margin: 0; background: transparent; overflow: hidden; }
-body { font: 13.5px/1.5 Inter, system-ui, sans-serif; color: var(--ink); }
+html { transition: --alpha .25s ease, --outline .25s ease; }
+/* WoW-style 1px dark outline, faded in by --outline so text reads over snow, sky and caves alike. */
+body { font: 13.5px/1.5 Inter, system-ui, sans-serif; color: var(--ink); --o: rgba(0, 0, 0, calc(var(--outline) * .95));
+  text-shadow: 1px 0 0 var(--o), -1px 0 0 var(--o), 0 1px 0 var(--o), 0 -1px 0 var(--o), 0 0 3px var(--o); }
 
 /* The panel is the only painted thing: outside its rounded corners the game shows through. */
 .panel {
@@ -25,10 +34,11 @@ body { font: 13.5px/1.5 Inter, system-ui, sans-serif; color: var(--ink); }
 }
 
 .titlebar { display: flex; align-items: center; gap: 4px; padding: 6px 8px 6px 12px; border-bottom: 1px solid rgba(217, 176, 90, .28); user-select: none; }
-.titlebar h1 { flex: 1 1 auto; margin: 0; font: 600 15px Cinzel, serif; letter-spacing: .06em; color: var(--gold); text-shadow: 0 1px 2px #000; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.titlebar h1 { flex: 1 1 auto; margin: 0; font: 600 15px Cinzel, serif; letter-spacing: .06em; color: var(--gold); text-shadow: 0 1px 2px #000, 1px 0 0 var(--o), -1px 0 0 var(--o), 0 -1px 0 var(--o); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tag { font-size: 10px; padding: 1px 6px; border: 1px solid var(--gold-dim); border-radius: 8px; color: var(--gold); }
 button, select, textarea, input { font: inherit; color: inherit; }
-button, select, textarea { background: rgba(255, 255, 255, .06); border: 1px solid rgba(217, 176, 90, .3); border-radius: 6px; padding: 3px 9px; }
+/* Controls keep a background of their own so they stay findable at 0%. */
+button, select, textarea { text-shadow: inherit; background: linear-gradient(rgba(255, 255, 255, .06), rgba(255, 255, 255, .06)), rgba(var(--slate), .65); border: 1px solid rgba(217, 176, 90, .3); border-radius: 6px; padding: 3px 9px; }
 button { cursor: pointer; transition: background .15s, border-color .15s; }
 button:hover:not(:disabled) { background: rgba(217, 176, 90, .16); border-color: var(--gold); }
 button:disabled { opacity: .5; cursor: default; }
@@ -36,12 +46,12 @@ button:disabled { opacity: .5; cursor: default; }
 #mode { font-size: 11px; }
 #close:hover { background: rgba(179, 64, 47, .55); }
 
-.banner { display: flex; gap: 8px; align-items: center; justify-content: space-between; padding: 6px 12px; background: rgba(150, 45, 32, .85); font-size: 12px; }
-.notice { padding: 5px 12px; background: rgba(217, 176, 90, .18); font-size: 12px; animation: fade .25s ease-out; }
-.settings { display: grid; gap: 6px; padding: 8px 12px; border-bottom: 1px solid rgba(217, 176, 90, .2); background: rgba(0, 0, 0, .22); font-size: 12px; }
+.banner { display: flex; gap: 8px; align-items: center; justify-content: space-between; padding: 6px 12px; background: rgba(150, 45, 32, calc(var(--alpha) * .9)); font-size: 12px; }
+.notice { padding: 5px 12px; background: rgba(217, 176, 90, calc(var(--alpha) * .18)); font-size: 12px; animation: fade .25s ease-out; }
+.settings { display: grid; gap: 6px; padding: 8px 12px; border-bottom: 1px solid rgba(217, 176, 90, .2); background: rgba(0, 0, 0, calc(var(--alpha) * .22)); font-size: 12px; }
 .settings label { display: flex; gap: 8px; align-items: center; justify-content: space-between; }
 .settings input[type=range] { flex: 1; accent-color: var(--gold); }
-.settings .key { width: 150px; background: rgba(255, 255, 255, .06); border: 1px solid rgba(217, 176, 90, .3); border-radius: 6px; padding: 2px 8px; text-align: center; }
+.settings .key { width: 150px; text-shadow: inherit; background: linear-gradient(rgba(255, 255, 255, .06), rgba(255, 255, 255, .06)), rgba(var(--slate), .65); border: 1px solid rgba(217, 176, 90, .3); border-radius: 6px; padding: 2px 8px; text-align: center; }
 .settings small { color: var(--muted); }
 
 .bar { display: flex; flex-direction: column; gap: 3px; padding: 8px 12px 4px; }
@@ -50,7 +60,7 @@ button:disabled { opacity: .5; cursor: default; }
 #badge { font-size: 11.5px; color: var(--muted); }
 #badge.fresh { color: var(--gold); }
 
-.next { margin: 2px 12px 4px; padding: 4px 8px; border: 1px solid rgba(217, 176, 90, .22); border-radius: 8px; background: rgba(0, 0, 0, .2); }
+.next { margin: 2px 12px 4px; padding: 4px 8px; border: 1px solid rgba(217, 176, 90, .22); border-radius: 8px; background: rgba(0, 0, 0, calc(var(--alpha) * .2)); }
 .next summary { cursor: pointer; font: 600 11px Cinzel, serif; letter-spacing: .1em; text-transform: uppercase; color: var(--gold); }
 .next ol { margin: 4px 0 2px; padding-left: 20px; }
 .next li { margin: 1px 0; }
@@ -66,7 +76,7 @@ button:disabled { opacity: .5; cursor: default; }
 #form { display: flex; gap: 6px; padding: 8px 12px 12px; border-top: 1px solid rgba(217, 176, 90, .2); }
 #text { flex: 1 1 auto; resize: none; height: 34px; padding: 6px 9px; }
 #text:focus, #who:focus, .key:focus { outline: 1px solid var(--gold); }
-#send { background: rgba(217, 176, 90, .22); font-weight: 600; }
+#send { background: linear-gradient(rgba(217, 176, 90, .22), rgba(217, 176, 90, .22)), rgba(var(--slate), .65); font-weight: 600; }
 
 .grip { position: absolute; right: 0; bottom: 0; width: 18px; height: 18px; cursor: se-resize; opacity: .6;
   background: linear-gradient(135deg, transparent 55%, var(--gold-dim) 55% 62%, transparent 62% 72%, var(--gold-dim) 72% 79%, transparent 79%); }
