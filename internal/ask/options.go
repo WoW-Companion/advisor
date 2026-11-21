@@ -29,12 +29,19 @@ type Options struct {
 	Length string // brief, standard (default) or detailed
 	Tier   string // efficient (default), balanced, best or custom
 	Custom string // the model name for TierCustom
+	// Reasoning is the reasoning level (low, medium or high); low is the default. It is passed only
+	// to a client that has a flag for it, see reasoningFor.
+	Reasoning string
+
+	noReasoning bool // the CLI rejected the reasoning flag: leave it out (set by the retry)
 }
 
 // Lengths and Tiers list the valid values, default first.
 var (
 	Lengths = []string{LengthStandard, LengthBrief, LengthDetailed}
 	Tiers   = []string{TierEfficient, TierBalanced, TierBest, TierCustom}
+	// Reasonings are the reasoning levels, lowest first.
+	Reasonings = []string{"low", "medium", "high"}
 )
 
 var modelName = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:/\[\]-]{0,99}$`)
@@ -47,6 +54,9 @@ func (o Options) Normalize() Options {
 	}
 	if !contains(Tiers, o.Tier) {
 		o.Tier = TierEfficient
+	}
+	if !contains(Reasonings, o.Reasoning) {
+		o.Reasoning = Reasonings[0]
 	}
 	o.Custom = strings.TrimSpace(o.Custom)
 	if o.Tier == TierCustom && !modelName.MatchString(o.Custom) {
@@ -78,32 +88,103 @@ var lengthRule = map[string]struct {
 // AnswerLimit is the most characters an answer of this length is kept to.
 func (o Options) AnswerLimit() int { return lengthRule[o.Normalize().Length].limit }
 
-// Per-client tiers. Sources (read 2026-11-21):
+// Per-client models and reasoning. Sources (read 2026-11-21):
 //   - Claude Code, https://code.claude.com/docs/en/model-config: --model takes the aliases haiku
 //     (fast, efficient), sonnet (daily tasks) and opus (complex reasoning); they follow the newest
-//     version. --max-turns limits agentic turns in print mode (CLI reference).
+//     version. --max-turns limits agentic turns in print mode (CLI reference,
+//     https://code.claude.com/docs/en/cli-reference). --effort <level> sets the effort level for the
+//     session (low, medium, high, xhigh, max; `claude --help`); we offer low, medium and high.
 //   - Gemini CLI, https://github.com/google-gemini/gemini-cli docs/cli/cli-reference.md: --model/-m
 //     takes the aliases flash-lite (lightest), flash (quick, well-rounded) and pro (complex reasoning).
+//     It has no reasoning flag (thinking is set in settings.json only), so none is passed.
 //   - Codex CLI, https://developers.openai.com/codex/config-reference: `model` is a name with no
-//     stable alias, so no model is passed and the client's own default runs; the tiers set
-//     model_reasoning_effort (low, medium, high), the documented knob for cost. --model is used only
-//     for the Custom tier.
+//     stable alias, so no model is passed and the client's own default runs (--model only for Custom);
+//     `model_reasoning_effort` (low, medium, high; set with -c) is the reasoning knob.
 type clientTiers struct {
-	flag  string // the model flag
-	tiers map[string]string
-	note  string // shown in the settings tooltip
+	flag   string // the model flag
+	tiers  map[string]string
+	labels map[string]string // the model dropdown text per tier
+	note   string            // shown in the model tooltip
+	// effortNote is the reasoning tooltip; empty: the client has no reasoning flag (see reasoningArgs).
+	effortNote string // shown in the reasoning tooltip
 }
 
 var tierTable = map[string]clientTiers{
 	"claude": {"--model", map[string]string{TierEfficient: "haiku", TierBalanced: "sonnet", TierBest: "opus"},
-		"Claude Code aliases: Efficient = haiku, Balanced = sonnet, Best = opus."},
+		map[string]string{TierEfficient: "Haiku (small)", TierBalanced: "Sonnet (mid)", TierBest: "Opus (large)"},
+		"Claude Code model aliases: Haiku is small, Sonnet mid, Opus large.",
+		"Claude Code's --effort level. Low is the default."},
 	"gemini": {"--model", map[string]string{TierEfficient: "flash-lite", TierBalanced: "flash", TierBest: "pro"},
-		"Gemini CLI aliases: Efficient = flash-lite, Balanced = flash, Best = pro."},
+		map[string]string{TierEfficient: "Flash-Lite (small)", TierBalanced: "Flash (mid)", TierBest: "Pro (large)"},
+		"Gemini CLI model aliases: Flash-Lite is small, Flash mid, Pro large.",
+		""},
 	"codex": {"--model", nil,
-		"Codex has no stable model aliases, so it keeps its own default model; Efficient, Balanced and Best set its reasoning effort (low, medium, high)."},
+		map[string]string{TierEfficient: "Codex default (small)"},
+		"Codex has no stable model aliases, so it keeps its own default model. Pick Custom to name one.",
+		"Codex's model_reasoning_effort. Low is the default."},
 }
 
-var codexEffort = map[string]string{TierEfficient: "low", TierBalanced: "medium", TierBest: "high"}
+// Choice is one entry of a client's model dropdown.
+type Choice struct {
+	Tier  string `json:"tier"`  // the Options.Tier it selects
+	Label string `json:"label"` // "Haiku (small)"
+}
+
+// Choices is what the settings dropdowns offer for a client.
+type Choices struct {
+	Models        []Choice `json:"models"`                   // empty: the client's model is not ours to set
+	ModelNote     string   `json:"model_note"`               // the model dropdown's tooltip
+	Reasoning     []string `json:"reasoning"`                // empty: the client has no reasoning option
+	ReasoningNote string   `json:"reasoning_note,omitempty"` // the reasoning dropdown's tooltip
+}
+
+// ChoicesFor lists the model and reasoning options for a client name; a client that is not a known
+// preset gets none, and the notes say why.
+func ChoicesFor(client string) Choices {
+	t, ok := tierTable[client]
+	if !ok {
+		return Choices{ModelNote: "A custom command sets its own model and reasoning: add the flags to the command.", ReasoningNote: "A custom command sets its own reasoning: add the flags to the command."}
+	}
+	c := Choices{ModelNote: t.note, ReasoningNote: t.effortNote}
+	for _, tier := range Tiers {
+		if l, ok := t.labels[tier]; ok {
+			c.Models = append(c.Models, Choice{tier, l})
+		}
+	}
+	c.Models = append(c.Models, Choice{TierCustom, "Custom…"})
+	if t.effortNote != "" {
+		c.Reasoning = Reasonings
+	} else {
+		c.ReasoningNote = "Gemini CLI has no reasoning flag, so it uses its own default."
+	}
+	return c
+}
+
+// reasoningArgs are the arguments that set the reasoning level for a client, nil when it has none.
+func reasoningArgs(client, level string) []string {
+	switch client {
+	case "claude":
+		return []string{"--effort", level}
+	case "codex":
+		return []string{"-c", `model_reasoning_effort="` + level + `"`}
+	}
+	return nil
+}
+
+// ModelUsed names the model an ask with these options runs, as far as the command line says: the
+// alias or custom name, or "default model" when the client picks its own.
+func ModelUsed(command []string, o Options) string {
+	c, o := ClientName(command), o.Normalize()
+	switch {
+	case c == "":
+		return ""
+	case o.Tier == TierCustom:
+		return o.Custom
+	case tierTable[c].tiers[o.Tier] != "":
+		return tierTable[c].tiers[o.Tier]
+	}
+	return "default model"
+}
 
 // ClientName is the preset name (claude, codex, gemini) of an agent command, or "" for any other.
 func ClientName(command []string) string {
@@ -117,9 +198,6 @@ func ClientName(command []string) string {
 	}
 	return ""
 }
-
-// TierNote is the tooltip text on the model setting for a client ("" for an unknown one).
-func TierNote(client string) string { return tierTable[client].note }
 
 // ModelArgs are the arguments that select the model (and cap the turns) for the command's client,
 // and the index in the argv they go at: right after the program, or after Codex's exec subcommand.
@@ -138,13 +216,12 @@ func ModelArgs(command []string, o Options) (args []string, at int) {
 		at = 2
 	}
 	if o.Tier == TierCustom {
-		return append(args, tierTable[c].flag, o.Custom), at
-	}
-	if c == "codex" {
-		return append(args, "-c", `model_reasoning_effort="`+codexEffort[o.Tier]+`"`), at
-	}
-	if m := tierTable[c].tiers[o.Tier]; m != "" {
+		args = append(args, tierTable[c].flag, o.Custom)
+	} else if m := tierTable[c].tiers[o.Tier]; m != "" {
 		args = append(args, tierTable[c].flag, m)
+	}
+	if !o.noReasoning {
+		args = append(args, reasoningArgs(c, o.Reasoning)...)
 	}
 	return args, at
 }
