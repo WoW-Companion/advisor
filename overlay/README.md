@@ -60,7 +60,7 @@ ordinary window plus one local web connection to the advisor. Global shortcuts g
 
 ## Build it yourself
 
-Needs Go, Rust and the Tauri CLI (`cargo install tauri-cli --version "^2" --locked`). From the repo root:
+Needs Go, Rust and the Tauri CLI (`cargo install tauri-cli --version "=2.12.6" --locked`). From the repo root:
 
 ```
 # the sidecar, named for the target triple (shown for Windows)
@@ -70,6 +70,14 @@ cd overlay/src-tauri && cargo tauri build --bundles nsis
 
 `cargo check` also needs the sidecar file for your own host triple (`rustc -vV` names it) in
 `src-tauri/binaries/`, because the build script checks it exists.
+
+## CI
+
+`.github/workflows/overlay.yml` builds the installer on Windows for every PR that touches the overlay,
+the advisor or the workflow, and on pushes to `main`. A newer commit cancels an older PR build. Rust
+dependencies are cached with `Swatinem/rust-cache`; only `main` saves that cache (GitHub never lets one
+PR branch read another's), so PRs restore main's. The Tauri CLI has its own cache entry keyed on its
+pinned version; bump the version in the workflow when the `tauri` crate's minor version moves.
 
 ## Layout
 
