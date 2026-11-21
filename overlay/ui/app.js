@@ -151,7 +151,7 @@ $('agent').onchange = ev => {
 // The sidecar looks for AI clients when it starts, so looking again is a restart.
 $('agent-rescan').onclick = () => restart('Looking for AI clients…');
 $('agent-cmd').onchange = ev => { if (ev.target.value.trim()) chooseAgent(ev.target.value.trim()); };
-for (const a of document.querySelectorAll('#aibar a')) {
+for (const a of document.querySelectorAll('a[data-page]')) {
   a.onclick = ev => { ev.preventDefault(); invoke('open_install_page', { url: a.dataset.page }).catch(e => notice(String(e))); };
 }
 
