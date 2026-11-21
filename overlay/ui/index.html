@@ -51,19 +51,24 @@
     <label id="agent-cmd-row" hidden>Command <input id="agent-cmd" placeholder="my-agent --flag"></label>
     <label>Show / hide <input id="key-vis" class="key" readonly></label>
     <label>Click-through <input id="key-ct" class="key" readonly></label>
+    <label>Text size
+      <select id="size"><option value="S">Small</option><option value="M">Medium</option><option value="L">Large</option></select>
+    </label>
     <small>Opacity fades only the panel background. At 0% with click-through on, bring the panel back with the show/hide shortcut or the tray icon.</small>
     <small>Focus a shortcut box and press the new keys (with Ctrl, Shift or Alt).</small>
   </section>
 
   <div class="bar">
     <select id="who" aria-label="Character"></select>
-    <div id="badge">data from game: …</div>
+    <span id="badge" class="chip" title="data from game: …">…</span>
+    <button id="clear" class="tiny" type="button" title="Clear the chat">Clear</button>
+    <button id="chat-toggle" class="tiny" type="button" aria-expanded="true" title="Collapse the chat">&#9662;</button>
   </div>
 
-  <details id="next" class="next" open>
-    <summary>Next</summary>
+  <section id="next" class="next">
+    <button id="next-head" class="next-head" type="button" aria-expanded="true"><b>Next</b><span id="next-line"></span></button>
     <ol id="next-list"></ol>
-  </details>
+  </section>
 
   <div id="log" aria-live="polite"></div>
   <form id="form">

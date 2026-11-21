@@ -9,6 +9,7 @@
      --outline is the text outline strength, 0 to 1, rising as the background fades. */
   --alpha: .92;
   --outline: 0;
+  --fs: 12.5px; /* text size M; the title bar keeps its own size */
   --gold: #d9b05a;
   --gold-dim: #8a6d2f;
   --ink: #ece6d8;
@@ -19,10 +20,12 @@
 * { box-sizing: border-box; }
 /* Author rules such as .banner { display: flex } beat the user-agent [hidden] rule, so hidden must win. */
 [hidden] { display: none !important; }
+body[data-size=S] { --fs: 11.5px; }
+body[data-size=L] { --fs: 14.5px; }
 html, body { height: 100%; margin: 0; background: transparent; overflow: hidden; }
 html { transition: --alpha .25s ease, --outline .25s ease; }
 /* WoW-style 1px dark outline, faded in by --outline so text reads over snow, sky and caves alike. */
-body { font: 13.5px/1.5 Inter, system-ui, sans-serif; color: var(--ink); --o: rgba(0, 0, 0, calc(var(--outline) * .95));
+body { font: var(--fs) / 1.4 Inter, system-ui, sans-serif; color: var(--ink); --o: rgba(0, 0, 0, calc(var(--outline) * .95));
   text-shadow: 1px 0 0 var(--o), -1px 0 0 var(--o), 0 1px 0 var(--o), 0 -1px 0 var(--o), 0 0 3px var(--o); }
 
 /* The panel is the only painted thing: outside its rounded corners the game shows through. */
@@ -64,27 +67,37 @@ button:disabled { opacity: .5; cursor: default; }
 .settings .key { width: 150px; text-shadow: inherit; background: linear-gradient(rgba(255, 255, 255, .06), rgba(255, 255, 255, .06)), rgba(var(--slate), .65); border: 1px solid rgba(217, 176, 90, .3); border-radius: 6px; padding: 2px 8px; text-align: center; }
 .settings small { color: var(--muted); }
 
-.bar { display: flex; flex-direction: column; gap: 3px; padding: 8px 12px 4px; }
-#who { width: 100%; }
+.bar { display: flex; align-items: center; gap: 6px; padding: 6px 12px 3px; }
+#who { flex: 1 1 0; min-width: 0; padding: 2px 6px; }
 #who option { background: #1b1e26; }
-#badge { font-size: 11.5px; color: var(--muted); }
-#badge.fresh { color: var(--gold); }
+/* Age of the game data: gold when fresh, amber past 30 minutes, red past 2 hours. */
+.chip { flex: none; font-size: .85em; padding: 1px 7px; border-radius: 9px; border: 1px solid rgba(217, 176, 90, .3); color: var(--gold); background: rgba(0, 0, 0, calc(var(--alpha) * .25)); }
+.chip.amber { color: #f0b429; border-color: #f0b429; }
+.chip.red { color: #ff7b6b; border-color: #e0584a; }
+.bar .tiny { flex: none; padding: 1px 7px; font-size: .85em; }
 
-.next { margin: 2px 12px 4px; padding: 4px 8px; border: 1px solid rgba(217, 176, 90, .22); border-radius: 8px; background: rgba(0, 0, 0, calc(var(--alpha) * .2)); }
-.next summary { cursor: pointer; font: 600 11px Cinzel, serif; letter-spacing: .1em; text-transform: uppercase; color: var(--gold); }
-.next ol { margin: 4px 0 2px; padding-left: 20px; }
+.next { margin: 2px 12px 3px; padding: 3px 8px; border: 1px solid rgba(217, 176, 90, .22); border-radius: 8px; background: rgba(0, 0, 0, calc(var(--alpha) * .2)); }
+.next-head { display: flex; gap: 8px; width: 100%; padding: 0; border: 0; background: none; text-align: left; cursor: pointer; align-items: baseline; }
+.next-head:hover:not(:disabled) { background: none; }
+.next-head b { flex: none; font: 600 11px Cinzel, serif; letter-spacing: .1em; text-transform: uppercase; color: var(--gold); }
+.next-head b::before { content: "\25B8  "; }
+.next.open .next-head b::before { content: "\25BE  "; }
+#next-line { flex: 1 1 0; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.next.open #next-line { display: none; }
+.next ol { display: none; margin: 3px 0 1px; padding-left: 20px; }
+.next.open ol { display: block; }
 .next li { margin: 1px 0; }
 .next .none { list-style: none; margin-left: -20px; color: var(--muted); }
 
-#log { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 8px 12px; display: flex; flex-direction: column; gap: 8px; scrollbar-width: thin; scrollbar-color: var(--gold-dim) transparent; }
-.msg { padding: 6px 10px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, .1); background: rgba(255, 255, 255, .06); white-space: pre-wrap; overflow-wrap: anywhere; animation: fade .2s ease-out; }
+#log { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 4px 12px; display: flex; flex-direction: column; gap: 4px; scrollbar-width: thin; scrollbar-color: var(--gold-dim) transparent; }
+.msg { padding: 3px 8px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, .1); background: rgba(255, 255, 255, .06); white-space: pre-wrap; overflow-wrap: anywhere; animation: fade .2s ease-out; }
 .msg.q { align-self: flex-end; max-width: 92%; background: rgba(217, 176, 90, .14); border-color: rgba(217, 176, 90, .3); }
 .msg.err { border-color: #c4503d; }
 .msg small { display: block; margin-top: 3px; color: var(--muted); font-size: 11px; }
 .msg.live::after { content: ""; display: inline-block; width: 6px; height: 12px; margin-left: 2px; vertical-align: -1px; background: var(--gold); animation: blink 1s steps(2) infinite; }
 
-#form { display: flex; gap: 6px; padding: 8px 12px 12px; border-top: 1px solid rgba(217, 176, 90, .2); }
-#text { flex: 1 1 auto; resize: none; height: 34px; padding: 6px 9px; }
+#form { display: flex; gap: 6px; padding: 6px 12px 8px; border-top: 1px solid rgba(217, 176, 90, .2); }
+#text { flex: 1 1 auto; resize: none; height: 30px; padding: 4px 8px; }
 #text:focus, #who:focus, .key:focus { outline: 1px solid var(--gold); }
 #send { background: linear-gradient(rgba(217, 176, 90, .22), rgba(217, 176, 90, .22)), rgba(var(--slate), .65); font-weight: 600; }
 
