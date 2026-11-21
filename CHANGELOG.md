@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Each question now sends far fewer tokens: Claude runs with only the advisor's tools (no built-in tools, user settings or skills), and the character's facts are put in the prompt so most questions need no tool call.
+- The usage line shows fresh input, output and cached tokens separately, with a tooltip on cached tokens.
+
 ## 0.3.0
 
 - The overlay now writes the in-game digest for you, so there is no separate step to run.

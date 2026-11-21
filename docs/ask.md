@@ -23,8 +23,8 @@ wowc-advisor ask --answers-file --agent claude --watch     # poll the file; remi
 
 | Preset | Runs |
 | ------ | ---- |
-| `claude` | `claude -p <prompt> --mcp-config <file> --strict-mcp-config --allowedTools mcp__wowc-advisor --disallowedTools Bash Edit Write NotebookEdit WebFetch WebSearch Read Glob Grep` |
-| `codex` | `codex exec --skip-git-repo-check -s read-only -c 'mcp_servers.wowc-advisor={ command, args, env, default_tools_approval_mode = "approve" }' <prompt>` |
+| `claude` | `claude -p <prompt> --mcp-config <file> --strict-mcp-config --tools "" --setting-sources "" --disable-slash-commands --no-session-persistence --exclude-dynamic-system-prompt-sections --allowedTools mcp__wowc-advisor` |
+| `codex` | `codex exec --skip-git-repo-check --ephemeral -s read-only -c 'mcp_servers.wowc-advisor={ command, args, env, default_tools_approval_mode = "approve" }' <prompt>` |
 | `gemini` | `gemini --allowed-mcp-server-names wowc-advisor --policy <file> -p <prompt>` |
 
 ### What each preset allows

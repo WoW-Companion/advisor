@@ -26,27 +26,46 @@ func Respond(ctx context.Context, cfg Config, q Question, prompt string, stream 
 // Usage is what the CLI reported for one ask. Tokens is zero when it reported nothing.
 type Usage struct {
 	Tokens  int     // input, output and cache tokens together
+	In      int     // fresh input: new input plus tokens written to the cache
+	Out     int     // output
+	Cached  int     // tokens read from the cache
 	CostUSD float64 // total_cost_usd, when reported
 	Model   string  // the model that ran: reported by Claude, else the one the command line selected
 	Notice  string  // a one-line notice for the player, e.g. a rejected flag that was dropped
 }
 
-// Line is the small muted text shown under an answer ("≈3.1k tokens · haiku"), empty with neither.
+// UsageTip is the tooltip of the usage line.
+const UsageTip = "Cached tokens are input the AI client reused from an earlier call. They are usually cheaper, but may still count toward your plan's limits."
+
+// Line is the small muted text shown under an answer ("≈4k in · 0.6k out · 52k cached · haiku"; only
+// the total when the CLI gave no split), empty with neither tokens nor a model.
 func (u Usage) Line() string {
 	var parts []string
 	switch {
 	case u.Tokens <= 0:
-	case u.Tokens < 1000:
-		parts = append(parts, fmt.Sprintf("≈%d tokens", u.Tokens))
-	case u.Tokens < 10000:
-		parts = append(parts, fmt.Sprintf("≈%.1fk tokens", float64(u.Tokens)/1000))
+	case u.In+u.Out+u.Cached == 0:
+		parts = append(parts, "≈"+tokenCount(u.Tokens)+" tokens")
 	default:
-		parts = append(parts, fmt.Sprintf("≈%dk tokens", (u.Tokens+500)/1000))
+		parts = append(parts, "≈"+tokenCount(u.In)+" in", tokenCount(u.Out)+" out")
+		if u.Cached > 0 {
+			parts = append(parts, tokenCount(u.Cached)+" cached")
+		}
 	}
 	if u.Model != "" {
 		parts = append(parts, u.Model)
 	}
 	return strings.Join(parts, " · ")
+}
+
+// tokenCount is n as "812", "3.1k" or "52k".
+func tokenCount(n int) string {
+	switch {
+	case n < 1000:
+		return fmt.Sprint(n)
+	case n < 10000:
+		return fmt.Sprintf("%.1fk", float64(n)/1000)
+	}
+	return fmt.Sprintf("%dk", (n+500)/1000)
 }
 
 // RespondUsage is Respond that also returns the token usage Claude's stream-json result reports.
@@ -101,7 +120,8 @@ func RespondUsage(ctx context.Context, cfg Config, q Question, prompt string, st
 			}
 		case ev.Type == "result":
 			result, failed = ev.Result, ev.IsError
-			usage.Tokens, usage.CostUSD = ev.Usage.In+ev.Usage.Out+ev.Usage.CacheNew+ev.Usage.CacheRead, ev.Cost
+			usage.In, usage.Out, usage.Cached = ev.Usage.In+ev.Usage.CacheNew, ev.Usage.Out, ev.Usage.CacheRead
+			usage.Tokens, usage.CostUSD = usage.In+usage.Out+usage.Cached, ev.Cost
 			// Claude reports every model it used (a helper model may appear); the busiest one ran the answer.
 			best, chosen := -1, ""
 			for m, u := range ev.ModelUsage {

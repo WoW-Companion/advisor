@@ -395,7 +395,7 @@ function ask(question) {
         const e = JSON.parse(ev.data);
         es.close(); a.textContent = e.answer; scrollDown();
         if (e.status === 'error') a.classList.add('err');
-        for (const t of [e.usage, e.notice]) if (t) { const s = document.createElement('small'); s.textContent = t; a.appendChild(s); }
+        for (const t of [e.usage, e.notice]) if (t) { const s = document.createElement('small'); s.textContent = t; if (t === e.usage && e.usage_tip) s.title = e.usage_tip; a.appendChild(s); }
         stop();
       });
       es.onerror = () => { es.close(); if (busy) { a.textContent = got || 'The connection dropped.'; stop(); } };
