@@ -1,0 +1,6 @@
+[mcp_servers.wowc-advisor]
+command = "C:\\Users\\me\\wowc-advisor.exe"
+args = ["serve", "--stdio"]
+
+[mcp_servers.wowc-advisor.env]
+WOWC_SAVEDVARIABLES = "C:\\WoW\\ForeverScribe.lua"
