@@ -117,5 +117,9 @@ func askSetup(ctx context.Context, cfg *server.Config, f askFlags, stderr io.Wri
 		cleanup()
 		return ac, func() {}, err
 	}
+	if err := os.WriteFile(ask.PolicyPath(ac.MCPConfig), ask.GeminiPolicy(), 0o600); err != nil {
+		cleanup()
+		return ac, func() {}, err
+	}
 	return ac, cleanup, nil
 }

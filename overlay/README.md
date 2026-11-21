@@ -28,7 +28,11 @@ client. To ask questions it needs one: it picks the first of Claude Code, Codex 
 Gemini or a custom command); the choice is kept and the advisor restarts with it. With none installed the
 app shows a calm notice with links to each install page. The picker's tooltip names the program in use;
 **Re-scan** looks again (it restarts the advisor), so installing a client while the overlay is open needs
-no restart of the app. The Command box shows only for **Custom command**.
+no restart of the app. Claude Code, Codex and Gemini CLI are supported. Each is started headless with
+the advisor's tools pre-allowed and everything else (shell, file edits, web) denied or sandboxed, so you
+never approve anything in the AI client; the tools are read-only, apart from `update_digest` writing the
+digest file (`docs/ask.md` has a table of what each passes). Gemini needs the advisor in its settings
+(`wowc-advisor setup gemini`). The Command box shows only for **Custom command**.
 
 ### Where Windows installs are found
 

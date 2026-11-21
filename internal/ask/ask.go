@@ -36,12 +36,28 @@ const (
 	DefaultMaxPerRun = 5
 )
 
-// Presets are the documented agent commands. {prompt} is the question text, {mcp_config} the path
-// of a generated MCP config file; a command without {prompt} gets the prompt as its last argument.
+// ServerName is the advisor's name in the generated MCP config and in each CLI's own settings.
+const ServerName = "wowc-advisor"
+
+// Presets are the documented agent commands (docs/ask.md lists what each passes). {prompt} is the
+// question text, {mcp_config} the path of a generated MCP config file, {mcp_codex} the advisor server
+// as a Codex inline config table, {mcp_policy} the path of a generated Gemini policy file; a command
+// without {prompt} gets the prompt as its last argument.
+//
+// Each preset pre-allows the advisor's tools and nothing else, because a headless run refuses what
+// it cannot ask about.
 var Presets = map[string][]string{
-	"claude": {"claude", "-p", "{prompt}", "--mcp-config", "{mcp_config}"},
-	"codex":  {"codex", "exec", "{prompt}"},
-	"gemini": {"gemini", "-p", "{prompt}"},
+	// --allowedTools names the whole server; every other tool is denied by name as well, and
+	// --strict-mcp-config keeps the player's own MCP servers out.
+	"claude": {"claude", "-p", "{prompt}", "--mcp-config", "{mcp_config}", "--strict-mcp-config",
+		"--allowedTools", "mcp__" + ServerName,
+		"--disallowedTools", "Bash", "Edit", "Write", "NotebookEdit", "WebFetch", "WebSearch", "Read", "Glob", "Grep"},
+	// The server is defined and its tools approved on the command line (nothing written to the
+	// player's config); the sandbox is read-only.
+	"codex": {"codex", "exec", "--skip-git-repo-check", "-s", "read-only", "-c", "mcp_servers." + ServerName + "={mcp_codex}", "{prompt}"},
+	// The server comes from the player's gemini settings (setup gemini); the policy allows its
+	// tools and denies shell, file writes and the web.
+	"gemini": {"gemini", "--allowed-mcp-server-names", ServerName, "--policy", "{mcp_policy}", "-p", "{prompt}"},
 }
 
 // Tools are the advisor tool names; an answer that names one gets it in its sources line.
@@ -230,28 +246,35 @@ func (c *capped) Write(p []byte) (int, error) {
 	return n, err
 }
 
-// Prompt is what the agent is asked: the question and the character key, and where the facts are.
+// Prompt is what the agent is asked: the question and the character key, where the facts are, and
+// what to say if the tools are missing.
 func Prompt(q Question) string {
 	return fmt.Sprintf("You are the WoW Companion advisor. A World of Warcraft player asks a question from inside the game. "+
-		"Character key: %s. Use the wowc-advisor MCP tools for facts about this character and the game; do not guess. "+
-		"Answer in plain text, under %d characters, no markdown.\n\nQuestion: %s", q.Character, MaxAnswer, q.Text)
+		"Character key: %s. Use the %s MCP tools for anything about this character or the game; do not guess. "+
+		"Never tell the player to change permissions, settings or approvals. If a tool call is refused or the tools are missing, "+
+		"answer exactly: %q "+
+		"Answer in plain text, under %d characters, no markdown.\n\nQuestion: %s", q.Character, ServerName, ToolsUnavailable, MaxAnswer, q.Text)
 }
 
-// Argv fills {prompt} and {mcp_config} in the command template; with no {prompt}, the prompt is
-// appended. An {mcp_config} pair is dropped when there is no config file.
+// ToolsUnavailable is the answer when the AI client would not run the advisor's tools.
+const ToolsUnavailable = "The advisor's tools weren't available to the AI client (setup problem)."
+
+// Argv fills the placeholders in the command template; with no {prompt}, the prompt is appended.
+// An argument that needs the MCP config is dropped, with the flag before it, when there is none.
 func Argv(tmpl []string, prompt, mcpConfig string) []string {
 	var out []string
 	hasPrompt := false
-	for i := 0; i < len(tmpl); i++ {
-		a := tmpl[i]
-		if strings.Contains(a, "{mcp_config}") && mcpConfig == "" {
-			if len(out) > 0 && strings.HasPrefix(out[len(out)-1], "-") && a == "{mcp_config}" {
+	codex := codexServer(mcpConfig)
+	for _, a := range tmpl {
+		if mcpConfig == "" && (strings.Contains(a, "{mcp_config}") || strings.Contains(a, "{mcp_codex}") || strings.Contains(a, "{mcp_policy}")) {
+			if len(out) > 0 && strings.HasPrefix(out[len(out)-1], "-") {
 				out = out[:len(out)-1]
 			}
 			continue
 		}
 		hasPrompt = hasPrompt || strings.Contains(a, "{prompt}")
-		out = append(out, strings.NewReplacer("{prompt}", prompt, "{mcp_config}", mcpConfig).Replace(a))
+		out = append(out, strings.NewReplacer("{prompt}", prompt, "{mcp_config}", mcpConfig,
+			"{mcp_codex}", codex, "{mcp_policy}", PolicyPath(mcpConfig)).Replace(a))
 	}
 	if !hasPrompt {
 		out = append(out, prompt)

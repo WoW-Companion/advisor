@@ -71,7 +71,9 @@ out, run `wowc-advisor ask --agent claude` (or `--watch` to keep
 polling), then `/reload` again.
 
 Success: the answer appears under your question in the panel. `claude`, `codex` and `gemini` are the
-agent presets; see [ask.md](ask.md).
+agent presets; see [ask.md](ask.md). The advisor's tools are pre-allowed for
+these runs and read-only (apart from `update_digest`, which writes the digest file); nothing else is.
+The presets pass the permission flags themselves, so you never allow anything in the AI client.
 
 ## Live answers beside the game
 

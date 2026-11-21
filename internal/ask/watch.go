@@ -1,6 +1,7 @@
 package ask
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -8,6 +9,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 )
@@ -121,4 +123,77 @@ func Summary(r Result, answersPath string) string {
 		s += fmt.Sprintf(", %d more waiting", r.Pending)
 	}
 	return s + " -> " + filepath.ToSlash(answersPath) + "\nType /reload in game to see the answers."
+}
+
+// PolicyPath is where the Gemini policy file sits: next to the generated MCP config.
+func PolicyPath(mcpConfig string) string {
+	if mcpConfig == "" {
+		return ""
+	}
+	return filepath.Join(filepath.Dir(mcpConfig), "gemini-policy.toml")
+}
+
+// GeminiPolicy is the Gemini CLI policy file: the advisor's tools run without asking, and shell,
+// file writes and web access are denied outright (a headless run cannot ask).
+func GeminiPolicy() []byte {
+	return []byte(`[[rule]]
+mcpName = "` + ServerName + `"
+decision = "allow"
+priority = 200
+
+[[rule]]
+toolName = ["run_shell_command", "write_file", "replace", "web_fetch", "google_web_search"]
+decision = "deny"
+priority = 190
+`)
+}
+
+// codexServer is the advisor server from the MCP config file as a Codex inline config table, with
+// its tools approved; empty when the file cannot be read.
+func codexServer(mcpConfig string) string {
+	raw, err := os.ReadFile(mcpConfig)
+	if err != nil {
+		return ""
+	}
+	var c struct {
+		Servers map[string]struct {
+			Command string            `json:"command"`
+			Args    []string          `json:"args"`
+			Env     map[string]string `json:"env"`
+		} `json:"mcpServers"`
+	}
+	if json.Unmarshal(raw, &c) != nil {
+		return ""
+	}
+	s, ok := c.Servers[ServerName]
+	if !ok {
+		return ""
+	}
+	// A TOML literal string keeps a Windows path's backslashes and has no double quote for the
+	// .cmd shim's quoting to change; a value with a quote or control character is escaped instead.
+	q := func(v string) string {
+		if !strings.ContainsAny(v, "'\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\r\x7f") {
+			return "'" + v + "'"
+		}
+		var b bytes.Buffer
+		enc := json.NewEncoder(&b)
+		enc.SetEscapeHTML(false)
+		enc.Encode(v)
+		return strings.TrimSpace(b.String())
+	}
+	args := make([]string, len(s.Args))
+	for i, a := range s.Args {
+		args[i] = q(a)
+	}
+	keys := make([]string, 0, len(s.Env))
+	for k := range s.Env {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	env := make([]string, len(keys))
+	for i, k := range keys {
+		env[i] = q(k) + " = " + q(s.Env[k])
+	}
+	return "{ command = " + q(s.Command) + ", args = [" + strings.Join(args, ", ") + "], env = { " + strings.Join(env, ", ") +
+		" }, default_tools_approval_mode = \"approve\" }"
 }

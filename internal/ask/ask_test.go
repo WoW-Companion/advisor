@@ -19,6 +19,9 @@ func TestMain(m *testing.M) {
 		os.Exit(m.Run())
 	case "echo":
 		fmt.Printf("Do the turn-in first (whats_next).\nquestion=%s char=%s\n", os.Getenv("WOWC_QUESTION"), os.Getenv("WOWC_CHARACTER"))
+	case "argv":
+		os.WriteFile(os.Getenv("FAKE_ARGV_OUT"), []byte(strings.Join(os.Args[1:], "\x00")), 0o644)
+		fmt.Println("ok")
 	case "fail":
 		fmt.Fprintln(os.Stderr, "boom")
 		os.Exit(3)
@@ -72,10 +75,10 @@ func TestArgv(t *testing.T) {
 		mcp  string
 		want []string
 	}{
-		{"claude with config", Presets["claude"], "/m.json", []string{"claude", "-p", "Q", "--mcp-config", "/m.json"}},
-		{"claude without config", Presets["claude"], "", []string{"claude", "-p", "Q"}},
+		{"claude with config", []string{"claude", "-p", "{prompt}", "--mcp-config", "{mcp_config}", "--x"}, "/m.json", []string{"claude", "-p", "Q", "--mcp-config", "/m.json", "--x"}},
+		{"claude without config", []string{"claude", "-p", "{prompt}", "--mcp-config", "{mcp_config}", "--x"}, "", []string{"claude", "-p", "Q", "--x"}},
 		{"prompt appended", []string{"mycli", "--fast"}, "", []string{"mycli", "--fast", "Q"}},
-		{"codex", Presets["codex"], "/m.json", []string{"codex", "exec", "Q"}},
+		{"prompt only after flags", []string{"codex", "exec", "-s", "read-only", "{prompt}"}, "/m.json", []string{"codex", "exec", "-s", "read-only", "Q"}},
 	} {
 		if got := Argv(tc.tmpl, "Q", tc.mcp); !reflect.DeepEqual(got, tc.want) {
 			t.Errorf("%s: %v, want %v", tc.name, got, tc.want)
@@ -260,6 +263,95 @@ func TestResolveAgent(t *testing.T) {
 		got, err := ResolveAgent(tc.flag, tc.conf)
 		if (err == nil) != tc.ok || !reflect.DeepEqual(got, tc.want) {
 			t.Errorf("%q %q: %v, %v", tc.flag, tc.conf, got, err)
+		}
+	}
+}
+
+// runPreset runs a preset's argv through the fake agent and returns the arguments it received.
+func runPreset(t *testing.T, name string) []string {
+	t.Helper()
+	cfg := fixture(t, "argv")
+	out := filepath.Join(t.TempDir(), "argv")
+	t.Setenv("FAKE_ARGV_OUT", out)
+	dir := t.TempDir()
+	cfg.MCPConfig = filepath.Join(dir, "mcp.json")
+	if err := os.WriteFile(cfg.MCPConfig, MCPConfig(`C:\bin\wowc.exe`, map[string]string{"WOWC_SAVEDVARIABLES": `C:\WoW\f.lua`}), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cfg.Command = append([]string{os.Args[0]}, Presets[name][1:]...)
+	if res, err := Run(context.Background(), cfg); err != nil || res.Failed != 0 {
+		t.Fatalf("%s: %+v %v", name, res, err)
+	}
+	raw, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return strings.Split(string(raw), "\x00")
+}
+
+func after(args []string, flag string) string {
+	for i, a := range args {
+		if a == flag && i+1 < len(args) {
+			return args[i+1]
+		}
+	}
+	return ""
+}
+
+func TestPresetsPreAllowOnlyTheAdvisor(t *testing.T) {
+	claude := runPreset(t, "claude")
+	if after(claude, "--allowedTools") != "mcp__wowc-advisor" || !strings.Contains(strings.Join(claude, " "), "--strict-mcp-config") ||
+		!strings.HasSuffix(after(claude, "--mcp-config"), "mcp.json") {
+		t.Errorf("claude argv: %q", claude)
+	}
+	for i, a := range claude {
+		if a == "--allowedTools" && claude[i+2] != "--disallowedTools" {
+			t.Errorf("claude allows more than the advisor: %q", claude)
+		}
+	}
+	for _, tool := range []string{"Bash", "Edit", "Write", "WebFetch", "Read"} {
+		if !strings.Contains(strings.Join(claude, " "), " "+tool) {
+			t.Errorf("claude does not deny %s", tool)
+		}
+	}
+
+	codex := runPreset(t, "codex")
+	srv := after(codex, "-c")
+	if after(codex, "-s") != "read-only" || !strings.HasPrefix(srv, "mcp_servers.wowc-advisor={ command = 'C:\\bin\\wowc.exe', args = ['serve', '--stdio']") ||
+		!strings.Contains(srv, `'WOWC_SAVEDVARIABLES' = 'C:\WoW\f.lua'`) || !strings.HasSuffix(srv, `default_tools_approval_mode = "approve" }`) {
+		t.Errorf("codex argv: %q", codex)
+	}
+	for _, a := range codex {
+		if strings.Contains(a, "danger") || strings.Contains(a, "bypass") {
+			t.Errorf("codex opens up the sandbox: %q", codex)
+		}
+	}
+
+	gemini := runPreset(t, "gemini")
+	pol := after(gemini, "--policy")
+	if after(gemini, "--allowed-mcp-server-names") != "wowc-advisor" || filepath.Base(pol) != "gemini-policy.toml" {
+		t.Errorf("gemini argv: %q", gemini)
+	}
+	if strings.Contains(strings.Join(gemini, " "), "yolo") {
+		t.Errorf("gemini auto-approves everything: %q", gemini)
+	}
+}
+
+func TestArgvWithoutMCPConfigDropsItsFlags(t *testing.T) {
+	for name, want := range map[string]string{"claude": "--mcp-config", "codex": "-c", "gemini": "--policy"} {
+		for _, a := range Argv(Presets[name], "Q", "") {
+			if a == want {
+				t.Errorf("%s keeps %s without a config: %v", name, want, Argv(Presets[name], "Q", ""))
+			}
+		}
+	}
+}
+
+func TestPromptForbidsPermissionCoaching(t *testing.T) {
+	p := Prompt(Question{Character: "A-B", Text: "Q"})
+	for _, want := range []string{"Never tell the player to change permissions", ToolsUnavailable, "wowc-advisor MCP tools"} {
+		if !strings.Contains(p, want) {
+			t.Errorf("prompt lacks %q", want)
 		}
 	}
 }
