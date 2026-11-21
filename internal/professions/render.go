@@ -8,6 +8,7 @@ import (
 // Render is the plain-text form of plans.
 func Render(plans []Leveling) string {
 	var b strings.Builder
+	anyMissing := false
 	for i, p := range plans {
 		if i > 0 {
 			b.WriteString("\n")
@@ -41,6 +42,7 @@ func Render(plans []Leveling) string {
 			for _, r := range s.Reagents {
 				fmt.Fprintf(&b, "   %s: need %d, have %d", r.Name, r.Need, r.Have)
 				if r.Missing > 0 {
+					anyMissing = true
 					fmt.Fprintf(&b, ", missing %d", r.Missing)
 				}
 				b.WriteString("\n")
@@ -52,6 +54,9 @@ func Render(plans []Leveling) string {
 	}
 	if len(plans) == 0 {
 		return "No professions captured for this character.\n"
+	}
+	if anyMissing {
+		b.WriteString("Missing an item? farm_spots lists where it drops.\n")
 	}
 	return b.String()
 }

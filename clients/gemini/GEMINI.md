@@ -24,6 +24,8 @@ All character tools take an optional `character` name (omit it when only one was
   `limit`).
 - `dungeon_plan`: which dungeons fit the character and which boss drops are upgrades (optional
   `limit`).
+- `farm_spots`: where an item drops (item id or name, optional `limit`): creatures and objects by level fit
+  and drop chance, with zones where known.
 - `inventory_review`: what in the bags and bank to equip, keep for professions, hand in for quests,
   vendor or bank, with the reason for each.
 - `update_digest`: writes the in-game digest into the WoWCompanion_Digest addon. Call it only when
