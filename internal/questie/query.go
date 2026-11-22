@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"fmt"
 	"math"
+	"math/bits"
 	"sort"
 	"strings"
 )
@@ -43,6 +44,7 @@ type Offer struct {
 	Quest *Quest
 	Giver Place
 	Diff  int
+	Class bool // a class quest the character's class can take
 }
 
 func (ix *Index) entity(r Ref) (Entity, bool) {
@@ -115,6 +117,15 @@ func allIn(ids []int, set map[int]bool) bool {
 	return true
 }
 
+// MaxClassQuestClasses is the most classes a quest's mask may name for it to count as a class quest.
+const MaxClassQuestClasses = 3
+
+// ClassQuest reports whether the quest is limited to one class or a few (its class mask names at
+// most MaxClassQuestClasses of them), not open to everyone.
+func (q *Quest) ClassQuest() bool {
+	return q.Classes != 0 && bits.OnesCount64(q.Classes) <= MaxClassQuestClasses
+}
+
 // Eligible reports whether the quest could be picked up now: level, race, class, prerequisites,
 // not done, not in the log, not a placeholder, no requirement this reader cannot check.
 func (q *Quest) Eligible(w Who) bool {
@@ -170,11 +181,13 @@ func (ix *Index) Available(w Who, at Where, skip func(name string) bool) []Offer
 		if d < 0 {
 			d = -d
 		}
-		out = append(out, Offer{q, p, d})
+		out = append(out, Offer{q, p, d, w.ClassID > 0 && q.ClassQuest()})
 	}
 	sort.Slice(out, func(i, j int) bool {
 		a, b := out[i], out[j]
 		switch {
+		case a.Class != b.Class:
+			return a.Class
 		case a.Diff != b.Diff:
 			return a.Diff < b.Diff
 		case (a.Giver.Dist < 0) != (b.Giver.Dist < 0):

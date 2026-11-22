@@ -163,6 +163,9 @@ func groups(t *character.Talents) []group {
 	var out []group
 	idx := map[string]int{}
 	for _, tree := range t.Trees {
+		if tree.IsProfession() {
+			continue // the spec is a class tree matter
+		}
 		if len(tree.Groups) == 0 {
 			if tree.Name != "" || (tree.Points != nil && *tree.Points > 0) {
 				name := tree.Name

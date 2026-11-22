@@ -10,6 +10,7 @@ WoWCompanionDigest = {
       character = "Testpriest",
       sections = {
         { id = "next_quests", lines = {
+          { text = "You have 2 unspent talent points: Penance" },
           { text = "Turn in Wolves at the Door (Dunemark)", quest = 100 },
           { text = "Gather Peacebloom (Dunemark)", quest = 101 },
         } },
@@ -23,7 +24,6 @@ WoWCompanionDigest = {
           { text = "Copper Bar x5", item = 2840 },
         } },
         { id = "notes", lines = {
-          { text = "Spend 2 unspent talent points: Penance" },
           { text = "1 failed quest: abandon" },
           { text = "Bank not captured: open your bank once" },
           { text = "Dataset is build 1.59.0.63000, game is 64000" },

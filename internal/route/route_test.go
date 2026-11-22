@@ -324,3 +324,31 @@ func TestNoQuestieNoPlan(t *testing.T) {
 		t.Errorf("%+v", p)
 	}
 }
+
+func TestClassQuestIsMustInclude(t *testing.T) {
+	ix := hubIsle()
+	ix.Quests[13].Classes = 1 << 7 // mage only; level 11 would otherwise wait in "later"
+	ix.Quests[12].Classes = 1 << 4 // priest only: not for this mage
+	c := hero()
+	c.Class = "MAGE"
+	p := Build(c, ix)
+	var pick, other bool
+	for _, s := range p.Steps {
+		pick = pick || (s.Kind == KindPickup && strings.Contains(s.Quest, "Quest 13"))
+		other = other || strings.Contains(s.Quest, "Quest 12")
+	}
+	if !pick {
+		t.Errorf("class quest pick-up not on the route: %+v", p)
+	}
+	if other {
+		t.Errorf("another class's quest on the route: %+v", p.Steps)
+	}
+}
+
+func TestMustSetKeepsPrerequisites(t *testing.T) {
+	nodes := []*spot{{}, {}, {must: true}, {}}
+	got := mustSet(nodes, [][]int{nil, nil, {1}, nil})
+	if !got[2] || !got[1] || got[0] || got[3] {
+		t.Errorf("mustSet = %v", got)
+	}
+}

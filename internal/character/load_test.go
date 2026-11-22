@@ -3,6 +3,7 @@ package character
 import (
 	"errors"
 	"io/fs"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -134,5 +135,41 @@ func TestLocationAndHearth(t *testing.T) {
 	}
 	if got := LoadCharacter("R:N", lua.Table{}); got.Location != nil {
 		t.Errorf("no location section must stay nil: %+v", got.Location)
+	}
+}
+
+func TestTalentTreeFieldsTolerant(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "sv.lua")
+	body := `ForeverScribeDB = { ["chars"] = { [":Tester"] = { ["snapshot"] = { ["identity"] = { ["name"] = "Tester" },
+["talents"] = { ["trees"] = {
+ { ["treeID"] = 1, ["currency"] = { ["unspent"] = 3, ["max"] = 10, ["maxAvailable"] = 5, ["spentInTree"] = 2 },
+   ["talents"] = { { ["name"] = "A", ["rank"] = 1, ["max"] = 2, ["canBuy"] = true, ["type"] = "single" }, { ["name"] = "B" } } },
+ { ["treeID"] = 2, ["key"] = "professions", ["currency"] = { ["unspent"] = 2 } },
+ { ["treeID"] = 3 },
+} } } } } }`
+	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	f, err := LoadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tl := f.Characters[0].Talents
+	if tl == nil || len(tl.Trees) != 3 {
+		t.Fatalf("talents %+v", tl)
+	}
+	class, prof := tl.Trees[0], tl.Trees[1]
+	if deref(class.Unspent) != 3 || deref(class.MaxAvail) != 5 || deref(class.Points) != 2 || class.IsProfession() {
+		t.Errorf("class tree %+v", class)
+	}
+	if n := class.Talents[0]; n.CanBuy == nil || !*n.CanBuy || n.Type != "single" || class.Talents[1].CanBuy != nil {
+		t.Errorf("nodes %+v", class.Talents)
+	}
+	if !prof.IsProfession() || tl.ProfessionUnspent() != 2 || deref(tl.Unspent) != 3 {
+		t.Errorf("profession %+v unspent %v", prof, tl.Unspent)
+	}
+	if (*Talents)(nil).ProfessionUnspent() != 0 {
+		t.Error("nil talents")
 	}
 }

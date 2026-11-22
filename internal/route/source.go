@@ -181,7 +181,7 @@ func (s *questieSource) quests(c character.Character, at *questie.Where) []*ques
 		if qq == nil || (lq.Failed != nil && *lq.Failed) {
 			continue
 		}
-		q := &quest{id: qq.ID, name: qq.Name, level: qq.Level}
+		q := &quest{id: qq.ID, name: qq.Name, level: qq.Level, must: classQuestOf(c, qq)}
 		if lq.Level != nil {
 			q.level = *lq.Level
 		}
@@ -223,13 +223,18 @@ func (s *questieSource) quests(c character.Character, at *questie.Where) []*ques
 			if pick == nil || pick.m != curMap {
 				continue
 			}
-			q := &quest{id: qq.ID, name: qq.Name, level: qq.Level, pickup: pick}
+			q := &quest{id: qq.ID, name: qq.Name, level: qq.Level, pickup: pick, must: classQuestOf(c, qq)}
 			q.objs = objectives(qq, nil, pick.x, pick.y)
 			q.turnin = spotFrom(KindTurnIn, qq, qq.Finishers, pick.x, pick.y, true)
 			out = append(out, q)
 		}
 	}
 	return out
+}
+
+// classQuestOf reports whether qq is a class quest for c's class: those stops are must-include.
+func classQuestOf(c character.Character, qq *questie.Quest) bool {
+	return advice.WhoOf(c).ClassID > 0 && qq.ClassQuest()
 }
 
 // filterBig keeps the leading clusters at least half the size of the biggest.

@@ -4,9 +4,14 @@
 title, a reason, the zone when known, and its sources (a capture field and/or a dataset table and
 row id).
 
+0. **Milestones lead**: class quests to pick up ("Class quest: pick up X from NPC (x, y)", from a
+   Questie quest limited to one to three classes that includes yours; up to 3), then "You have N
+   unspent talent points" (class trees, pointing to the question "What talents should I get?"), then
+   "You have N unspent profession talent points" (trees whose `key` is `professions`). The class
+   quest's reward is never named. The route plan always includes a class quest's stops.
 1. **Turn-ins** (`turn_in`): completed quests. Zones with the most turn-ins come first, ties by
    zone name; quests with no known zone last.
-2. **Talents** (`talent`): one step when points are unspent, naming the tree (group) with the most
+2. **Talents** (`talent`, listed first, see 0): one step when points are unspent, naming the tree (group) with the most
    points spent, or the trees tied for it.
 3. **Open quests** (`quest`): ordered by how close the quest level is to the character's. Quests
    more than 5 levels below (grey) or more than 3 above are skipped. A quest whose level is unknown

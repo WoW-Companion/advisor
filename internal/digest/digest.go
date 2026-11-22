@@ -153,8 +153,18 @@ func Build(c character.Character, ds store.DataStore, opt Options) Digest {
 	steps := advice.WhatsNextWith(c, ds, opt.Questie)
 	notes := stepNotes(c, ds, steps)
 
-	var quests []Line
+	var quests, milestones []Line
 	for _, s := range steps {
+		if s.Kind == advice.KindTalent { // milestones lead the NEXT section
+			l := Line{Text: clip(talentNote(c, ds, s.Title))}
+			quests, milestones = append(quests, l), append(milestones, l)
+			continue
+		}
+		if advice.IsClassQuest(s) {
+			l := Line{Text: clip(s.Title), Quest: s.QuestID}
+			quests, milestones = append(quests, l), append(milestones, l)
+			continue
+		}
 		if s.Kind != advice.KindTurnIn && s.Kind != advice.KindQuest || strings.HasPrefix(s.Title, advice.AbandonPrefix) {
 			continue
 		}
@@ -168,7 +178,7 @@ func Build(c character.Character, ds store.DataStore, opt Options) Digest {
 		quests = append(quests, Line{Text: clip(text), Quest: s.QuestID})
 	}
 	if ds == nil {
-		quests = []Line{{Text: NoDataText}}
+		quests = append(milestones, Line{Text: NoDataText})
 	}
 	ups, note := upgradeLines(c, ds)
 	notes = append(notes, note...)
@@ -284,8 +294,6 @@ func stepNotes(c character.Character, ds store.DataStore, steps []advice.Step) [
 	failed := 0
 	for _, s := range steps {
 		switch {
-		case s.Kind == advice.KindTalent:
-			out = append(out, Line{Text: clip(talentNote(c, ds, s.Title))})
 		case s.Kind == advice.KindQuest && strings.HasPrefix(s.Title, advice.AbandonPrefix):
 			failed++
 		}
