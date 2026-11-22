@@ -33,6 +33,9 @@ About 3 minutes to read, about 10 to do. Use your own names wherever you see `<a
    reads them on your own PC to suggest quests you have not picked up, with the giver's position, and to
    locate quests in your log. Without them it uses ForeverScribe's saved data alone. See
    [Questie interop](design/questie-interop.md).
+   **The plan and the map.** With Questie, the overlay shows a numbered **Plan** under Next: an efficient order
+   for your pick-ups, objectives and turn-ins. To see the plan's pins on the in-game map, you need WoW Companion
+   addon 0.3.0 or newer; the setup checklist updates it.
 4. **Install an AI client and sign in once.** Pick one; Claude Code gives the most detailed answers in
    our testing. Steps for each are under [Set up your AI client](#set-up-your-ai-client) below.
 5. **Set WoW to Windowed (Fullscreen).** In WoW: System, Graphics, **Display Mode**, **Windowed (Fullscreen)**.
