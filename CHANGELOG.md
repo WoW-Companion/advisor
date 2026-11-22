@@ -1,8 +1,12 @@
 # Changelog
 
-## Unreleased
+## 0.7.0
 
-- Milestones now lead the advice: class quests to pick up (from your own Questie) and "You have N unspent talent points" / profession talent points come before routine quests, in Next, the digest and answers. The route plan always includes class quests.
+- Class quests and unspent talent points now lead the advice: "Next", the digest and answers put class quests to pick up (read from your own Questie) and "You have N unspent talent points" (including profession talent points) ahead of routine quests. The route plan always includes class quests.
+- New talent advisor: ask "What talents should I get?" and it asks about your play style, then builds a talent plan for your spec. Talent plans read the guide you choose (Icy Veins by default) at the time you ask, and nothing from it is stored in WoW Companion.
+- The advisor remembers each character's talent choices and play style.
+- The in-game `Plan.lua` and `Digest.lua` are now written as soon as the overlay starts, and missing data files are stubbed, so the addon no longer shows an "error loading Plan.lua" warning at login.
+- Fixed quest route plans: a quest is never routed to its turn-in before its objectives are done, and item and kill-credit objectives are now resolved so they appear in the route.
 
 ## 0.6.0
 
