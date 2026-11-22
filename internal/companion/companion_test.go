@@ -616,3 +616,20 @@ func TestUpdateEndpoint(t *testing.T) {
 		t.Errorf("failed lookup: %+v", n)
 	}
 }
+
+// The state carries each next quest's structured fields whole beside its text, for the overlay.
+func TestNextLinesJSON(t *testing.T) {
+	long := strings.Repeat("Seena Skybreaker ", 8)
+	ci := CharInfo{NextLines: []NextLine{{Text: "Class quest: pick up The Skybreaker Bulwark from Seena Sk", Kind: "pickup", Title: "The Skybreaker Bulwark", Level: 10, Class: true, NPC: long,
+		Objectives: []NextObjective{{Text: "Meat", Have: 1, Need: 6, HasCount: true}}}}}
+	ci.Next = nextTexts(ci.NextLines)
+	b, err := json.Marshal(ci)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{`"next":["Class quest: pick up`, `"title":"The Skybreaker Bulwark"`, `"level":10`, `"class":true`, `"npc":"` + long + `"`, `"have":1,"need":6,"has_count":true`} {
+		if !strings.Contains(string(b), want) {
+			t.Errorf("state lacks %s: %s", want, b)
+		}
+	}
+}

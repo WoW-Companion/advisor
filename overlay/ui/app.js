@@ -350,12 +350,12 @@ function showNext() {
   showStyle();
   const c = state && state.characters.find(c => c.key === who.value);
   const items = (c && c.next) || [];
+  // next_lines carries the structured fields; an older advisor sends only the text.
+  const lines = (c && c.next_lines && c.next_lines.length) ? c.next_lines : items;
   $('next-line').textContent = items.length ? items[0] : 'Nothing queued yet.';
-  $('next-list').replaceChildren(...(items.length ? items : ['Nothing queued yet.']).map(t => {
-    const li = document.createElement('li');
-    li.textContent = t;
-    if (!items.length) li.className = 'none';
-    return li;
+  $('next-list').replaceChildren(...(lines.length ? lines : ['Nothing queued yet.']).map(t => {
+    if (!lines.length) { const li = document.createElement('li'); li.textContent = t; li.className = 'none'; return li; }
+    return WowcNext.render(document, t, c && c.level);
   }));
   const plan = (c && c.plan) || [];
   $('plan').hidden = !plan.length;

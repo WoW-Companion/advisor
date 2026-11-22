@@ -139,3 +139,16 @@ button:disabled { opacity: .5; cursor: default; }
 a, a:link, a:visited { color: var(--gold); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
 a:hover { color: #f0cf85; text-decoration-thickness: 2px; }
 a:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; border-radius: 2px; }
+/* Next list entries from structured fields: wrap, never truncate. */
+.next li { overflow-wrap: anywhere; }
+.next .nx-obj { padding-left: 14px; color: var(--muted); }
+.next .nx-obj.nx-done { opacity: .55; }
+.next .nx-sub { padding-left: 14px; color: var(--muted); }
+.next .nx-sub.nx-ready { color: var(--gold); }
+.next .nx-tag { color: var(--muted); }
+.next .nx-talent { color: var(--gold); }
+.next .diff-red { color: #ff6a4d; }
+.next .diff-orange { color: #ff9a3c; }
+.next .diff-yellow { color: #f2d04f; }
+.next .diff-green { color: #6fcf5f; }
+.next .diff-grey { color: #9a9a9a; }
