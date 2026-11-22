@@ -4,13 +4,13 @@ WoWCompanionDigest = {
   generated = 1800000000,
   characters = {
     ["Realm:Bare"] = {
-      schema = "1.2",
+      schema = "1.3",
       generated = 1800000000,
       build = "1.60.0.64000",
       character = "Realm:Bare",
       sections = {
         { id = "next_quests", lines = {
-          { text = "Game data not downloaded yet; see Setup" },
+          { text = "Game data not downloaded yet; see Setup", kind = "note" },
         } },
       },
     },

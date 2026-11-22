@@ -146,7 +146,7 @@ func AvailableQuests(c character.Character, ds store.DataStore) Available {
 		if zone != "" {
 			reason += ", in " + zone
 		}
-		s := Step{Kind: KindQuest, Title: PickUpPrefix + label, Reason: reason, Zone: zone, QuestID: int(id),
+		s := Step{Kind: KindQuest, Title: PickUpPrefix + label, Reason: reason, Zone: zone, QuestID: int(id), Name: label, Level: lvl,
 			Sources: []string{fmt.Sprintf("dataset: quests id %d", id)}}
 		sc := scored{step: s, diff: d, line: ch.Found && logLines[ch.LineID], zone: logZones[zone] > 0 || here[zone]}
 		switch {

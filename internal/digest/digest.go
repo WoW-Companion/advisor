@@ -23,7 +23,7 @@ import (
 
 // Schema is the version of one character's entry; EnvelopeSchema is the file's.
 const (
-	Schema         = "1.2"
+	Schema         = "1.3"
 	EnvelopeSchema = "2.0"
 )
 
@@ -49,11 +49,42 @@ const (
 	MaxText      = 60
 )
 
-// Line is one digest line; Item and Quest are zero when absent.
+// Line kinds, for a Line's Kind.
+const (
+	KindPickup   = "pickup"
+	KindTurnIn   = "turnin"
+	KindProgress = "progress"
+	KindTalent   = "talent"
+	KindNote     = "note"
+)
+
+// Objective is one objective of a quest: its text without the count, and the count when known.
+type Objective struct {
+	Text       string
+	Have, Need int
+	HasCount   bool
+}
+
+// Line is one digest line; Item and Quest are zero when absent. Text is clipped to MaxText for older
+// addons; every field after Quest is optional, never clipped, and left out when empty.
 type Line struct {
 	Text  string
 	Item  int
 	Quest int
+
+	Kind       string // one of the Kind constants
+	Title      string // the full quest title
+	Level      int    // the quest's level
+	Class      bool   // a class quest
+	Elite      bool   // an elite or group quest
+	NPC        string // the giver of a pick-up, or the turn-in NPC
+	Zone       string
+	Objectives []Objective
+	Points     int // unspent talent points, for the talent line
+
+	Slot    string // upgrades: the slot
+	ILvl    int    // upgrades: the item's level
+	AtLevel int    // upgrades: the character level the item needs, when not yet wearable
 }
 
 // DungeonLine is one dungeons entry: the dungeon, its level fit and top upgrade; Item is zero when
@@ -132,6 +163,32 @@ func oneObjective(p string) string {
 	return fmt.Sprintf("%s; +%d more", head, strings.Count(rest, "; ")+1)
 }
 
+// objectivesOf is the logged quest's objectives, whole: text without the count, the count when the
+// capture has one, optional objectives included.
+func objectivesOf(c character.Character, id int) []Objective {
+	for _, q := range c.Quests {
+		if q.QuestID != id {
+			continue
+		}
+		var out []Objective
+		for _, o := range q.Objectives {
+			l := o.Label()
+			if l == "" {
+				continue
+			}
+			ob := Objective{Text: l}
+			if o.Have != nil && o.Need != nil && *o.Need > 0 {
+				ob.Have, ob.Need, ob.HasCount = *o.Have, *o.Need, true
+			} else if o.Done != nil && *o.Done {
+				ob.Have, ob.Need, ob.HasCount = 1, 1, true
+			}
+			out = append(out, ob)
+		}
+		return out
+	}
+	return nil
+}
+
 func name(c character.Character) string {
 	if c.Name != "" {
 		return c.Name
@@ -156,12 +213,12 @@ func Build(c character.Character, ds store.DataStore, opt Options) Digest {
 	var quests, milestones []Line
 	for _, s := range steps {
 		if s.Kind == advice.KindTalent { // milestones lead the NEXT section
-			l := Line{Text: clip(talentNote(c, ds, s.Title))}
+			l := Line{Text: clip(talentNote(c, ds, s.Title)), Kind: KindTalent, Points: s.Points}
 			quests, milestones = append(quests, l), append(milestones, l)
 			continue
 		}
 		if advice.IsClassQuest(s) {
-			l := Line{Text: clip(s.Title), Quest: s.QuestID}
+			l := Line{Text: clip(s.Title), Quest: s.QuestID, Kind: KindPickup, Title: s.Name, Level: s.Level, Class: true, Elite: s.Elite, NPC: s.NPC, Zone: s.Zone}
 			quests, milestones = append(quests, l), append(milestones, l)
 			continue
 		}
@@ -175,10 +232,19 @@ func Build(c character.Character, ds store.DataStore, opt Options) Digest {
 		if s.Zone != "" {
 			text += " (" + s.Zone + ")"
 		}
-		quests = append(quests, Line{Text: clip(text), Quest: s.QuestID})
+		l := Line{Text: clip(text), Quest: s.QuestID, Kind: KindProgress, Title: s.Name, Level: s.Level, Elite: s.Elite, NPC: s.NPC, Zone: s.Zone}
+		switch {
+		case strings.HasPrefix(s.Title, advice.PickUpPrefix):
+			l.Kind = KindPickup
+		case s.Kind == advice.KindTurnIn:
+			l.Kind = KindTurnIn
+		default:
+			l.Objectives = objectivesOf(c, s.QuestID)
+		}
+		quests = append(quests, l)
 	}
 	if ds == nil {
-		quests = append(milestones, Line{Text: NoDataText})
+		quests = append(milestones, Line{Text: NoDataText, Kind: KindNote})
 	}
 	ups, note := upgradeLines(c, ds)
 	notes = append(notes, note...)
@@ -310,7 +376,7 @@ func stepNotes(c character.Character, ds store.DataStore, steps []advice.Step) [
 		}
 	}
 	if failed > 0 {
-		out = append(out, Line{Text: fmt.Sprintf("%d failed %s: abandon", failed, map[bool]string{true: "quest", false: "quests"}[failed == 1])})
+		out = append(out, Line{Text: fmt.Sprintf("%d failed %s: abandon", failed, map[bool]string{true: "quest", false: "quests"}[failed == 1]), Kind: KindNote})
 	}
 	return out
 }
@@ -398,7 +464,11 @@ func upgradeLines(c character.Character, ds store.DataStore) (lines, notes []Lin
 				text = with
 			}
 		}
-		lines = append(lines, Line{Text: clipWords(text), Item: int(cd.Item.ID)})
+		l := Line{Text: clipWords(text), Item: int(cd.Item.ID), Slot: slot, ILvl: int(cd.Item.ItemLevel)}
+		if cd.Soon {
+			l.AtLevel = int(cd.Item.ReqLevel)
+		}
+		lines = append(lines, l)
 	}
 	return lines, nil
 }
