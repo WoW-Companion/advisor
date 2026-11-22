@@ -23,7 +23,7 @@ func TestQuickstartMatchesCode(t *testing.T) {
 	doc := read(t, "../../docs/quickstart.md")
 
 	tools := map[string]bool{}
-	for _, m := range regexp.MustCompile(`Name:\s+"(\w+)"`).FindAllStringSubmatch(read(t, "../../internal/server/server.go"), -1) {
+	for _, m := range regexp.MustCompile(`Name:\s+"(\w+)"`).FindAllStringSubmatch(read(t, "../../internal/server/server.go")+read(t, "../../internal/server/profile.go"), -1) {
 		tools[m[1]] = true
 	}
 	subs := map[string]bool{}
