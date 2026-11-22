@@ -26,6 +26,7 @@ import (
 	"github.com/WoW-Companion/advisor/internal/character"
 	"github.com/WoW-Companion/advisor/internal/dataset"
 	"github.com/WoW-Companion/advisor/internal/digest"
+	"github.com/WoW-Companion/advisor/internal/profile"
 	"github.com/WoW-Companion/advisor/internal/questie"
 	"github.com/WoW-Companion/advisor/internal/release"
 	"github.com/WoW-Companion/advisor/internal/route"
@@ -69,6 +70,7 @@ type Config struct {
 	HTTP          *http.Client                                  // for the addon lookup and install (nil: the default client)
 	AddonAPI      string                                        // the addon's latest-release URL (empty: GitHub's)
 	Update        func(context.Context) (release.Result, error) // looks up the latest release for /api/update; nil answers no notice
+	Profiles      string                                        // the play-style store (empty: profile.Path())
 }
 
 // Digest statuses.
@@ -112,6 +114,8 @@ type CharInfo struct {
 	Next       []string `json:"next,omitempty"`      // the top next quests, from the digest
 	Plan       []string `json:"plan,omitempty"`      // the route's first stops, in order
 	PlanLine   string   `json:"plan_line,omitempty"` // "N stops, about D map units"
+	// Style is the saved play style (the overlay's "Play style" row); nil until the player sets one.
+	Style *character.Profile `json:"style,omitempty"`
 }
 
 // NextQuests is how many next quests each character carries.
@@ -224,6 +228,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/ask", s.ask)
 	mux.HandleFunc("POST /api/auto-digest", s.autoDigest)
 	mux.HandleFunc("POST /api/settings", s.setSettings)
+	mux.HandleFunc("POST /api/profile", s.setProfile)
 	mux.HandleFunc("GET /api/update", s.update)
 	mux.HandleFunc("GET /api/stream/{id}", s.stream)
 	mux.HandleFunc("GET /api/setup", s.setupState)
@@ -369,7 +374,8 @@ func (s *Server) reload() {
 	}
 	s.loadErr, s.chars, s.captured = "", nil, 0
 	for _, c := range f.Characters {
-		ci := CharInfo{Key: c.Key, Name: c.Name, Class: c.Class, Next: []string{NoDataMessage}}
+		c = profile.Attach(s.profilesPath(), c)
+		ci := CharInfo{Key: c.Key, Name: c.Name, Class: c.Class, Next: []string{NoDataMessage}, Style: c.Profile}
 		if ds != nil {
 			qx := questie.ForSavedVariables(s.cfg.Ask.SavedVariables)
 			ci.Next = nextQuests(c, f, ds, qx)

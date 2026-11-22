@@ -24,6 +24,8 @@ wowc-advisor ask --answers-file --agent claude --watch     # poll the file; remi
 | Preset | Runs |
 | ------ | ---- |
 | `claude` | `claude -p <prompt> --mcp-config <file> --strict-mcp-config --tools "" --setting-sources "" --disable-slash-commands --no-session-persistence --exclude-dynamic-system-prompt-sections --allowedTools mcp__wowc-advisor` |
+
+For a question about talents only, Claude Code also gets the one web tool it needs to read the player's guide: `--tools ""` becomes `--tools WebFetch` and `--allowedTools` gains a second value, `WebFetch(domain:icy-veins.com)`, so fetches reach that one site only (see [talents](talents.md)). No other client has a narrow equivalent, so they get no web tool and the answer shows the guide link.
 | `codex` | `codex exec --skip-git-repo-check --ephemeral -s read-only -c 'mcp_servers.wowc-advisor={ command, args, env, default_tools_approval_mode = "approve" }' <prompt>` |
 | `agy` | `agy -p <prompt>` (run in a per-run folder holding `.agents/mcp_config.json`; `--effort <level>` is added) |
 | `gemini` (legacy, API key only) | `gemini --allowed-mcp-server-names wowc-advisor --policy <file> -p <prompt>` |

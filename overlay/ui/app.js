@@ -330,7 +330,24 @@ function setChars() {
 }
 who.onchange = () => { cfg.who = who.value; save(); showNext(); };
 
+// Play style: the chosen character's role, focus and spec, saved locally by the advisor. Both role
+// and focus are needed before it saves; the spec is optional.
+function showStyle() {
+  const c = state && state.characters.find(c => c.key === who.value), st = (c && c.style) || {};
+  $('style-role').value = st.role || ''; $('style-focus').value = st.focus || ''; $('style-spec').value = st.spec || '';
+}
+async function pushStyle() {
+  const role = $('style-role').value, focus = $('style-focus').value;
+  if (!who.value || !role || !focus) return;
+  try {
+    const r = await api('/api/profile', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ character: who.value, role, focus, spec: $('style-spec').value.trim() }) });
+    if (r.ok) { state.characters = await r.json(); showNext(); }
+  } catch (e) { /* the next state load shows what is saved */ }
+}
+for (const id of ['style-role', 'style-focus', 'style-spec']) $(id).onchange = pushStyle;
+
 function showNext() {
+  showStyle();
   const c = state && state.characters.find(c => c.key === who.value);
   const items = (c && c.next) || [];
   $('next-line').textContent = items.length ? items[0] : 'Nothing queued yet.';

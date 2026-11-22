@@ -76,7 +76,7 @@ func TestClientDisplayNames(t *testing.T) {
 	}
 }
 
-// Groups: five, the AI one open by default, state kept in cfg.groups; the version line sits outside
+// Groups: six, the AI one open by default, state kept in cfg.groups; the version line sits outside
 // the scrolling body so it is always visible.
 func TestSettingsGroups(t *testing.T) {
 	html, js, css := read(t, "index.html"), read(t, "app.js"), read(t, "style.css")
@@ -85,7 +85,7 @@ func TestSettingsGroups(t *testing.T) {
 	for _, m := range got {
 		ids = append(ids, m[1])
 	}
-	if strings.Join(ids, ",") != "appearance,ai,game,shortcuts,updates" {
+	if strings.Join(ids, ",") != "appearance,ai,style,game,shortcuts,updates" {
 		t.Errorf("groups = %v", ids)
 	}
 	if regexp.MustCompile(`<details[^>]*\sopen`).MatchString(html) {

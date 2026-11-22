@@ -28,6 +28,7 @@ import (
 func TestMain(m *testing.M) {
 	switch os.Getenv("FAKE_AGENT") {
 	case "":
+		os.Setenv("WOWC_PROFILES", os.DevNull+"/none") // the player's own store is never read
 		os.Exit(m.Run())
 	case "stream":
 		for _, c := range []string{"Hel", "lo ", "there"} {

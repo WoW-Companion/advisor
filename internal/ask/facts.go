@@ -8,6 +8,7 @@ import (
 	"github.com/WoW-Companion/advisor/internal/advice"
 	"github.com/WoW-Companion/advisor/internal/brief"
 	"github.com/WoW-Companion/advisor/internal/character"
+	"github.com/WoW-Companion/advisor/internal/profile"
 	"github.com/WoW-Companion/advisor/internal/questie"
 	"github.com/WoW-Companion/advisor/internal/route"
 	"github.com/WoW-Companion/advisor/internal/store"
@@ -39,6 +40,7 @@ func Facts(cfg Config, q Question) string {
 	if err != nil {
 		return ""
 	}
+	c = profile.Attach(profile.Path(), c)
 	var ds store.DataStore
 	if cfg.Dataset != "" {
 		ds = store.NewDir(cfg.Dataset)
@@ -52,7 +54,22 @@ func Facts(cfg Config, q Question) string {
 	if qx != nil {
 		next += "\n\n" + route.Render(route.Build(c, qx), FactsPlanSteps)
 	}
-	return capRunes(brief.Character(c, f.ClientOf(c), time.Now())+"\n\n"+next, FactsBudget)
+	return capRunes(brief.Character(c, f.ClientOf(c), time.Now())+"\n\n"+styleLine(c)+"\n\n"+next, FactsBudget)
+}
+
+// styleLine is one line of the saved play style, or the reminder that none is saved.
+func styleLine(c character.Character) string {
+	if c.Profile == nil {
+		return "Play style: not saved yet (ask once before talent advice)."
+	}
+	s := "Play style: " + c.Profile.Role + ", " + c.Profile.Focus
+	if c.Profile.Spec != "" {
+		s += ", " + c.Profile.Spec
+	}
+	if c.Plan != nil {
+		s += "; talent plan from " + c.Plan.GuideURL + " saved " + c.Plan.Date
+	}
+	return s + "."
 }
 
 func capRunes(s string, n int) string {
@@ -77,5 +94,13 @@ func PromptWithFacts(q Question, length, facts string) string {
 
 // Prompt is what the agent is asked for q under cfg: PromptFor with the pre-fetched facts.
 func (c Config) Prompt(q Question) string {
-	return PromptWithFacts(q, c.Options.Length, Facts(c, q))
+	p := PromptWithFacts(q, c.Options.Length, Facts(c, q))
+	if !TalentQuestion(q.Text) {
+		return p
+	}
+	i := strings.Index(p, " Plain text, under ")
+	if i < 0 {
+		return p
+	}
+	return p[:i] + talentRule(CanFetchGuide(c.Command, q.Text)) + p[i+1:]
 }

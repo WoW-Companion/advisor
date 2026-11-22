@@ -1,10 +1,14 @@
 package companion
 
 import (
+	"cmp"
 	"encoding/json"
 	"net/http"
+	"slices"
 
 	"github.com/WoW-Companion/advisor/internal/ask"
+	"github.com/WoW-Companion/advisor/internal/character"
+	"github.com/WoW-Companion/advisor/internal/profile"
 )
 
 // Settings are the answer settings the overlay changes while it runs.
@@ -57,4 +61,47 @@ func (s *Server) setSettings(w http.ResponseWriter, r *http.Request) {
 	s.mu.Unlock()
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(s.settings())
+}
+
+func (s *Server) profilesPath() string {
+	if s.cfg.Profiles != "" {
+		return s.cfg.Profiles
+	}
+	return profile.Path()
+}
+
+// setProfile takes {"character","role","focus","spec"}: the overlay's Play style row. It saves the
+// character's play style locally, keeps its guide and plan, and re-reads the next steps, which the
+// saved plan shapes. An unknown character or a role or focus that is not on the lists is a 400.
+func (s *Server) setProfile(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Character string `json:"character"`
+		character.Profile
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, MaxBody)).Decode(&req); err != nil {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+	s.mu.Lock()
+	known := slices.ContainsFunc(s.chars, func(c CharInfo) bool { return c.Key == req.Character })
+	s.mu.Unlock()
+	if !known {
+		http.Error(w, "unknown character", http.StatusBadRequest)
+		return
+	}
+	_, err := profile.Update(s.profilesPath(), req.Character, func(e *profile.Entry) error {
+		if e.Profile != nil {
+			req.GuideURL = cmp.Or(req.GuideURL, e.Profile.GuideURL)
+		}
+		p, err := profile.Clean(req.Profile)
+		e.Profile = &p
+		return err
+	})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	s.reload()
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(s.snapshot().Characters)
 }

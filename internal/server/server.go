@@ -30,6 +30,7 @@ import (
 	"github.com/WoW-Companion/advisor/internal/items"
 	"github.com/WoW-Companion/advisor/internal/lua"
 	"github.com/WoW-Companion/advisor/internal/professions"
+	"github.com/WoW-Companion/advisor/internal/profile"
 	"github.com/WoW-Companion/advisor/internal/questie"
 	"github.com/WoW-Companion/advisor/internal/quests"
 	"github.com/WoW-Companion/advisor/internal/route"
@@ -55,6 +56,8 @@ type Config struct {
 	DigestPath     string // the digest file to write; empty derives it from SavedVariables
 	SkipUnchanged  bool   // leave the file alone when only the generated times would differ
 	Cache          string // dataset cache directory for doctor; empty is the per-user cache
+
+	Profiles string // the play-style store; empty is profile.Path()
 
 	// SVSource says where SavedVariables came from once FromEnv has run: SVFlag, SVEnv or SVAuto.
 	SVSource string
@@ -226,6 +229,22 @@ func describeCharacters(info *Info, path string) {
 		}
 		info.Client = clientInfo(fileClient(loaded))
 	}
+}
+
+func (c Config) profilesPath() string {
+	if c.Profiles != "" {
+		return c.Profiles
+	}
+	return profile.Path()
+}
+
+// chosen is brief.Choose with the player's saved play style and talent plan attached.
+func chosen(cfg Config, f character.File, name string) (character.Character, error) {
+	c, err := brief.Choose(f, name)
+	if err != nil {
+		return c, err
+	}
+	return profile.Attach(cfg.profilesPath(), c), nil
 }
 
 func toolError(msg string) *mcp.CallToolResult {
@@ -466,6 +485,7 @@ func WriteDigest(cfg Config, name string) (DigestOutput, error) {
 	var parts []string
 	plans := route.Envelope{Generated: now.Unix()}
 	for _, c := range kept {
+		c = profile.Attach(cfg.profilesPath(), c)
 		plans.Plans = append(plans.Plans, route.Build(c, qx))
 		d := digest.Build(c, ds, digest.Options{Now: now, Client: f.ClientOf(c), DatasetBuild: datasetBuild, Questie: qx})
 		env.Characters = append(env.Characters, d)
@@ -517,6 +537,8 @@ func Diagnose(cfg Config) doctor.Report {
 func New(cfg Config) *mcp.Server {
 	s := mcp.NewServer(&mcp.Implementation{Name: "wowc-advisor", Version: Version}, nil)
 
+	addProfileTools(s, cfg)
+
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "server_info",
 		Description: "Return the advisor version, dataset and game build, the character file's status and the game client that wrote the capture.",
@@ -545,7 +567,7 @@ func New(cfg Config) *mcp.Server {
 		if errResult != nil {
 			return errResult, nil, nil
 		}
-		c, err := brief.Choose(f, in.Character)
+		c, err := chosen(cfg, f, in.Character)
 		if err != nil {
 			return toolError(err.Error()), nil, nil
 		}
@@ -563,7 +585,7 @@ func New(cfg Config) *mcp.Server {
 		if errResult != nil {
 			return errResult, NextOutput{}, nil
 		}
-		c, err := brief.Choose(f, in.Character)
+		c, err := chosen(cfg, f, in.Character)
 		if err != nil {
 			return toolError(err.Error()), NextOutput{}, nil
 		}
@@ -597,7 +619,7 @@ func New(cfg Config) *mcp.Server {
 		if errResult != nil {
 			return errResult, RouteOutput{}, nil
 		}
-		c, err := brief.Choose(f, in.Character)
+		c, err := chosen(cfg, f, in.Character)
 		if err != nil {
 			return toolError(err.Error()), RouteOutput{}, nil
 		}
@@ -615,7 +637,7 @@ func New(cfg Config) *mcp.Server {
 		if errResult != nil {
 			return errResult, noUpgrades, nil
 		}
-		c, err := brief.Choose(f, in.Character)
+		c, err := chosen(cfg, f, in.Character)
 		if err != nil {
 			return toolError(err.Error()), noUpgrades, nil
 		}
@@ -663,7 +685,7 @@ func New(cfg Config) *mcp.Server {
 		if errResult != nil {
 			return errResult, none, nil
 		}
-		c, err := brief.Choose(f, in.Character)
+		c, err := chosen(cfg, f, in.Character)
 		if err != nil {
 			return toolError(err.Error()), none, nil
 		}
@@ -701,7 +723,7 @@ func New(cfg Config) *mcp.Server {
 		if errResult != nil {
 			return errResult, none, nil
 		}
-		c, err := brief.Choose(f, in.Character)
+		c, err := chosen(cfg, f, in.Character)
 		if err != nil {
 			return toolError(err.Error()), none, nil
 		}
@@ -713,7 +735,13 @@ func New(cfg Config) *mcp.Server {
 		if name == "" {
 			name = c.Key
 		}
-		return nil, TalentOutput{name, plan, talents.Render(plan)}, nil
+		text := talents.Render(plan)
+		if c.Profile == nil {
+			text = profile.Ask() + "\n\n" + text
+		} else {
+			text = renderProfile(c) + "\nThe advisor's curated build, for comparison:\n" + text
+		}
+		return nil, TalentOutput{name, plan, text}, nil
 	})
 
 	mcp.AddTool(s, &mcp.Tool{
@@ -727,7 +755,7 @@ func New(cfg Config) *mcp.Server {
 		if errResult != nil {
 			return errResult, none, nil
 		}
-		c, err := brief.Choose(f, in.Character)
+		c, err := chosen(cfg, f, in.Character)
 		if err != nil {
 			return toolError(err.Error()), none, nil
 		}
@@ -771,7 +799,7 @@ func New(cfg Config) *mcp.Server {
 		if errResult != nil {
 			return errResult, none, nil
 		}
-		c, err := brief.Choose(f, in.Character)
+		c, err := chosen(cfg, f, in.Character)
 		if err != nil {
 			return toolError(err.Error()), none, nil
 		}
@@ -844,7 +872,7 @@ func New(cfg Config) *mcp.Server {
 		if errResult != nil {
 			return errResult, none, nil
 		}
-		c, err := brief.Choose(f, in.Character)
+		c, err := chosen(cfg, f, in.Character)
 		if err != nil {
 			return toolError(err.Error()), none, nil
 		}
