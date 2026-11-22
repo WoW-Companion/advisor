@@ -20,7 +20,7 @@ const (
 )
 
 // PickUpPrefix starts the title of a step for a quest that is not yet in the log.
-const PickUpPrefix = "Pick up "
+const PickUpPrefix = "Pick up: "
 
 // classIDs and raceIDs map the capture's tokens to the game's ids; a mask bit is 1<<(id-1).
 var classIDs = map[string]int{"WARRIOR": 1, "PALADIN": 2, "HUNTER": 3, "ROGUE": 4, "PRIEST": 5, "DEATHKNIGHT": 6,

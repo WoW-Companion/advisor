@@ -303,7 +303,7 @@ func Prompt(q Question) string { return PromptFor(q, LengthStandard) }
 func PromptFor(q Question, length string) string {
 	r := lengthRule[Options{Length: length}.Normalize().Length]
 	return fmt.Sprintf("You are the WoW Companion advisor. Character key: %s. Use the %s MCP tools for facts about this character or the game (brief=true on upgrade_finder and dungeon_plan); do not guess. "+
-		"Never tell the player to change permissions or settings. If the tools are refused or missing, answer exactly: %q "+
+		"If a tool fails, name it and the short reason in one line, then answer from the rest. Never tell the player to change permissions or settings. If the tools are refused or missing, answer exactly: %q "+
 		"%s Plain text, under %d characters, no markdown.\n\nQuestion: %s", q.Character, ServerName, ToolsUnavailable, r.text, r.limit, q.Text)
 }
 

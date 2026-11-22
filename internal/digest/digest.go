@@ -123,6 +123,15 @@ func clipWords(s string) string {
 	return clip(s)
 }
 
+// oneObjective keeps a quest's progress readable on one Next line: the first objective plus "+N more".
+func oneObjective(p string) string {
+	head, rest, found := strings.Cut(p, "; ")
+	if !found {
+		return p
+	}
+	return fmt.Sprintf("%s; +%d more", head, strings.Count(rest, "; ")+1)
+}
+
 func name(c character.Character) string {
 	if c.Name != "" {
 		return c.Name
@@ -151,7 +160,7 @@ func Build(c character.Character, ds store.DataStore, opt Options) Digest {
 		}
 		text := s.Title
 		if s.Progress != "" {
-			text = s.Progress
+			text = oneObjective(s.Progress)
 		}
 		if s.Zone != "" {
 			text += " (" + s.Zone + ")"

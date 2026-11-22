@@ -453,3 +453,15 @@ func TestClipWords(t *testing.T) {
 		}
 	}
 }
+
+func TestOneObjective(t *testing.T) {
+	for in, want := range map[string]string{
+		"Test: 0/1 Find A":                    "Test: 0/1 Find A",
+		"Test: 0/1 Find A; 1/1 List B; 2/2 C": "Test: 0/1 Find A; +2 more",
+		"Test: 0/1 Find A; 1/1 List B":        "Test: 0/1 Find A; +1 more",
+	} {
+		if got := oneObjective(in); got != want {
+			t.Errorf("%q = %q, want %q", in, got, want)
+		}
+	}
+}

@@ -43,7 +43,7 @@ func TestWhatsNextWithQuestie(t *testing.T) {
 			logged = &steps[i]
 		}
 	}
-	if pick == nil || pick.Title != "Pick up Gather Kelp (level 9) from Elder Mira, Kelp Cove (50.5, 60.5)" {
+	if pick == nil || pick.Title != "Pick up: Gather Kelp (level 9) from Elder Mira, Kelp Cove (50.5, 60.5)" {
 		t.Fatalf("pick-up: %+v", pick)
 	}
 	if logged == nil || !strings.Contains(logged.Reason, "objective near Reef Crab, Kelp Cove (70.0, 30.0)") {

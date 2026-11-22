@@ -57,11 +57,39 @@ func readHeader(path string) (map[string]string, error) {
 
 func addons(game string) string { return filepath.Join(game, "Interface", "AddOns") }
 
+// questieHeader reads Questie's own TOC header. Questie ships one TOC per game flavour
+// (Questie_Forever.toc, Questie_Vanilla.toc, ...) and no Questie.toc, so the Forever TOC is tried
+// first, then Questie.toc, then any other Questie*.toc.
+func questieHeader(dir string) (map[string]string, bool) {
+	tocs, _ := filepath.Glob(filepath.Join(dir, "Questie*.toc"))
+	sort.Slice(tocs, func(i, j int) bool {
+		rank := func(p string) int {
+			switch strings.ToLower(filepath.Base(p)) {
+			case "questie_forever.toc":
+				return 0
+			case "questie.toc":
+				return 1
+			}
+			return 2
+		}
+		if ri, rj := rank(tocs[i]), rank(tocs[j]); ri != rj {
+			return ri < rj
+		}
+		return tocs[i] < tocs[j]
+	})
+	for _, t := range tocs {
+		if h, err := readHeader(t); err == nil {
+			return h, true
+		}
+	}
+	return nil, false
+}
+
 // Probe looks for <game>/Interface/AddOns/Questie and QuestieDB and reads only their TOC headers.
 // It never fails: an unreadable database is reported in the Status.
 func Probe(game string) Status {
 	var s Status
-	if h, err := readHeader(filepath.Join(addons(game), "Questie", "Questie.toc")); err == nil {
+	if h, ok := questieHeader(filepath.Join(addons(game), "Questie")); ok {
 		s.Questie = h["Version"]
 		if s.Questie == "" {
 			s.Questie = "unknown"
@@ -118,7 +146,7 @@ func (s Status) Describe() (ok bool, text string) {
 	case s.Questie == "":
 		return true, "QuestieDB " + vers(s.DB) + " found (Questie itself not found)."
 	}
-	return true, "Found Questie " + vers(s.Questie) + " with QuestieDB " + vers(s.DB) + "."
+	return true, "Found Questie " + vers(s.Questie) + " (QuestieDB " + vers(s.DB) + ")."
 }
 
 func vers(v string) string {

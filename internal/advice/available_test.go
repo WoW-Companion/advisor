@@ -68,13 +68,13 @@ func TestAvailableQuests(t *testing.T) {
 	if len(ids) != 2 || ids[0] != 2 || ids[1] != 9 {
 		t.Fatalf("available = %v, want [2 9] (level fit first)", ids)
 	}
-	if s := got.Quests[0]; s.Title != "Pick up Gather Kelp" || !strings.Contains(s.Reason, "level 9 quest") || !strings.Contains(s.Reason, "in Testisle") || !strings.Contains(s.Reason, "on the way") {
+	if s := got.Quests[0]; s.Title != "Pick up: Gather Kelp" || !strings.Contains(s.Reason, "level 9 quest") || !strings.Contains(s.Reason, "in Testisle") || !strings.Contains(s.Reason, "on the way") {
 		t.Errorf("step = %+v", s)
 	}
 	if len(got.Unchecked) == 0 || !strings.Contains(strings.Join(got.Unchecked, ";"), "race") {
 		t.Errorf("race is unchecked and must be said so: %v", got.Unchecked)
 	}
-	if next := WhatsNext(c, ds); !strings.Contains(titles(next), "Pick up Gather Kelp") {
+	if next := WhatsNext(c, ds); !strings.Contains(titles(next), "Pick up: Gather Kelp") {
 		t.Errorf("WhatsNext lacks the unpicked quest: %s", titles(next))
 	}
 }

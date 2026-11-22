@@ -92,3 +92,21 @@ func TestNoNPCsTable(t *testing.T) {
 		t.Errorf("lines = %q", got)
 	}
 }
+
+func TestObjectiveProgressPrintsCountOnce(t *testing.T) {
+	obj := func(text string, have, need int) Objective { return Objective{Text: text, Have: &have, Need: &need} }
+	tests := []struct {
+		o    Objective
+		want string
+	}{
+		{obj("0/1 Find Test Scout", 0, 1), "0/1 Find Test Scout"},
+		{obj("Test Claws: 3/8", 3, 8), "3/8 Test Claws"},
+		{obj("Test Claws", 3, 8), "3/8 Test Claws"},
+	}
+	for _, tc := range tests {
+		q := Quest{Objectives: []Objective{tc.o}}
+		if got := q.ObjectiveProgress(); got != tc.want {
+			t.Errorf("%q = %q, want %q", tc.o.Text, got, tc.want)
+		}
+	}
+}
