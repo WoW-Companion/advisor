@@ -233,6 +233,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/stream/{id}", s.stream)
 	mux.HandleFunc("GET /api/setup", s.setupState)
 	mux.HandleFunc("POST /api/setup/install-addon", s.setupInstall)
+	mux.HandleFunc("POST /api/setup/write-data", s.setupWriteData)
 	mux.HandleFunc("POST /api/setup/test-ai", s.setupTestAI)
 	mux.HandleFunc("POST /api/setup/download-dataset", s.setupDownloadData)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -413,6 +414,8 @@ func (s *Server) watch(ctx context.Context) {
 	last, lastAsk := ask.Stamp(s.cfg.ForeverScribe), ""
 	var asking sync.Mutex
 	var due time.Time // when the pending digest write falls due; zero when none
+	// Write at once, not on the first save: an upgraded addon lists Plan.lua before any save happens.
+	s.writeDigest()
 	for {
 		if cur := ask.Stamp(s.cfg.ForeverScribe); cur != last {
 			last = cur
@@ -749,6 +752,8 @@ func (s *Server) SetAutoDigest(on bool) {
 // the setting is off or the addon folder is missing. A file that already holds the same advice is
 // left untouched.
 func (s *Server) writeDigest() {
+	// Missing data files get an empty stub whatever the setting says, so the game's TOC never lists a missing file.
+	server.EnsureDataFiles(server.Config{SavedVariables: s.cfg.ForeverScribe, DigestPath: s.cfg.DigestPath})
 	s.mu.Lock()
 	on := s.digest.Enabled
 	s.mu.Unlock()
@@ -783,6 +788,9 @@ func (s *Server) autoDigest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.SetAutoDigest(req.On)
+	if req.On {
+		s.writeDigest()
+	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(s.snapshot().Digest)
 }

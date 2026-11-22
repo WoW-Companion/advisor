@@ -4,10 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"path/filepath"
 	"sync"
 	"time"
 
+	"github.com/WoW-Companion/advisor/internal/digest"
 	"github.com/WoW-Companion/advisor/internal/gamesetup"
+	"github.com/WoW-Companion/advisor/internal/server"
 )
 
 // latestTTL is how long a looked-up addon release is reused.
@@ -88,6 +91,33 @@ func (s *Server) setupInstall(w http.ResponseWriter, r *http.Request) {
 			res["ok"] = true
 			res["message"] = "Installed " + o.Latest.Version + ". Restart the game fully if this was the first install."
 		}
+	}
+	res["items"] = s.setupItems(req.Game, false, r.Context())
+	writeJSON(w, res)
+}
+
+// setupWriteData is POST /api/setup/write-data {"game": folder}: the "Write now" click. It writes the
+// digest and route plan files, or empty stubs when nothing is captured yet.
+func (s *Server) setupWriteData(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Game string `json:"game"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, MaxBody)).Decode(&req); err != nil {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+	res := map[string]any{}
+	cfg := server.Config{SavedVariables: s.cfg.ForeverScribe, Dataset: s.datasetDir(), DigestPath: s.cfg.DigestPath, SkipUnchanged: true}
+	if game, ok := gamesetup.Resolve(s.setupOptions(req.Game, false, r.Context())); ok && cfg.DigestPath == "" {
+		cfg.DigestPath = filepath.Join(game, "Interface", "AddOns", digest.SlotAddon, "Digest.lua")
+	}
+	// Nothing captured yet is not a failure: WriteDigest then leaves stubs, which keep the game quiet.
+	server.WriteDigest(cfg, "")
+	if err := server.EnsureDataFiles(cfg); err != nil {
+		res["error"] = err.Error()
+	} else {
+		res["ok"] = true
+		res["message"] = "Wrote the data files. Type /reload in game to show them."
 	}
 	res["items"] = s.setupItems(req.Game, false, r.Context())
 	writeJSON(w, res)

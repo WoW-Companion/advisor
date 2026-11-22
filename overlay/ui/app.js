@@ -545,6 +545,11 @@ async function setupAct(it, btn) {
       const j = await r.json();
       if (j.items) setupItems = j.items;
       setupMsg(j.error || j.message);
+    } else if (it.action === 'write-data') {
+      const r = await api('/api/setup/write-data', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ game: cfg.gameDir }) });
+      const j = await r.json();
+      if (j.items) setupItems = j.items;
+      setupMsg(j.error || j.message);
     } else if (it.action === 'download-dataset') {
       setupMsg('Downloading the game data (under 1 MB)…');
       const r = await api('/api/setup/download-dataset', { method: 'POST' });

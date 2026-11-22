@@ -527,13 +527,44 @@ func TestAutoDigestSkips(t *testing.T) {
 	}
 	s, _, out = digestEnv(t, true, false)
 	s.writeDigest()
-	if _, err := os.Stat(out); err == nil {
-		t.Error("wrote with the setting off")
+	if b, err := os.ReadFile(out); err != nil || strings.Contains(string(b), "New") {
+		t.Errorf("with the setting off want only the empty stub: %v %q", err, b) // never a missing file
 	}
 	s.SetAutoDigest(true)
 	s.writeDigest()
 	if _, err := os.Stat(out); err != nil {
 		t.Errorf("not written after turning it on: %v", err)
+	}
+}
+
+// The watcher writes both files at start, with no save and an unchanged SavedVariables file, and
+// leaves an up-to-date Plan.lua alone.
+func TestAutoDigestAtStart(t *testing.T) {
+	s, _, out := digestEnv(t, true, true)
+	s.cfg.Poll = 20 * time.Millisecond
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go s.watch(ctx)
+	plan := filepath.Join(filepath.Dir(out), "Plan.lua")
+	for i := 0; i < 100; i++ {
+		_, e1 := os.Stat(out)
+		_, e2 := os.Stat(plan)
+		if e1 == nil && e2 == nil {
+			break
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	if b, err := os.ReadFile(out); err != nil || !strings.Contains(string(b), "New") {
+		t.Fatalf("Digest.lua at start: %v %q", err, b)
+	}
+	if _, err := os.Stat(plan); err != nil {
+		t.Fatalf("Plan.lua at start: %v", err)
+	}
+	old := time.Now().Add(-time.Hour)
+	os.Chtimes(plan, old, old)
+	s.writeDigest()
+	if st, _ := os.Stat(plan); st.ModTime().After(old.Add(time.Minute)) {
+		t.Error("an up-to-date Plan.lua was rewritten")
 	}
 }
 

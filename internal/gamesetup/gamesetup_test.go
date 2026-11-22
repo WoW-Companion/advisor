@@ -56,6 +56,14 @@ func TestCheckStates(t *testing.T) {
 		want  map[string]string
 	}{
 		{"all present", func(r string) { full(r) }, map[string]string{IDGame: OK, IDScribe: OK, IDData: OK, IDAddon: OK, IDDisplay: OK}},
+		{"digest folder without data files", func(r string) {
+			write(t, filepath.Join(full(r), "Interface", "AddOns", "WoWCompanion_Digest", "WoWCompanion_Digest.toc"), "x")
+		}, map[string]string{IDAddon: Warn}},
+		{"digest folder with data files", func(r string) {
+			d := filepath.Join(full(r), "Interface", "AddOns", "WoWCompanion_Digest")
+			write(t, filepath.Join(d, "Digest.lua"), "x")
+			write(t, filepath.Join(d, "Plan.lua"), "x")
+		}, map[string]string{IDAddon: OK}},
 		{"scribe and addon missing", func(r string) {
 			g := full(r)
 			os.RemoveAll(filepath.Join(g, "Interface", "AddOns", "ForeverScribe"))

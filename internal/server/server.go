@@ -447,9 +447,11 @@ func NotCapturedError(name string) error {
 func WriteDigest(cfg Config, name string) (DigestOutput, error) {
 	f, errResult := load(cfg.SavedVariables)
 	if errResult != nil {
+		EnsureDataFiles(cfg)
 		return DigestOutput{}, errors.New(errResult.Content[0].(*mcp.TextContent).Text)
 	}
 	if len(f.Characters) == 0 {
+		EnsureDataFiles(cfg)
 		return DigestOutput{}, errors.New("The SavedVariables file holds no characters.")
 	}
 	if name = strings.TrimSpace(name); name != "" && !slices.ContainsFunc(f.Characters, func(c character.Character) bool {
@@ -523,6 +525,33 @@ func WriteDigest(cfg Config, name string) (DigestOutput, error) {
 	}
 	out.Text += "Type /reload in game to show it."
 	return out, nil
+}
+
+// EnsureDataFiles writes a valid empty stub for each of Digest.lua and Plan.lua that is missing from
+// the installed slot addon, so the game never lists a file that isn't there. It does nothing when the
+// addon folder is absent, and never touches a file that exists. The error is the first write failure.
+func EnsureDataFiles(cfg Config) error {
+	path := cfg.DigestPath
+	if path == "" {
+		var err error
+		if path, err = digest.DigestPath(cfg.SavedVariables); err != nil {
+			return err
+		}
+	}
+	if digest.CheckInstalled(path) != nil {
+		return nil
+	}
+	now := time.Now().Unix()
+	var errs []error
+	for _, f := range []struct{ path, text string }{
+		{path, digest.Envelope{Generated: now}.Lua()},
+		{digest.SiblingPath(path, route.File), route.Envelope{Generated: now}.Lua()},
+	} {
+		if _, err := os.Stat(f.path); errors.Is(err, fs.ErrNotExist) {
+			errs = append(errs, digest.WriteFile(f.path, f.text))
+		}
+	}
+	return errors.Join(errs...)
 }
 
 // Diagnose checks the whole setup for the configured SavedVariables file.
