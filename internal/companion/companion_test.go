@@ -580,10 +580,12 @@ func TestAutoDigestAtStart(t *testing.T) {
 	defer cancel()
 	go s.watch(ctx)
 	plan := filepath.Join(filepath.Dir(out), "Plan.lua")
-	for i := 0; i < 100; i++ {
-		_, e1 := os.Stat(out)
-		_, e2 := os.Stat(plan)
-		if e1 == nil && e2 == nil {
+	// Wait for the watcher's own write to finish (an empty stub may already stand in for both files).
+	for i := 0; i < 250; i++ {
+		s.mu.Lock()
+		written := s.digest.UpdatedAt != 0
+		s.mu.Unlock()
+		if _, err := os.Stat(plan); written && err == nil {
 			break
 		}
 		time.Sleep(20 * time.Millisecond)
