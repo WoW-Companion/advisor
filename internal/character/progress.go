@@ -51,6 +51,13 @@ func (q Quest) ObjectiveProgress() string {
 	return strings.Join(parts, "; ")
 }
 
+// Label is the objective's text without its have/need count: "Windsong Crawler Meat".
+func (o Objective) Label() string {
+	text := strings.TrimSpace(o.Text)
+	text = strings.TrimSpace(leadingCount.ReplaceAllString(text, ""))
+	return strings.TrimSpace(trailingCount.ReplaceAllString(text, ""))
+}
+
 func (o Objective) finished() (done, known bool) {
 	switch {
 	case o.Done != nil:

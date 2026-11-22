@@ -67,7 +67,7 @@ func questieAvailable(c character.Character, qx *questie.Index) (Available, bool
 			reason += ". " + ClassQuestNote // the reward is never named: no local source gives it
 		}
 		out.Quests = append(out.Quests, Step{Kind: KindQuest, Title: title, Reason: reason,
-			Zone: g.Zone, QuestID: q.ID, Location: g.String(),
+			Zone: g.Zone, QuestID: q.ID, Location: g.String(), Name: q.Name, Level: q.Level, NPC: g.Name,
 			Sources: []string{fmt.Sprintf("questie: QuestieDB %s quest %d", qx.DB, q.ID)}})
 	}
 	return out, true
@@ -98,6 +98,9 @@ func locate(c character.Character, steps []Step, qx *questie.Index) {
 			verb = "objective near "
 		}
 		s.Location = p.String()
+		if !objective {
+			s.NPC = p.Name
+		}
 		s.Reason += "; " + verb + s.Location
 		s.Sources = append(s.Sources, fmt.Sprintf("questie: QuestieDB %s quest %d", qx.DB, s.QuestID))
 	}

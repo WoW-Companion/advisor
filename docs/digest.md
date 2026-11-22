@@ -1,7 +1,7 @@
 # In-game digest
 
 `wowc-advisor digest [NAME]` (and the MCP tool `update_digest`) writes the data-only
-`WoWCompanion_Digest/Digest.lua` the WoW Companion panel shows (format: schema 2.0, one schema 1.2 entry
+`WoWCompanion_Digest/Digest.lua` the WoW Companion panel shows (format: schema 2.0, one schema 1.3 entry
 per character; the addon repo's `docs/digest-format.md`). Type `/reload` in game afterwards.
 
 **Every captured character.** The file holds one entry for each character in your SavedVariables, so an
@@ -12,8 +12,8 @@ WoWCompanionDigest = {
   schema = "2.0",
   generated = 1795271211,        -- unix seconds, when the file was written
   characters = {
-    ["Testchar"] = { schema = "1.2", ... },   -- exactly the 1.2 digest below, for that character
-    ["Otherchar"] = { schema = "1.2", ... },
+    ["Testchar"] = { schema = "1.3", ... },   -- exactly the 1.3 digest below, for that character
+    ["Otherchar"] = { schema = "1.3", ... },
   },
 }
 ```
@@ -44,7 +44,24 @@ unknown keys.
 
 Each list is left out when its plan has nothing to show (no dataset, no build, no upgrade).
 
-A line is at most 60 characters. A section with nothing to say is left out.
+**Structured line fields (schema 1.3).** A `next_quests` line keeps `text` and `quest` as before, for older
+addons, and adds these when known. None is truncated; only `text` is capped (60 characters).
+
+| Field | Meaning |
+| ----- | ------- |
+| `kind` | `"pickup"`, `"turnin"`, `"progress"`, `"talent"` or `"note"` |
+| `title` | the full quest title |
+| `level` | the quest's level (a number) |
+| `class` / `elite` | `true` for a class quest / an elite or group quest; left out otherwise |
+| `npc` | the giver of a pick-up, or the turn-in NPC |
+| `zone` | the zone name |
+| `objectives` | `{ { text = "Windsong Crawler Meat", have = 0, need = 6 }, ... }`, every objective of a logged quest including optional ones; `have` and `need` only when the capture has a count |
+| `points` | the unspent talent point count, on the talent line |
+
+An `upgrades` line adds `slot`, `ilvl` and `atLevel` (the level the item needs, only when the character is not yet that level) beside `text` and `item`.
+`elite` is set only when the dataset's quests table has an `elite` or `group` column that says so.
+
+A line's `text` is at most 60 characters. A section with nothing to say is left out.
 
 **Materials.** `keep_materials` is `professions.KeepList` (see `docs/professions.md`): bag and bank items
 that are reagents for the character's recipes. Only when the dataset has no recipes for the

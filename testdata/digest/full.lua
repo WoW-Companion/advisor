@@ -4,19 +4,19 @@ WoWCompanionDigest = {
   generated = 1800000000,
   characters = {
     ["Testpriest"] = {
-      schema = "1.2",
+      schema = "1.3",
       generated = 1800000000,
       build = "1.60.0.64000",
       character = "Testpriest",
       sections = {
         { id = "next_quests", lines = {
-          { text = "You have 2 unspent talent points: Penance" },
-          { text = "Turn in Wolves at the Door (Dunemark)", quest = 100 },
-          { text = "Gather Peacebloom (Dunemark)", quest = 101 },
+          { text = "You have 2 unspent talent points: Penance", kind = "talent", points = 2 },
+          { text = "Turn in Wolves at the Door (Dunemark)", quest = 100, kind = "turnin", title = "Wolves at the Door", level = 11, zone = "Dunemark" },
+          { text = "Gather Peacebloom (Dunemark)", quest = 101, kind = "progress", title = "Gather Peacebloom", level = 12, zone = "Dunemark" },
         } },
         { id = "upgrades", lines = {
-          { text = "head: Cloth Hood of the \"Sage\" (ilvl 20) from Near Wolf", item = 1 },
-          { text = "finger1: Ring of Mind (ilvl 18) from object 900", item = 6 },
+          { text = "head: Cloth Hood of the \"Sage\" (ilvl 20) from Near Wolf", item = 1, slot = "head", ilvl = 20 },
+          { text = "finger1: Ring of Mind (ilvl 18) from object 900", item = 6, slot = "finger1", ilvl = 18 },
         } },
         { id = "keep_materials", lines = {
           { text = "Copper Ore x20", item = 2770 },
@@ -24,7 +24,7 @@ WoWCompanionDigest = {
           { text = "Copper Bar x5", item = 2840 },
         } },
         { id = "notes", lines = {
-          { text = "1 failed quest: abandon" },
+          { text = "1 failed quest: abandon", kind = "note" },
           { text = "Bank not captured: open your bank once" },
           { text = "Dataset is build 1.59.0.63000, game is 64000" },
         } },

@@ -44,6 +44,13 @@ type Step struct {
 	// Questie could place it.
 	Location string   `json:"location,omitempty"`
 	Sources  []string `json:"sources"`
+
+	// The structured parts of the step, for the digest; never part of the JSON the tools print.
+	Name   string `json:"-"` // the quest's bare title
+	Level  int    `json:"-"` // the quest's level, 0 when unknown
+	NPC    string `json:"-"` // the giver of a pick-up, or the turn-in NPC
+	Elite  bool   `json:"-"` // an elite or group quest
+	Points int    `json:"-"` // unspent talent points, for a talent step
 }
 
 // AbandonPrefix starts the title of the step for a failed quest.
@@ -56,9 +63,34 @@ type questInfo struct {
 	level   *int
 	zone    string
 	sources []string
+	elite   bool
 }
 
 func lookup(q character.Quest, ds store.DataStore) questInfo {
+	info := lookupBase(q, ds)
+	info.elite = isElite(q, ds)
+	return info
+}
+
+// isElite reads an optional boolean column of the dataset's quests table (elite, then group); false
+// when the dataset has none.
+func isElite(q character.Quest, ds store.DataStore) bool {
+	if ds == nil || q.QuestID == 0 {
+		return false
+	}
+	row, err := ds.Get("quests", int64(q.QuestID))
+	if err != nil {
+		return false
+	}
+	for _, col := range []string{"elite", "group"} {
+		if b, ok := row[col].(bool); ok && b {
+			return true
+		}
+	}
+	return false
+}
+
+func lookupBase(q character.Quest, ds store.DataStore) questInfo {
 	info := questInfo{level: q.Level, zone: q.Zone, sources: []string{fmt.Sprintf("capture: quests[%d]", q.QuestID)}}
 	if (info.level != nil && info.zone != "") || ds == nil || q.QuestID == 0 {
 		return info
@@ -113,6 +145,13 @@ func title(q character.Quest) string {
 	return fmt.Sprintf("quest %d", q.QuestID)
 }
 
+func lvl(p *int) int {
+	if p == nil {
+		return 0
+	}
+	return *p
+}
+
 func isTrue(b *bool) bool { return b != nil && *b }
 
 func plural(n int, one, many string) string {
@@ -142,7 +181,7 @@ func WhatsNextWith(c character.Character, ds store.DataStore, qx *questie.Index)
 		info := lookup(q, ds)
 		switch {
 		case isTrue(q.Complete):
-			s := Step{Kind: KindTurnIn, Title: "Turn in " + title(q), Reason: "ready to turn in", Zone: info.zone, QuestID: q.QuestID, Sources: info.sources}
+			s := Step{Kind: KindTurnIn, Title: "Turn in " + title(q), Reason: "ready to turn in", Zone: info.zone, QuestID: q.QuestID, Sources: info.sources, Name: title(q), Level: lvl(info.level), Elite: info.elite}
 			if withChain(&s, ds, q, true) {
 				unlocking[q.QuestID] = true
 			}
@@ -150,7 +189,7 @@ func WhatsNextWith(c character.Character, ds store.DataStore, qx *questie.Index)
 		case isTrue(q.Failed):
 			failed = append(failed, Step{Kind: KindQuest, Title: AbandonPrefix + title(q), Reason: "failed; it cannot be completed", Zone: info.zone, QuestID: q.QuestID, Sources: info.sources})
 		default:
-			s := Step{Kind: KindQuest, Title: title(q), Zone: info.zone, QuestID: q.QuestID, Sources: info.sources}
+			s := Step{Kind: KindQuest, Title: title(q), Zone: info.zone, QuestID: q.QuestID, Sources: info.sources, Name: title(q), Level: lvl(info.level), Elite: info.elite}
 			chained := func() {
 				withChain(&s, ds, q, false)
 				if p := q.ProgressText(); p != "" {
@@ -268,6 +307,7 @@ func talentStep(c character.Character) (Step, bool) {
 		Title:   fmt.Sprintf("You have %d unspent talent %s", n, plural(n, "point", "points")),
 		Reason:  "milestone; " + TalentAsk,
 		Sources: []string{"capture: talents.unspent"},
+		Points:  n,
 	}
 	if g, ok := talents.GuideNext(c, n); ok && (len(g.Next) > 0 || g.Stale || len(g.Missing) > 0) {
 		// The saved plan names the picks; no model call and no dataset needed.
@@ -304,6 +344,7 @@ func professionTalentStep(c character.Character) (Step, bool) {
 		Title:   fmt.Sprintf("You have %d unspent profession talent %s", n, plural(n, "point", "points")),
 		Reason:  "milestone; spend them in the profession's talent tree",
 		Sources: []string{"capture: talents.trees (professions)"},
+		Points:  n,
 	}, true
 }
 

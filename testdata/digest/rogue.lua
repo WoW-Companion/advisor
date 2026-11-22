@@ -4,13 +4,13 @@ WoWCompanionDigest = {
   generated = 1800000000,
   characters = {
     ["Testrogue"] = {
-      schema = "1.2",
+      schema = "1.3",
       generated = 1800000000,
       build = "1.60.0.64000",
       character = "Testrogue",
       sections = {
         { id = "upgrades", lines = {
-          { text = "finger1: Ring of Mind (ilvl 18) from object 900", item = 6 },
+          { text = "finger1: Ring of Mind (ilvl 18) from object 900", item = 6, slot = "finger1", ilvl = 18 },
         } },
         { id = "notes", lines = {
           { text = "Dataset is build 1.59.0.63000, game is 64000" },

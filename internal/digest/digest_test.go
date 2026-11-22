@@ -253,7 +253,7 @@ func TestEnvelopeTwoCharacters(t *testing.T) {
 	if err != nil || root["schema"] != "2.0" || len(chars) != 2 || chars["Testchar"] == nil || chars["Otherchar"] == nil {
 		t.Errorf("parse: %v %v", err, parsed)
 	}
-	if e, _ := chars["Testchar"].(lua.Table); e["schema"] != "1.2" || e["character"] != "Testchar" {
+	if e, _ := chars["Testchar"].(lua.Table); e["schema"] != "1.3" || e["character"] != "Testchar" {
 		t.Errorf("entry = %v", e)
 	}
 }
@@ -311,7 +311,7 @@ func TestCaps(t *testing.T) {
 func TestSchema12Sections(t *testing.T) {
 	ds := synthStore(t)
 	d := Build(synthChar(), ds, synthOpt)
-	if d.Schema != "1.2" || len(d.Dungeons) != 1 || d.Dungeons[0].Name != "Wolf Den" || d.Dungeons[0].Item != 1 {
+	if d.Schema != "1.3" || len(d.Dungeons) != 1 || d.Dungeons[0].Name != "Wolf Den" || d.Dungeons[0].Item != 1 {
 		t.Errorf("dungeons = %+v (schema %s)", d.Dungeons, d.Schema)
 	}
 	if len(d.Talents) != 3 || d.Talents[0].Spell != 1001 || d.Talents[1].Spell != 0 {
@@ -480,5 +480,59 @@ func TestTalentLinesFromPlan(t *testing.T) {
 	d := Build(c, nil, Options{Now: time.Unix(1, 0)})
 	if len(d.Sections) == 0 || !strings.Contains(d.Sections[0].Lines[0].Text, "take Test Whirl") {
 		t.Errorf("sections = %+v", d.Sections)
+	}
+}
+
+// structuredDigest holds one line of each kind, a class quest, an elite quest, a multi-objective quest
+// with an optional objective, a pick-up and the talent line; titles carry apostrophes, quotes and colons.
+func structuredDigest() Digest {
+	return Digest{Schema: Schema, Generated: 1800000000, Build: "1.60.0.64000", Character: "Testpriest", Sections: []Section{
+		{NextQuests, []Line{
+			{Text: "You have 2 unspent talent points: Penance", Kind: KindTalent, Points: 2},
+			{Text: "Class quest: pick up The Skybreaker's Bulwark from Seena Sk...", Quest: 900, Kind: KindPickup, Title: "The Skybreaker's Bulwark", Level: 10, Class: true, NPC: "Seena Skyward", Zone: "Dunemark"},
+			{Text: "Turn in \"Blood\" Tithe: Part 2 (Dunemark)", Quest: 901, Kind: KindTurnIn, Title: "\"Blood\" Tithe: Part 2", Level: 9, Elite: true, NPC: "Aamelia O'Windfield", Zone: "Dunemark"},
+			{Text: "0/6 Windsong Crawler Meat; +2 more (Dunemark)", Quest: 902, Kind: KindProgress, Title: "Crawler Season: A Very Long Quest Title That Is Never Truncated In The New Fields", Level: 12, Zone: "Dunemark",
+				Objectives: []Objective{{"Windsong Crawler Meat", 0, 6, true}, {"Find Aamelia Windfield", 0, 1, true}, {"Optional: Bring Tea", 0, 0, false}}},
+			{Text: "Pick up: Wolves at the Door (Dunemark)", Quest: 903, Kind: KindPickup, Title: "Wolves at the Door", Level: 11, Zone: "Dunemark"},
+			{Text: "Game data not downloaded yet; see Setup", Kind: KindNote},
+		}},
+		{Upgrades, []Line{{Text: "head: Cloth Hood (ilvl 20, at level 14)", Item: 1, Slot: "head", ILvl: 20, AtLevel: 14}}},
+	}}
+}
+
+func TestStructuredLinesGolden(t *testing.T) {
+	got := one(structuredDigest()).Lua()
+	path := filepath.Join("..", "..", "testdata", "digest", "structured.lua")
+	if *update {
+		os.WriteFile(path, []byte(got), 0o644)
+	}
+	want, err := os.ReadFile(path)
+	if err != nil || got != string(want) {
+		t.Errorf("differs from %s (-update rewrites it):\n%s", path, got)
+	}
+	if err := SlotCheck(got); err != nil {
+		t.Error(err)
+	}
+	if _, err := lua.Parse(got); err != nil {
+		t.Errorf("does not parse: %v", err)
+	}
+}
+
+// A progress line takes every objective of the logged quest, the optional one too, uncut.
+func TestBuildProgressObjectives(t *testing.T) {
+	c := synthChar()
+	c.Quests = []character.Quest{{QuestID: 101, Title: "Gather Peacebloom", Objectives: []character.Objective{
+		{Text: "Peacebloom: 3/8", Have: ip(3), Need: ip(8)},
+		{Text: "Bring a flask of tea", Done: bp(false)},
+	}}}
+	var got Line
+	for _, l := range Build(c, synthStore(t), synthOpt).Sections[0].Lines {
+		if l.Quest == 101 {
+			got = l
+		}
+	}
+	want := []Objective{{"Peacebloom", 3, 8, true}, {Text: "Bring a flask of tea"}}
+	if got.Kind != KindProgress || got.Title != "Gather Peacebloom" || got.Level != 12 || got.Zone != "Dunemark" || fmt.Sprint(got.Objectives) != fmt.Sprint(want) {
+		t.Errorf("got %+v", got)
 	}
 }
