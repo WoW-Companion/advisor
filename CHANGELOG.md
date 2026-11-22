@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- New quest route plan: pick-ups, objectives and turn-ins in an efficient order with map coordinates, computed by a distance optimiser from your own Questie. It shows as a numbered Plan under Next in the overlay, is available to the AI as `quest_plan`, and is written to `Plan.lua` beside the in-game digest.
+
 ## 0.5.1
 
 - Fixed the upgrade check failing with a tool error in a question's answer.

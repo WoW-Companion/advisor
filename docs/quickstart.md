@@ -194,6 +194,7 @@ The companion sits beside the game, not inside it, and changes nothing in the cl
 | `dungeon_plan` | Which dungeons fit your level and drop an upgrade. |
 | `farm_spots` | Where to farm an item. |
 | `quest_chain` | Where a quest sits in its quest line. |
+| `quest_plan` | An efficient ordered quest route with map coordinates, from your own Questie. |
 | `inventory_review` | What to keep, sell or bank from your bags and bank. |
 | `update_digest` | Writes the in-game digest the panel shows. |
 | `doctor` | Checks the whole setup and says how to fix each failure. |

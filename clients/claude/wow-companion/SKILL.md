@@ -26,6 +26,8 @@ All character tools take an optional `character` name (omit it when only one was
 - `character_brief`: level, class, XP, money, spec, gear, professions, bank and bags, quests.
 - `whats_next`: ranked next steps (quests to turn in, unspent talent points, open quests near the
   level, failed quests to abandon); `limit` defaults to 8.
+- `quest_plan`: an efficient ordered quest route (pick-ups, objectives, turn-ins with map coordinates, then the next zone), from
+  the player's own Questie; the order is computed, so relay it as is.
 - `upgrade_finder`: gear upgrades per slot (optional `slot`, `limit`) with where each drops.
 - `profession_plan`: the next recipes that still give skill-ups per profession (optional
   `profession`), with reagents held and missing.

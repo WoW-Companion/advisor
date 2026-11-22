@@ -61,3 +61,8 @@ must exist). The file is replaced atomically (temp file, then rename).
 
 **Data only.** Strings are escaped and the file holds one `WoWCompanionDigest = {...}` assignment of
 literals, keys included. The tests run a Go port of the addon repo's `tests/slotcheck.lua` over the output.
+
+## Route plan
+
+Every time the digest is written, `Plan.lua` is written beside it: the character's quest route with map
+coordinates. See `plan-format.md`.
