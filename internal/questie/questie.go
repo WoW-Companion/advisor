@@ -194,6 +194,7 @@ var wanted = map[string]map[string]bool{
 	"Quest":  {"S": true, "2": true, "3": true, "10": true, "12": true, "13": true, "16": true},
 	"Npc":    {"S": true, "7": true},
 	"Object": {"S": true, "4": true},
+	"Item":   {"S": true, "2": true, "3": true},
 }
 
 // ErrUnreadable means the database is not in a format this reader understands.

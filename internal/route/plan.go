@@ -42,6 +42,14 @@ type Stop struct {
 	Done    bool    `json:"done"`
 }
 
+// FindStop is an objective the planner could not place on the map: something to find, with no x or y.
+type FindStop struct {
+	N       int    `json:"n"`
+	QuestID int    `json:"quest_id,omitempty"`
+	Quest   string `json:"quest,omitempty"`
+	Label   string `json:"label"`
+}
+
 // Point is a place on a map, in map percent.
 type Point struct {
 	Map int     `json:"map"`
@@ -51,37 +59,40 @@ type Point struct {
 
 // Plan is the ordered route for one character.
 type Plan struct {
-	Character string   `json:"character"`
-	Zone      string   `json:"zone,omitempty"`
-	Start     *Point   `json:"start,omitempty"`
-	Steps     []Stop   `json:"steps"`
-	Later     []Stop   `json:"later,omitempty"`
-	Distance  float64  `json:"distance"`       // route length in map percent
-	Naive     float64  `json:"naive_distance"` // the quest-by-quest order's length, for comparison
-	Total     int      `json:"total"`          // stops on the route, a travel stop included
-	Notes     []string `json:"notes,omitempty"`
+	Character string     `json:"character"`
+	Zone      string     `json:"zone,omitempty"`
+	Start     *Point     `json:"start,omitempty"`
+	Steps     []Stop     `json:"steps"`
+	Later     []Stop     `json:"later,omitempty"`
+	Find      []FindStop `json:"find,omitempty"` // objectives with no known location; not on the route
+	Distance  float64    `json:"distance"`       // route length in map percent
+	Naive     float64    `json:"naive_distance"` // the quest-by-quest order's length, for comparison
+	Total     int        `json:"total"`          // stops on the route, a travel stop included
+	Notes     []string   `json:"notes,omitempty"`
 }
 
 // spot is a stop before ordering; quests and names list the quests merged into it.
 type spot struct {
-	kind   string
-	m      int
-	x, y   float64
-	quests []int
-	names  []string
-	label  string // the NPC or mob
-	must   bool   // part of a class quest: always on the route, never cut to "later"
+	kind     string
+	m        int
+	x, y     float64
+	quests   []int
+	names    []string
+	label    string // the NPC or mob
+	must     bool   // part of a class quest: always on the route, never cut to "later"
+	unplaced bool   // an objective with no known location: never routed, listed under Find
 }
 
 // quest is the input for one quest: where it starts, what to do, where it ends.
 type quest struct {
-	id     int
-	name   string
-	level  int
-	pickup *spot
-	objs   []*spot
-	turnin *spot
-	must   bool // a class quest: its stops are must-include
+	id       int
+	name     string
+	level    int
+	pickup   *spot
+	objs     []*spot
+	unplaced []*spot // unfinished objectives with no location
+	turnin   *spot
+	must     bool // a class quest: its stops are must-include
 }
 
 // source supplies what the planner needs of the world.
@@ -129,7 +140,14 @@ func plan(c character.Character, src source) Plan {
 
 	var later []*spot
 	var use []*quest
+	var findSpots []*spot
 	for _, q := range src.quests(c, at) {
+		// The invariant: a turn-in is routed only when every unfinished objective has a stop before it.
+		// An objective with no location is listed under Find and its quest's turn-in is withheld.
+		if len(q.unplaced) > 0 {
+			q.turnin = nil
+			findSpots = append(findSpots, q.unplaced...)
+		}
 		if q.must {
 			for _, sp := range q.chain() {
 				sp.must = true
@@ -219,6 +237,9 @@ func plan(c character.Character, src source) Plan {
 		}
 	}
 	p.Total = len(p.Steps)
+	for i, s := range findSpots {
+		p.Find = append(p.Find, FindStop{N: i + 1, QuestID: s.quests[0], Quest: strings.Join(s.names, ", "), Label: s.label})
+	}
 	sort.SliceStable(later, func(i, j int) bool { return (later[i].m == cur) && (later[j].m != cur) })
 	for i, s := range later {
 		if i >= MaxLater {

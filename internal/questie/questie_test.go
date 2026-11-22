@@ -287,3 +287,21 @@ func TestQuestieVersionFromFlavourTOCs(t *testing.T) {
 		t.Fatal("empty folder read")
 	}
 }
+
+func TestParseItemAndCreditObjectives(t *testing.T) {
+	rows := append(fixtureRows(),
+		row{"Quest", 2, "10", []any{nil, nil, []any{[]any{300, "Kelp Bundle"}}, nil, []any{[]any{[]any{200}, 200, "Crab Kills"}}}},
+		row{"Item", 300, "S", map[int]any{1: "Kelp Bundle"}},
+		row{"Item", 300, "2", []any{200}})
+	ix, st := OpenGame(install(t, header, rows))
+	if ix == nil {
+		t.Fatalf("not readable: %+v", st)
+	}
+	q := ix.Quests[2]
+	if len(q.Items) != 1 || q.Items[0] != 300 || len(q.Credits) != 1 || q.Credits[0].Name != "Crab Kills" {
+		t.Fatalf("objectives: %+v", q)
+	}
+	if it := ix.Items[300]; it.Name != "Kelp Bundle" || len(it.Npcs) != 1 || len(ix.Npcs[200].Spawns) == 0 {
+		t.Fatalf("item %+v, npc %+v", it, ix.Npcs[200])
+	}
+}
