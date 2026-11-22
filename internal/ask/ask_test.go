@@ -17,6 +17,7 @@ import (
 func TestMain(m *testing.M) {
 	switch os.Getenv("FAKE_AGENT") {
 	case "":
+		os.Setenv("WOWC_PROFILES", os.DevNull+"/none") // the player's own store is never read
 		os.Exit(m.Run())
 	case "echo":
 		fmt.Printf("Do the turn-in first (whats_next).\nquestion=%s char=%s\n", os.Getenv("WOWC_QUESTION"), os.Getenv("WOWC_CHARACTER"))

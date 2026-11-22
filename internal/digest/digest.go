@@ -261,6 +261,17 @@ func fitText(p dungeons.DungeonPick) string {
 // talentLines is the next MaxTalents points of talents.Plan, with the node's spell id when the
 // dataset has one.
 func talentLines(c character.Character, ds store.DataStore) []TalentLine {
+	if g, ok := talents.GuideNext(c, MaxTalents); ok && len(g.Next) > 0 {
+		var out []TalentLine
+		for _, p := range g.Next {
+			l := TalentLine{Line: clip(fmt.Sprintf("%s rank %d", p.Name, p.Rank))}
+			if p.SpellID != nil {
+				l.Spell = *p.SpellID
+			}
+			out = append(out, l)
+		}
+		return out
+	}
 	if ds == nil {
 		return nil
 	}
@@ -306,6 +317,9 @@ func stepNotes(c character.Character, ds store.DataStore, steps []advice.Step) [
 
 // talentNote is the unspent-points title, naming the build's next node when the dataset has one.
 func talentNote(c character.Character, ds store.DataStore, title string) string {
+	if strings.Contains(title, ": take ") { // the saved plan already named the picks
+		return title
+	}
 	if ds == nil {
 		return title
 	}

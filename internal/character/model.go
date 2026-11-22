@@ -188,6 +188,35 @@ type Character struct {
 	SkillsCaptured  bool
 	Professions     []Skill // each profession once
 	Reputations     []Reputation
+
+	// Profile and Plan are the player's own, kept locally (internal/profile) and attached after the
+	// capture is read; nil when the player has set none. They are never part of a capture.
+	Profile *Profile
+	Plan    *TalentPlan
+}
+
+// Profile is a character's play style: role (tank, healer, damage or balanced), focus (leveling,
+// dungeons, pvp or mixed), the spec tree the player chose, and optionally a guide page.
+type Profile struct {
+	Role     string `json:"role"`
+	Focus    string `json:"focus"`
+	Spec     string `json:"spec,omitempty"`
+	GuideURL string `json:"guide_url,omitempty"`
+}
+
+// PlanPick is one entry of a talent plan: a captured node's name and the rank to reach.
+type PlanPick struct {
+	Node string `json:"node"`
+	Rank int    `json:"rank"`
+}
+
+// TalentPlan is an ordered list of talent nodes with target ranks, from the player's chosen guide.
+// It holds node names and ranks only, never guide text.
+type TalentPlan struct {
+	Spec     string     `json:"spec"`
+	GuideURL string     `json:"guide_url"`
+	Date     string     `json:"date"` // YYYY-MM-DD the plan was built
+	Picks    []PlanPick `json:"picks"`
 }
 
 // File is everything one SavedVariables file holds.

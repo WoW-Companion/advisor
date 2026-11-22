@@ -191,6 +191,8 @@ The companion sits beside the game, not inside it, and changes nothing in the cl
 | `upgrade_finder` | Better gear per slot and where it drops. |
 | `profession_plan` | How to level each profession. |
 | `talent_plan` | Where the next talent points go. |
+| `get_character_profile`, `set_character_profile` | The character's play style and talent plan, saved on your PC. |
+| `talent_tree` | The exact talent names in your captured tree. |
 | `dungeon_plan` | Which dungeons fit your level and drop an upgrade. |
 | `farm_spots` | Where to farm an item. |
 | `quest_chain` | Where a quest sits in its quest line. |

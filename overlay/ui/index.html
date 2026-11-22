@@ -79,6 +79,13 @@
       </span></label>
       <label class="row"><span class="lbl">Show tokens used</span><span class="ctl"><input id="usage" type="checkbox"></span></label>
     </details>
+    <details class="grp" data-group="style">
+      <summary>Play style</summary>
+      <label class="row"><span class="lbl">Role</span><span class="ctl"><select id="style-role"><option value="">Not set</option><option value="damage">Damage</option><option value="tank">Tank</option><option value="healer">Healer</option><option value="balanced">Balanced</option></select></span></label>
+      <label class="row"><span class="lbl">Focus</span><span class="ctl"><select id="style-focus"><option value="">Not set</option><option value="leveling">Leveling</option><option value="dungeons">Dungeons</option><option value="pvp">PvP</option><option value="mixed">Mixed</option></select></span></label>
+      <label class="row"><span class="lbl">Spec</span><span class="ctl"><input id="style-spec" placeholder="for example Fury"></span></label>
+      <small>For the character chosen above. Talent advice follows it; ask "What talents should I get?" and the AI asks once if it is not set.</small>
+    </details>
     <details class="grp" data-group="game">
       <summary>Game</summary>
       <label class="row"><span class="lbl">Keep in-game advice up to date</span><span class="ctl"><input id="auto-digest" type="checkbox"></span></label>

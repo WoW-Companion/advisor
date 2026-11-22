@@ -73,7 +73,7 @@ var Presets = map[string][]string{
 }
 
 // Tools are the advisor tool names; an answer that names one gets it in its sources line.
-var Tools = []string{"character_brief", "list_characters", "quest_plan", "server_info", "update_digest", "upgrade_finder", "whats_next"}
+var Tools = []string{"character_brief", "get_character_profile", "list_characters", "quest_plan", "server_info", "set_character_profile", "talent_tree", "update_digest", "upgrade_finder", "whats_next"}
 
 // Question is one queued question.
 type Question struct {
@@ -250,6 +250,7 @@ func execOnce(ctx context.Context, cfg Config, q Question, prompt string, extra 
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	argv := append(WithModel(Argv(cfg.Command, prompt, cfg.MCPConfig), cfg.Command, cfg.Options), extra...)
+	argv = WithGuide(argv, cfg.Command, q.Text)
 	cmd, err := Launch(ctx, argv, "WOWC_QUESTION="+q.Text, "WOWC_CHARACTER="+q.Character, "WOWC_MCP_CONFIG="+cfg.MCPConfig)
 	if err != nil {
 		return false, err
