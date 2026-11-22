@@ -237,3 +237,51 @@ func TestWriteDigestEveryCharacter(t *testing.T) {
 		}
 	}
 }
+
+// Missing data files get valid empty stubs; existing ones are left alone, with or without characters.
+func TestEnsureDataFiles(t *testing.T) {
+	game := t.TempDir()
+	sv := filepath.Join(game, "WTF", "Account", "ACCT", "SavedVariables", "ForeverScribe.lua")
+	cfg := Config{SavedVariables: sv}
+	if err := EnsureDataFiles(cfg); err != nil {
+		t.Fatalf("no addon folder: %v", err)
+	}
+	slot := filepath.Join(game, "Interface", "AddOns", "WoWCompanion_Digest")
+	if _, err := os.Stat(slot); err == nil {
+		t.Fatal("created the addon folder")
+	}
+	os.MkdirAll(slot, 0o755)
+	if err := EnsureDataFiles(cfg); err != nil { // no SavedVariables file at all
+		t.Fatal(err)
+	}
+	for file, want := range map[string]string{"Digest.lua": "WoWCompanionDigest = {", "Plan.lua": "WoWCompanionPlan = {"} {
+		b, err := os.ReadFile(filepath.Join(slot, file))
+		lua := string(b)
+		if err != nil || !strings.HasPrefix(lua, "-- Data only") || !strings.Contains(lua, want) || !strings.Contains(lua, "characters = {") ||
+			strings.Contains(lua, "function") || strings.Contains(lua, "os.") {
+			t.Errorf("%s stub: %v\n%s", file, err, lua)
+		}
+	}
+	plan := filepath.Join(slot, "Plan.lua")
+	os.WriteFile(plan, []byte("-- mine\n"), 0o644)
+	os.Remove(filepath.Join(slot, "Digest.lua"))
+	if err := EnsureDataFiles(cfg); err != nil {
+		t.Fatal(err)
+	}
+	if b, _ := os.ReadFile(plan); string(b) != "-- mine\n" {
+		t.Errorf("an existing Plan.lua was replaced: %q", b)
+	}
+	if _, err := os.Stat(filepath.Join(slot, "Digest.lua")); err != nil {
+		t.Errorf("the missing Digest.lua was not written: %v", err)
+	}
+	// A refused digest (no characters captured) still leaves the stubs behind.
+	os.Remove(plan)
+	os.MkdirAll(filepath.Dir(sv), 0o755)
+	os.WriteFile(sv, []byte("ForeverScribeDB = {}"), 0o644)
+	if _, err := WriteDigest(cfg, ""); err == nil {
+		t.Fatal("expected no characters")
+	}
+	if _, err := os.Stat(plan); err != nil {
+		t.Errorf("Plan.lua not stubbed: %v", err)
+	}
+}

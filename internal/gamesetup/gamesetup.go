@@ -51,6 +51,7 @@ const (
 	ActInstallAddon = "install-addon"
 	ActUpdateAddon  = "update-addon"
 	ActTestAI       = "test-ai"
+	ActWriteData    = "write-data"
 )
 
 // Item is one checklist row.
@@ -200,6 +201,24 @@ func InstalledAddonVersion(game string) (string, bool) {
 	return "unknown", true
 }
 
+// DataFiles are the files the digest addon's TOC lists, written by the advisor.
+var DataFiles = []string{"Digest.lua", "Plan.lua"}
+
+// missingData lists the data files absent from the digest addon's folder, when that addon is installed.
+func missingData(game string) []string {
+	dir := filepath.Join(game, "Interface", "AddOns", digest.SlotAddon)
+	if st, err := os.Stat(dir); err != nil || !st.IsDir() {
+		return nil
+	}
+	var out []string
+	for _, f := range DataFiles {
+		if _, err := os.Stat(filepath.Join(dir, f)); err != nil {
+			out = append(out, f)
+		}
+	}
+	return out
+}
+
 func addonItem(game string, o Options) Item {
 	it := Item{ID: IDAddon, Title: "WoW Companion addon (optional)", Optional: true}
 	have, installed := InstalledAddonVersion(game)
@@ -208,6 +227,9 @@ func addonItem(game string, o Options) Item {
 		latest = o.Latest.Version
 	}
 	switch {
+	case installed && (latest == "" || !Newer(latest, have)) && len(missingData(game)) > 0:
+		it.Status, it.Detail = Warn, "Installed, version "+have+", but "+strings.Join(missingData(game), " and ")+" missing: the game will warn at login."
+		it.Action, it.Label = ActWriteData, "Write now"
 	case installed && (latest == "" || !Newer(latest, have)):
 		it.Status, it.Detail = OK, "Installed, version "+have+"."
 		if latest == "" && o.LatestErr != "" {
