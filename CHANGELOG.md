@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.7.5
+
+- The route plan now knows what turning a quest in unlocks. Follow-up quests (read from your own Questie, the dataset's quest lines, and unlocks you have seen in game) are routed after the turn-in that makes them available, marked locked, at most two links ahead and within a 25-step total. A turn-in's entry says "Unlocks: <quest> (from <NPC>, here)"; the overlay's Plan list shows locked steps dimmed with "after step N". `Plan.lua` schema 1.1 adds `locked`, `unlockedBy`, `depth`, `chain` and `unlocks`; older addons ignore them.
+- The advisor reads the addon's bounded log of quests accepted, turned in and abandoned (`WoWCompanionDB.observed`), so a quest you pick up outside the plan is routed on the next refresh without a `/reload`. Unlocks it sees are kept in a small file on your PC only, and never sent anywhere.
+
 ## 0.7.4
 
 - The in-game digest gains class-training entries: when your level unlocks trainer-taught abilities or ranks, `next_quests` gets a `training` entry listing them (new, or an upgrade of a rank), with the nearest class trainer only when your capture names one. Every next-quest, upgrade, dungeon, talent and training entry now carries 1 to 4 `details` lines and a ready, context-rich `prompt` (at most 500 characters) built from your character, play style and talent plan. Digest schema 1.4.

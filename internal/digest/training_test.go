@@ -1,6 +1,7 @@
 package digest
 
 import (
+	"slices"
 	"strings"
 	"testing"
 	"unicode/utf8"
@@ -187,4 +188,17 @@ func TestTrainingLuaFields(t *testing.T) {
 		t.Error(err)
 	}
 	t.Log("\n" + out)
+}
+
+func TestTurnInDetailsListWhatItUnlocks(t *testing.T) {
+	c := character.Character{Name: "Hero"}
+	l := Line{Kind: KindTurnIn, Title: "Quest 30", NPC: "Elder Test", Level: 9, Unlocks: []string{"Quest 31 (from Elder Test, here)"}}
+	d, prompt := questContext(c, l, "ready")
+	if !slices.Contains(d, "Unlocks: Quest 31 (from Elder Test, here)") || !strings.Contains(prompt, `unlocks "Quest 31"`) {
+		t.Fatalf("details %q, prompt %q", d, prompt)
+	}
+	l.Kind = KindPickup
+	if d, _ := questContext(c, l, "ready"); slices.ContainsFunc(d, func(s string) bool { return strings.HasPrefix(s, "Unlocks:") }) {
+		t.Fatalf("a pick-up says what it unlocks: %q", d)
+	}
 }

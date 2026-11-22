@@ -2,13 +2,14 @@ package route
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/WoW-Companion/advisor/internal/digest"
 )
 
 // Schema is the Plan.lua format version (docs/plan-format.md).
-const Schema = "1.0"
+const Schema = "1.1"
 
 // File is the file name, next to Digest.lua.
 const File = "Plan.lua"
@@ -21,10 +22,28 @@ type Envelope struct {
 	Plans     []Plan
 }
 
+func idList(ids []int) string {
+	var parts []string
+	for _, id := range ids {
+		parts = append(parts, strconv.Itoa(id))
+	}
+	return "{ " + strings.Join(parts, ", ") + " }"
+}
+
 func stops(b *strings.Builder, indent string, list []Stop) {
 	for _, s := range list {
-		fmt.Fprintf(b, "%s{ n = %d, kind = %s, questID = %d, quest = %s, label = %s, map = %d, x = %.1f, y = %.1f, done = %t },\n",
-			indent, s.N, digest.Quote(s.Kind), s.QuestID, digest.Quote(s.Quest), digest.Quote(s.Label), s.Map, s.X, s.Y, s.Done)
+		extra := ""
+		if s.Locked {
+			extra += fmt.Sprintf(", locked = true, unlockedBy = %s, depth = %d", idList(s.UnlockedBy), s.Depth)
+			if s.Chain != "" {
+				extra += ", chain = " + digest.Quote(s.Chain)
+			}
+		}
+		if len(s.Unlocks) > 0 {
+			extra += ", unlocks = " + idList(s.Unlocks)
+		}
+		fmt.Fprintf(b, "%s{ n = %d, kind = %s, questID = %d, quest = %s, label = %s, map = %d, x = %.1f, y = %.1f, done = %t%s },\n",
+			indent, s.N, digest.Quote(s.Kind), s.QuestID, digest.Quote(s.Quest), digest.Quote(s.Label), s.Map, s.X, s.Y, s.Done, extra)
 	}
 }
 
@@ -68,13 +87,24 @@ func Render(p Plan, limit int) string {
 			fmt.Fprintf(&b, "...and %d more stops\n", len(p.Steps)-limit)
 			break
 		}
-		fmt.Fprintf(&b, "%d. %s (%.1f, %.1f)\n", s.N, s.Label, s.X, s.Y)
+		fmt.Fprintf(&b, "%d. %s (%.1f, %.1f)%s\n", s.N, s.Label, s.X, s.Y, lockedNote(s))
 	}
 	if len(p.Later) > 0 {
 		fmt.Fprintf(&b, "%d stops are later (too high a level, off this map or past the 20-stop cap).\n", len(p.Later))
 	}
 	appendFind(&b, p)
 	return strings.TrimRight(b.String(), "\n")
+}
+
+// lockedNote is the suffix of a locked step: it cannot be picked up until an earlier turn-in.
+func lockedNote(s Stop) string {
+	if !s.Locked {
+		return ""
+	}
+	if s.After > 0 {
+		return fmt.Sprintf(" [locked: after step %d]", s.After)
+	}
+	return " [locked]"
 }
 
 func appendFind(b *strings.Builder, p Plan) {
@@ -90,13 +120,22 @@ func cmpZone(z string) string {
 	return z
 }
 
+// StepText is one overlay line: the label and place, and for a locked step where it waits.
+func StepText(s Stop) string {
+	t := fmt.Sprintf("%s (%.0f, %.0f)", s.Label, s.X, s.Y)
+	if s.Locked && s.After > 0 {
+		t += fmt.Sprintf(" - after step %d", s.After)
+	}
+	return t
+}
+
 // Lines is the plan as short numbered lines for the overlay, with a one-line summary.
 func Lines(p Plan, limit int) (lines []string, summary string) {
 	for i, s := range p.Steps {
 		if i >= limit {
 			break
 		}
-		lines = append(lines, fmt.Sprintf("%s (%.0f, %.0f)", s.Label, s.X, s.Y))
+		lines = append(lines, StepText(s))
 	}
 	for _, f := range p.Find {
 		lines = append(lines, "Find: "+f.Label)

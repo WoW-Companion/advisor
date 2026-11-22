@@ -474,7 +474,7 @@ func TestAppMode(t *testing.T) {
 }
 
 func TestNextQuestsCapped(t *testing.T) {
-	if got := nextQuests(character.Character{}, character.File{}, nil, nil); len(got) > NextQuests {
+	if got := nextQuests(character.Character{}, character.File{}, nil, nil, nil); len(got) > NextQuests {
 		t.Errorf("%d lines", len(got))
 	}
 }

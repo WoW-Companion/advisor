@@ -117,8 +117,29 @@ type CharInfo struct {
 	NextLines []NextLine `json:"next_lines,omitempty"`
 	Plan      []string   `json:"plan,omitempty"`      // the route's first stops, in order
 	PlanLine  string     `json:"plan_line,omitempty"` // "N stops, about D map units"
+	// PlanSteps is the same stops with their lock state, so the overlay can dim a locked one.
+	PlanSteps []PlanStep `json:"plan_steps,omitempty"`
 	// Style is the saved play style (the overlay's "Play style" row); nil until the player sets one.
 	Style *character.Profile `json:"style,omitempty"`
+}
+
+// PlanStep is one route stop for the overlay; After is the step a locked stop waits for.
+type PlanStep struct {
+	Text   string `json:"text"`
+	Locked bool   `json:"locked,omitempty"`
+	After  int    `json:"after,omitempty"`
+}
+
+// planSteps is the first limit stops of p, with their lock state.
+func planSteps(p route.Plan, limit int) []PlanStep {
+	var out []PlanStep
+	for i, s := range p.Steps {
+		if i >= limit {
+			break
+		}
+		out = append(out, PlanStep{Text: route.StepText(s), Locked: s.Locked, After: s.After})
+	}
+	return out
 }
 
 // NextObjective is one objective of a next quest; Have and Need are set only when HasCount.
@@ -141,6 +162,7 @@ type NextLine struct {
 	Zone       string          `json:"zone,omitempty"`
 	Objectives []NextObjective `json:"objectives,omitempty"`
 	Points     int             `json:"points,omitempty"`
+	Unlocks    []string        `json:"unlocks,omitempty"` // a turn-in's follow-ups: "Quest (from NPC, here)"
 }
 
 // NextQuests is how many next quests each character carries.
@@ -404,10 +426,15 @@ func (s *Server) reload() {
 		ci := CharInfo{Key: c.Key, Name: c.Name, Class: c.Class, Next: []string{NoDataMessage}, Style: c.Profile}
 		if ds != nil {
 			qx := questie.ForSavedVariables(s.cfg.Ask.SavedVariables)
-			ci.NextLines = nextQuests(c, f, ds, qx)
+			var plan route.Plan
+			if qx != nil {
+				plan = route.BuildWith(c, qx, route.OptionsFor(s.cfg.Ask.SavedVariables, ds))
+			}
+			ci.NextLines = nextQuests(c, f, ds, qx, route.UnlockNotes(plan))
 			ci.Next = nextTexts(ci.NextLines)
 			if qx != nil {
-				ci.Plan, ci.PlanLine = route.Lines(route.Build(c, qx), PlanStops)
+				ci.Plan, ci.PlanLine = route.Lines(plan, PlanStops)
+				ci.PlanSteps = planSteps(plan, PlanStops)
 			}
 		}
 		if c.Level != nil {
@@ -746,15 +773,15 @@ func readFile(p string) (string, error) {
 }
 
 // nextQuests is the top NextQuests lines of the character's digest "next quests" section.
-func nextQuests(c character.Character, f character.File, ds store.DataStore, qx *questie.Index) []NextLine {
-	d := digest.Build(c, ds, digest.Options{Now: time.Now(), Client: f.ClientOf(c), Questie: qx})
+func nextQuests(c character.Character, f character.File, ds store.DataStore, qx *questie.Index, unlocks map[int][]string) []NextLine {
+	d := digest.Build(c, ds, digest.Options{Now: time.Now(), Client: f.ClientOf(c), Questie: qx, Unlocks: unlocks})
 	for _, sec := range d.Sections {
 		if sec.ID != digest.NextQuests {
 			continue
 		}
 		var out []NextLine
 		for _, l := range sec.Lines[:min(len(sec.Lines), NextQuests)] {
-			n := NextLine{Text: l.Text, Kind: l.Kind, Title: l.Title, Level: l.Level, Class: l.Class, Elite: l.Elite, NPC: l.NPC, Zone: l.Zone, Points: l.Points}
+			n := NextLine{Text: l.Text, Kind: l.Kind, Title: l.Title, Level: l.Level, Class: l.Class, Elite: l.Elite, NPC: l.NPC, Zone: l.Zone, Points: l.Points, Unlocks: l.Unlocks}
 			for _, o := range l.Objectives {
 				n.Objectives = append(n.Objectives, NextObjective{Text: o.Text, Have: o.Have, Need: o.Need, HasCount: o.HasCount})
 			}

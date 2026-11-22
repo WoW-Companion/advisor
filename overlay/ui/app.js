@@ -357,12 +357,14 @@ function showNext() {
     if (!lines.length) { const li = document.createElement('li'); li.textContent = t; li.className = 'none'; return li; }
     return WowcNext.render(document, t, c && c.level);
   }));
-  const plan = (c && c.plan) || [];
+  // plan_steps carries the lock state; an older advisor sends only the text.
+  const plan = (c && c.plan_steps && c.plan_steps.length) ? c.plan_steps : ((c && c.plan) || []);
   $('plan').hidden = !plan.length;
   $('plan-line').textContent = (c && c.plan_line) || '';
   $('plan-list').replaceChildren(...plan.map(t => {
     const li = document.createElement('li');
-    li.textContent = t;
+    li.textContent = typeof t === 'string' ? t : t.text;
+    if (t && t.locked) li.className = 'locked';
     return li;
   }));
 }

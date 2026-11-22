@@ -306,7 +306,7 @@ func TestLuaIsDataOnly(t *testing.T) {
 	p := Build(hero(), hubIsle())
 	p.Character = `Evil"]=nil os.execute("x") --`
 	lua := Envelope{Generated: 7, Plans: []Plan{p}}.Lua()
-	if !strings.HasPrefix(lua, "-- Data only") || !strings.Contains(lua, "WoWCompanionPlan = {") || !strings.Contains(lua, `schema = "1.0"`) {
+	if !strings.HasPrefix(lua, "-- Data only") || !strings.Contains(lua, "WoWCompanionPlan = {") || !strings.Contains(lua, `schema = "1.1"`) {
 		t.Errorf("header: %s", lua)
 	}
 	if strings.Contains(lua, `Evil"]`) {

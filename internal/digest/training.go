@@ -275,6 +275,9 @@ func questContext(c character.Character, l Line, reason string) ([]string, strin
 		}
 	}
 	d = append(d, where)
+	if l.Kind == KindTurnIn && len(l.Unlocks) > 0 {
+		d = append(d, "Unlocks: "+strings.Join(l.Unlocks, "; "))
+	}
 	var tags []string
 	if l.Level > 0 {
 		tags = append(tags, fmt.Sprintf("Level %d", l.Level))
@@ -310,6 +313,10 @@ func questContext(c character.Character, l Line, reason string) ([]string, strin
 	facts += "."
 	if l.Class {
 		facts += " It is a class quest."
+	}
+	if l.Kind == KindTurnIn && len(l.Unlocks) > 0 {
+		next, _, _ := strings.Cut(l.Unlocks[0], " (")
+		facts += fmt.Sprintf(" Turning it in unlocks %q.", next)
 	}
 	if len(open) > 0 {
 		facts += " Still open: " + strings.Join(open, "; ") + "."

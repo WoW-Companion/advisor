@@ -41,6 +41,9 @@ type Quest struct {
 	Complete   *bool
 	Failed     *bool
 	Objectives []Objective
+	// Observed marks a quest the addon saw accepted after the capture: it is in the log, but its
+	// objectives are not in the capture.
+	Observed bool
 }
 
 // Spot is one place an NPC was seen (map percent) and when.

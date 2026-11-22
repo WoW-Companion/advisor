@@ -10,11 +10,15 @@ import (
 	"github.com/WoW-Companion/advisor/internal/character"
 	"github.com/WoW-Companion/advisor/internal/items"
 	"github.com/WoW-Companion/advisor/internal/questie"
+	"github.com/WoW-Companion/advisor/internal/unlock"
 )
 
 // questieSource reads quests and coordinates from the player's own QuestieDB. What it reads is used
 // at run time for the player's local plan only; nothing here is stored in the repo.
-type questieSource struct{ qx *questie.Index }
+type questieSource struct {
+	qx     *questie.Index
+	follow func(use []*quest, cur int, opt Options) []*quest // set by quests
+}
 
 type pt struct {
 	m    int
@@ -255,7 +259,7 @@ func (s *questieSource) quests(c character.Character, at *questie.Where) []*ques
 			}
 		}
 		q.turnin = spotFrom(KindTurnIn, qq, qq.Finishers, x, y, haveXY)
-		if !complete && len(open) > 0 {
+		if !complete && (len(open) > 0 || lq.Observed) {
 			ax, ay := x, y
 			if q.turnin != nil && !haveXY {
 				ax, ay = q.turnin.x, q.turnin.y
@@ -288,7 +292,73 @@ func (s *questieSource) quests(c character.Character, at *questie.Where) []*ques
 			out = append(out, q)
 		}
 	}
+	s.follow = func(use []*quest, cur int, opt Options) []*quest {
+		who := advice.WhoOf(c)
+		tspot := map[int]*spot{}
+		var planned []int
+		for _, q := range use {
+			if q.turnin != nil {
+				planned = append(planned, q.id)
+				tspot[q.id] = q.turnin
+			}
+		}
+		found := unlock.Find(unlock.Input{Qx: s.qx, Who: who, Planned: planned, Lines: opt.Lines, Obs: opt.Obs,
+			Depth: opt.Depth, OnMap: cur, Skip: items.Unobtainable})
+		type ranked struct {
+			q    *quest
+			dist float64
+		}
+		var rs []ranked
+		for _, f := range found {
+			qq := s.qx.Quests[f.ID]
+			if qq == nil || qq.Level > *c.Level+LevelMargin {
+				continue
+			}
+			ax, ay, haveA := x, y, haveXY
+			for _, a := range f.UnlockedBy {
+				if t := tspot[a]; t != nil {
+					ax, ay, haveA = t.x, t.y, true
+					break
+				}
+			}
+			pick := spotFrom(KindPickup, qq, qq.Starters, ax, ay, haveA)
+			if pick == nil && f.Start != nil {
+				pick = &spot{kind: KindPickup, m: f.Start.Map, x: f.Start.X, y: f.Start.Y, quests: []int{qq.ID}, names: []string{qq.Name}, label: f.Start.NPC}
+			}
+			if pick == nil || pick.m != cur {
+				continue
+			}
+			q := &quest{id: qq.ID, name: qq.Name, level: qq.Level, pickup: pick, must: classQuestOf(c, qq),
+				locked: true, depth: f.Depth, unlockedBy: f.UnlockedBy, chainName: f.Chain, observed: f.Observed}
+			q.objs, q.unplaced = objectives(qq, nil, nil, pick.x, pick.y)
+			if len(q.unplaced) == 0 {
+				q.turnin = spotFrom(KindTurnIn, qq, qq.Finishers, pick.x, pick.y, true)
+			}
+			if q.turnin != nil {
+				tspot[q.id] = q.turnin
+			}
+			rs = append(rs, ranked{q, math.Hypot(pick.x-ax, pick.y-ay)})
+		}
+		sort.SliceStable(rs, func(i, j int) bool {
+			if rs[i].q.depth != rs[j].q.depth {
+				return rs[i].q.depth < rs[j].q.depth
+			}
+			return rs[i].dist < rs[j].dist
+		})
+		var out []*quest
+		for _, r := range rs {
+			out = append(out, r.q)
+		}
+		return out
+	}
 	return out
+}
+
+func (s *questieSource) followUps(use []*quest, cur int, opt Options) []*quest {
+	if s.follow == nil {
+		return nil
+	}
+	return s.follow(use, cur, opt)
 }
 
 // classQuestOf reports whether qq is a class quest for c's class: those stops are must-include.

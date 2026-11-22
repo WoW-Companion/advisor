@@ -90,6 +90,8 @@ type Line struct {
 	// (at most MaxPrompt characters); both are set on every entry.
 	Details []string
 	Prompt  string
+	// Unlocks is on a turn-in line: the follow-ups turning it in unlocks (not written to Digest.lua).
+	Unlocks []string
 	Spells  []TrainSpell // training: the abilities and ranks
 	X, Y    float64      // training: the trainer's map percent, when HasXY
 	HasXY   bool
@@ -139,6 +141,9 @@ type Options struct {
 	// PrevLevel is the character's level at the last capture, 0 when unknown. Training then covers
 	// the levels after it; with 0 it covers the character's own level only.
 	PrevLevel int
+	// Unlocks is, per turn-in quest id, the follow-ups the plan says it unlocks, as "Quest (from NPC,
+	// here)"; a turn-in entry then says "Unlocks: ..." and its prompt names the first.
+	Unlocks map[int][]string
 }
 
 // NoDataText is what NEXT says when no game dataset has downloaded.
@@ -255,6 +260,7 @@ func Build(c character.Character, ds store.DataStore, opt Options) Digest {
 			l.Kind = KindPickup
 		case s.Kind == advice.KindTurnIn:
 			l.Kind = KindTurnIn
+			l.Unlocks = opt.Unlocks[s.QuestID]
 		default:
 			l.Objectives = objectivesOf(c, s.QuestID)
 		}
