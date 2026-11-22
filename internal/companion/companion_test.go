@@ -499,14 +499,20 @@ func TestAutoDigest(t *testing.T) {
 	if s.digest.UpdatedAt == 0 {
 		t.Error("no update time")
 	}
-	// A rebuild of the same advice, even at a later second, leaves the file alone.
-	older := regexp.MustCompile(`generated = \d+,`).ReplaceAllString(string(first), "generated = 1,")
+	// A rebuild of the same advice with no newer capture leaves the file alone.
+	older := regexp.MustCompile(`generated = \d+,`).ReplaceAllString(string(first), "generated = 99999999999,")
 	write(t, out, older)
 	old := time.Now().Add(-time.Hour)
 	os.Chtimes(out, old, old)
 	s.writeDigest()
 	if st, _ := os.Stat(out); st.ModTime().After(old.Add(time.Minute)) {
 		t.Error("identical digest was rewritten")
+	}
+	// The same advice with a capture newer than the file's generated time is rewritten.
+	write(t, out, regexp.MustCompile(`generated = \d+,`).ReplaceAllString(string(first), "generated = 1,"))
+	s.writeDigest()
+	if got, _ := os.ReadFile(out); strings.Contains(string(got), "generated = 1,") {
+		t.Error("stale generated time kept for a newer capture")
 	}
 	// A real change writes.
 	write(t, fs, strings.Replace(capture, `name = "New"`, `name = "Newer"`, 1))

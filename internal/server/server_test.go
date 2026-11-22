@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -283,5 +284,52 @@ func TestEnsureDataFiles(t *testing.T) {
 	}
 	if _, err := os.Stat(plan); err != nil {
 		t.Errorf("Plan.lua not stubbed: %v", err)
+	}
+}
+
+// Under SkipUnchanged a file is left alone only when the advice is the same and its generated time
+// is not older than the newest capture; a newer capture or different advice rewrites it.
+func TestWriteDigestSkipUnchanged(t *testing.T) {
+	game := t.TempDir()
+	sv := filepath.Join(game, "WTF", "Account", "ACCT", "SavedVariables", "ForeverScribe.lua")
+	os.MkdirAll(filepath.Dir(sv), 0o755)
+	data, _ := os.ReadFile(fixture("tree_priest.lua"))
+	os.WriteFile(sv, data, 0o644)
+	slot := filepath.Join(game, "Interface", "AddOns", "WoWCompanion_Digest")
+	os.MkdirAll(slot, 0o755)
+	cfg := Config{SavedVariables: sv, SkipUnchanged: true}
+	gen := regexp.MustCompile(`generated = \d+,`)
+	setGen := func(p, g string) string {
+		b, _ := os.ReadFile(p)
+		s := gen.ReplaceAllString(string(b), "generated = "+g+",")
+		os.WriteFile(p, []byte(s), 0o644)
+		return s
+	}
+	if _, err := WriteDigest(cfg, ""); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"Digest.lua", "Plan.lua"} {
+		p := filepath.Join(slot, name)
+		// Same advice, no newer capture: untouched.
+		want := setGen(p, "99999999999")
+		WriteDigest(cfg, "")
+		if got, _ := os.ReadFile(p); string(got) != want {
+			t.Errorf("%s rewritten without a newer capture", name)
+		}
+		// Same advice, newer capture than generated: rewritten with a fresh time.
+		setGen(p, "1")
+		WriteDigest(cfg, "")
+		if got, _ := os.ReadFile(p); strings.Contains(string(got), "generated = 1,") {
+			t.Errorf("%s kept its old generated time", name)
+		}
+		// Changed advice: rewritten.
+		b, _ := os.ReadFile(p)
+		changed := strings.Replace(string(b), "generated = ", "extra = 1,\n  generated = ", 1)
+		setGen(p, "99999999999")
+		os.WriteFile(p, []byte(strings.Replace(changed, gen.FindString(changed), "generated = 99999999999,", 1)), 0o644)
+		WriteDigest(cfg, "")
+		if got, _ := os.ReadFile(p); strings.Contains(string(got), "extra = 1,") {
+			t.Errorf("%s not rewritten for changed advice", name)
+		}
 	}
 }

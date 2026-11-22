@@ -503,13 +503,19 @@ func WriteDigest(cfg Config, name string) (DigestOutput, error) {
 		}
 		parts = append(parts, fmt.Sprintf("%s: %s", d.Character, strings.Join(counts, ", ")))
 	}
-	if cfg.SkipUnchanged && digest.Same(path, env) {
+	var newest int64
+	for _, c := range kept {
+		if c.CapturedAt != nil {
+			newest = max(newest, *c.CapturedAt)
+		}
+	}
+	if cfg.SkipUnchanged && digest.SameTextSince(path, env.Lua(), newest) {
 		out.Unchanged = true
 	} else if err := digest.Write(path, env); err != nil {
 		return DigestOutput{}, fmt.Errorf("could not write the digest: %w", err)
 	}
 	planPath := digest.SiblingPath(path, route.File)
-	if cfg.SkipUnchanged && digest.SameText(planPath, plans.Lua()) {
+	if cfg.SkipUnchanged && digest.SameTextSince(planPath, plans.Lua(), newest) {
 		out.PlanPath = planPath
 	} else if err := digest.WriteFile(planPath, plans.Lua()); err != nil {
 		return DigestOutput{}, fmt.Errorf("could not write the route plan: %w", err)
