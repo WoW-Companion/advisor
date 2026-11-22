@@ -96,7 +96,7 @@ type Entry struct {
 	Character string `json:"character"`
 	Question  string `json:"question"`
 	Answer    string `json:"answer"`
-	Status    string `json:"status"` // "waiting", "done" or "error"
+	Status    string `json:"status"` // "waiting", "answering" (text so far in Answer), "done" or "error"
 	Streamed  bool   `json:"streamed"`
 	UsageTip  string `json:"usage_tip,omitempty"` // the usage line's tooltip: cached tokens are cheaper but may still count
 	Usage     string `json:"usage,omitempty"`     // "≈3.1k tokens · haiku": tokens when the CLI reported them, and the model; only with the setting on
@@ -497,16 +497,31 @@ func (s *Server) answerGame(ctx context.Context) {
 	}
 	for _, q := range qs {
 		s.mu.Lock()
-		_, done := s.gameDone[q.ID]
+		_, started := s.gameDone[q.ID]
 		s.mu.Unlock()
-		if done || q.Answered {
+		if started || q.Answered {
 			continue
 		}
 		if ctx.Err() != nil {
 			return
 		}
 		ac := s.askCfg()
-		text, _, err := ask.Respond(ctx, ac, ask.Question{ID: q.ID, Character: q.Character, Text: q.Text}, ac.Prompt(q), s.cfg.Stream, nil)
+		// The answer streams into the feed as it arrives: the entry reads "answering" with the text so far.
+		var got strings.Builder
+		var last time.Time
+		text, _, err := ask.Respond(ctx, ac, ask.Question{ID: q.ID, Character: q.Character, Text: q.Text}, ac.Prompt(q), s.cfg.Stream, func(chunk string) {
+			got.WriteString(chunk)
+			s.mu.Lock()
+			if s.gameDone == nil {
+				s.gameDone = map[string]Entry{}
+			}
+			s.gameDone[q.ID] = Entry{Answer: got.String(), Status: "answering"}
+			s.mu.Unlock()
+			if time.Since(last) >= 100*time.Millisecond { // at most ten repaints a second
+				last = time.Now()
+				s.showGame()
+			}
+		})
 		e := Entry{Answer: text, Status: "done"}
 		if err != nil {
 			e.Answer, e.Status = "Could not answer: "+err.Error(), "error"

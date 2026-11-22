@@ -6,7 +6,7 @@ const win = window.__TAURI__.window.getCurrentWindow();
 
 const $ = id => document.getElementById(id);
 const log = $('log'), who = $('who'), badge = $('badge'), text = $('text'), send = $('send');
-const DEFAULTS = { opacity: 92, solidHover: false, mode: 'overlay', keyVis: 'Ctrl+Shift+W', keyCt: 'Ctrl+Shift+T', nextOpen: null, settingsOpen: false, chatOpen: true, size: 'M', checkUpdates: true, cleared: [], who: '', setupSeen: false, setupHidden: [], gameDir: '', length: 'standard', byClient: {}, usage: true, groups: { ai: true } };
+const DEFAULTS = { opacity: 92, solidHover: false, mode: 'overlay', keyVis: 'Ctrl+Shift+W', keyCt: 'Ctrl+Shift+T', nextOpen: null, settingsOpen: false, chatOpen: true, size: 'M', checkUpdates: true, cleared: [], who: '', setupSeen: false, setupHidden: [], gameDir: '', length: 'standard', byClient: {}, usage: true, groups: { ai: true }, gameToast: false };
 // nextOpen null means automatic: open until the chat has a message, then collapsed. A click makes it a choice.
 const cfg = { ...DEFAULTS, ...JSON.parse(localStorage.getItem('wowc') || '{}') };
 const save = () => localStorage.setItem('wowc', JSON.stringify(cfg));
@@ -394,10 +394,20 @@ function render(history) {
     if (cfg.cleared.includes('q-' + e.id) || cfg.cleared.includes('a-' + e.id)) continue;
     const where = e.character ? ' · ' + e.character : '';
     put('q-' + e.id, 'q', e.question, e.source === 'game' ? 'asked in game' + where : null);
-    const body = e.status === 'waiting' ? 'Waiting for an answer…' : e.answer;
-    const note = e.source === 'game' ? 'answered into Answers.lua too — /reload in game' : '';
-    put('a-' + e.id, 'a' + (e.status === 'error' ? ' err' : ''), body, note);
+    const body = e.status === 'waiting' ? 'Waiting for an answer…' : (e.status === 'answering' && !e.answer ? 'Answering…' : e.answer);
+    const note = e.source === 'game' && e.status === 'done' ? 'answered into Answers.lua too — /reload in game' : '';
+    put('a-' + e.id, 'a' + (e.status === 'error' ? ' err' : e.status === 'answering' ? ' live' : ''), body, note);
+    if (e.source === 'game' && !seenGame.has(e.id)) { seenGame.add(e.id); if (cfg.gameToast === true && seenGameReady) toast('Question from game'); }
   }
+  seenGameReady = true;
+}
+// A question asked in game appears in the feed at once. The optional toast is off by default (cfg.gameToast).
+const seenGame = new Set();
+let seenGameReady = false;
+function toast(msg) {
+  const el = document.createElement('div'); el.className = 'toast'; el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 4000);
 }
 
 async function load() {

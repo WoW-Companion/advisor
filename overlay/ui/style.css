@@ -109,6 +109,7 @@ button:disabled { opacity: .5; cursor: default; }
 .msg.err { border-color: #c4503d; }
 .msg small { display: block; margin-top: 3px; color: var(--muted); font-size: 11px; }
 .msg.live::after { content: ""; display: inline-block; width: 6px; height: 12px; margin-left: 2px; vertical-align: -1px; background: var(--gold); animation: blink 1s steps(2) infinite; }
+.toast { position: fixed; right: 10px; bottom: 10px; padding: 6px 10px; border: 1px solid var(--gold); border-radius: 4px; background: rgba(20, 16, 10, .95); color: var(--gold); font-size: 12px; z-index: 50; }
 
 #form { display: flex; gap: 6px; padding: 6px 12px 8px; border-top: 1px solid rgba(217, 176, 90, .2); }
 #text { flex: 1 1 auto; resize: none; height: 30px; padding: 4px 8px; }

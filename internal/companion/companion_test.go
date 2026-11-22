@@ -335,6 +335,34 @@ func TestInGameQuestionAnswersFile(t *testing.T) {
 	}
 }
 
+// The overlay's feed shows an in-game ask as "game" at once, then the answer streaming into it
+// ("answering", with the text so far) before it is done.
+func TestInGameQuestionStreamsIntoFeed(t *testing.T) {
+	e := start(t, "stream", true)
+	write(t, filepath.Join(e.dir, "WoWCompanion.lua"), addonVars)
+	sawAsk, sawPartial := false, false
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		h := e.srv.snapshot().History
+		if len(h) == 1 && h[0].Source == "game" && h[0].Question == "What now from the game?" {
+			sawAsk = true
+			if h[0].Status == "answering" && h[0].Answer != "" && h[0].Answer != "Hello there" {
+				sawPartial = true
+			}
+			if h[0].Status == "done" {
+				if h[0].Answer != "Hello there" {
+					t.Errorf("answer = %q", h[0].Answer)
+				}
+				break
+			}
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if !sawAsk || !sawPartial {
+		t.Errorf("ask shown %v, partial answer shown %v", sawAsk, sawPartial)
+	}
+}
+
 func waitGameAnswer(t *testing.T, e *env) {
 	t.Helper()
 	write(t, filepath.Join(e.dir, "WoWCompanion.lua"), addonVars)
