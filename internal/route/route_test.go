@@ -195,7 +195,7 @@ func f1(v float64) string { return fmt.Sprintf("%.1f", v) }
 
 // --- the plan from Questie-shaped data ---
 
-func windfield() *questie.Index {
+func hubIsle() *questie.Index {
 	sp := func(x, y float64) []questie.Spawn { return []questie.Spawn{{Area: 901, X: x, Y: y}} }
 	ix := &questie.Index{
 		Quests: map[int]*questie.Quest{},
@@ -240,7 +240,7 @@ func hero() character.Character {
 }
 
 func TestPlanClustersAndOrders(t *testing.T) {
-	p := Build(hero(), windfield())
+	p := Build(hero(), hubIsle())
 	if p.Zone != "Testisle" || len(p.Steps) == 0 {
 		t.Fatalf("plan %+v", p)
 	}
@@ -289,7 +289,7 @@ func TestPlanSkipsDoneObjective(t *testing.T) {
 	c := hero()
 	yes := true
 	c.Quests = []character.Quest{{QuestID: 10, Title: "Quest 10", Objectives: []character.Objective{{Text: "Test Boar slain: 8/8", Done: &yes}, {Text: "Test Wolf slain: 1/8"}}}}
-	ix := windfield()
+	ix := hubIsle()
 	ix.Quests[10].Creatures = append(ix.Quests[10].Creatures, questie.Ref{ID: 4})
 	p := Build(c, ix)
 	for _, s := range p.Steps {
@@ -303,7 +303,7 @@ func TestPlanSkipsDoneObjective(t *testing.T) {
 }
 
 func TestLuaIsDataOnly(t *testing.T) {
-	p := Build(hero(), windfield())
+	p := Build(hero(), hubIsle())
 	p.Character = `Evil"]=nil os.execute("x") --`
 	lua := Envelope{Generated: 7, Plans: []Plan{p}}.Lua()
 	if !strings.HasPrefix(lua, "-- Data only") || !strings.Contains(lua, "WoWCompanionPlan = {") || !strings.Contains(lua, `schema = "1.0"`) {
@@ -315,7 +315,7 @@ func TestLuaIsDataOnly(t *testing.T) {
 	if !strings.Contains(lua, `Evil\"]=nil`) {
 		t.Errorf("the name was not escaped:\n%s", lua)
 	}
-	t.Log("sample Plan.lua:\n" + strings.ReplaceAll(Envelope{Generated: 1795363809, Plans: []Plan{Build(hero(), windfield())}}.Lua(), "\t", "  "))
+	t.Log("sample Plan.lua:\n" + strings.ReplaceAll(Envelope{Generated: 1795363809, Plans: []Plan{Build(hero(), hubIsle())}}.Lua(), "\t", "  "))
 }
 
 func TestNoQuestieNoPlan(t *testing.T) {
