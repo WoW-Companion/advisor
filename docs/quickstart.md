@@ -12,7 +12,7 @@ finds a new addon folder at startup, so `/reload` is not enough the first time.
 Success: after your first `/reload` or logout, ForeverScribe has written
 `WTF\Account\<account>\SavedVariables\ForeverScribe.lua`. That file is all the overlay needs.
 
-## 2. Get the WoW Companion app (the overlay, recommended)
+## 2. Get WoW Companion (the overlay, recommended)
 
 **Recommended: the overlay app.** It bundles the advisor, so there is nothing else to install.
 
