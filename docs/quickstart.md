@@ -1,6 +1,6 @@
 # Quickstart: from download to in-game advice
 
-One path for a new Windows player, top to bottom. Each step is one action and says what success looks
+One path for a new Windows player, top to bottom. If you want the short version, read [Getting Started](getting-started.md); to see how the pieces fit together, read [How it works](getting-started.md#how-it-works). Each step is one action and says what success looks
 like. `<you>` is your Windows user name and `<account>` your WoW account folder; use your own.
 
 ## 1. Install ForeverScribe (required)
@@ -12,7 +12,7 @@ finds a new addon folder at startup, so `/reload` is not enough the first time.
 Success: after your first `/reload` or logout, ForeverScribe has written
 `WTF\Account\<account>\SavedVariables\ForeverScribe.lua`. That file is all the overlay needs.
 
-## 2. Get WoW Companion (the overlay, recommended)
+## 2. Get the WoW Companion app (the overlay, recommended)
 
 **Recommended: the overlay app.** It bundles the advisor, so there is nothing else to install.
 
@@ -93,9 +93,9 @@ Open WoW Companion from the Start menu.
 Success: the panel shows your most recently played character, its NEXT list and an age chip. Settings
 live in the app's own storage, not a file you edit; see the FAQ.
 
-## 5. Optional: the WoW Companion addon
+## 5. Optional: the WoW Companion addon (see it in the game)
 
-The addon is only for in-game extras: the panel (your next quests, upgrades and materials), the tracker,
+The addon shows the advice inside WoW (screenshots in [what you'll see](getting-started.md#steps)). It is only for in-game extras: the panel (your next quests, upgrades and materials), the tracker,
 tooltips, and the right-click **Ask about this** on a panel line. You do not need it to use the overlay.
 
 Action: add the WoW Companion folders (`WoWCompanion`, `WoWCompanion_Digest`) to the same

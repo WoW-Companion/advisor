@@ -1,6 +1,35 @@
 # Getting Started (alpha testers, Windows)
 
-About 3 minutes to read, about 10 to do. Use your own names wherever you see `<account>`.
+About 3 minutes to read, about 10 to do. Where you see `<account>`, use your own WoW account name.
+
+## How it works
+
+Three small pieces work together.
+
+- **ForeverScribe** (an addon) writes down what your character has: level, quests, bags and talents.
+  WoW only saves it to disk when you `/reload`, log out or quit.
+- **The WoW Companion app** (the overlay, a small window beside the game) reads that save within seconds,
+  works out your next steps and the best route, and lets you ask your AI about your character. It writes
+  the advice back into the game's addon folder.
+- **The WoW Companion addon** shows that advice in the game: the panel, the numbered route on your map and
+  the minimap button. Quest counts update live as you play.
+
+**The loop:** play, then `/reload` (WoW saves), then the app writes fresh advice within seconds, then
+`/reload` again to see it in game. You can also ask a question in game; the app answers it in its window
+right away.
+
+```mermaid
+flowchart LR
+    G[WoW game] -->|/reload saves| S[ForeverScribe save file]
+    S --> A[WoW Companion app]
+    A --> F[Advice files]
+    F -->|/reload loads| D[WoW Companion addon in game]
+    G -.->|Ask| A
+```
+
+**Safety, said simply:** the addon only reads the game. The app never touches the game. Nothing is
+automated. Your AI sees only what you ask it.
+
 
 ## What you need
 
@@ -18,17 +47,20 @@ About 3 minutes to read, about 10 to do. Use your own names wherever you see `<a
 
 1. **Install ForeverScribe (required).** Open the [ForeverScribe page](https://github.com/MattMaximo/foreverscribe)
    and put the addon in your game's `_forever_\Interface\AddOns` folder. Then quit WoW completely and start
-   it again. (The setup checklist in step 3 shows an "Open ForeverScribe page" button and tells you if it
+   it again. WoW only notices a new addon when it starts. (The setup checklist in step 3 shows an "Open ForeverScribe page" button and tells you if it
    cannot find the addon.)
 2. **Install WoW Companion.** On the [latest release](https://github.com/WoW-Companion/advisor/releases/latest)
    download `WoW-Companion-Setup-<version>-x64.exe` and run it. It needs no admin rights. Windows
-   SmartScreen will say it "protected your PC" because the installer is not code-signed: click
+   SmartScreen (Windows' safety check) will say it "protected your PC" because the installer is not code-signed: click
    **More info**, then **Run anyway**.
-3. **Follow the setup checklist.** The overlay opens a **Setup** checklist with these lines: game found,
+3. **Follow the setup checklist.** The app opens a **Setup** checklist with these lines: game found,
    ForeverScribe installed, ForeverScribe has data, WoW Companion addon (optional), display mode, Questie (optional), and game data.
    The checklist installs the addon if you want it. The first time it runs, it downloads a small game-data
    file (under 1 MB) from GitHub; nothing to install. Fix any red line with the button next to it. You can
    reopen it from the settings (the gear), under **Setup checklist**.
+
+   ![The WoW Companion overlay window](images/overlay-window.png)
+
    **Questie is optional, and recommended.** With the Questie and QuestieDB addons installed, the advisor
    reads them on your own PC to suggest quests you have not picked up, with the giver's position, and to
    locate quests in your log. Without them it uses ForeverScribe's saved data alone. See
@@ -39,8 +71,24 @@ About 3 minutes to read, about 10 to do. Use your own names wherever you see `<a
 4. **Install an AI client and sign in once.** Pick one; Claude Code gives the most detailed answers in
    our testing. Steps for each are under [Set up your AI client](#set-up-your-ai-client) below.
 5. **Set WoW to Windowed (Fullscreen).** In WoW: System, Graphics, **Display Mode**, **Windowed (Fullscreen)**.
-   Log in and type `/reload` once so ForeverScribe saves your character.
-6. **Ask.** In the overlay, type: `What should I do next?`
+   Log in and type `/reload` once. That makes WoW save the file ForeverScribe wrote, so the app can read your character.
+6. **Ask.** In the app, type: `What should I do next?`
+7. **In the game: what you'll see.** Once the WoW Companion addon is installed, type `/reload` in game. You get the
+   **panel** with your next steps (open it with `/wowc` or a click on the minimap button), the numbered route
+   on your map, and a **minimap button**. Point at the button to see what each click does.
+
+   ![The WoW Companion panel in the game](images/panel.png)
+
+   ![The minimap button and its tooltip](images/minimap-button-tooltip.png)
+
+   Fresh advice shows after the app has written it: `/reload` (save), wait a few seconds, `/reload` again.
+
+## Make it yours
+
+Right-click the minimap button, or type `/wowc options`, to open the in-game options and change how the
+panel and the route look.
+
+![The in-game options window](images/options-window.png)
 
 ## Set up your AI client
 
@@ -85,7 +133,7 @@ answers. Run PowerShell commands in a PowerShell window.
 
 - It installs for your Windows user only. No admin rights.
 - The overlay never touches the game process. It is a separate window that sits above WoW.
-- It reads the file ForeverScribe saved (`ForeverScribe.lua`) and writes only to the WoW Companion addon
+- It reads the file ForeverScribe saved (`ForeverScribe.lua`; this is the file WoW saves when you `/reload`) and writes only to the WoW Companion addon
   folder, and only if you choose to install the addon.
 - The AI client runs with only the advisor's read-only tools.
 - Network calls: GitHub, to check for and download releases, and your AI client's own service. Nothing else.
