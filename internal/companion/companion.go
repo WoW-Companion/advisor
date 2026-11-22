@@ -111,11 +111,36 @@ type CharInfo struct {
 	Class      string   `json:"class"`
 	Level      int      `json:"level"`
 	CapturedAt int64    `json:"captured_at"`
-	Next       []string `json:"next,omitempty"`      // the top next quests, from the digest
-	Plan       []string `json:"plan,omitempty"`      // the route's first stops, in order
-	PlanLine   string   `json:"plan_line,omitempty"` // "N stops, about D map units"
+	Next       []string `json:"next,omitempty"` // the top next quests, from the digest
+	// NextLines is the same quests as Next with the digest's structured, untruncated fields, so the
+	// overlay can lay them out like the in-game panel. Next stays for older pages.
+	NextLines []NextLine `json:"next_lines,omitempty"`
+	Plan      []string   `json:"plan,omitempty"`      // the route's first stops, in order
+	PlanLine  string     `json:"plan_line,omitempty"` // "N stops, about D map units"
 	// Style is the saved play style (the overlay's "Play style" row); nil until the player sets one.
 	Style *character.Profile `json:"style,omitempty"`
+}
+
+// NextObjective is one objective of a next quest; Have and Need are set only when HasCount.
+type NextObjective struct {
+	Text     string `json:"text"`
+	Have     int    `json:"have,omitempty"`
+	Need     int    `json:"need,omitempty"`
+	HasCount bool   `json:"has_count,omitempty"`
+}
+
+// NextLine is one next-list entry: the digest line's text plus its structured fields, none clipped.
+type NextLine struct {
+	Text       string          `json:"text"`
+	Kind       string          `json:"kind,omitempty"`
+	Title      string          `json:"title,omitempty"`
+	Level      int             `json:"level,omitempty"`
+	Class      bool            `json:"class,omitempty"`
+	Elite      bool            `json:"elite,omitempty"`
+	NPC        string          `json:"npc,omitempty"`
+	Zone       string          `json:"zone,omitempty"`
+	Objectives []NextObjective `json:"objectives,omitempty"`
+	Points     int             `json:"points,omitempty"`
 }
 
 // NextQuests is how many next quests each character carries.
@@ -379,7 +404,8 @@ func (s *Server) reload() {
 		ci := CharInfo{Key: c.Key, Name: c.Name, Class: c.Class, Next: []string{NoDataMessage}, Style: c.Profile}
 		if ds != nil {
 			qx := questie.ForSavedVariables(s.cfg.Ask.SavedVariables)
-			ci.Next = nextQuests(c, f, ds, qx)
+			ci.NextLines = nextQuests(c, f, ds, qx)
+			ci.Next = nextTexts(ci.NextLines)
 			if qx != nil {
 				ci.Plan, ci.PlanLine = route.Lines(route.Build(c, qx), PlanStops)
 			}
@@ -705,19 +731,32 @@ func readFile(p string) (string, error) {
 }
 
 // nextQuests is the top NextQuests lines of the character's digest "next quests" section.
-func nextQuests(c character.Character, f character.File, ds store.DataStore, qx *questie.Index) []string {
+func nextQuests(c character.Character, f character.File, ds store.DataStore, qx *questie.Index) []NextLine {
 	d := digest.Build(c, ds, digest.Options{Now: time.Now(), Client: f.ClientOf(c), Questie: qx})
 	for _, sec := range d.Sections {
 		if sec.ID != digest.NextQuests {
 			continue
 		}
-		var out []string
+		var out []NextLine
 		for _, l := range sec.Lines[:min(len(sec.Lines), NextQuests)] {
-			out = append(out, l.Text)
+			n := NextLine{Text: l.Text, Kind: l.Kind, Title: l.Title, Level: l.Level, Class: l.Class, Elite: l.Elite, NPC: l.NPC, Zone: l.Zone, Points: l.Points}
+			for _, o := range l.Objectives {
+				n.Objectives = append(n.Objectives, NextObjective{Text: o.Text, Have: o.Have, Need: o.Need, HasCount: o.HasCount})
+			}
+			out = append(out, n)
 		}
 		return out
 	}
 	return nil
+}
+
+// nextTexts is the plain text of each line.
+func nextTexts(ls []NextLine) []string {
+	var out []string
+	for _, l := range ls {
+		out = append(out, l.Text)
+	}
+	return out
 }
 
 // digestPath is the Digest.lua to write.
