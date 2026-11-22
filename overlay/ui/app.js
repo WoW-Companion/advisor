@@ -340,6 +340,14 @@ function showNext() {
     if (!items.length) li.className = 'none';
     return li;
   }));
+  const plan = (c && c.plan) || [];
+  $('plan').hidden = !plan.length;
+  $('plan-line').textContent = (c && c.plan_line) || '';
+  $('plan-list').replaceChildren(...plan.map(t => {
+    const li = document.createElement('li');
+    li.textContent = t;
+    return li;
+  }));
 }
 
 // Follow the newest text unless the reader has scrolled up.

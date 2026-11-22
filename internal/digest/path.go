@@ -50,12 +50,15 @@ func CheckInstalled(digestPath string) error {
 
 // Write replaces path with the envelope atomically: a temp file in the same folder, then a rename.
 // The folder must exist.
-func Write(path string, d Envelope) error {
+func Write(path string, d Envelope) error { return WriteFile(path, d.Lua()) }
+
+// WriteFile replaces path with text atomically, as Write does.
+func WriteFile(path, text string) error {
 	tmp, err := os.CreateTemp(filepath.Dir(path), ".Digest-*.tmp")
 	if err != nil {
 		return err
 	}
-	_, werr := tmp.WriteString(d.Lua())
+	_, werr := tmp.WriteString(text)
 	cerr := tmp.Close()
 	if err := errors.Join(werr, cerr, os.Chmod(tmp.Name(), 0o644)); err != nil {
 		os.Remove(tmp.Name())
@@ -72,11 +75,23 @@ var generatedRE = regexp.MustCompile(`generated = \d+,`)
 
 // Same reports whether the file at path already holds the envelope, ignoring the generated times
 // (they change on every build, so a rebuild of the same advice would never match byte for byte).
-func Same(path string, d Envelope) bool {
+func Same(path string, d Envelope) bool { return SameText(path, d.Lua()) }
+
+// SameText is Same for any data-only Lua text carrying a `generated = N,` line.
+func SameText(path, text string) bool {
 	old, err := os.ReadFile(path)
 	if err != nil {
 		return false
 	}
 	norm := func(s string) string { return generatedRE.ReplaceAllString(s, "generated = 0,") }
-	return norm(string(old)) == norm(d.Lua())
+	return norm(string(old)) == norm(text)
+}
+
+// SiblingPath is the file named file in the folder of the digest file at path, keeping its separator.
+func SiblingPath(path, file string) string {
+	i := strings.LastIndexAny(path, `/\`)
+	if i < 0 {
+		return file
+	}
+	return path[:i+1] + file
 }

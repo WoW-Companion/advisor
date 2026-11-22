@@ -32,6 +32,7 @@ import (
 	"github.com/WoW-Companion/advisor/internal/professions"
 	"github.com/WoW-Companion/advisor/internal/questie"
 	"github.com/WoW-Companion/advisor/internal/quests"
+	"github.com/WoW-Companion/advisor/internal/route"
 	"github.com/WoW-Companion/advisor/internal/setup"
 	"github.com/WoW-Companion/advisor/internal/store"
 	"github.com/WoW-Companion/advisor/internal/svfind"
@@ -403,6 +404,16 @@ type DigestOutput struct {
 	Lines      map[string]map[string]int `json:"lines" jsonschema:"lines written, per character and section id"`
 	Text       string                    `json:"text" jsonschema:"plain-text summary, with the /reload reminder"`
 	Unchanged  bool                      `json:"unchanged,omitempty" jsonschema:"the file already held this digest and was not rewritten"`
+	PlanPath   string                    `json:"plan_path,omitempty" jsonschema:"the Plan.lua file written beside it: the quest route per character"`
+}
+
+// MaxPlanText is how many stops quest_plan's text lists; the plan itself holds them all.
+const MaxPlanText = 20
+
+// RouteOutput is the quest_plan result.
+type RouteOutput struct {
+	Plan route.Plan `json:"plan"`
+	Text string     `json:"text" jsonschema:"plain-text route"`
 }
 
 // NotCapturedError is what a digest asked for an uncaptured character says.
@@ -453,7 +464,9 @@ func WriteDigest(cfg Config, name string) (DigestOutput, error) {
 	env := digest.Envelope{Generated: now.Unix()}
 	out := DigestOutput{Path: path, Lines: map[string]map[string]int{}}
 	var parts []string
+	plans := route.Envelope{Generated: now.Unix()}
 	for _, c := range kept {
+		plans.Plans = append(plans.Plans, route.Build(c, qx))
 		d := digest.Build(c, ds, digest.Options{Now: now, Client: f.ClientOf(c), DatasetBuild: datasetBuild, Questie: qx})
 		env.Characters = append(env.Characters, d)
 		out.Characters = append(out.Characters, d.Character)
@@ -472,6 +485,14 @@ func WriteDigest(cfg Config, name string) (DigestOutput, error) {
 		out.Unchanged = true
 	} else if err := digest.Write(path, env); err != nil {
 		return DigestOutput{}, fmt.Errorf("could not write the digest: %w", err)
+	}
+	planPath := digest.SiblingPath(path, route.File)
+	if cfg.SkipUnchanged && digest.SameText(planPath, plans.Lua()) {
+		out.PlanPath = planPath
+	} else if err := digest.WriteFile(planPath, plans.Lua()); err != nil {
+		return DigestOutput{}, fmt.Errorf("could not write the route plan: %w", err)
+	} else {
+		out.PlanPath = planPath
 	}
 	out.Text = fmt.Sprintf("Wrote the digest for %d characters to %s.\n%s\n", len(kept), path, strings.Join(parts, "\n"))
 	if len(skipped) > 0 {
@@ -564,6 +585,24 @@ func New(cfg Config) *mcp.Server {
 			name = c.Key
 		}
 		return nil, NextOutput{name, steps, len(all), advice.Render(c, steps, len(all))}, nil
+	})
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "quest_plan",
+		Description: "Efficient ordered quest route for one captured character (by name; omit if only one): pick-ups, objectives and turn-ins " +
+			"with map coordinates, on the character's current map, then the next zone to travel to; quests too high a level are listed as later. " +
+			"The order comes from a distance optimiser over the player's own Questie data, not from a guess. Needs Questie installed.",
+	}, func(_ context.Context, _ *mcp.CallToolRequest, in BriefInput) (*mcp.CallToolResult, RouteOutput, error) {
+		f, errResult := load(cfg.SavedVariables)
+		if errResult != nil {
+			return errResult, RouteOutput{}, nil
+		}
+		c, err := brief.Choose(f, in.Character)
+		if err != nil {
+			return toolError(err.Error()), RouteOutput{}, nil
+		}
+		p := route.Build(c, questie.ForSavedVariables(cfg.SavedVariables))
+		return nil, RouteOutput{p, route.Render(p, MaxPlanText)}, nil
 	})
 
 	mcp.AddTool(s, &mcp.Tool{

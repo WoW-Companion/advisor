@@ -9,6 +9,7 @@ import (
 	"github.com/WoW-Companion/advisor/internal/brief"
 	"github.com/WoW-Companion/advisor/internal/character"
 	"github.com/WoW-Companion/advisor/internal/questie"
+	"github.com/WoW-Companion/advisor/internal/route"
 	"github.com/WoW-Companion/advisor/internal/store"
 )
 
@@ -19,6 +20,8 @@ const (
 	FactsBudget = 6000
 	// FactsSteps is how many next steps are pre-fetched.
 	FactsSteps = 5
+	// FactsPlanSteps is how many route plan stops are pre-fetched (the plan's count covers the rest).
+	FactsPlanSteps = 8
 )
 
 // Facts is the pre-fetched facts block for q's character, or "" when the character cannot be
@@ -43,8 +46,12 @@ func Facts(cfg Config, q Question) string {
 	if ds == nil {
 		return NoDataFacts + "\n\n" + capRunes(brief.Character(c, f.ClientOf(c), time.Now()), FactsBudget)
 	}
-	all := advice.WhatsNextWith(c, ds, questie.ForSavedVariables(cfg.SavedVariables))
+	qx := questie.ForSavedVariables(cfg.SavedVariables)
+	all := advice.WhatsNextWith(c, ds, qx)
 	next := advice.Render(c, advice.Limit(all, FactsSteps), len(all))
+	if qx != nil {
+		next += "\n\n" + route.Render(route.Build(c, qx), FactsPlanSteps)
+	}
 	return capRunes(brief.Character(c, f.ClientOf(c), time.Now())+"\n\n"+next, FactsBudget)
 }
 

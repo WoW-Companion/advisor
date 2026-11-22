@@ -28,6 +28,7 @@ import (
 	"github.com/WoW-Companion/advisor/internal/digest"
 	"github.com/WoW-Companion/advisor/internal/questie"
 	"github.com/WoW-Companion/advisor/internal/release"
+	"github.com/WoW-Companion/advisor/internal/route"
 	"github.com/WoW-Companion/advisor/internal/server"
 	"github.com/WoW-Companion/advisor/internal/store"
 )
@@ -108,11 +109,16 @@ type CharInfo struct {
 	Class      string   `json:"class"`
 	Level      int      `json:"level"`
 	CapturedAt int64    `json:"captured_at"`
-	Next       []string `json:"next,omitempty"` // the top next quests, from the digest
+	Next       []string `json:"next,omitempty"`      // the top next quests, from the digest
+	Plan       []string `json:"plan,omitempty"`      // the route's first stops, in order
+	PlanLine   string   `json:"plan_line,omitempty"` // "N stops, about D map units"
 }
 
 // NextQuests is how many next quests each character carries.
 const NextQuests = 3
+
+// PlanStops is how many route stops each character carries for the overlay.
+const PlanStops = 6
 
 // AppOrigins are the webview origins of the desktop app (Tauri on Windows, and elsewhere).
 var AppOrigins = []string{"http://tauri.localhost", "https://tauri.localhost", "tauri://localhost"}
@@ -365,7 +371,11 @@ func (s *Server) reload() {
 	for _, c := range f.Characters {
 		ci := CharInfo{Key: c.Key, Name: c.Name, Class: c.Class, Next: []string{NoDataMessage}}
 		if ds != nil {
-			ci.Next = nextQuests(c, f, ds, questie.ForSavedVariables(s.cfg.Ask.SavedVariables))
+			qx := questie.ForSavedVariables(s.cfg.Ask.SavedVariables)
+			ci.Next = nextQuests(c, f, ds, qx)
+			if qx != nil {
+				ci.Plan, ci.PlanLine = route.Lines(route.Build(c, qx), PlanStops)
+			}
 		}
 		if c.Level != nil {
 			ci.Level = *c.Level

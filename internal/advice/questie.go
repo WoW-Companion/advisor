@@ -84,3 +84,6 @@ func locate(c character.Character, steps []Step, qx *questie.Index) {
 		s.Sources = append(s.Sources, fmt.Sprintf("questie: QuestieDB %s quest %d", qx.DB, s.QuestID))
 	}
 }
+
+// WhoOf is the eligibility facts of c for the player's QuestieDB (the same band as the pick-up steps).
+func WhoOf(c character.Character) questie.Who { return whoOf(c) }
