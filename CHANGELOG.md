@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Fixed the upgrade check failing with a tool error in a question's answer.
+- Quest progress now prints once per objective, and a Next line shows one objective plus "+N more".
+- The setup checklist now reads Questie's version from its per-game TOC file ("Found Questie v12.11.1 (QuestieDB v1.1.3)").
+- Quests not in your log are marked "Pick up: ..." in answers and the Next list; a failed tool is now named in the answer.
+
 ## 0.5.0
 
 - Answers now use your saved quest progress, such as "3/8" on an objective, so the advisor knows what you still have left to do.

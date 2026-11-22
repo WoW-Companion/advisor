@@ -15,6 +15,8 @@ const NearFraction = 0.75
 // RecentGiver is how recently a giver must have been met to be flagged as a recent interaction.
 const RecentGiver = 7 * 24 * time.Hour
 
+var leadingCount = regexp.MustCompile(`^\d+\s*/\s*\d+\b`)
+
 var trailingCount = regexp.MustCompile(`:?\s*\d+\s*/\s*\d+\s*$`)
 
 // ProgressText is the quest's objective progress, such as "Crab Season: 3/8 Crab Claws; 1/1 Boss".
@@ -38,7 +40,12 @@ func (q Quest) ObjectiveProgress() string {
 		if o.Have == nil || o.Need == nil || *o.Need <= 0 {
 			continue
 		}
-		text := strings.TrimSpace(trailingCount.ReplaceAllString(o.Text, ""))
+		text := strings.TrimSpace(o.Text)
+		if leadingCount.MatchString(text) {
+			parts = append(parts, text) // ForeverScribe's text already starts with have/need
+			continue
+		}
+		text = strings.TrimSpace(trailingCount.ReplaceAllString(text, ""))
 		parts = append(parts, strings.TrimSpace(fmt.Sprintf("%d/%d %s", *o.Have, *o.Need, text)))
 	}
 	return strings.Join(parts, "; ")

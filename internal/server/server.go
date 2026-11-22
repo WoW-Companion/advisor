@@ -608,7 +608,7 @@ func New(cfg Config) *mcp.Server {
 		}
 		out := UpgradeOutput{name, res.Spec, res.ItemLevelOnly, res.Slots, gear.Render(c, res)}
 		if in.Brief { // the text carries the same data; send it once
-			out.Slots = nil
+			out.Slots = map[string][]gear.Candidate{} // not nil: the output schema wants an object, and null fails it
 		}
 		return nil, out, nil
 	})

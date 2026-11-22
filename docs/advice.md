@@ -12,7 +12,7 @@ row id).
    more than 5 levels below (grey) or more than 3 above are skipped. A quest whose level is unknown
    (not in the capture, not in the dataset `quests` table) is listed after the others with the
    reason "quest level unknown"; it is never guessed.
-4. **Quests to pick up** (`quest`, "Pick up ..."): up to 3 quests not in the log, see below.
+4. **Quests to pick up** (`quest`, "Pick up: ..."): up to 3 quests not in the log, see below.
 5. **Failed quests** (`quest`, "Abandon ..."): failed quests that cannot be completed.
 
 Quest level and zone come from the capture; when the capture lacks one, from the dataset
@@ -42,7 +42,7 @@ deprecated or placeholder name (the `items` pattern table); if it sits in a ques
 before it is completed; `allowable_class_mask` and `allowable_race_mask` (when the table has them; 0
 means anyone) allow the class and race; and its `zone_name` is the last-saved zone
 (`snapshot.location`) or the zone of a quest in the log. Order: level fit, then continuing a quest
-line already in the log, then a shared zone, then name. Phrase: "Pick up X: level 9 quest, you are 9;
+line already in the log, then a shared zone, then name. Phrase: "Pick up: X: level 9 quest, you are 9;
 not in your log, in Zone, on the way ...". A rule the dataset cannot support is skipped and recorded
 in `AvailableQuests(...).Unchecked`, never guessed; the built dataset (build 1.60.1.71037) has no
 quest levels, names, masks or prerequisites, so on it this section stays empty. See

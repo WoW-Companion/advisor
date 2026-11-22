@@ -133,7 +133,7 @@ func install(t *testing.T, hdr string, rows []row) string {
 	}
 	write(filepath.Join(db, "QuestieDB_Forever.toc"), toc(hdr, rows))
 	write(filepath.Join(zones, "areaIdToUiMapId.lua"), areas)
-	write(filepath.Join(add, "Questie", "Questie.toc"), "## Title: Questie\n## Version: 1.2.3\n")
+	write(filepath.Join(add, "Questie", "Questie_Forever.toc"), "## Title: Questie\n## Version: 1.2.3\n")
 	CacheDir = func() string { return filepath.Join(game, "cache") }
 	return game
 }
@@ -188,7 +188,7 @@ func TestProbe(t *testing.T) {
 		ok     bool
 		detail string
 	}{
-		{"readable", header, true, "Found Questie v1.2.3 with QuestieDB v9.9.9"},
+		{"readable", header, true, "Found Questie v1.2.3 (QuestieDB v9.9.9)"},
 		{"unknown contract", strings.Replace(header, "Contract-Version: 4", "Contract-Version: 77", 1), false, "unreadable (v9.9.9)"},
 	}
 	for _, c := range cases {
@@ -263,4 +263,27 @@ func TestTestdataHoldsNoQuestieText(t *testing.T) {
 			}
 		}
 	})
+}
+
+func TestQuestieVersionFromFlavourTOCs(t *testing.T) {
+	dir := t.TempDir()
+	write := func(name, version string) {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte("## Version: "+version+"\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write("Questie_Vanilla.toc", "1.0.0")
+	write("Questie_Forever.toc", "12.11.1")
+	if h, ok := questieHeader(dir); !ok || h["Version"] != "12.11.1" {
+		t.Fatalf("forever first: %v %v", h, ok)
+	}
+	if err := os.Remove(filepath.Join(dir, "Questie_Forever.toc")); err != nil {
+		t.Fatal(err)
+	}
+	if h, ok := questieHeader(dir); !ok || h["Version"] != "1.0.0" {
+		t.Fatalf("any Questie*.toc: %v %v", h, ok)
+	}
+	if _, ok := questieHeader(t.TempDir()); ok {
+		t.Fatal("empty folder read")
+	}
 }
