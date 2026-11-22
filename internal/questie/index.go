@@ -14,7 +14,7 @@ import (
 	"strings"
 )
 
-const indexSchema = 1 // bump when the cached index's shape changes
+const indexSchema = 2 // bump when the cached index's shape changes
 
 // Spawn is a place, as percent of the area's map.
 type Spawn struct {
@@ -52,7 +52,22 @@ type Quest struct {
 	Starters   []Ref
 	Finishers  []Ref
 	Creatures  []Ref // objectives that are kills or talks
-	Restricted bool  // a requirement this reader cannot check (skill, reputation, spell, event)
+	Items      []int // item objectives (item ids)
+	Credits    []Credit
+	Restricted bool // a requirement this reader cannot check (skill, reputation, spell, event)
+}
+
+// Credit is a kill-credit objective: killing any of NPCs counts.
+type Credit struct {
+	Name string
+	NPCs []int
+}
+
+// Item is the part of an item row the planner uses: where it comes from.
+type Item struct {
+	Name    string
+	Npcs    []int // NPCs that drop it
+	Objects []int // objects that contain it
 }
 
 type Area struct {
@@ -67,6 +82,7 @@ type Index struct {
 	Quests  map[int]*Quest
 	Npcs    map[int]Entity
 	Objects map[int]Entity
+	Items   map[int]Item
 	Areas   map[int]Area
 }
 
@@ -188,8 +204,32 @@ func buildQuest(id int, r rawRow) *Quest {
 				q.Creatures = append(q.Creatures, Ref{true, id})
 			}
 		}
+		for _, row := range asList(slot(o, 3)) {
+			if id := num(slot(row, 1)); id != 0 {
+				q.Items = append(q.Items, id)
+			}
+		}
+		for _, row := range asList(slot(o, 5)) {
+			c := Credit{Name: text(slot(row, 3)), NPCs: ints(slot(row, 1))}
+			if b := num(slot(row, 2)); b != 0 && len(c.NPCs) == 0 {
+				c.NPCs = []int{b}
+			}
+			if len(c.NPCs) > 0 {
+				q.Credits = append(q.Credits, c)
+			}
+		}
 	}
 	return q
+}
+
+// maxSources bounds the drop sources kept for one item.
+const maxSources = 200
+
+func capIDs(ids []int) []int {
+	if len(ids) > maxSources {
+		return ids[:maxSources]
+	}
+	return ids
 }
 
 func asList(v any) []any { a, _ := v.([]any); return a }
@@ -246,8 +286,8 @@ func Parse(st Status) (*Index, error) {
 	}
 	defer f.Close()
 	ix := &Index{Schema: indexSchema, DB: st.DB,
-		Quests: map[int]*Quest{}, Npcs: map[int]Entity{}, Objects: map[int]Entity{}}
-	quests, npcs, objects := map[int]rawRow{}, map[int]rawRow{}, map[int]rawRow{}
+		Quests: map[int]*Quest{}, Npcs: map[int]Entity{}, Objects: map[int]Entity{}, Items: map[int]Item{}}
+	quests, npcs, objects, itemRows := map[int]rawRow{}, map[int]rawRow{}, map[int]rawRow{}, map[int]rawRow{}
 	good, bad := 0, 0
 	sc := bufio.NewScanner(f)
 	sc.Buffer(make([]byte, 1<<20), 16<<20)
@@ -258,7 +298,7 @@ func Parse(st Status) (*Index, error) {
 	}
 	pending := map[key][]string{} // long values arrive as a "~N~" head and N chunk lines
 	store := func(k key, val string) {
-		rows := map[string]map[int]rawRow{"Quest": quests, "Npc": npcs, "Object": objects}[k.typ]
+		rows := map[string]map[int]rawRow{"Quest": quests, "Npc": npcs, "Object": objects, "Item": itemRows}[k.typ]
 		v, err := decodeField(val)
 		if err != nil {
 			bad++
@@ -309,16 +349,38 @@ func Parse(st Status) (*Index, error) {
 		return nil, fmt.Errorf("%w: most quests have no name", ErrUnreadable)
 	}
 	// Keep only the NPCs and objects a quest names.
+	keep := func(r Ref) {
+		if r.Object {
+			if row, ok := objects[r.ID]; ok {
+				ix.Objects[r.ID] = buildEntity(row, "4")
+			}
+		} else if row, ok := npcs[r.ID]; ok {
+			ix.Npcs[r.ID] = buildEntity(row, "7")
+		}
+	}
 	for _, q := range ix.Quests {
 		for _, group := range [][]Ref{q.Starters, q.Finishers, q.Creatures} {
 			for _, r := range group {
-				if r.Object {
-					if row, ok := objects[r.ID]; ok {
-						ix.Objects[r.ID] = buildEntity(row, "4")
-					}
-				} else if row, ok := npcs[r.ID]; ok {
-					ix.Npcs[r.ID] = buildEntity(row, "7")
-				}
+				keep(r)
+			}
+		}
+		for _, c := range q.Credits {
+			for _, id := range c.NPCs {
+				keep(Ref{false, id})
+			}
+		}
+		for _, id := range q.Items {
+			row, ok := itemRows[id]
+			if !ok {
+				continue
+			}
+			it := Item{Name: text(row.scalars()[int64(1)]), Npcs: capIDs(ints(row["2"])), Objects: capIDs(ints(row["3"]))}
+			ix.Items[id] = it
+			for _, n := range it.Npcs {
+				keep(Ref{false, n})
+			}
+			for _, o := range it.Objects {
+				keep(Ref{true, o})
 			}
 		}
 	}

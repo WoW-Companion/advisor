@@ -43,6 +43,10 @@ func (e Envelope) Lua() string {
 		stops(&b, "        ", p.Steps)
 		b.WriteString("      },\n      later = {\n")
 		stops(&b, "        ", p.Later)
+		b.WriteString("      },\n      find = {\n")
+		for _, f := range p.Find {
+			fmt.Fprintf(&b, "        { n = %d, kind = \"objective\", questID = %d, quest = %s, label = %s, done = false },\n", f.N, f.QuestID, digest.Quote(f.Quest), digest.Quote(f.Label))
+		}
 		b.WriteString("      },\n    },\n")
 	}
 	b.WriteString("  },\n}\n")
@@ -51,7 +55,7 @@ func (e Envelope) Lua() string {
 
 // Render is the plan as plain text for a prompt: the first limit steps and a count.
 func Render(p Plan, limit int) string {
-	if len(p.Steps) == 0 {
+	if len(p.Steps) == 0 && len(p.Find) == 0 {
 		if len(p.Notes) > 0 {
 			return "Route plan: none. " + strings.Join(p.Notes, " ")
 		}
@@ -69,7 +73,14 @@ func Render(p Plan, limit int) string {
 	if len(p.Later) > 0 {
 		fmt.Fprintf(&b, "%d stops are later (too high a level, off this map or past the 20-stop cap).\n", len(p.Later))
 	}
+	appendFind(&b, p)
 	return strings.TrimRight(b.String(), "\n")
+}
+
+func appendFind(b *strings.Builder, p Plan) {
+	for _, f := range p.Find {
+		fmt.Fprintf(b, "Find: %s\n", f.Label)
+	}
 }
 
 func cmpZone(z string) string {
@@ -86,6 +97,9 @@ func Lines(p Plan, limit int) (lines []string, summary string) {
 			break
 		}
 		lines = append(lines, fmt.Sprintf("%s (%.0f, %.0f)", s.Label, s.X, s.Y))
+	}
+	for _, f := range p.Find {
+		lines = append(lines, "Find: "+f.Label)
 	}
 	if len(p.Steps) > 0 {
 		summary = fmt.Sprintf("%d stops, about %.0f map units", p.Total, p.Distance)

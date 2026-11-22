@@ -352,3 +352,168 @@ func TestMustSetKeepsPrerequisites(t *testing.T) {
 		t.Errorf("mustSet = %v", got)
 	}
 }
+
+// --- objectives that are items, kills or unplaceable ---
+
+// objIsle is a synthetic isle: quest 20 wants an item dropped by a mob, 21 an item from an object,
+// 22 a kill, 23 an item nobody drops, 24 is finished.
+func objIsle() *questie.Index {
+	sp := func(x, y float64) []questie.Spawn { return []questie.Spawn{{Area: 901, X: x, Y: y}} }
+	ix := hubIsle()
+	ix.Quests = map[int]*questie.Quest{}
+	ix.Npcs[6] = questie.Entity{Name: "Gem Imp", Spawns: sp(70, 40)}
+	ix.Objects[1] = questie.Entity{Name: "Old Chest", Spawns: sp(20, 70)}
+	ix.Items = map[int]questie.Item{
+		100: {Name: "Spark Gem", Npcs: []int{6}},
+		101: {Name: "Rusty Key", Objects: []int{1}},
+		102: {Name: "Lost Ledger"},
+	}
+	add := func(id int, mut func(q *questie.Quest)) {
+		q := &questie.Quest{ID: id, Name: "Quest " + itoa(id), Level: 9, Starters: []questie.Ref{{ID: 1}}, Finishers: []questie.Ref{{ID: 1}}}
+		mut(q)
+		ix.Quests[id] = q
+	}
+	add(20, func(q *questie.Quest) { q.Items = []int{100} })
+	add(21, func(q *questie.Quest) { q.Items = []int{101} })
+	add(22, func(q *questie.Quest) { q.Creatures = []questie.Ref{{ID: 4}} })
+	add(23, func(q *questie.Quest) { q.Items = []int{102} })
+	add(24, func(q *questie.Quest) { q.Items = []int{102} })
+	return ix
+}
+
+func find(p Plan, kind string, q int) *Stop {
+	for i, s := range p.Steps {
+		if s.Kind == kind && strings.Contains(s.Quest, "Quest "+itoa(q)) {
+			return &p.Steps[i]
+		}
+	}
+	return nil
+}
+
+func TestItemObjectiveResolvedThroughNpcDrops(t *testing.T) {
+	p := Build(hero(), objIsle())
+	o := find(p, KindObjective, 20)
+	if o == nil || o.X != 70 || o.Y != 40 || find(p, KindTurnIn, 20) == nil || find(p, KindTurnIn, 20).N < o.N {
+		t.Errorf("quest 20: %+v", p.Steps)
+	}
+}
+
+func TestItemObjectiveResolvedThroughObjectSources(t *testing.T) {
+	p := Build(hero(), objIsle())
+	if o := find(p, KindObjective, 21); o == nil || o.X != 20 || o.Y != 70 {
+		t.Errorf("quest 21: %+v", p.Steps)
+	}
+}
+
+func TestKillObjectiveResolved(t *testing.T) {
+	if o := find(Build(hero(), objIsle()), KindObjective, 22); o == nil || o.X != 30 {
+		t.Errorf("quest 22 has no kill stop")
+	}
+}
+
+func TestUnresolvableObjectiveWithholdsTurnIn(t *testing.T) {
+	p := Build(hero(), objIsle())
+	if find(p, KindTurnIn, 23) != nil {
+		t.Errorf("a turn-in for a quest with an unplaced objective: %+v", p.Steps)
+	}
+	if find(p, KindPickup, 23) == nil {
+		t.Errorf("the pick-up must stay on the route")
+	}
+	var f *FindStop
+	for i := range p.Find {
+		if p.Find[i].QuestID == 23 {
+			f = &p.Find[i]
+		}
+	}
+	if f == nil || !strings.HasSuffix(f.Label, "(location unknown)") {
+		t.Fatalf("find = %+v", p.Find)
+	}
+	lua := Envelope{Plans: []Plan{p}}.Lua()
+	if !strings.Contains(lua, "find = {") || !strings.Contains(lua, "(location unknown)") {
+		t.Errorf("no Find section:\n%s", lua)
+	}
+	if lines, _ := Lines(p, 50); !strings.Contains(strings.Join(lines, "\n"), "Find: ") {
+		t.Errorf("overlay lines omit Find: %v", lines)
+	}
+}
+
+func objChar() character.Character {
+	c := hero()
+	yes, no := true, false
+	c.Quests = []character.Quest{
+		{QuestID: 23, Title: "Quest 23", Complete: &no, Objectives: []character.Objective{{Text: "Lost Ledger: 0/1", Done: &no}, {Text: "Speak to the ghost: 0/1", Done: &no}}},
+		{QuestID: 24, Title: "Quest 24", Complete: &yes, Objectives: []character.Objective{{Text: "Lost Ledger: 1/1", Done: &yes}}},
+		{QuestID: 20, Title: "Quest 20", Complete: &no, Objectives: []character.Objective{{Text: "Spark Gem: 0/1", Done: &no}}},
+	}
+	return c
+}
+
+func TestCompletedQuestGoesStraightToTurnIn(t *testing.T) {
+	p := Build(objChar(), objIsle())
+	if find(p, KindTurnIn, 24) == nil || find(p, KindObjective, 24) != nil || find(p, KindPickup, 24) != nil {
+		t.Errorf("completed quest: %+v", p.Steps)
+	}
+}
+
+func TestLoggedUnfinishedQuestWithUnknownObjective(t *testing.T) {
+	p := Build(objChar(), objIsle())
+	if find(p, KindTurnIn, 23) != nil {
+		t.Errorf("turn-in routed for unfinished quest 23: %+v", p.Steps)
+	}
+	n := 0
+	for _, f := range p.Find {
+		if f.QuestID == 23 {
+			n++
+		}
+	}
+	if n != 2 {
+		t.Errorf("want both objectives of quest 23 under Find, got %+v", p.Find)
+	}
+}
+
+// Every turn-in on a route is for a quest whose unfinished objectives all come earlier on it.
+func TestNeverRouteTurnInForUnfinishedQuest(t *testing.T) {
+	for name, tc := range map[string]struct {
+		c  character.Character
+		ix *questie.Index
+	}{
+		"hub": {hero(), hubIsle()}, "hub-log": {objChar(), hubIsle()},
+		"obj": {hero(), objIsle()}, "obj-log": {objChar(), objIsle()},
+	} {
+		p := Build(tc.c, tc.ix)
+		complete := map[string]bool{}
+		for _, q := range tc.c.Quests {
+			if q.Complete != nil && *q.Complete {
+				complete[q.Title] = true
+			}
+		}
+		for _, s := range p.Steps {
+			if s.Kind != KindTurnIn {
+				continue
+			}
+			for _, qn := range strings.Split(s.Quest, ", ") {
+				var qid int
+				fmt.Sscanf(qn, "Quest %d", &qid)
+				for _, f := range p.Find {
+					if f.QuestID == qid {
+						t.Errorf("%s: turn-in for %s which has %q to find", name, qn, f.Label)
+					}
+				}
+				q := tc.ix.Quests[qid]
+				wants := len(q.Creatures) + len(q.Items) + len(q.Credits)
+				if wants == 0 || complete[qn] {
+					continue
+				}
+				seen := false
+				for _, o := range p.Steps {
+					if o.N < s.N && o.Kind == KindObjective && strings.Contains(o.Quest, qn) {
+						seen = true
+					}
+				}
+				if !seen {
+					t.Errorf("%s: turn-in %q has no objective stop before it: %+v", name, s.Label, p.Steps)
+				}
+			}
+		}
+	}
+}

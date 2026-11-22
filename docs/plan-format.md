@@ -20,6 +20,10 @@ the player's local files. Nothing Questie-derived is stored in this repo.
   the biggest cluster nearest the giver or the player, on the player's map when it has one) and
   `turnin` (the finisher). Only quests that are eligible now (the pick-up rules in `advice.md`) or
   already in the log are planned; failed quests and finished objectives are skipped.
+- Objectives: kills, objects, item objectives (the nearest cluster of the NPCs that drop the item and the
+  objects that hold it) and kill-credit objectives are placed from Questie. An unfinished objective with no
+  location is not routed: it is listed under `find` as "<text> (location unknown)", and its quest's
+  turn-in is withheld (a pick-up still goes on the route). Item vendors are not resolved.
 - Order: a quest's pick-up comes before its objectives, and they come before its turn-in. Identical
   stops are merged (several turn-ins at one NPC, objectives within 3 map percent of each other).
 - Quests more than 1 level above the character, stops on another map, and stops past the 20th go to `later`.
@@ -47,6 +51,7 @@ WoWCompanionPlan = {
         { n = 2, kind = "travel", questID = 0, quest = "", label = "Travel to Otherisle", map = 7002, x = 10.0, y = 10.0, done = false },
       },
       later = { },               -- same fields; not on the route
+      find = { },                -- objectives with no known location: same fields without `map`, `x`, `y`
     },
   },
 }

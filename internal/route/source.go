@@ -136,42 +136,102 @@ func (s *questieSource) quests(c character.Character, at *questie.Where) []*ques
 		}
 		return &spot{kind: kind, m: p.m, x: p.x, y: p.y, quests: []int{q.ID}, names: []string{q.Name}, label: p.name}
 	}
-	objectives := func(q *questie.Quest, done []string, ax, ay float64) []*spot {
-		var out []*spot
+	// best is the spot for an objective whose spawns are pts: spawns off the current map only count
+	// when none is on it; the biggest nearby cluster wins, a cluster under half the biggest's size is
+	// not worth a trip.
+	best := func(pts []pt, ax, ay float64) (pt, bool) {
+		cs := clusters(pts)
+		if len(cs) == 0 {
+			return pt{}, false
+		}
+		var cands []pt
+		for _, k := range cs {
+			if k.m == curMap {
+				cands = append(cands, k)
+			}
+		}
+		if len(cands) == 0 {
+			cands = cs
+		}
+		cands = cands[:1+len(filterBig(cands[1:], cands[0].n))]
+		return near(cands, curMap, ax, ay, true)
+	}
+	// objectives resolves q's objectives to spots; an objective with no location is returned as an
+	// unplaced spot. done are the lower-cased texts of finished objectives; open the texts of the
+	// unfinished ones (nil: unknown, as for a quest not yet in the log).
+	objectives := func(q *questie.Quest, done, open []string, ax, ay float64) (found, unplaced []*spot) {
+		isDone := func(name string) bool {
+			for _, d := range done {
+				if name != "" && strings.Contains(d, strings.ToLower(name)) {
+					return true
+				}
+			}
+			return false
+		}
+		textOf := func(name string) string {
+			for _, o := range open {
+				if name != "" && strings.Contains(strings.ToLower(o), strings.ToLower(name)) {
+					return o
+				}
+			}
+			return name
+		}
+		covered := map[string]bool{}
+		add := func(name string, refs []questie.Ref) {
+			if name == "" || isDone(name) {
+				return
+			}
+			covered[strings.ToLower(name)] = true
+			mk := func() *spot {
+				return &spot{kind: KindObjective, quests: []int{q.ID}, names: []string{q.Name}, label: textOf(name)}
+			}
+			if p, ok := best(s.points(refs), ax, ay); ok {
+				sp := mk()
+				sp.m, sp.x, sp.y = p.m, p.x, p.y
+				found = append(found, sp)
+				return
+			}
+			sp := mk()
+			sp.unplaced, sp.label = true, sp.label+" (location unknown)"
+			unplaced = append(unplaced, sp)
+		}
 		for _, r := range q.Creatures {
-			e, ok := s.entity(r)
+			if e, ok := s.entity(r); ok {
+				add(e.Name, []questie.Ref{r})
+			}
+		}
+		for _, id := range q.Items {
+			it, ok := s.qx.Items[id]
 			if !ok {
 				continue
 			}
-			skip := false
-			for _, d := range done {
-				if e.Name != "" && strings.Contains(d, strings.ToLower(e.Name)) {
-					skip = true
-				}
+			var refs []questie.Ref
+			for _, n := range it.Npcs {
+				refs = append(refs, questie.Ref{ID: n})
 			}
-			if skip {
-				continue
+			for _, o := range it.Objects {
+				refs = append(refs, questie.Ref{Object: true, ID: o})
 			}
-			cs := clusters(s.points([]questie.Ref{r}))
-			if len(cs) == 0 {
-				continue
-			}
-			// Spawns off the current map only count when none is on it; the biggest nearby cluster
-			// wins, a cluster under half the biggest's size is not worth a trip.
-			var cands []pt
-			for _, k := range cs {
-				if k.m == curMap {
-					cands = append(cands, k)
-				}
-			}
-			if len(cands) == 0 {
-				cands = cs
-			}
-			cands = cands[:1+len(filterBig(cands[1:], cands[0].n))]
-			p, _ := near(cands, curMap, ax, ay, true)
-			out = append(out, &spot{kind: KindObjective, m: p.m, x: p.x, y: p.y, quests: []int{q.ID}, names: []string{q.Name}, label: e.Name})
+			add(it.Name, refs)
 		}
-		return out
+		for _, c := range q.Credits {
+			var refs []questie.Ref
+			for _, n := range c.NPCs {
+				refs = append(refs, questie.Ref{ID: n})
+			}
+			add(c.Name, refs)
+		}
+		// An unfinished objective the quest's data does not explain has no place to go.
+		for _, o := range open {
+			hit := false
+			for name := range covered {
+				hit = hit || strings.Contains(strings.ToLower(o), name)
+			}
+			if !hit {
+				unplaced = append(unplaced, &spot{kind: KindObjective, unplaced: true, quests: []int{q.ID}, names: []string{q.Name}, label: o + " (location unknown)"})
+			}
+		}
+		return found, unplaced
 	}
 
 	inLog := map[int]bool{}
@@ -186,22 +246,21 @@ func (s *questieSource) quests(c character.Character, at *questie.Where) []*ques
 			q.level = *lq.Level
 		}
 		complete := lq.Complete != nil && *lq.Complete
-		var done []string
-		open := 0
+		var done, open []string
 		for _, o := range lq.Objectives {
 			if o.Done != nil && *o.Done {
 				done = append(done, strings.ToLower(o.Text))
 			} else {
-				open++
+				open = append(open, o.Text)
 			}
 		}
 		q.turnin = spotFrom(KindTurnIn, qq, qq.Finishers, x, y, haveXY)
-		if !complete && open > 0 {
+		if !complete && len(open) > 0 {
 			ax, ay := x, y
 			if q.turnin != nil && !haveXY {
 				ax, ay = q.turnin.x, q.turnin.y
 			}
-			q.objs = objectives(qq, done, ax, ay)
+			q.objs, q.unplaced = objectives(qq, done, open, ax, ay)
 		}
 		out = append(out, q)
 	}
@@ -224,7 +283,7 @@ func (s *questieSource) quests(c character.Character, at *questie.Where) []*ques
 				continue
 			}
 			q := &quest{id: qq.ID, name: qq.Name, level: qq.Level, pickup: pick, must: classQuestOf(c, qq)}
-			q.objs = objectives(qq, nil, pick.x, pick.y)
+			q.objs, q.unplaced = objectives(qq, nil, nil, pick.x, pick.y)
 			q.turnin = spotFrom(KindTurnIn, qq, qq.Finishers, pick.x, pick.y, true)
 			out = append(out, q)
 		}
