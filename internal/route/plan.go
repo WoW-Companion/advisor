@@ -70,6 +70,7 @@ type spot struct {
 	quests []int
 	names  []string
 	label  string // the NPC or mob
+	must   bool   // part of a class quest: always on the route, never cut to "later"
 }
 
 // quest is the input for one quest: where it starts, what to do, where it ends.
@@ -80,6 +81,7 @@ type quest struct {
 	pickup *spot
 	objs   []*spot
 	turnin *spot
+	must   bool // a class quest: its stops are must-include
 }
 
 // source supplies what the planner needs of the world.
@@ -128,7 +130,12 @@ func plan(c character.Character, src source) Plan {
 	var later []*spot
 	var use []*quest
 	for _, q := range src.quests(c, at) {
-		if q.level > lvl+LevelMargin {
+		if q.must {
+			for _, sp := range q.chain() {
+				sp.must = true
+			}
+		}
+		if q.level > lvl+LevelMargin && !q.must {
 			later = append(later, q.chain()...)
 		} else if len(q.chain()) > 0 {
 			use = append(use, q)
@@ -169,10 +176,21 @@ func plan(c character.Character, src source) Plan {
 	order := Solve(prob, naive)
 	p.Naive = round1(prob.Length(naive))
 	if len(order) > MaxSteps {
-		for _, i := range order[MaxSteps:] {
-			later = append(later, nodes[i])
+		var kept []int
+		var cut []*spot
+		keep := mustSet(nodes, preds)
+		room := MaxSteps - len(keep)
+		for _, i := range order {
+			if keep[i] {
+				kept = append(kept, i)
+			} else if room > 0 {
+				kept, room = append(kept, i), room-1
+			} else {
+				cut = append(cut, nodes[i])
+			}
 		}
-		order = order[:MaxSteps]
+		later = append(later, cut...)
+		order = kept
 	}
 	p.Distance = round1(prob.Length(order))
 	for i, ni := range order {
@@ -212,6 +230,27 @@ func plan(c character.Character, src source) Plan {
 	return p
 }
 
+// mustSet is the nodes that must stay on the route: the must-include ones and everything they need first.
+func mustSet(nodes []*spot, preds [][]int) map[int]bool {
+	keep := map[int]bool{}
+	var add func(i int)
+	add = func(i int) {
+		if keep[i] {
+			return
+		}
+		keep[i] = true
+		for _, p := range preds[i] {
+			add(p)
+		}
+	}
+	for i, n := range nodes {
+		if n.must {
+			add(i)
+		}
+	}
+	return keep
+}
+
 func stopOf(n int, s *spot) Stop {
 	st := Stop{N: n, Kind: s.kind, Map: s.m, X: round1(s.x), Y: round1(s.y)}
 	if len(s.quests) > 0 {
@@ -248,6 +287,7 @@ func merge(qs []*quest, cur int, later *[]*spot) (nodes []*spot, preds [][]int, 
 			if n.kind == s.kind && n.m == s.m && math.Hypot(n.x-s.x, n.y-s.y) <= tol {
 				n.quests = append(n.quests, s.quests...)
 				n.names = append(n.names, s.names...)
+				n.must = n.must || s.must
 				return i
 			}
 		}

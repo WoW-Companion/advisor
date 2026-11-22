@@ -9,6 +9,19 @@ import (
 	"github.com/WoW-Companion/advisor/internal/questie"
 )
 
+// Class quest wording. A class quest is a pick-up limited to the player's class (or a few classes).
+const (
+	ClassQuestPrefix = "Class quest: pick up "
+	ClassQuestNote   = "Class quests often teach a core ability."
+	// MaxClassQuests caps how many class quests lead the list (the prompt budget).
+	MaxClassQuests = 3
+)
+
+// IsClassQuest reports whether the step is a class quest pick-up.
+func IsClassQuest(s Step) bool { return strings.HasPrefix(s.Title, ClassQuestPrefix) }
+
+func isPickUp(s Step) bool { return strings.HasPrefix(s.Title, PickUpPrefix) || IsClassQuest(s) }
+
 // MaxLocated is how many quests in the log get a location from Questie (the prompt budget).
 const MaxLocated = 5
 
@@ -48,7 +61,12 @@ func questieAvailable(c character.Character, qx *questie.Index) (Available, bool
 		if g.Dist >= 0 {
 			reason += fmt.Sprintf("; giver is %.0f map units away", g.Dist)
 		}
-		out.Quests = append(out.Quests, Step{Kind: KindQuest, Title: fmt.Sprintf("%s%s (level %d) from %s", PickUpPrefix, q.Name, q.Level, g), Reason: reason,
+		title := fmt.Sprintf("%s%s (level %d) from %s", PickUpPrefix, q.Name, q.Level, g)
+		if o.Class {
+			title = fmt.Sprintf("%s%s from %s", ClassQuestPrefix, q.Name, g)
+			reason += ". " + ClassQuestNote // the reward is never named: no local source gives it
+		}
+		out.Quests = append(out.Quests, Step{Kind: KindQuest, Title: title, Reason: reason,
 			Zone: g.Zone, QuestID: q.ID, Location: g.String(),
 			Sources: []string{fmt.Sprintf("questie: QuestieDB %s quest %d", qx.DB, q.ID)}})
 	}
@@ -65,7 +83,7 @@ func locate(c character.Character, steps []Step, qx *questie.Index) {
 	n := 0
 	for i := range steps {
 		s := &steps[i]
-		if s.QuestID == 0 || strings.HasPrefix(s.Title, PickUpPrefix) || strings.HasPrefix(s.Title, AbandonPrefix) {
+		if s.QuestID == 0 || isPickUp(*s) || strings.HasPrefix(s.Title, AbandonPrefix) {
 			continue
 		}
 		if n++; n > MaxLocated {

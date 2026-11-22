@@ -72,8 +72,8 @@ func TestWhatsNext(t *testing.T) {
 				{QuestID: 6, Title: "Level 21", Level: ip(21)},
 				{QuestID: 199, Title: "Unknown level"},
 			}}, true,
-			"turn_in:Turn in A turn | turn_in:Turn in C turn | turn_in:Turn in B turn | turn_in:Turn in No zone turn | " +
-				"talent:Spend 2 unspent talent points | quest:Level from dataset | quest:Two above | quest:Level 21 | " +
+			"talent:You have 2 unspent talent points | turn_in:Turn in A turn | turn_in:Turn in C turn | turn_in:Turn in B turn | turn_in:Turn in No zone turn | " +
+				"quest:Level from dataset | quest:Two above | quest:Level 21 | " +
 				"quest:Unknown level | quest:Abandon Failed one"},
 		{"rogue 12: grey and too-high skipped, no dataset means unknown levels",
 			character.Character{Name: "Testrogue", Level: ip(12), Quests: []character.Quest{
@@ -106,7 +106,7 @@ func TestStepFacts(t *testing.T) {
 	}}, Quests: []character.Quest{{QuestID: 100, Title: "Q"}, {QuestID: 199, Title: "U"}}}
 	steps := WhatsNext(c, synthStore(t))
 	want := []struct{ reason, zone, source string }{
-		{"unspent points; Discipline, Holy are tied at 9 points", "", "capture: talents.unspent"},
+		{`milestone; ask "What talents should I get?"; Discipline, Holy are tied at 9 points`, "", "capture: talents.unspent"},
 		{"level 24 quest, you are 24", "Dunemark", "dataset: quests id 100"},
 		{"quest level unknown", "", "capture: quests[199]"},
 	}

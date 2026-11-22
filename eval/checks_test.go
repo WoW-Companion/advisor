@@ -119,6 +119,11 @@ func firstTurnInFirst(e *env) error {
 		}
 	}
 	ss := steps(e)
+	lead := 0 // milestones (class quests, unspent talent points) lead the list
+	for lead < len(ss) && (ss[lead].Kind == advice.KindTalent || advice.IsClassQuest(ss[lead])) {
+		lead++
+	}
+	ss = ss[lead:]
 	got := 0
 	for i, s := range ss {
 		if s.Kind != advice.KindTurnIn {
@@ -638,7 +643,7 @@ func digestMentionsUnspent(e *env) error {
 func digestMatchesWhatsNext(e *env) error {
 	var want []int
 	for _, s := range steps(e) {
-		if (s.Kind == advice.KindTurnIn || s.Kind == advice.KindQuest) && !isAbandon(s) {
+		if (s.Kind == advice.KindTurnIn || s.Kind == advice.KindQuest || s.Kind == advice.KindTalent) && !isAbandon(s) { // a talent milestone is a digest line with no quest id
 			want = append(want, s.QuestID)
 		}
 	}

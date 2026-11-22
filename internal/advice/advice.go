@@ -223,21 +223,38 @@ func WhatsNextWith(c character.Character, ds store.DataStore, qx *questie.Index)
 	}
 	sort.SliceStable(failed, func(i, j int) bool { return failed[i].Title < failed[j].Title })
 
-	out := turnIns
-	if s, ok := talentStep(c); ok {
-		out = append(out, s)
-	}
-	out = append(out, openSteps...)
 	avail, ok := questieAvailable(c, qx)
 	if !ok {
 		avail = AvailableQuests(c, ds)
 	}
-	out = append(out, Limit(avail.Quests, MaxAvailable)...)
+	// Milestones lead: class quests to pick up, then unspent class talent points, then profession
+	// talent points; then the routine turn-ins, quests and pick-ups.
+	var classQuests, pickUps []Step
+	for _, s := range avail.Quests {
+		if IsClassQuest(s) {
+			classQuests = append(classQuests, s)
+		} else {
+			pickUps = append(pickUps, s)
+		}
+	}
+	out := Limit(classQuests, MaxClassQuests)
+	if s, ok := talentStep(c); ok {
+		out = append(out, s)
+	}
+	if s, ok := professionTalentStep(c); ok {
+		out = append(out, s)
+	}
+	out = append(out, turnIns...)
+	out = append(out, openSteps...)
+	out = append(out, Limit(pickUps, MaxAvailable)...)
 	out = append(out, failed...)
 	locate(c, out, qx)
 	// Profession steps need trainer data the dataset does not hold yet; omitted, never guessed.
 	return out
 }
+
+// TalentAsk is the question that gets the player's talent picks.
+const TalentAsk = `ask "What talents should I get?"`
 
 func talentStep(c character.Character) (Step, bool) {
 	t := c.Talents
@@ -247,19 +264,34 @@ func talentStep(c character.Character) (Step, bool) {
 	n := *t.Unspent
 	s := Step{
 		Kind:    KindTalent,
-		Title:   fmt.Sprintf("Spend %d unspent talent %s", n, plural(n, "point", "points")),
-		Reason:  "unspent points",
+		Title:   fmt.Sprintf("You have %d unspent talent %s", n, plural(n, "point", "points")),
+		Reason:  "milestone; " + TalentAsk,
 		Sources: []string{"capture: talents.unspent"},
 	}
 	if names, pts := brief.TopGroups(t); pts > 0 {
 		if len(names) == 1 {
-			s.Reason = fmt.Sprintf("unspent points; most points are in %s (%d)", names[0], pts)
+			s.Reason += fmt.Sprintf("; most points are in %s (%d)", names[0], pts)
 		} else {
-			s.Reason = fmt.Sprintf("unspent points; %s are tied at %d points", strings.Join(names, ", "), pts)
+			s.Reason += fmt.Sprintf("; %s are tied at %d points", strings.Join(names, ", "), pts)
 		}
 		s.Sources = append(s.Sources, "capture: talents.trees")
 	}
 	return s, true
+}
+
+// professionTalentStep is the milestone for unspent points in the profession trees; it ranks below
+// the class one.
+func professionTalentStep(c character.Character) (Step, bool) {
+	n := c.Talents.ProfessionUnspent()
+	if n <= 0 {
+		return Step{}, false
+	}
+	return Step{
+		Kind:    KindTalent,
+		Title:   fmt.Sprintf("You have %d unspent profession talent %s", n, plural(n, "point", "points")),
+		Reason:  "milestone; spend them in the profession's talent tree",
+		Sources: []string{"capture: talents.trees (professions)"},
+	}, true
 }
 
 // Limit keeps the first n steps; n <= 0 keeps all.

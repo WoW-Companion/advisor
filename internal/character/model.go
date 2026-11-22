@@ -4,6 +4,8 @@
 // Fields ForeverScribe did not capture are nil (or an empty string for text), never invented.
 package character
 
+import "strings"
+
 type EquippedItem struct {
 	Slot          string
 	ItemID        *int
@@ -80,6 +82,8 @@ type Talent struct {
 	MaxRank *int
 	NodeID  *int
 	SpellID *int
+	Type    string // node type as captured, "" when absent
+	CanBuy  *bool  // nil when the capture does not say
 }
 
 // TalentGroup is one named branch of a tree (for example "Discipline") and its spent points.
@@ -91,18 +95,36 @@ type TalentGroup struct {
 
 type TalentTree struct {
 	Name      string
-	Points    *int // points spent in the tree
-	Unspent   *int // currency.unspent
-	MaxPoints *int // currency.max
+	Key       string // "professions" for a profession tree; "" for a class tree
+	Points    *int   // points spent in the tree
+	Unspent   *int   // currency.unspent
+	MaxPoints *int   // currency.max
+	MaxAvail  *int   // currency.maxAvailable
 	Groups    []TalentGroup
 	Talents   []Talent
 }
 
+// IsProfession reports whether the tree is a profession talent tree, not a class tree.
+func (t TalentTree) IsProfession() bool { return strings.EqualFold(t.Key, "professions") }
+
 type Talents struct {
 	System  string
 	Loadout string
-	Unspent *int // across the whole capture (tree currencies, else the top-level field)
+	Unspent *int // class talent points (class tree currencies, else the top-level field)
 	Trees   []TalentTree
+}
+
+// ProfessionUnspent is the unspent points over the profession trees; 0 when there are none.
+func (t *Talents) ProfessionUnspent() int {
+	n := 0
+	if t != nil {
+		for _, tr := range t.Trees {
+			if tr.IsProfession() && tr.Unspent != nil && *tr.Unspent > 0 {
+				n += *tr.Unspent
+			}
+		}
+	}
+	return n
 }
 
 type Skill struct {

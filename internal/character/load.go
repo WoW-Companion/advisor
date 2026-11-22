@@ -168,10 +168,11 @@ func rank(n lua.Table) (int, *int) {
 }
 
 func talentTree(t lua.Table) (TalentTree, bool) {
-	tree := TalentTree{Name: asStr(t["name"]), Points: asInt(t["points"])}
+	tree := TalentTree{Name: asStr(t["name"]), Key: asStr(t["key"]), Points: asInt(t["points"])}
 	if cur := table(t["currency"]); cur != nil {
 		tree.Unspent = asInt(cur["unspent"])
 		tree.MaxPoints = asInt(cur["max"])
+		tree.MaxAvail = asInt(cur["maxAvailable"])
 		if tree.Points == nil {
 			tree.Points = asInt(cur["spentInTree"])
 		}
@@ -186,7 +187,7 @@ func talentTree(t lua.Table) (TalentTree, bool) {
 		r, max := rank(n)
 		return Talent{
 			Name: asStr(n["name"]), Group: asStr(n["group"]), Rank: r, MaxRank: max,
-			NodeID: asInt(n["nodeID"]), SpellID: asInt(n["spellID"]),
+			NodeID: asInt(n["nodeID"]), SpellID: asInt(n["spellID"]), Type: asStr(n["type"]), CanBuy: asBool(n["canBuy"]),
 		}, true
 	})
 	return tree, true
@@ -208,7 +209,7 @@ func talents(v any) *Talents {
 	out.Trees, _ = each(t["trees"], talentTree)
 	var unspent *int
 	for _, tr := range out.Trees {
-		if tr.Unspent != nil {
+		if tr.Unspent != nil && !tr.IsProfession() {
 			if unspent == nil {
 				unspent = new(int)
 			}
