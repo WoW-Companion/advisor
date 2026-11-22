@@ -68,6 +68,41 @@ func (l Line) writeFields(b *strings.Builder) {
 	str("slot", l.Slot)
 	num("ilvl", l.ILvl)
 	num("atLevel", l.AtLevel)
+	if len(l.Spells) > 0 {
+		b.WriteString(", spells = { ")
+		for i, sp := range l.Spells {
+			if i > 0 {
+				b.WriteString(", ")
+			}
+			fmt.Fprintf(b, "{ id = %d, name = %s", sp.ID, Quote(sp.Name))
+			if sp.Rank > 0 {
+				fmt.Fprintf(b, ", rank = %d", sp.Rank)
+			}
+			fmt.Fprintf(b, ", new = %t }", sp.New)
+		}
+		b.WriteString(" }")
+	}
+	if l.HasXY {
+		fmt.Fprintf(b, ", x = %.1f, y = %.1f", l.X, l.Y)
+	}
+	writeContext(b, l.Details, l.Prompt)
+}
+
+// writeContext renders the schema 1.4 fields of an entry: details (a list of strings) and prompt.
+func writeContext(b *strings.Builder, details []string, prompt string) {
+	if len(details) > 0 {
+		b.WriteString(", details = { ")
+		for i, d := range details {
+			if i > 0 {
+				b.WriteString(", ")
+			}
+			b.WriteString(Quote(d))
+		}
+		b.WriteString(" }")
+	}
+	if prompt != "" {
+		fmt.Fprintf(b, ", prompt = %s", Quote(prompt))
+	}
 }
 
 // header is the comment line that opens the file.
@@ -101,6 +136,7 @@ func (d Digest) Lua() string {
 			if l.Item != 0 {
 				fmt.Fprintf(&b, ", item_id = %d", l.Item)
 			}
+			writeContext(&b, l.Details, l.Prompt)
 			b.WriteString(" },\n")
 		}
 		b.WriteString("  },\n")
@@ -112,6 +148,7 @@ func (d Digest) Lua() string {
 			if l.Spell != 0 {
 				fmt.Fprintf(&b, ", spell_id = %d", l.Spell)
 			}
+			writeContext(&b, l.Details, l.Prompt)
 			b.WriteString(" },\n")
 		}
 		b.WriteString("  },\n")

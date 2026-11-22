@@ -23,7 +23,7 @@ import (
 
 // Schema is the version of one character's entry; EnvelopeSchema is the file's.
 const (
-	Schema         = "1.3"
+	Schema         = "1.4"
 	EnvelopeSchema = "2.0"
 )
 
@@ -85,20 +85,32 @@ type Line struct {
 	Slot    string // upgrades: the slot
 	ILvl    int    // upgrades: the item's level
 	AtLevel int    // upgrades: the character level the item needs, when not yet wearable
+
+	// Schema 1.4. Details is 1-4 short context lines, Prompt a ready question for the companion's AI
+	// (at most MaxPrompt characters); both are set on every entry.
+	Details []string
+	Prompt  string
+	Spells  []TrainSpell // training: the abilities and ranks
+	X, Y    float64      // training: the trainer's map percent, when HasXY
+	HasXY   bool
 }
 
 // DungeonLine is one dungeons entry: the dungeon, its level fit and top upgrade; Item is zero when
 // absent.
 type DungeonLine struct {
-	Name string
-	Line string
-	Item int
+	Name    string
+	Line    string
+	Item    int
+	Details []string
+	Prompt  string
 }
 
 // TalentLine is one talents entry: the next point to spend; Spell is zero when the dataset has none.
 type TalentLine struct {
-	Line  string
-	Spell int
+	Line    string
+	Spell   int
+	Details []string
+	Prompt  string
 }
 
 // Section is an ordered group of lines.
@@ -124,6 +136,9 @@ type Options struct {
 	Client       character.Client // the game client that wrote the capture
 	DatasetBuild string           // the dataset's game build; empty when none
 	Questie      *questie.Index   // the player's own QuestieDB; nil when they have none
+	// PrevLevel is the character's level at the last capture, 0 when unknown. Training then covers
+	// the levels after it; with 0 it covers the character's own level only.
+	PrevLevel int
 }
 
 // NoDataText is what NEXT says when no game dataset has downloaded.
@@ -214,11 +229,13 @@ func Build(c character.Character, ds store.DataStore, opt Options) Digest {
 	for _, s := range steps {
 		if s.Kind == advice.KindTalent { // milestones lead the NEXT section
 			l := Line{Text: clip(talentNote(c, ds, s.Title)), Kind: KindTalent, Points: s.Points}
+			l.Details, l.Prompt = talentStepContext(c, s, talentNote(c, ds, s.Title))
 			quests, milestones = append(quests, l), append(milestones, l)
 			continue
 		}
 		if advice.IsClassQuest(s) {
 			l := Line{Text: clip(s.Title), Quest: s.QuestID, Kind: KindPickup, Title: s.Name, Level: s.Level, Class: true, Elite: s.Elite, NPC: s.NPC, Zone: s.Zone}
+			l.Details, l.Prompt = questContext(c, l, s.Reason)
 			quests, milestones = append(quests, l), append(milestones, l)
 			continue
 		}
@@ -241,10 +258,14 @@ func Build(c character.Character, ds store.DataStore, opt Options) Digest {
 		default:
 			l.Objectives = objectivesOf(c, s.QuestID)
 		}
+		l.Details, l.Prompt = questContext(c, l, s.Reason)
 		quests = append(quests, l)
 	}
 	if ds == nil {
 		quests = append(milestones, Line{Text: NoDataText, Kind: KindNote})
+	} else if t, ok := trainingLine(c, ds, opt); ok {
+		// Training is a level milestone: it follows the talent and class lines and leads the quests.
+		quests = append(quests[:len(milestones):len(milestones)], append([]Line{t}, quests[len(milestones):]...)...)
 	}
 	ups, note := upgradeLines(c, ds)
 	notes = append(notes, note...)
@@ -310,7 +331,9 @@ func dungeonLines(c character.Character, ds store.DataStore) []DungeonLine {
 		if item == "" {
 			item = fmt.Sprintf("item %d", d.ItemID)
 		}
-		out = append(out, DungeonLine{Name: clip(p.Name), Line: clip(fitText(p) + ": " + item), Item: int(d.ItemID)})
+		dl := DungeonLine{Name: clip(p.Name), Line: clip(fitText(p) + ": " + item), Item: int(d.ItemID)}
+		dl.Details, dl.Prompt = dungeonContext(c, p, d, item)
+		out = append(out, dl)
 	}
 	return out
 }
@@ -331,6 +354,7 @@ func talentLines(c character.Character, ds store.DataStore) []TalentLine {
 		var out []TalentLine
 		for _, p := range g.Next {
 			l := TalentLine{Line: clip(fmt.Sprintf("%s rank %d", p.Name, p.Rank))}
+			l.Details, l.Prompt = talentContext(c, p.Name, p.Rank, p.Group, "")
 			if p.SpellID != nil {
 				l.Spell = *p.SpellID
 			}
@@ -343,7 +367,9 @@ func talentLines(c character.Character, ds store.DataStore) []TalentLine {
 	}
 	var out []TalentLine
 	for _, p := range talents.Plan(c, ds, talents.Options{Limit: MaxTalents}).Next {
-		out = append(out, TalentLine{Line: clip(fmt.Sprintf("%s rank %d", p.Name, p.Rank)), Spell: spellID(ds, p.NodeID)})
+		l := TalentLine{Line: clip(fmt.Sprintf("%s rank %d", p.Name, p.Rank)), Spell: spellID(ds, p.NodeID)}
+		l.Details, l.Prompt = talentContext(c, p.Name, p.Rank, "", p.Rationale)
+		out = append(out, l)
 	}
 	return out
 }
@@ -468,6 +494,7 @@ func upgradeLines(c character.Character, ds store.DataStore) (lines, notes []Lin
 		if cd.Soon {
 			l.AtLevel = int(cd.Item.ReqLevel)
 		}
+		l.Details, l.Prompt = upgradeContext(c, slot, cd, item)
 		lines = append(lines, l)
 	}
 	return lines, nil

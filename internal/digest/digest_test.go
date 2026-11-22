@@ -111,6 +111,8 @@ func tbl(t *testing.T, rows any) store.SizedReaderAt {
 		err = parquet.Write(&buf, r)
 	case []nodeRow:
 		err = parquet.Write(&buf, r)
+	case []spellRow:
+		err = parquet.Write(&buf, r)
 	}
 	if err != nil {
 		t.Fatal(err)
@@ -253,7 +255,7 @@ func TestEnvelopeTwoCharacters(t *testing.T) {
 	if err != nil || root["schema"] != "2.0" || len(chars) != 2 || chars["Testchar"] == nil || chars["Otherchar"] == nil {
 		t.Errorf("parse: %v %v", err, parsed)
 	}
-	if e, _ := chars["Testchar"].(lua.Table); e["schema"] != "1.3" || e["character"] != "Testchar" {
+	if e, _ := chars["Testchar"].(lua.Table); e["schema"] != "1.4" || e["character"] != "Testchar" {
 		t.Errorf("entry = %v", e)
 	}
 }
@@ -311,7 +313,7 @@ func TestCaps(t *testing.T) {
 func TestSchema12Sections(t *testing.T) {
 	ds := synthStore(t)
 	d := Build(synthChar(), ds, synthOpt)
-	if d.Schema != "1.3" || len(d.Dungeons) != 1 || d.Dungeons[0].Name != "Wolf Den" || d.Dungeons[0].Item != 1 {
+	if d.Schema != "1.4" || len(d.Dungeons) != 1 || d.Dungeons[0].Name != "Wolf Den" || d.Dungeons[0].Item != 1 {
 		t.Errorf("dungeons = %+v (schema %s)", d.Dungeons, d.Schema)
 	}
 	if len(d.Talents) != 3 || d.Talents[0].Spell != 1001 || d.Talents[1].Spell != 0 {

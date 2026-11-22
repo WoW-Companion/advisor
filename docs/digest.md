@@ -1,7 +1,7 @@
 # In-game digest
 
 `wowc-advisor digest [NAME]` (and the MCP tool `update_digest`) writes the data-only
-`WoWCompanion_Digest/Digest.lua` the WoW Companion panel shows (format: schema 2.0, one schema 1.3 entry
+`WoWCompanion_Digest/Digest.lua` the WoW Companion panel shows (format: schema 2.0, one schema 1.4 entry
 per character; the addon repo's `docs/digest-format.md`). Type `/reload` in game afterwards.
 
 **Every captured character.** The file holds one entry for each character in your SavedVariables, so an
@@ -12,8 +12,8 @@ WoWCompanionDigest = {
   schema = "2.0",
   generated = 1795271211,        -- unix seconds, when the file was written
   characters = {
-    ["Testchar"] = { schema = "1.3", ... },   -- exactly the 1.3 digest below, for that character
-    ["Otherchar"] = { schema = "1.3", ... },
+    ["Testchar"] = { schema = "1.4", ... },   -- exactly the 1.4 digest below, for that character
+    ["Otherchar"] = { schema = "1.4", ... },
   },
 }
 ```
@@ -60,6 +60,28 @@ addons, and adds these when known. None is truncated; only `text` is capped (60 
 
 An `upgrades` line adds `slot`, `ilvl` and `atLevel` (the level the item needs, only when the character is not yet that level) beside `text` and `item`.
 `elite` is set only when the dataset's quests table has an `elite` or `group` column that says so.
+
+**Training, details and prompts (schema 1.4).** From the dataset's `class_spells` table, `next_quests` gets one
+`kind = "training"` line, after the talent and class lines, when the character's level unlocks trainer-taught
+abilities or ranks. It covers the levels after the last capture's level, or the character's own level when
+that is unknown (its `details` then say "Available at your level"). The addon filters out spells already
+known.
+
+| Field | Meaning |
+| ----- | ------- |
+| `level` | the character's level |
+| `spells` | `{ { id = 6546, name = "Rend", rank = 2, new = false }, ... }` at most 8; `rank` only when the ability has one; `new = false` is an upgrade of a known rank |
+| `npc`, `zone`, `x`, `y` | the class trainer, only when the capture holds an NPC named "<Class> Trainer" (the one in the character's zone first); `x`/`y` are map percent when captured. A trainer is never guessed, so these are usually absent |
+
+Every `next_quests` line (except notes), `upgrades` line, `dungeons` entry, `talents` entry and the training line
+also has:
+
+| Field | Meaning |
+| ----- | ------- |
+| `details` | a list of 1 to 4 short strings (at most 120 characters each): a quest's reason, giver, location, level and open objectives; an upgrade's slot, item level gain, source and level needed; a dungeon's level fit and top drop; the talent plan's next pick and why |
+| `prompt` | a ready question for the companion's AI, at most 500 characters. It names the character's level, race, class, spec, focus and role from the stored profile, the subject and its facts, and ends with the question |
+
+Only facts the advisor holds go in; no guide text.
 
 A line's `text` is at most 60 characters. A section with nothing to say is left out.
 

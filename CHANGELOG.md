@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.7.4
+
+- The in-game digest gains class-training entries: when your level unlocks trainer-taught abilities or ranks, `next_quests` gets a `training` entry listing them (new, or an upgrade of a rank), with the nearest class trainer only when your capture names one. Every next-quest, upgrade, dungeon, talent and training entry now carries 1 to 4 `details` lines and a ready, context-rich `prompt` (at most 500 characters) built from your character, play style and talent plan. Digest schema 1.4.
+- A question you queue in game now appears in the overlay's Ask feed as soon as it is saved, marked as from the game, and its answer streams in there. An optional "Question from game" toast is off by default.
+
 ## 0.7.3
 
 - The overlay's Next list now lays out each quest from the digest's structured fields, like the in-game panel: `[level] Title` coloured by difficulty with (Class) and (Elite) tags, objective rows with counts, "Ready to turn in" / "Turn in to NPC" or "Pick up from NPC", and "N unspent talent points". Nothing is cut off with "..."; long lines wrap. An older advisor's plain text still shows.
