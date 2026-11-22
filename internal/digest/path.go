@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -85,6 +86,25 @@ func SameText(path, text string) bool {
 	}
 	norm := func(s string) string { return generatedRE.ReplaceAllString(s, "generated = 0,") }
 	return norm(string(old)) == norm(text)
+}
+
+// SameTextSince is SameText that also requires the file's generated time to be no older than
+// capturedAt (the newest capture the advice was built from, unix seconds; 0 for none). A file left
+// from before a newer capture is stale even when its advice is identical, so it must be rewritten.
+func SameTextSince(path, text string, capturedAt int64) bool {
+	if !SameText(path, text) {
+		return false
+	}
+	old, err := os.ReadFile(path)
+	if err != nil {
+		return false
+	}
+	m := generatedRE.Find(old)
+	if m == nil {
+		return false
+	}
+	g, err := strconv.ParseInt(strings.TrimSuffix(strings.TrimPrefix(string(m), "generated = "), ","), 10, 64)
+	return err == nil && g >= capturedAt
 }
 
 // SiblingPath is the file named file in the folder of the digest file at path, keeping its separator.
