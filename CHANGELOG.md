@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.5.1
 
 - Fixed the upgrade check failing with a tool error in a question's answer.
 - Quest progress now prints once per objective, and a Next line shows one objective plus "+N more".
