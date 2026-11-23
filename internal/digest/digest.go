@@ -19,6 +19,7 @@ import (
 	"github.com/WoW-Companion/advisor/internal/questie"
 	"github.com/WoW-Companion/advisor/internal/store"
 	"github.com/WoW-Companion/advisor/internal/talents"
+	"github.com/WoW-Companion/advisor/internal/wording"
 )
 
 // Schema is the version of one character's entry; EnvelopeSchema is the file's.
@@ -234,7 +235,8 @@ func Build(c character.Character, ds store.DataStore, opt Options) Digest {
 	for _, s := range steps {
 		if s.Kind == advice.KindTalent { // milestones lead the NEXT section
 			l := Line{Text: clip(talentNote(c, ds, s.Title)), Kind: KindTalent, Points: s.Points}
-			l.Details, l.Prompt = talentStepContext(c, s, talentNote(c, ds, s.Title))
+			pick, name := nextPick(c, ds)
+			l.Details, l.Prompt = talentStepContext(c, s, pick, name)
 			quests, milestones = append(quests, l), append(milestones, l)
 			continue
 		}
@@ -338,19 +340,33 @@ func dungeonLines(c character.Character, ds store.DataStore) []DungeonLine {
 			item = fmt.Sprintf("item %d", d.ItemID)
 		}
 		dl := DungeonLine{Name: clip(p.Name), Line: clip(fitText(p) + ": " + item), Item: int(d.ItemID)}
-		dl.Details, dl.Prompt = dungeonContext(c, p, d, item)
+		dl.Details, dl.Prompt = dungeonContext(c, p, d)
 		out = append(out, dl)
 	}
 	return out
 }
 
-// fitText is the dungeon's level range and how the character sits against it.
+// fitText is the dungeon's level range and how the character sits against it, for the digest line.
 func fitText(p dungeons.DungeonPick) string {
 	s := fmt.Sprintf("lvl %d-%d", *p.MinLevel, *p.MaxLevel)
 	if p.Fit > 0 {
 		s += fmt.Sprintf(" (%d off)", p.Fit)
 	}
 	return s
+}
+
+// nextPick is the plan's next talent pick: its phrase with rank and branch, and its bare name; both
+// "" when there is none.
+func nextPick(c character.Character, ds store.DataStore) (phrase, name string) {
+	if g, ok := talents.GuideNext(c, 1); ok && len(g.Next) > 0 {
+		return g.Describe(), g.Next[0].Name
+	}
+	if ds != nil {
+		if p := talents.Plan(c, ds, talents.Options{Limit: 1}); len(p.Next) > 0 {
+			return fmt.Sprintf("%s (rank %d)", p.Next[0].Name, p.Next[0].Rank), p.Next[0].Name
+		}
+	}
+	return "", ""
 }
 
 // talentLines is the next MaxTalents points of talents.Plan, with the node's spell id when the
@@ -360,7 +376,7 @@ func talentLines(c character.Character, ds store.DataStore) []TalentLine {
 		var out []TalentLine
 		for _, p := range g.Next {
 			l := TalentLine{Line: clip(fmt.Sprintf("%s rank %d", p.Name, p.Rank))}
-			l.Details, l.Prompt = talentContext(c, p.Name, p.Rank, p.Group, "")
+			l.Details, l.Prompt = talentContext(c, p.Name, p.Rank, p.Group)
 			if p.SpellID != nil {
 				l.Spell = *p.SpellID
 			}
@@ -374,7 +390,7 @@ func talentLines(c character.Character, ds store.DataStore) []TalentLine {
 	var out []TalentLine
 	for _, p := range talents.Plan(c, ds, talents.Options{Limit: MaxTalents}).Next {
 		l := TalentLine{Line: clip(fmt.Sprintf("%s rank %d", p.Name, p.Rank)), Spell: spellID(ds, p.NodeID)}
-		l.Details, l.Prompt = talentContext(c, p.Name, p.Rank, "", p.Rationale)
+		l.Details, l.Prompt = talentContext(c, p.Name, p.Rank, "")
 		out = append(out, l)
 	}
 	return out
@@ -408,7 +424,7 @@ func stepNotes(c character.Character, ds store.DataStore, steps []advice.Step) [
 		}
 	}
 	if failed > 0 {
-		out = append(out, Line{Text: fmt.Sprintf("%d failed %s: abandon", failed, map[bool]string{true: "quest", false: "quests"}[failed == 1]), Kind: KindNote})
+		out = append(out, Line{Text: wording.Count(failed, "failed quest", "failed quests") + ": abandon", Kind: KindNote})
 	}
 	return out
 }
@@ -487,20 +503,19 @@ func upgradeLines(c character.Character, ds store.DataStore) (lines, notes []Lin
 		text += ")"
 		if len(cd.Sources) > 0 {
 			s := cd.Sources[0]
-			src := s.Name
-			if src == "" {
-				src = fmt.Sprintf("%s %d", s.Kind, s.ID)
-			}
-			// The source goes on only whole: when it would push the line past the cap it is dropped.
-			if with := text + " from " + src; utf8.RuneCountInString(with) <= MaxText {
-				text = with
+			// An unnamed source is left out, never shown as an id. The source goes on only whole: when
+			// it would push the line past the cap it is dropped.
+			if s.Name != "" {
+				if with := text + " from " + s.Name; utf8.RuneCountInString(with) <= MaxText {
+					text = with
+				}
 			}
 		}
 		l := Line{Text: clipWords(text), Item: int(cd.Item.ID), Slot: slot, ILvl: int(cd.Item.ItemLevel)}
 		if cd.Soon {
 			l.AtLevel = int(cd.Item.ReqLevel)
 		}
-		l.Details, l.Prompt = upgradeContext(c, slot, cd, item)
+		l.Details, l.Prompt = upgradeContext(c, slot, cd)
 		lines = append(lines, l)
 	}
 	return lines, nil

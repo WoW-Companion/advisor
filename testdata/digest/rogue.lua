@@ -10,14 +10,14 @@ WoWCompanionDigest = {
       character = "Testrogue",
       sections = {
         { id = "upgrades", lines = {
-          { text = "finger1: Ring of Mind (ilvl 18) from object 900", item = 6, slot = "finger1", ilvl = 18, details = { "finger1: Ring of Mind, ilvl 18", "Your slot is empty", "From object 900 (object)" }, prompt = "I'm a level 12 rogue. A possible upgrade is Ring of Mind for my finger1 slot (item level 18), from object 900. How do I get it, and is it worth the effort for my build?" },
+          { text = "finger1: Ring of Mind (ilvl 18)", item = 6, slot = "finger1", ilvl = 18, details = { "Ring: Ring of Mind, item level 18", "Your slot is empty" }, prompt = "I'm a level 12 rogue. A possible upgrade is Ring of Mind for my ring slot (item level 18). Is it worth getting for how I play, and how do I get it?" },
         } },
         { id = "notes", lines = {
           { text = "Dataset is build 1.59.0.63000, game is 64000" },
         } },
       },
       talents = {
-        { line = "Deadly Poison rank 1", spell_id = 2001, details = { "Next pick: Deadly Poison, rank 1", "Why: Poison" }, prompt = "I'm a level 12 rogue. The next talent point in my plan is Deadly Poison to rank 1. The plan says: Poison. Is this the right pick for me now, and what does it change?" },
+        { line = "Deadly Poison rank 1", spell_id = 2001, details = { "Next pick: Deadly Poison, rank 1" }, prompt = "I'm a level 12 rogue. My next talent pick is Deadly Poison, rank 1. Why this pick now, and what does it change?" },
       },
     },
   },
