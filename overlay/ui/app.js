@@ -256,7 +256,14 @@ for (const [id, field] of [['key-vis', 'keyVis'], ['key-ct', 'keyCt']]) {
   const el = $(id);
   el.value = cfg[field];
   el.onkeydown = ev => {
+    if (ev.key === 'Tab') return; // Tab and Shift+Tab move focus as usual
     ev.preventDefault();
+    if (ev.key === 'Escape') { el.blur(); return; } // leave the box, unchanged
+    if ((ev.key === 'Backspace' || ev.key === 'Delete') && !(ev.ctrlKey || ev.altKey || ev.metaKey || ev.shiftKey)) {
+      el.value = cfg[field] = DEFAULTS[field]; save();
+      applyShortcuts();
+      return;
+    }
     const c = combo(ev);
     if (!c) return;
     el.value = cfg[field] = c; save();
@@ -600,17 +607,20 @@ text.oninput = fitBox;
 const pasting = WowcAsking.wirePaste(text, () => invoke('read_clipboard'), fitBox);
 $('paste').onclick = () => pasting.paste();
 fitBox();
-// A click gives the window keyboard focus (it is always on top and may not be the active window).
-text.addEventListener('pointerdown', () => { invoke('focus_window').catch(() => {}); });
+// A click activates the window only if the ask box does not already hold focus, and then focuses the
+// web view (never the bare host window, which can take keyboard focus away from the box).
+text.addEventListener('pointerdown', () => { if (document.activeElement !== text) invoke('focus_window').catch(() => {}); });
+// Safety net: an editing key the web view drops is applied by the page itself (see asking.js).
+WowcAsking.wireEditKeys(text, fitBox);
 // Keyboard test (Settings → Updates): the page's last key events plus Rust's view of the window.
 {
   const out = $('key-test-log'), field = $('key-test');
   let native = '';
   const show = lines => { out.textContent = lines.join('\n') + (native ? '\n' + native : ''); };
   const kl = WowcKeyDiag.log(show);
-  WowcKeyDiag.attach(field, kl);
+  WowcKeyDiag.attach(field, kl, 'test');
   field.addEventListener('keydown', () => { invoke('key_native_state').then(s => { native = s; show(kl.lines); }).catch(() => {}); }, true);
-  WowcKeyDiag.attach(text, kl);
+  WowcKeyDiag.attach(text, kl, 'ask');
 }
 setInterval(() => showBadge(), 30000);
 

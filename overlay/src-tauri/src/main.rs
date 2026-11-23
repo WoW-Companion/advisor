@@ -102,8 +102,16 @@ fn toggle_visible(app: &AppHandle) {
             let _ = w.hide();
         } else {
             let _ = w.show();
-            let _ = w.set_focus();
+            focus_webview(app);
         }
+    }
+}
+
+/// Gives keyboard focus to the web view itself (WebView2's MoveFocus), never the bare host window:
+/// focusing the host window can pull Win32 focus off the web view and lose the editing keys.
+fn focus_webview(app: &AppHandle) {
+    if let Some(v) = app.get_webview("main") {
+        let _ = v.set_focus();
     }
 }
 
@@ -540,11 +548,12 @@ fn read_clipboard(window: tauri::Window) -> Result<String, String> {
     clipboard_text()
 }
 
-/// Takes keyboard focus for the window; the page asks when the ask box is clicked.
+/// Takes keyboard focus for the web view when the window is not already focused; the page asks, and
+/// never while the ask box already holds focus.
 #[tauri::command]
-fn focus_window(window: tauri::Window) {
-    if window.label() == "main" {
-        let _ = window.set_focus();
+fn focus_window(window: tauri::Window, app: AppHandle) {
+    if window.label() == "main" && !window.is_focused().unwrap_or(false) {
+        focus_webview(&app);
     }
 }
 

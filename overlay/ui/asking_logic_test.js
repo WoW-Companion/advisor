@@ -114,3 +114,61 @@ console.log('ok');
   assert.strictEqual(b.value, 'helloa\nb world'); assert.strictEqual(fits, 1);
   console.log('paste ok');
 })().catch(e => { console.error(e); process.exit(1); });
+
+// Editing keys: the safety net applies a dropped key once, never twice, and leaves native edits alone.
+{
+  const st = (value, start, end, dir) => ({ value, start, end: end === undefined ? start : end, dir: dir || 'none' });
+  const ap = (s, k, sh) => { const r = A.applyEditKey(s, k, sh); return [r.value, r.start, r.end]; };
+  const eq = (got, want) => assert.deepStrictEqual(got, want);
+  eq(ap(st('abc', 2), 'Backspace'), ['ac', 1, 1]);
+  eq(ap(st('abc', 0), 'Backspace'), ['abc', 0, 0]);
+  eq(ap(st('abc', 1), 'Delete'), ['ac', 1, 1]);
+  eq(ap(st('abc', 3), 'Delete'), ['abc', 3, 3]);
+  eq(ap(st('abcd', 1, 3), 'Backspace'), ['ad', 1, 1]);
+  eq(ap(st('abc', 1), 'ArrowLeft'), ['abc', 0, 0]);
+  eq(ap(st('abc', 1), 'ArrowRight'), ['abc', 2, 2]);
+  eq(ap(st('abcd', 1, 3), 'ArrowLeft'), ['abcd', 1, 1]);
+  eq(ap(st('abcd', 1, 3), 'ArrowRight'), ['abcd', 3, 3]);
+  eq(ap(st('abc', 1), 'ArrowRight', true), ['abc', 1, 2]);
+  eq(ap(st('abc', 1), 'ArrowLeft', true), ['abc', 0, 1]);
+  eq(ap(st('abc', 1, 2, 'backward'), 'ArrowRight', true), ['abc', 2, 2]); // focus at 1 moves to 2, anchor 2
+  eq(ap(st('ab\ncd', 4), 'Home'), ['ab\ncd', 3, 3]);
+  eq(ap(st('ab\ncd', 3), 'End'), ['ab\ncd', 5, 5]);
+  eq(ap(st('ab\ncd', 1), 'End', true), ['ab\ncd', 1, 2]);
+  eq(ap(st('ab\ncd', 4), 'ArrowUp'), ['ab\ncd', 1, 1]);
+  eq(ap(st('abcd\nx', 3), 'ArrowDown'), ['abcd\nx', 6, 6]);
+  eq(ap(st('abcd\nxy', 2), 'ArrowDown'), ['abcd\nxy', 7, 7]);
+  eq(ap(st('ab\ncd', 1), 'ArrowUp'), ['ab\ncd', 0, 0]);
+  eq(ap(st('ab\ncd', 4), 'ArrowDown'), ['ab\ncd', 5, 5]);
+
+  const mkBox = (value, s, e) => {
+    const b = new El('textarea'); b.value = value; b.selectionStart = s; b.selectionEnd = e === undefined ? s : e; b.selectionDirection = 'none';
+    b.h = {}; b.inputs = 0;
+    b.addEventListener = (n, f) => { b.h[n] = f; };
+    b.setSelectionRange = (x, y, d) => { b.selectionStart = x; b.selectionEnd = y; b.selectionDirection = d; };
+    b.dispatchEvent = () => { b.inputs++; };
+    return b;
+  };
+  const run = (b, ev, native) => {
+    const frames = [];
+    A.wireEditKeys(b, () => { b.inputs++; }, f => frames.push(f));
+    b.h.keydown(Object.assign({ ctrlKey: false, altKey: false, metaKey: false }, ev));
+    if (native) native(b);
+    frames.forEach(f => f());
+  };
+  // dropped Backspace: applied once, with an input event
+  let b = mkBox('abc', 2); run(b, { key: 'Backspace' });
+  assert.strictEqual(b.value, 'ac'); assert.strictEqual(b.selectionStart, 1); assert.strictEqual(b.inputs, 1);
+  // native Backspace (value changed, beforeinput seen): nothing more
+  b = mkBox('abc', 2); run(b, { key: 'Backspace' }, x => { x.h.beforeinput({}); x.value = 'ac'; x.selectionStart = x.selectionEnd = 1; });
+  assert.strictEqual(b.value, 'ac'); assert.strictEqual(b.inputs, 0);
+  // native arrow (caret moved): nothing more
+  b = mkBox('abc', 2); run(b, { key: 'ArrowLeft' }, x => { x.selectionStart = x.selectionEnd = 1; });
+  assert.strictEqual(b.selectionStart, 1);
+  // dropped Shift+Left selects; a Ctrl chord and other keys are ignored
+  b = mkBox('abc', 2); run(b, { key: 'ArrowLeft', shiftKey: true });
+  assert.deepStrictEqual([b.selectionStart, b.selectionEnd, b.selectionDirection], [1, 2, 'backward']); assert.strictEqual(b.inputs, 0);
+  b = mkBox('abc', 2); run(b, { key: 'Backspace', ctrlKey: true }); assert.strictEqual(b.value, 'abc');
+  b = mkBox('abc', 2); run(b, { key: 'x' }); assert.strictEqual(b.value, 'abc');
+  console.log('edit keys ok');
+}
