@@ -752,7 +752,8 @@ func New(cfg Config) *mcp.Server {
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "upgrade_paths",
 		Description: "How the character can dependably get an item (give item) or the best gettable upgrades for a slot (give slot): ranked ways, " +
-			"quest reward, craft with have/need counts from bags and bank, Auction House (a price only when a real auction price is held), dungeon boss, named creature. " +
+			"quest in the log, craft with have/need counts from bags and bank, Auction House (common world drops and Bind on Equip gear, assumed cheap; never a price), other quests, dungeon boss, named creature. " +
+			"For a slot it can also return a shopping list: the base item, level range and stat suffixes to search for on the Auction House, with the in-game search steps; give those steps in plain words and never quote a price. " +
 			"Call it for any 'how do I get ...' or 'which upgrade first' question; never say a source is unknown without calling it. " +
 			"An item with no way is a random drop, not worth chasing, and the answer names the best gettable item for its slot instead.",
 	}, func(_ context.Context, _ *mcp.CallToolRequest, in PathsInput) (*mcp.CallToolResult, PathsOutput, error) {
@@ -814,7 +815,12 @@ func New(cfg Config) *mcp.Server {
 			if err != nil {
 				return toolError("Could not find upgrades: " + err.Error()), noPaths, nil
 			}
-			if len(got) == 0 {
+			if sh, ok := paths.ShoppingList(c, ds, group, slot, popt); ok {
+				r := sh.Result()
+				out.Results = append(out.Results, r)
+				text = append(text, r.Text())
+			}
+			if len(got) == 0 && len(out.Results) == 0 {
 				text = append(text, "No upgrade for "+wording.Slot(slot)+" has a dependable way to be got right now.")
 			}
 			for _, g := range got {

@@ -128,3 +128,22 @@ func (r classRules) canUse(classID, subclass int8, slot int8, level int) bool {
 func allowsClass(mask int32, classID int) bool {
 	return mask <= 0 || mask&(1<<(classID-1)) != 0
 }
+
+// ArmorTypeWord is an armor subclass as a player says it ("mail"); "" for anything else, a weapon or
+// a shield included.
+func ArmorTypeWord(classID, subclass int) string {
+	if classID != classArmor {
+		return ""
+	}
+	switch subclass {
+	case armorCloth:
+		return "cloth"
+	case armorLeather:
+		return "leather"
+	case armorMail:
+		return "mail"
+	case armorPlate:
+		return "plate"
+	}
+	return ""
+}

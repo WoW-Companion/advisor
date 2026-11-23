@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.11
+
+- Cheap world-drop gear is now an Auction House shopping list. When the best way to upgrade a slot is the Auction House, or no quest or craft helps, the upgrade reads like "Chest: any green mail chest, level 8-10, 'of the Bear' - cheap on the Auction House", with a few example base items and the stat suffixes that fit your class and play style ("of the Bear (Strength + Stamina)"). Ask "What should I search for on the Auction House?" and the companion gives the in-game search in plain steps: what to type, the level range, the armor type or slot filter.
+- Any random world drop you can trade, and any Bind on Equip item, now counts as an Auction House way: "Common world drop. Usually cheap on the Auction House." It ranks after a quest in your log and a craft you can make now, and before quests you have not picked up, dungeons, crafts missing materials and named creatures.
+- No Auction House prices are shown or used any more; the data behind them was too thin. Stat suffixes are listed only when the game data confirms them.
+
 ## 0.7.10
 
 - Upgrades are now only gear you can actually get. Each one comes with its best way, in plain words: finish a quest and choose it, make it with your own profession (with the materials you have and still need), buy it on the Auction House, or kill a dungeon boss or a named creature that drops it often. Random world drops are left out.

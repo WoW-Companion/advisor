@@ -177,7 +177,7 @@ func TestEachPathKindFoundAndRanked(t *testing.T) {
 	}{
 		{"quest", shawl, Quest, "Finish Lost Shawl for it (it's in your quest log, in Dunemark)"},
 		{"craft", vest, Craft, "Make it with your Blacksmithing"},
-		{"auction", bracers, Auction, "Usually on the Auction House (it's Bind on Equip)"},
+		{"auction", bracers, Auction, "Common world drop. Usually cheap on the Auction House."},
 		{"dungeon", helm, Dungeon, "Drops often from Hogger Prime in Wolf Den"},
 		{"creature", blade, Creature, "Drops often from Rank Wolf in Dunemark"},
 	}
@@ -195,8 +195,8 @@ func TestEachPathKindFoundAndRanked(t *testing.T) {
 
 func TestQuestOutranksOthers(t *testing.T) {
 	ds, c := fixture(t), warrior()
-	// The shawl has a quest and is tradeable: the quest comes first.
-	if r := For(c, ds, shawl, Options{}); kinds(r) != "quest,auction" {
+	// The shawl has a quest and is not a world drop or Bind on Equip: the quest is its only way.
+	if r := For(c, ds, shawl, Options{}); kinds(r) != "quest" {
 		t.Errorf("shawl kinds = %q", kinds(r))
 	}
 	// A bind-on-pickup boss drop at 20%: the dungeon, then the creature itself.
@@ -249,14 +249,10 @@ func TestAuctionHouseOnlyForTradeableAndNeverVendorPrice(t *testing.T) {
 			}
 		}
 	}
-	// Every fixture item has a vendor sell price of 9999 copper: it is never shown as an auction price.
+	// Every fixture item has a vendor sell price of 9999 copper: it is never shown as a price.
 	r := For(c, ds, bracers, Options{})
 	if got := r.Paths[0].Line; strings.Contains(got, "about") || strings.Contains(got, "99") {
 		t.Errorf("vendor price shown: %q", got)
-	}
-	r = For(c, ds, bracers, Options{Prices: map[int64]Price{bracers: {Copper: 12000, Seen: "2026-11-20"}}})
-	if got := r.Paths[0].Line; !strings.Contains(got, "about 1g 20s (seen 2026-11-20)") {
-		t.Errorf("real price: %q", got)
 	}
 	if Tradeable(1, 3) || Tradeable(0, 0) || !Tradeable(2, 1) {
 		t.Error("Tradeable")
