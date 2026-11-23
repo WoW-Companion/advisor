@@ -346,6 +346,8 @@ type DatasetState struct {
 	Cached []string
 	Failed string
 	Busy   bool
+	// Revision is the day the matching cached dataset was published (empty when unknown).
+	Revision string
 }
 
 // DatasetItem is the "Game data" row. The dataset downloads by itself on first need; this shows
@@ -363,13 +365,17 @@ func DatasetItem(st DatasetState) Item {
 			break
 		}
 	}
+	rev := ""
+	if st.Revision != "" {
+		rev = ", updated " + st.Revision
+	}
 	switch {
 	case st.Busy:
 		it.Status, it.Detail = Warn, "Downloading the game data (under 1 MB)…"
 	case match != "" && game == "":
-		it.Status, it.Detail = OK, "Downloaded (build "+match+")."
+		it.Status, it.Detail = OK, "Downloaded (build "+match+rev+")."
 	case match != "":
-		it.Status, it.Detail = OK, "Downloaded (build "+match+", matches your game)."
+		it.Status, it.Detail = OK, "Downloaded (build "+match+", matches your game"+rev+")."
 	case len(st.Cached) > 0:
 		it.Status = Warn
 		it.Detail = "Downloaded for build " + st.Cached[0] + "; your game is build " + game + "; a newer dataset will download when it's published."

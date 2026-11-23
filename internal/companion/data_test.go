@@ -3,6 +3,7 @@ package companion
 import (
 	"archive/tar"
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -14,6 +15,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/klauspost/compress/zstd"
 
@@ -143,5 +145,113 @@ func TestGameDataRow(t *testing.T) {
 	}
 	if res := call("POST", "/api/setup/download-dataset"); res["ok"] != true {
 		t.Errorf("restore: %v", res)
+	}
+}
+
+// republishServer is a fake data repo whose one release can be republished with a new revision.
+type republishServer struct {
+	rev     atomic.Value // string: the manifest revision served
+	failing atomic.Bool
+	hits    atomic.Int32 // manifest requests
+	store   dataset.Store
+}
+
+func newRepublishServer(t *testing.T) *republishServer {
+	rs := &republishServer{}
+	rs.rev.Store("2026-01-01.1")
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if rs.failing.Load() {
+			http.Error(w, "boom", http.StatusServiceUnavailable)
+			return
+		}
+		rev := rs.rev.Load().(string)
+		content := "items " + rev
+		sum := sha256.Sum256([]byte(content))
+		manifest, _ := json.Marshal(map[string]any{
+			"dataset_version": "v1", "game_build": dataBuild, "revision": rev,
+			"tables": []map[string]string{{"path": "items.parquet", "sha256": hex.EncodeToString(sum[:])}},
+		})
+		switch {
+		case strings.HasSuffix(r.URL.Path, "/releases"):
+			fmt.Fprintf(w, `[{"tag_name":"dataset-%s"}]`, dataBuild)
+		case strings.HasSuffix(r.URL.Path, ".json"):
+			rs.hits.Add(1)
+			w.Write(manifest)
+		case strings.HasSuffix(r.URL.Path, ".tar.zst"):
+			var buf bytes.Buffer
+			zw, _ := zstd.NewWriter(&buf)
+			tw := tar.NewWriter(zw)
+			for name, c := range map[string]string{dataBuild + "/manifest.json": string(manifest), dataBuild + "/items.parquet": content} {
+				tw.WriteHeader(&tar.Header{Name: name, Mode: 0o644, Size: int64(len(c)), Typeflag: tar.TypeReg})
+				tw.Write([]byte(c))
+			}
+			tw.Close()
+			zw.Close()
+			w.Write(buf.Bytes())
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	rs.store = dataset.Store{Root: filepath.Join(t.TempDir(), "cache"), ReleasesURL: srv.URL + "/dl", APIURL: srv.URL + "/api/releases"}
+	return rs
+}
+
+func TestDatasetRepublish(t *testing.T) {
+	rs := newRepublishServer(t)
+	s, _, digestOut := digestEnv(t, true, true)
+	s.cfg.Cache = rs.store
+	s.cfg.ForeverScribe = filepath.Join(filepath.Dir(s.cfg.ForeverScribe), "ForeverScribe.lua")
+	write(t, s.cfg.ForeverScribe, captureFor("71037"))
+	clock := time.Unix(1_000_000, 0)
+	s.cfg.Now = func() time.Time { return clock }
+
+	if _, err := rs.store.Ensure(context.Background(), "71037", false); err != nil {
+		t.Fatal(err)
+	}
+	items := func() string { return rs.store.Dir(dataBuild) + "/items.parquet" }
+	read := func() string { b, _ := os.ReadFile(items()); return string(b) }
+	ctx := context.Background()
+
+	// The same revision does nothing: no re-download, no notice, no digest.
+	if s.checkDatasetUpdate(ctx) || s.dataNotice() != "" || read() != "items 2026-01-01.1" {
+		t.Fatalf("same revision changed something: %q", read())
+	}
+	if _, err := os.Stat(digestOut); err == nil {
+		t.Error("digest written without an update")
+	}
+
+	// The 24-hour throttle: a republish inside the day is not looked at.
+	rs.rev.Store("2026-02-02.1")
+	hits := rs.hits.Load()
+	clock = clock.Add(23 * time.Hour)
+	if s.checkDatasetUpdate(ctx) || rs.hits.Load() != hits {
+		t.Fatal("checked again inside 24 hours")
+	}
+
+	// Offline keeps the cache.
+	clock = clock.Add(2 * time.Hour)
+	rs.failing.Store(true)
+	if s.checkDatasetUpdate(ctx) || read() != "items 2026-01-01.1" {
+		t.Fatalf("offline touched the cache: %q", read())
+	}
+	rs.failing.Store(false)
+
+	// A new revision of the same build replaces the cache, tells the player and rewrites the digest.
+	clock = clock.Add(25 * time.Hour)
+	if !s.checkDatasetUpdate(ctx) {
+		t.Fatal("republished dataset not picked up")
+	}
+	if read() != "items 2026-02-02.1" {
+		t.Errorf("cache not replaced: %q", read())
+	}
+	if s.dataNotice() != "Game data updated (talent builds and more)" || s.snapshot().DataNotice != s.dataNotice() {
+		t.Errorf("notice %q", s.dataNotice())
+	}
+	if b, err := os.ReadFile(digestOut); err != nil || !strings.Contains(string(b), "New") {
+		t.Errorf("digest not rewritten: %v", err)
+	}
+	if got := s.datasetItem().Detail; !strings.Contains(got, "updated 2026-02-02") {
+		t.Errorf("row lacks the revision date: %q", got)
 	}
 }

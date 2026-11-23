@@ -202,6 +202,7 @@ type State struct {
 	Streaming  bool        `json:"streaming"`
 	Digest     DigestState `json:"digest"`
 	Settings   Settings    `json:"settings"`
+	DataNotice string      `json:"data_notice,omitempty"` // set once a dataset update has installed
 }
 
 type event struct{ name, data string }
@@ -274,6 +275,7 @@ func (s *Server) Serve(ctx context.Context, ln net.Listener) error {
 	s.port = strconv.Itoa(ln.Addr().(*net.TCPAddr).Port)
 	s.reload()
 	go s.watch(ctx)
+	go s.watchDataset(ctx)
 	srv := &http.Server{Handler: s.Handler(), ReadHeaderTimeout: 10 * time.Second}
 	go func() {
 		<-ctx.Done()
@@ -417,7 +419,7 @@ func (s *Server) state(w http.ResponseWriter, r *http.Request) {
 func (s *Server) snapshot() State {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	st := State{Characters: s.chars, CapturedAt: s.captured, Error: s.loadErr, Streaming: s.cfg.Stream, Digest: s.digest, Settings: s.settingsLocked()}
+	st := State{Characters: s.chars, CapturedAt: s.captured, Error: s.loadErr, Streaming: s.cfg.Stream, Digest: s.digest, Settings: s.settingsLocked(), DataNotice: s.dataNotice()}
 	var best int64 = -1
 	for _, c := range s.chars {
 		if c.CapturedAt > best {
