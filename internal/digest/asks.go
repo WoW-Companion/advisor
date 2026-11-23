@@ -184,6 +184,7 @@ func (g Giver) Line(c character.Character) Line {
 	}
 	l.Prompt = makePrompt(c, "", facts, " Is it worth taking now, and what should I know first?")
 	l.Asks = giverAsks(g.NPC)
+	l.Why = questWhy(c, l)
 	l.Ref = npcRef(g.NPCID)
 	if g.NPCID == 0 {
 		l.Ref = questRef(g.QuestID)

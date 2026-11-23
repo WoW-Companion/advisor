@@ -181,13 +181,13 @@ func (s *questieSource) quests(c character.Character, at *questie.Where) []*ques
 			return name
 		}
 		covered := map[string]bool{}
-		add := func(name string, refs []questie.Ref) {
+		add := func(verb, name string, refs []questie.Ref) {
 			if name == "" || isDone(name) {
 				return
 			}
 			covered[strings.ToLower(name)] = true
 			mk := func() *spot {
-				return &spot{kind: KindObjective, quests: []int{q.ID}, names: []string{q.Name}, label: textOf(name)}
+				return &spot{kind: KindObjective, quests: []int{q.ID}, names: []string{q.Name}, label: objectiveLabel(verb, textOf(name))}
 			}
 			if p, ok := best(s.points(refs), ax, ay); ok {
 				sp := mk()
@@ -201,7 +201,7 @@ func (s *questieSource) quests(c character.Character, at *questie.Where) []*ques
 		}
 		for _, r := range q.Creatures {
 			if e, ok := s.entity(r); ok {
-				add(e.Name, []questie.Ref{r})
+				add("Kill", e.Name, []questie.Ref{r})
 			}
 		}
 		for _, id := range q.Items {
@@ -216,14 +216,14 @@ func (s *questieSource) quests(c character.Character, at *questie.Where) []*ques
 			for _, o := range it.Objects {
 				refs = append(refs, questie.Ref{Object: true, ID: o})
 			}
-			add(it.Name, refs)
+			add("Collect", it.Name, refs)
 		}
 		for _, c := range q.Credits {
 			var refs []questie.Ref
 			for _, n := range c.NPCs {
 				refs = append(refs, questie.Ref{ID: n})
 			}
-			add(c.Name, refs)
+			add("", c.Name, refs)
 		}
 		// An unfinished objective the quest's data does not explain has no place to go.
 		for _, o := range open {
@@ -232,7 +232,7 @@ func (s *questieSource) quests(c character.Character, at *questie.Where) []*ques
 				hit = hit || strings.Contains(strings.ToLower(o), name)
 			}
 			if !hit {
-				unplaced = append(unplaced, &spot{kind: KindObjective, unplaced: true, quests: []int{q.ID}, names: []string{q.Name}, label: o + " (location unknown)"})
+				unplaced = append(unplaced, &spot{kind: KindObjective, unplaced: true, quests: []int{q.ID}, names: []string{q.Name}, label: objectiveLabel("", o) + " (location unknown)"})
 			}
 		}
 		return found, unplaced

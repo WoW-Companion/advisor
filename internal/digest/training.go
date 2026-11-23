@@ -99,6 +99,7 @@ func trainingLine(c character.Character, ds store.DataStore, opt Options) (Line,
 	l.Details = trainingDetails(l, from)
 	l.Prompt = trainingPrompt(c, l, from)
 	l.Asks, l.Ref = trainingAsks(), trainingRef(level)
+	l.Why = trainingWhy(l.Spells)
 	return l, true
 }
 

@@ -477,7 +477,7 @@ func stopOf(n int, s *spot) Stop {
 	case KindPickup:
 		st.Label = with("Pick up ", " from ")
 	case KindObjective:
-		st.Label = with("", ": ")
+		st.Label = s.label // already an action: "Kill <mob> (0/1)", the quest not repeated
 	case KindTurnIn:
 		st.Label = with("Turn in ", " to ")
 	}

@@ -24,7 +24,7 @@ import (
 
 // Schema is the version of one character's entry; EnvelopeSchema is the file's.
 const (
-	Schema         = "1.5"
+	Schema         = "1.6"
 	EnvelopeSchema = "2.0"
 )
 
@@ -96,6 +96,8 @@ type Line struct {
 	// advisor expands (never shown to players).
 	Asks []string
 	Ref  string
+	// Schema 1.6. Why is one short, factual reason (at most MaxWhy characters), left out when no fact fits.
+	Why string
 	// Unlocks is on a turn-in line: the follow-ups turning it in unlocks (not written to Digest.lua).
 	Unlocks []string
 	Spells  []TrainSpell // training: the abilities and ranks
@@ -113,6 +115,7 @@ type DungeonLine struct {
 	Prompt  string
 	Asks    []string
 	Ref     string
+	Why     string
 }
 
 // TalentLine is one talents entry: the next point to spend; Spell is zero when the dataset has none.
@@ -123,6 +126,7 @@ type TalentLine struct {
 	Prompt  string
 	Asks    []string
 	Ref     string
+	Why     string
 }
 
 // Section is an ordered group of lines.
@@ -239,6 +243,7 @@ func Build(c character.Character, ds store.DataStore, opt Options) Digest {
 			pick, name := nextPick(c, ds)
 			l.Details, l.Prompt = talentStepContext(c, s, pick, name)
 			l.Asks, l.Ref = talentAsks(s.Points, name), talentsRef
+			l.Why = talentWhy(c, name)
 			quests, milestones = append(quests, l), append(milestones, l)
 			continue
 		}
@@ -246,6 +251,7 @@ func Build(c character.Character, ds store.DataStore, opt Options) Digest {
 			l := Line{Text: clip(s.Title), Quest: s.QuestID, Kind: KindPickup, Title: s.Name, Level: s.Level, Class: true, Elite: s.Elite, NPC: s.NPC, Zone: s.Zone}
 			l.Details, l.Prompt = questContext(c, l, s.Reason)
 			l.Asks, l.Ref = questAsks(l), questRef(l.Quest)
+			l.Why = questWhy(c, l)
 			quests, milestones = append(quests, l), append(milestones, l)
 			continue
 		}
@@ -271,6 +277,7 @@ func Build(c character.Character, ds store.DataStore, opt Options) Digest {
 		}
 		l.Details, l.Prompt = questContext(c, l, s.Reason)
 		l.Asks, l.Ref = questAsks(l), questRef(l.Quest)
+		l.Why = questWhy(c, l)
 		quests = append(quests, l)
 	}
 	if ds == nil {
@@ -345,6 +352,9 @@ func dungeonLines(c character.Character, ds store.DataStore) []DungeonLine {
 		}
 		dl := DungeonLine{Name: p.Name, Line: clip(fitText(p) + ": " + item), Item: int(d.ItemID), Asks: dungeonAsks(p.Name), Ref: dungeonRef(p.MapID)}
 		dl.Details, dl.Prompt = dungeonContext(c, p, d)
+		if d.Item != "" && d.Slot != "" {
+			dl.Why = firstWhy("Drops "+d.Item+" for your "+wording.Slot(d.Slot)+" slot", "Has an upgrade for your "+wording.Slot(d.Slot)+" slot")
+		}
 		out = append(out, dl)
 	}
 	return out
@@ -379,7 +389,7 @@ func talentLines(c character.Character, ds store.DataStore) []TalentLine {
 	if g, ok := talents.GuideNext(c, MaxTalents); ok && len(g.Next) > 0 {
 		var out []TalentLine
 		for _, p := range g.Next {
-			l := TalentLine{Line: clip(fmt.Sprintf("%s rank %d", p.Name, p.Rank)), Asks: talentAsks(1, p.Name), Ref: talentsRef}
+			l := TalentLine{Line: clip(fmt.Sprintf("%s rank %d", p.Name, p.Rank)), Asks: talentAsks(1, p.Name), Ref: talentsRef, Why: whyOf("Next pick in your plan")}
 			l.Details, l.Prompt = talentContext(c, p.Name, p.Rank, p.Group)
 			if p.SpellID != nil {
 				l.Spell = *p.SpellID
@@ -393,7 +403,7 @@ func talentLines(c character.Character, ds store.DataStore) []TalentLine {
 	}
 	var out []TalentLine
 	for _, p := range talents.Plan(c, ds, talents.Options{Limit: MaxTalents}).Next {
-		l := TalentLine{Line: clip(fmt.Sprintf("%s rank %d", p.Name, p.Rank)), Spell: spellID(ds, p.NodeID), Asks: talentAsks(1, p.Name), Ref: talentsRef}
+		l := TalentLine{Line: clip(fmt.Sprintf("%s rank %d", p.Name, p.Rank)), Spell: spellID(ds, p.NodeID), Asks: talentAsks(1, p.Name), Ref: talentsRef, Why: whyOf("Next pick in your plan")}
 		l.Details, l.Prompt = talentContext(c, p.Name, p.Rank, "")
 		out = append(out, l)
 	}
@@ -522,6 +532,7 @@ func upgradeLines(c character.Character, ds store.DataStore) (lines, notes []Lin
 		}
 		l.Details, l.Prompt = upgradeContext(c, slot, cd)
 		l.Asks, l.Ref = upgradeAsks(cd.Item.Name), itemRef(int(cd.Item.ID))
+		l.Why = upgradeWhy(c, slot, cd)
 		lines = append(lines, l)
 	}
 	return lines, nil

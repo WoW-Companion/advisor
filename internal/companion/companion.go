@@ -71,6 +71,8 @@ type Config struct {
 	AddonAPI      string                                        // the addon's latest-release URL (empty: GitHub's)
 	Update        func(context.Context) (release.Result, error) // looks up the latest release for /api/update; nil answers no notice
 	Profiles      string                                        // the play-style store (empty: profile.Path())
+	Ledger        string                                        // the answered-asks file (empty: kept in memory only)
+	Now           func() time.Time                              // the clock for ask ages (nil: time.Now)
 }
 
 // Digest statuses.
@@ -128,13 +130,17 @@ type CharInfo struct {
 	PlanSteps []PlanStep `json:"plan_steps,omitempty"`
 	// Style is the saved play style (the overlay's "Play style" row); nil until the player sets one.
 	Style *character.Profile `json:"style,omitempty"`
+	// Suggestions is the ranked list of at most three next actions (see suggest.go).
+	Suggestions []Suggestion `json:"suggestions,omitempty"`
 }
 
 // PlanStep is one route stop for the overlay; After is the step a locked stop waits for.
 type PlanStep struct {
-	Text   string `json:"text"`
-	Locked bool   `json:"locked,omitempty"`
-	After  int    `json:"after,omitempty"`
+	Text   string  `json:"text"` // the action in words, without the place
+	X      float64 `json:"x,omitempty"`
+	Y      float64 `json:"y,omitempty"`
+	Locked bool    `json:"locked,omitempty"`
+	After  int     `json:"after,omitempty"`
 }
 
 // planSteps is the first limit stops of p, with their lock state.
@@ -144,7 +150,7 @@ func planSteps(p route.Plan, limit int) []PlanStep {
 		if i >= limit {
 			break
 		}
-		out = append(out, PlanStep{Text: route.StepText(s), Locked: s.Locked, After: s.After})
+		out = append(out, PlanStep{Text: route.StepText(s), X: s.X, Y: s.Y, Locked: s.Locked, After: s.After})
 	}
 	return out
 }
@@ -237,6 +243,9 @@ type Server struct {
 	usageOn  bool
 	setup    setupCache
 	data     dataState
+	ledger   *ledger
+	planKeys map[string]map[string]bool // character -> every step of its current plan, for "N new steps"
+	refresh  sync.Mutex
 }
 
 // New returns a companion; it does not listen. Serve does that.
@@ -250,6 +259,7 @@ func New(cfg Config) *Server {
 		cfg.Debounce = 2 * time.Second
 	}
 	s := &Server{cfg: cfg, Token: hex.EncodeToString(b), turns: map[string]*turn{}, busy: map[string]bool{}, pending: map[string]askRequest{}, subs: map[chan event]bool{}}
+	s.ledger = openLedger(cfg.Ledger)
 	s.data.dir = cfg.Dataset
 	s.digest = DigestState{Enabled: cfg.AutoDigest}
 	s.opts, s.usageOn = cfg.Ask.Options.Normalize(), !cfg.NoUsage
@@ -284,6 +294,9 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/auto-digest", s.autoDigest)
 	mux.HandleFunc("POST /api/settings", s.setSettings)
 	mux.HandleFunc("POST /api/profile", s.setProfile)
+	mux.HandleFunc("GET /api/suggestions", s.suggestions)
+	mux.HandleFunc("POST /api/refresh-plan", s.refreshPlanHandler)
+	mux.HandleFunc("POST /api/answer-pending", s.answerPending)
 	mux.HandleFunc("GET /api/update", s.update)
 	mux.HandleFunc("GET /api/stream/{id}", s.stream)
 	mux.HandleFunc("GET /api/setup", s.setupState)
@@ -429,6 +442,7 @@ func (s *Server) reload() {
 		return
 	}
 	s.loadErr, s.chars, s.captured = "", nil, 0
+	s.planKeys = map[string]map[string]bool{}
 	for _, c := range f.Characters {
 		c = profile.Attach(s.profilesPath(), c)
 		ci := CharInfo{Key: c.Key, Name: c.Name, Class: c.Class, Next: []string{NoDataMessage}, Style: c.Profile}
@@ -445,6 +459,11 @@ func (s *Server) reload() {
 			if qx != nil {
 				ci.Plan, ci.PlanLine = route.Lines(plan, PlanStops)
 				ci.PlanSteps = planSteps(plan, PlanStops)
+				keys := map[string]bool{}
+				for _, st := range plan.Steps {
+					keys[fmt.Sprintf("%s|%d", st.Label, st.QuestID)] = true
+				}
+				s.planKeys[c.Key] = keys
 			}
 		}
 		if c.Level != nil {
@@ -454,6 +473,7 @@ func (s *Server) reload() {
 			ci.CapturedAt = *c.CapturedAt
 		}
 		s.captured = max(s.captured, ci.CapturedAt)
+		ci.Suggestions = suggest(suggestInput{HasStyle: c.Profile != nil, Entries: ci.Entries, PlanStale: s.planStaleFor(ci.CapturedAt), HasPlanSrc: ds != nil && s.planKeys[c.Key] != nil})
 		s.chars = append(s.chars, ci)
 	}
 }
@@ -536,41 +556,65 @@ func (s *Server) answerGame(ctx context.Context) {
 		s.mu.Lock()
 		_, started := s.gameDone[q.ID]
 		s.mu.Unlock()
-		if started || q.Answered {
+		if started || q.Answered || s.ledgered(q) || s.stale(q) {
 			continue
 		}
 		if ctx.Err() != nil {
 			return
 		}
-		ac := s.askCfg()
-		// The answer streams into the feed as it arrives: the entry reads "answering" with the text so far.
-		var got strings.Builder
-		var last time.Time
-		text, _, err := ask.Respond(ctx, ac, ask.Question{ID: q.ID, Character: q.Character, Text: q.Text}, ac.Prompt(q), s.cfg.Stream, func(chunk string) {
-			got.WriteString(chunk)
-			s.mu.Lock()
-			if s.gameDone == nil {
-				s.gameDone = map[string]Entry{}
-			}
-			s.gameDone[q.ID] = Entry{Answer: got.String(), Status: "answering"}
-			s.mu.Unlock()
-			if time.Since(last) >= 100*time.Millisecond { // at most ten repaints a second
-				last = time.Now()
-				s.showGame()
-			}
-		})
-		e := Entry{Answer: text, Status: "done"}
-		if err != nil {
-			e.Answer, e.Status = "Could not answer: "+err.Error(), "error"
-		}
+		s.answerQuestion(ctx, q)
+	}
+}
+
+func (s *Server) now() time.Time {
+	if s.cfg.Now != nil {
+		return s.cfg.Now()
+	}
+	return time.Now()
+}
+
+func (s *Server) ledgered(q ask.Question) bool {
+	_, ok := s.ledger.get(askKey(q.Character, q.AskedAt, q.Text))
+	return ok
+}
+
+// stale is true for an unanswered ask older than StaleAsk: it waits for the player to ask for it.
+func (s *Server) stale(q ask.Question) bool {
+	return q.AskedAt > 0 && s.now().Unix()-q.AskedAt > StaleAsk
+}
+
+// answerQuestion answers one in-game question, streams it into the feed, and records it in the ledger.
+func (s *Server) answerQuestion(ctx context.Context, q ask.Question) {
+	ac := s.askCfg()
+	// The answer streams into the feed as it arrives: the entry reads "answering" with the text so far.
+	var got strings.Builder
+	var last time.Time
+	text, _, err := ask.Respond(ctx, ac, ask.Question{ID: q.ID, Character: q.Character, Text: q.Text}, ac.Prompt(q), s.cfg.Stream, func(chunk string) {
+		got.WriteString(chunk)
 		s.mu.Lock()
 		if s.gameDone == nil {
 			s.gameDone = map[string]Entry{}
 		}
-		s.gameDone[q.ID] = e
+		s.gameDone[q.ID] = Entry{Answer: got.String(), Status: "answering"}
 		s.mu.Unlock()
-		s.showGame()
+		if time.Since(last) >= 100*time.Millisecond { // at most ten repaints a second
+			last = time.Now()
+			s.showGame()
+		}
+	})
+	e := Entry{Answer: text, Status: "done"}
+	if err != nil {
+		e.Answer, e.Status = "Could not answer: "+err.Error(), "error"
+	} else {
+		s.ledger.add(askKey(q.Character, q.AskedAt, q.Text), text, s.now().Unix())
 	}
+	s.mu.Lock()
+	if s.gameDone == nil {
+		s.gameDone = map[string]Entry{}
+	}
+	s.gameDone[q.ID] = e
+	s.mu.Unlock()
+	s.showGame()
 }
 
 func (s *Server) showGame() {
@@ -596,10 +640,16 @@ func (s *Server) showGame() {
 			}
 		}
 		s.mu.Lock()
-		if d, ok := s.gameDone[q.ID]; ok {
-			e.Answer, e.Status = d.Answer, d.Status
-		}
+		d, inMemory := s.gameDone[q.ID]
 		s.mu.Unlock()
+		switch row, done := s.ledger.get(askKey(q.Character, q.AskedAt, q.Text)); {
+		case inMemory:
+			e.Answer, e.Status = d.Answer, d.Status
+		case done: // answered before: shown as it was, never asked again
+			e.Answer, e.Status = row.Answer, "done"
+		case e.Status == "waiting" && s.stale(q):
+			e.Status = "pending" // an old ask: the overlay offers it, nothing answers it by itself
+		}
 		list = append(list, e)
 	}
 	if len(list) > maxEntries {
@@ -926,4 +976,14 @@ func (s *Server) update(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(n)
+}
+
+// planStaleFor reports whether the written Plan.lua is older than a capture or the dataset. The
+// caller holds s.mu; with no addon folder there is no file to be stale and it says false.
+func (s *Server) planStaleFor(capturedAt int64) bool {
+	p, err := s.digestPath()
+	if err != nil || digest.CheckInstalled(p) != nil {
+		return false
+	}
+	return planStale(digest.SiblingPath(p, route.File), capturedAt, s.cfg.Dataset)
 }

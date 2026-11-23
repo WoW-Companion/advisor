@@ -87,6 +87,14 @@ func (l Line) writeFields(b *strings.Builder) {
 	}
 	writeContext(b, l.Details, l.Prompt)
 	writeAsks(b, l.Asks, l.Ref)
+	writeWhy(b, l.Why)
+}
+
+// writeWhy renders the schema 1.6 field of an entry: why, left out when empty.
+func writeWhy(b *strings.Builder, why string) {
+	if why != "" {
+		fmt.Fprintf(b, ", why = %s", Quote(why))
+	}
 }
 
 // writeContext renders the schema 1.4 fields of an entry: details (a list of strings) and prompt.
@@ -156,6 +164,7 @@ func (d Digest) Lua() string {
 			}
 			writeContext(&b, l.Details, l.Prompt)
 			writeAsks(&b, l.Asks, l.Ref)
+			writeWhy(&b, l.Why)
 			b.WriteString(" },\n")
 		}
 		b.WriteString("  },\n")
@@ -169,6 +178,7 @@ func (d Digest) Lua() string {
 			}
 			writeContext(&b, l.Details, l.Prompt)
 			writeAsks(&b, l.Asks, l.Ref)
+			writeWhy(&b, l.Why)
 			b.WriteString(" },\n")
 		}
 		b.WriteString("  },\n")
