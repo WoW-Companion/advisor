@@ -35,8 +35,13 @@ level range. There is no object table and no zone on any of them, so object sour
   Paladin and Shaman.
 - Weapons by subclass from the table in `rules.go` (Priest: dagger, one-hand mace, staff, wand;
   Rogue: dagger, fist, one-hand sword, mace and axe, bow, crossbow, gun, thrown). One-hand weapons
-  and off-hand weapons fit the off hand only for classes that dual-wield. Two-handers are compared
-  with the main hand only.
+  and off-hand weapons fit the off hand only once the character has learned Dual Wield (the level in
+  the dataset's `class_spells`, else warrior and hunter 20, rogue 10, shaman 40): never by level
+  alone. A shield is replaced only by a better shield, and a one-hand-and-shield or dual-wield
+  character keeps that style, unless the stored play style is a two-hand or dual-wield damage one
+  (Arms, Fury, Enhancement, Retribution and the like). A two-hander is offered over a one-hand and
+  off hand only then, and its gain is weighed against both slots together. No off hand is offered
+  beside a worn two-hander.
 - Shirts, tabards and bags are not considered. A class with no entry in `rules.go` (Death
   Knight, Monk, Demon Hunter, Evoker) is reported as unsupported.
 

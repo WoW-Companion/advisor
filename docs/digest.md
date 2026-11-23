@@ -12,8 +12,8 @@ WoWCompanionDigest = {
   schema = "2.0",
   generated = 1795271211,        -- unix seconds, when the file was written
   characters = {
-    ["Testchar"] = { schema = "1.8", ... },   -- exactly the 1.8 digest below, for that character
-    ["Otherchar"] = { schema = "1.8", ... },
+    ["Testchar"] = { schema = "1.9", ... },   -- exactly the 1.9 digest below, for that character
+    ["Otherchar"] = { schema = "1.9", ... },
   },
 }
 ```
@@ -58,11 +58,11 @@ addons, and adds these when known. None is truncated; only `text` is capped (60 
 | `objectives` | `{ { text = "Windsong Crawler Meat", have = 0, need = 6 }, ... }`, every objective of a logged quest including optional ones; `have` and `need` only when the capture has a count |
 | `points` | the unspent talent point count, on the talent line |
 
-An `upgrades` line adds `slot` (plain words: "Cloak", "Wrists", "Two-hand weapon"), `ilvl` (not shown to players) and `atLevel` (the level the item needs, only when the character is not yet that level) beside `text` and `item`.
+An `upgrades` line adds `slot` (plain words: "Cloak", "Wrists", "Two-hand", "One-hand", "Shield", "Off hand"), `ilvl` (not shown to players) and `atLevel` (the level the item needs, only when the character is not yet that level) beside `text` and `item`.
 
 **Upgrades you can get (schema 1.7).** An upgrades line is written only for an item with at least one dependable way
 to get it, and carries `wear` ("Wear now" or "From level 12"), `gain` ("Big upgrade", "Solid upgrade" or
-"Small upgrade"), `replaces` ("instead of your <item>" or "fills an empty slot"), `how` (the best way, one line) and
+"Small upgrade"), `replaces` (the worn item's name alone; left out for an empty slot), `how` (the best way, one line) and
 `pathKind` (`quest`, `craft`, `auction`, `dungeon` or `creature`, for the icon). The gain comes from the existing score
 (item level plus quality, or the stat-weighted equivalent): 10 points or more, or an empty slot, is a big upgrade; 5 to
 10 is solid; the rest is small. The section has `summary = "N upgrades you can get"`. A quest whose reward is an upgrade
@@ -110,12 +110,23 @@ characters ("Cheap on the Auction House: search 'of Strength', level 7–10"); a
 are its last `details` line. No player-facing string is cut mid-sentence or ends in "..." or an ellipsis: a line
 that does not fit is shortened to a whole, shorter wording (the "(zone)" or "from <giver>" tail goes first) or kept whole.
 
+**Schema 1.9: each fact once.** An upgrade's `text` is only the item's name, or for an Auction House entry the
+shopping description ("any green mail chest, level 7–10, 'of Strength'"): no slot, no "Wear now", no gain, no
+"instead of". `slot`, `wear`, `gain` and `replaces` carry those facts alone, and `replaces` is just the worn item's
+name (absent for an empty slot). `details` and `why` do not repeat them either: an upgrade's `why` is only "Adds the
+<stat> you're short on", when that is true. `slot` always matches the item's inventory type ("One-hand", "Main hand",
+"Two-hand", "Off hand", "Shield", "Held in off hand"). Weapons follow what the character can use: an off-hand weapon
+only once Dual Wield is learned (from the dataset's class spell levels), a shield only for a better shield, and a
+two-hander over a one-hand and shield only for a two-hand or dual-wield damage play style. A craft's `how` reads
+"Learn it from a Blacksmithing trainer, then make it; have 2/4 Copper Bar", or "You can make this (Blacksmithing); ..."
+when the recipe is known; skill numbers are never shown.
+
 **A "why" line (schema 1.6).** Additive and optional. `next_quests`, `upgrades`, `dungeons` and `talents` entries
 may carry `why`: one short reason, at most 70 characters, plain words, no ids, never cut and never ending in "...".
 It is built only from facts the advisor holds, and left out when none fits: a class quest says "Class quest — these
 are worth doing first" (the dataset names no quest rewards, so none is claimed); a turn-in says what it unlocks or
 "Done — hand it in on your way"; an unspent talent point says "Your plan's next pick: <talent>" or "Choose a play style
-to get a pick"; training says "New: <ability>"; an upgrade says the item levels gained or the empty slot it fills; a
+to get a pick"; training says "New: <ability>"; an upgrade says the stat it adds that you are short on; a
 giver note gives the quest's level fit. The overlay, the addon panel and the card details show the same text.
 
 **Companion API (for the overlay).** `GET /api/state` characters carry `suggestions`: at most 3, ranked (no play

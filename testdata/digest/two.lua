@@ -4,7 +4,7 @@ WoWCompanionDigest = {
   generated = 1800000000,
   characters = {
     ["Testchar"] = {
-      schema = "1.8",
+      schema = "1.9",
       generated = 1800000000,
       build = "1.60.0.64000",
       character = "Testchar",
@@ -15,7 +15,7 @@ WoWCompanionDigest = {
           { text = "Gather Peacebloom (Dunemark)", quest = 101, kind = "progress", title = "Gather Peacebloom", level = 12, zone = "Dunemark", details = { "In Dunemark", "Right for your level" }, asks = { "How do I finish Gather Peacebloom?" }, ref = "quest:101" },
         } },
         { id = "upgrades", summary = "1 upgrade you can get", lines = {
-          { text = "Head: Cloth Hood of the \"Sage\". Wear now, small upgrade, instead of what you wear", item = 1, slot = "Head", ilvl = 20, wear = "Wear now", gain = "Small upgrade", replaces = "instead of what you wear", how = "Drops sometimes from Near Wolf in Wolf Den (levels 10 to 14)", pathKind = "dungeon", details = { "Head: Cloth Hood of the \"Sage\"", "Wear now. Small upgrade, instead of what you wear", "Drops sometimes from Near Wolf in Wolf Den (levels 10 to 14)" }, asks = { "How do I get Cloth Hood of the \"Sage\"?", "Is Cloth Hood of the \"Sage\" worth getting now?" }, ref = "item:1", why = "Small upgrade for your head" },
+          { text = "Cloth Hood of the \"Sage\"", item = 1, slot = "Head", ilvl = 20, wear = "Wear now", gain = "Small upgrade", how = "Drops sometimes from Near Wolf in Wolf Den (levels 10 to 14)", pathKind = "dungeon", details = { "Drops sometimes from Near Wolf in Wolf Den (levels 10 to 14)" }, asks = { "How do I get Cloth Hood of the \"Sage\"?", "Is Cloth Hood of the \"Sage\" worth getting now?" }, ref = "item:1" },
         } },
         { id = "keep_materials", lines = {
           { text = "Copper Ore x20", item = 2770, asks = { "Should I keep Copper Ore?", "What is Copper Ore used for?" }, ref = "item:2770" },
@@ -38,7 +38,7 @@ WoWCompanionDigest = {
       },
     },
     ["Otherchar"] = {
-      schema = "1.8",
+      schema = "1.9",
       generated = 1800000000,
       build = "1.60.0.64000",
       character = "Otherchar",

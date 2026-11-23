@@ -176,7 +176,7 @@ func TestEachPathKindFoundAndRanked(t *testing.T) {
 		want string
 	}{
 		{"quest", shawl, Quest, "Finish Lost Shawl for it (it's in your quest log, in Dunemark)"},
-		{"craft", vest, Craft, "Make it with your Blacksmithing"},
+		{"craft", vest, Craft, "Learn it from a Blacksmithing trainer, then make it; have 3/6 Copper Bar"},
 		{"auction", bracers, Auction, "Common world drop. Usually cheap on the Auction House."},
 		{"dungeon", helm, Dungeon, "Drops often from Hogger Prime in Wolf Den"},
 		{"creature", blade, Creature, "Drops often from Rank Wolf in Dunemark"},

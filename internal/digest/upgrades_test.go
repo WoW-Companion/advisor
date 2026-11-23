@@ -127,15 +127,15 @@ func TestUpgradeEntriesArePlainAndDependable(t *testing.T) {
 		t.Error("the world-drop belt is listed")
 	}
 	cloak := slots["Cloak"]
-	if cloak.Wear != "Wear now" || cloak.Replaces != "instead of your Worn Cloak" || cloak.PathKind != "quest" || cloak.Gain != "Big upgrade" ||
+	if cloak.Wear != "Wear now" || cloak.Replaces != "Worn Cloak" || cloak.PathKind != "quest" || cloak.Gain != "Big upgrade" ||
 		cloak.How != "Finish Lost Shawl for it (it's in your quest log, in Dunemark)" {
 		t.Errorf("cloak: %+v", cloak)
 	}
-	if c := slots["Chest"]; c.PathKind != "craft" || c.Replaces != "fills an empty slot" || !strings.HasPrefix(c.How, "Make it with your Blacksmithing") {
+	if c := slots["Chest"]; c.PathKind != "craft" || c.Replaces != "" || c.How != "Learn it from a Blacksmithing trainer, then make it; have 2/6 Copper Bar" {
 		t.Errorf("chest: %+v", c)
 	}
 	w := slots["Wrists"]
-	if w.PathKind != "auction" || w.Text != "Wrists: any green mail bracers, level 8–10 — cheap on the Auction House" ||
+	if w.PathKind != "auction" || w.Text != "any green mail bracers, level 8–10" ||
 		w.How != "Cheap on the Auction House: mail bracers, level 8–10" || !strings.Contains(strings.Join(w.Details, " "), "Set the level range to 8 to 10") || !strings.Contains(strings.Join(w.Asks, "|"), "What should I search for on the Auction House?") {
 		t.Errorf("wrists: %+v", w)
 	}

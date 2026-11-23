@@ -84,7 +84,7 @@ func TestWhyInBuiltDigests(t *testing.T) {
 			check("talents", l.Why)
 		}
 	}
-	for _, k := range []string{"next_quests/talent", "next_quests/turnin", "next_quests/training", "upgrades/", "dungeons", "talents"} {
+	for _, k := range []string{"next_quests/talent", "next_quests/turnin", "next_quests/training", "dungeons", "talents"} {
 		if !kinds[k] {
 			t.Errorf("no why checked for %s; got %v", k, kinds)
 		}
