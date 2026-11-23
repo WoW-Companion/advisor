@@ -95,3 +95,14 @@ func TestGroundingRulesForbidNameOnlyLookupsAndNoMatch(t *testing.T) {
 		}
 	}
 }
+
+func TestPathStepsRule(t *testing.T) {
+	for _, k := range []string{"craft", "quest", "auction", "dungeon", "creature"} {
+		if PathStepsRule(k) == "" {
+			t.Errorf("%s: no steps rule", k)
+		}
+	}
+	if PathStepsRule("") != "" {
+		t.Error("a rule for no path")
+	}
+}

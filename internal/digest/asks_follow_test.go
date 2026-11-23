@@ -106,7 +106,10 @@ func TestAsksFollowTheClickedEntry(t *testing.T) {
 			id := name + "/" + cd.id
 			subject := stems(cd.subject...)
 			facts := stems(cd.facts...)
-			for _, a := range cd.asks {
+			for i, a := range cd.asks {
+				// An upgrade's first ask restates its path's own words on purpose ("from Near Wolf in
+				// Wolf Den", "on the Auction House"): it is the path's action.
+				pathAsk := i == 0 && (cd.kind == "shopping" || strings.Count(cd.kind, "/") == 2 && strings.Split(cd.kind, "/")[1] != "")
 				names := false
 				for w := range stems(a) {
 					names = names || subject[w]
@@ -119,7 +122,7 @@ func TestAsksFollowTheClickedEntry(t *testing.T) {
 				}
 				bare := quotedRe.ReplaceAllString(a, "")
 				for _, w := range wordRe.FindAllString(bare, -1) {
-					if s := stem(w); facts[s] && !subject[s] && !plainWords[strings.ToLower(w)] {
+					if s := stem(w); !pathAsk && facts[s] && !subject[s] && !plainWords[strings.ToLower(w)] {
 						t.Errorf("%s: ask %q asks again what the card states (%q)", id, a, w)
 					}
 				}
@@ -145,13 +148,21 @@ func TestGoldenAsks(t *testing.T) {
 		want []string
 	}{
 		{"Auction House cloak", cloakShopping(c).Asks, []string{
+			"How do I find a green cloak 'of Strength' on the Auction House?",
 			"For my cloak slot, is 'of Strength' my best pick for now?",
-			"Would 'of the Bear' do as well as 'of Strength' for my cloak?",
-			"Is 'of Strength' worth a few silver over my Flimsy Chain Cloak?"}},
-		{"craft", upgradeAsks("Gemmed Copper Gauntlets", "Hands", paths.Craft, "Fury warrior", []string{"Copper Bar"}), []string{
+			"Would 'of the Bear' do as well as 'of Strength' for my cloak?"}},
+		{"craft", upgradeAsks("Gemmed Copper Gauntlets", "Hands", "Fury warrior", paths.Path{Kind: paths.Craft}, []string{"Copper Bar"}), []string{
+			"How do I make Gemmed Copper Gauntlets?",
 			"Is it worth making Gemmed Copper Gauntlets now, or should I save the Copper Bar?",
-			"How much does Gemmed Copper Gauntlets help my Fury warrior?",
-			"Will Gemmed Copper Gauntlets stay my best pick for the hands slot?"}},
+			"How much does Gemmed Copper Gauntlets help my Fury warrior?"}},
+		{"quest", upgradeAsks("Red Sash", "Waist", "", paths.Path{Kind: paths.Quest, Quest: "Sash Wanted"}, nil)[:1], []string{
+			"How do I get Red Sash from Sash Wanted?"}},
+		{"auction item", upgradeAsks("Red Sash", "Waist", "", paths.Path{Kind: paths.Auction}, nil)[:1], []string{
+			"How do I find Red Sash on the Auction House?"}},
+		{"dungeon", upgradeAsks("Red Sash", "Waist", "", paths.Path{Kind: paths.Dungeon, Boss: "Edwin", Dungeon: "Deadmines"}, nil)[:1], []string{
+			"How do I get Red Sash from Edwin in Deadmines?"}},
+		{"creature", upgradeAsks("Red Sash", "Waist", "", paths.Path{Kind: paths.Creature, Creature: "Defias Thug"}, nil)[:1], []string{
+			"Where do I farm Red Sash from Defias Thug?"}},
 		{"pick-up", questAsks(Line{Kind: KindPickup, Title: "Wind Hollow Essence"}), []string{
 			"What does Wind Hollow Essence lead to?",
 			"Should I take Wind Hollow Essence before the other quests nearby?"}},
@@ -168,6 +179,15 @@ func TestGoldenAsks(t *testing.T) {
 	for _, tc := range cases {
 		if strings.Join(tc.got, "|") != strings.Join(tc.want, "|") {
 			t.Errorf("%s asks:\n got %q\nwant %q", tc.name, tc.got, tc.want)
+		}
+	}
+}
+
+func TestFirstAskFollowsPathAndStaysWithinThree(t *testing.T) {
+	for _, p := range []paths.Path{{Kind: paths.Craft}, {Kind: paths.Quest, Quest: "Q"}, {Kind: paths.Auction}, {Kind: paths.Dungeon, Boss: "B", Dungeon: "D"}, {Kind: paths.Creature, Creature: "C"}} {
+		asks := upgradeAsks("Red Sash", "Waist", "Fury warrior", p, []string{"Copper Bar"})
+		if len(asks) > MaxAsks || !strings.Contains(asks[0], "Red Sash") || strings.HasPrefix(asks[0], "How much") {
+			t.Errorf("%s: %q", p.Kind, asks)
 		}
 	}
 }

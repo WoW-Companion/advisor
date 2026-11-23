@@ -157,7 +157,7 @@ func upgradeLine(c character.Character, slot string, cd gear.Candidate, best pat
 			mats = append(mats, g.Name)
 		}
 	}
-	l.Asks, l.Ref = upgradeAsks(cd.Item.Name, name, best.Kind, whoOf(c), mats), itemRef(int(cd.Item.ID))
+	l.Asks, l.Ref = upgradeAsks(cd.Item.Name, name, whoOf(c), best, mats), itemRef(int(cd.Item.ID))
 	l.Why = upgradeWhy(c, slot, cd, short)
 	return l
 }

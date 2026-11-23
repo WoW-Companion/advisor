@@ -80,6 +80,9 @@ type Path struct {
 	Quest    string    `json:"quest,omitempty"`
 	QuestID  int       `json:"-"`
 	Choice   bool      `json:"choice_reward,omitempty"`
+	Boss     string    `json:"boss,omitempty"`     // a dungeon path: the boss that drops it
+	Dungeon  string    `json:"dungeon,omitempty"`  // a dungeon path: the dungeon
+	Creature string    `json:"creature,omitempty"` // a creature path: the first creature that carries it
 	rank     int       // order among the ways: see the rank constants
 }
 
@@ -661,7 +664,7 @@ func (f *finder) dungeon(crs []creature) (Path, bool) {
 			if boss == "" || str(in["name"]) == "" {
 				continue
 			}
-			return Path{Kind: Dungeon, Line: fmt.Sprintf("Drops %s from %s in %s (levels %d to %d)", word, boss, str(in["name"]), *lo, *hi), rank: rankDungeon}, true
+			return Path{Kind: Dungeon, Line: fmt.Sprintf("Drops %s from %s in %s (levels %d to %d)", word, boss, str(in["name"]), *lo, *hi), Boss: boss, Dungeon: str(in["name"]), rank: rankDungeon}, true
 		}
 	}
 	return Path{}, false
@@ -687,5 +690,5 @@ func (f *finder) named(crs []creature) (Path, bool) {
 		}
 		from = append(from, s)
 	}
-	return Path{Kind: Creature, Line: wording.Upper("drops often from " + strings.Join(from, " or ")), rank: rankCreature}, true
+	return Path{Kind: Creature, Line: wording.Upper("drops often from " + strings.Join(from, " or ")), Creature: good[0].name, rank: rankCreature}, true
 }

@@ -142,7 +142,7 @@ func TestUpgradeEntriesArePlainAndDependable(t *testing.T) {
 	if m := regexp.MustCompile(`(?i)\bgold\b|\bsilver\b|\bprice|\d+[gsc]\b`).FindString(w.Text + w.How + strings.Join(w.Details, " ")); m != "" {
 		t.Errorf("wrists shows a price: %q", m)
 	}
-	if got := cloak.Asks; len(got) == 0 || got[0] != "How much does Traveler's Shawl help my warrior?" {
+	if got := cloak.Asks; len(got) == 0 || got[0] != "How do I get Traveler's Shawl from Lost Shawl?" || got[1] != "How much does Traveler's Shawl help my warrior?" {
 		t.Errorf("asks: %v", got)
 	}
 	// The quest that rewards the cloak says so.

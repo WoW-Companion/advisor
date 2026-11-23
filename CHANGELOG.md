@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.7.16
+
+- Each upgrade's first suggested question now follows the way we suggest getting it. A craft asks "How do I make Gemmed Copper Gauntlets?"; a quest asks how to get the item from that quest; an Auction House item or shopping list asks how to find it there; a dungeon drop asks how to get it from the boss; a creature drop asks where to farm it. The earlier follow-up questions come after it, three at most.
+- The answer to that first question gives the steps rather than repeating the card: for a craft, where the trainer is if you don't know the recipe, the materials with what you have and still need and where to get the rest, and where to craft it. One answer line, then at most three steps.
+
 ## 0.7.15
 
 - Suggested questions now follow what you clicked. Each one names the thing itself (the item, the quest, the NPC, the talent or the ability) and asks the natural next thing: whether a different suffix would do as well, whether a craft is worth making now or the materials should be saved, what a quest leads to, or why a talent suits your play style. They no longer ask what the card already shows, so "What should I search for on the Auction House?" is gone.
