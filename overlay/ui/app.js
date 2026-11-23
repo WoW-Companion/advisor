@@ -327,6 +327,7 @@ async function pushDigest() {
 }
 function showBadge() {
   if (!state) return;
+  $('data-note').textContent = state.data_notice || ''; $('data-note').hidden = !state.data_notice;
   showDigest();
   const f = WowcLaunch.freshness(state.captured_at, Date.now());
   badge.className = 'dot' + (f.cls ? ' ' + f.cls : '');

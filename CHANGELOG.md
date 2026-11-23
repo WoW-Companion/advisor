@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.7.18
+
+- The advisor now notices when the game data is republished for the same game build, for example when new talent builds are added. It checks when it starts and then once a day. If the data changed, it downloads the new copy, checks it and swaps it in. It leaves your current copy alone if you are offline or the download fails.
+- When new data installs, the overlay shows a dim line, "Game data updated (talent builds and more)", and your in-game advice is rewritten from it. The "Game data" row in the setup checklist shows the date of the data you have.
+
 ## 0.7.17
 
 - Talent advice now comes from the advisor's own curated builds, with no web lookup. Ask which talent to take next and the answer is "Take <talent> (<rank>): <why>", then at most two short bullets: the next picks in your level band, and why they fit your play style. It uses your chosen spec, or the spec that matches your role (damage, tank or healer) when none is set.

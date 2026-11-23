@@ -2,7 +2,9 @@ package companion
 
 import (
 	"context"
+	"log"
 	"net/http"
+	"regexp"
 	"sync"
 	"time"
 
@@ -23,6 +25,20 @@ type dataState struct {
 	dir    string // the dataset directory advice reads; empty until one is found
 	failed string // the last failed download's reason
 	busy   bool
+	last   time.Time // when the last republish check ran
+	notice string    // shown dim once an update has installed
+}
+
+// DataNotice is the dim line shown after a dataset update installs.
+const DataNotice = "Game data updated (talent builds and more)"
+
+// updateEvery is the least time between two checks for a republished dataset.
+const updateEvery = 24 * time.Hour
+
+func (s *Server) dataNotice() string {
+	s.data.mu.Lock()
+	defer s.data.mu.Unlock()
+	return s.data.notice
 }
 
 // datasetDir is the dataset directory advice reads from, empty when there is none.
@@ -52,6 +68,14 @@ func (s *Server) datasetItem() gamesetup.Item {
 	st := gamesetup.DatasetState{Client: server.CaptureClient(s.cfg.ForeverScribe)}
 	if store, err := s.cacheStore(); err == nil {
 		st.Cached, _ = store.Cached()
+		for _, b := range st.Cached {
+			if dataset.Matches(b, st.Client.Version, st.Client.Build) || st.Client.Build == "" {
+				if m, err := store.CachedManifest(b); err == nil {
+					st.Revision = revisionDate(m)
+				}
+				break
+			}
+		}
 	} else {
 		st.Failed = err.Error()
 	}
@@ -115,4 +139,68 @@ func (s *Server) setupDownloadData(w http.ResponseWriter, r *http.Request) {
 	}
 	res["items"] = s.setupItems("", false, r.Context())
 	writeJSON(w, res)
+}
+
+var dateRE = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}`)
+
+// revisionDate is the day a dataset revision was published: the date the revision starts with,
+// else the manifest's created date, else the revision itself.
+func revisionDate(m dataset.Manifest) string {
+	for _, v := range []string{m.Revision, m.Created} {
+		if d := dateRE.FindString(v); d != "" {
+			return d
+		}
+	}
+	return m.Revision
+}
+
+// checkDatasetUpdate looks for a republished dataset for the capture's build, at most once every
+// 24 hours. A new revision is downloaded and verified, then the digest and plan are rewritten so
+// in-game advice uses it. Offline or on error the cache stays and one line is logged. It reports
+// whether an update installed.
+func (s *Server) checkDatasetUpdate(ctx context.Context) bool {
+	s.data.mu.Lock()
+	if s.data.busy || (!s.data.last.IsZero() && s.now().Sub(s.data.last) < updateEvery) {
+		s.data.mu.Unlock()
+		return false
+	}
+	s.data.busy, s.data.last = true, s.now()
+	s.data.mu.Unlock()
+
+	var updated bool
+	store, err := s.cacheStore()
+	var build string
+	if err == nil {
+		cctx, cancel := context.WithTimeout(ctx, downloadTimeout)
+		build, updated, err = store.Refresh(cctx, server.CaptureClient(s.cfg.ForeverScribe).Build)
+		cancel()
+	}
+	s.data.mu.Lock()
+	s.data.busy = false
+	if updated {
+		s.data.dir, s.data.notice = store.Dir(build), DataNotice
+	}
+	s.data.mu.Unlock()
+	if err != nil {
+		log.Printf("wowc-advisor: dataset update check failed (keeping the cached dataset): %v", err)
+		return false
+	}
+	if updated {
+		s.reload()
+		s.refreshPlan() // no addon folder is not an error here: there is nothing to rewrite
+		s.publish("game", s.snapshot())
+	}
+	return updated
+}
+
+// watchDataset checks for a republished dataset on start and then daily while running.
+func (s *Server) watchDataset(ctx context.Context) {
+	for {
+		s.checkDatasetUpdate(ctx)
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(time.Hour):
+		}
+	}
 }

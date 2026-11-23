@@ -43,6 +43,7 @@ type Manifest struct {
 	DatasetVersion string `json:"dataset_version"`
 	GameBuild      string `json:"game_build"`
 	Created        string `json:"created"`
+	Revision       string `json:"revision"` // bumped when the data repo republishes the same build
 	Tables         []struct {
 		Path   string `json:"path"`
 		SHA256 string `json:"sha256"`
@@ -374,4 +375,66 @@ func fileSHA(p string) (string, error) {
 	}
 	defer f.Close()
 	return hashReader(f)
+}
+
+// Same reports whether two manifests describe the same published dataset: equal revisions, or,
+// when either lacks one, the same table sha256 set.
+func Same(a, b Manifest) bool {
+	if a.Revision != "" && b.Revision != "" {
+		return a.Revision == b.Revision
+	}
+	return shaSet(a) == shaSet(b)
+}
+
+func shaSet(m Manifest) string {
+	l := make([]string, 0, len(m.Tables))
+	for _, t := range m.Tables {
+		l = append(l, t.Path+"="+t.SHA256)
+	}
+	sort.Strings(l)
+	return strings.Join(l, "\n")
+}
+
+// Refresh checks the published manifest for a cached build and, when it differs from the cached
+// one (a republish of the same build), downloads and verifies the new archive and replaces the
+// cache directory by a rename. want is a client build as for Ensure; "" means the newest release.
+// It returns the full build checked and whether the cache was replaced. A build that is not cached
+// is left to Ensure; on any error the cache is untouched.
+func (s Store) Refresh(ctx context.Context, want string) (build string, updated bool, err error) {
+	build, err = s.resolve(ctx, want)
+	if err != nil {
+		return "", false, err
+	}
+	cached, err := os.ReadFile(filepath.Join(s.Dir(build), "manifest.json"))
+	if err != nil {
+		return build, false, nil // nothing cached for it; Ensure downloads first-time datasets
+	}
+	have, err := parseManifest(cached)
+	if err != nil {
+		return build, false, nil
+	}
+	body, err := s.get(ctx, s.assetURL(build, "manifest-"+build+".json"), maxManifest)
+	if err != nil {
+		return build, false, err
+	}
+	latest, err := parseManifest(body)
+	if err != nil {
+		return build, false, fmt.Errorf("manifest-%s.json: %w", build, err)
+	}
+	if Same(have, latest) {
+		return build, false, nil
+	}
+	if err := s.download(ctx, build); err != nil {
+		return build, false, err
+	}
+	return build, true, nil
+}
+
+// CachedManifest reads the manifest of the cached dataset for a full build.
+func (s Store) CachedManifest(build string) (Manifest, error) {
+	data, err := os.ReadFile(filepath.Join(s.Dir(build), "manifest.json"))
+	if err != nil {
+		return Manifest{}, err
+	}
+	return parseManifest(data)
 }
