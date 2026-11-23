@@ -97,7 +97,7 @@ func trainingLine(c character.Character, ds store.DataStore, opt Options) (Line,
 	l.Text = clip(when + ": " + strings.Join(names, ", "))
 	l.trainer(c)
 	l.Details = trainingDetails(l, from)
-	l.Asks, l.Ref = trainingAsks(), trainingRef(level)
+	l.Asks, l.Ref = trainingAsks(l.Spells), trainingRef(level)
 	l.Why = trainingWhy(l.Spells)
 	return l, true
 }

@@ -332,7 +332,7 @@ func Build(c character.Character, ds store.DataStore, opt Options) Digest {
 	d.Dungeons = dungeonLines(c, ds)
 	d.Talents = talentLines(c, ds)
 	if sc.Needs == "" && len(sc.Insights) > 0 {
-		d.Stats = &StatsEntry{Insights: sc.Insights, Profile: sc.Profile, Asks: asksOf("Which of my items should I swap first?", sc.Asks...)}
+		d.Stats = &StatsEntry{Insights: sc.Insights, Profile: sc.Profile, Asks: asksOf("Which stat matters most for my play style?", sc.Asks...)}
 	}
 	return d
 }

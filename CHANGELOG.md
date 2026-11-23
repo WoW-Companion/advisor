@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.15
+
+- Suggested questions now follow what you clicked. Each one names the thing itself (the item, the quest, the NPC, the talent or the ability) and asks the natural next thing: whether a different suffix would do as well, whether a craft is worth making now or the materials should be saved, what a quest leads to, or why a talent suits your play style. They no longer ask what the card already shows, so "What should I search for on the Auction House?" is gone.
+- A question pasted into the overlay on its own still makes sense, because it carries its subject in its own words.
+- Answers to those questions skip what the card already said and cover only the new part.
+
 ## 0.7.14
 
 - Cleaner upgrade cards. Each fact now shows once: the item's name, then its slot, when to wear it, how big the gain is, and the item it replaces (just its name). The same words no longer repeat in the title, the badges and the details, and a shopping entry no longer starts with "Cloak: Cloak:".

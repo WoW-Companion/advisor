@@ -73,7 +73,10 @@ func TestRefExpandsTheSubjectAndExactAsksGetIt(t *testing.T) {
 	if !strings.Contains(p, "Subject: Game data not downloaded yet") || !strings.Contains(p, "Place in the plan") {
 		t.Errorf("subject not expanded: %s", p)
 	}
-	if p := cfg.Prompt(Question{Character: key, Text: "What now?"}); strings.Contains(p, "Subject:") {
+	if !strings.Contains(p, JustReadRule) {
+		t.Errorf("a question with a ref lacks the just-read rule: %s", p)
+	}
+	if p := cfg.Prompt(Question{Character: key, Text: "What now?"}); strings.Contains(p, "Subject:") || strings.Contains(p, JustReadRule) {
 		t.Error("a question without a ref got a subject")
 	}
 }

@@ -136,13 +136,13 @@ func TestUpgradeEntriesArePlainAndDependable(t *testing.T) {
 	}
 	w := slots["Wrists"]
 	if w.PathKind != "auction" || w.Text != "any green mail bracers, level 8–10" ||
-		w.How != "Cheap on the Auction House: mail bracers, level 8–10" || !strings.Contains(strings.Join(w.Details, " "), "Set the level range to 8 to 10") || !strings.Contains(strings.Join(w.Asks, "|"), "What should I search for on the Auction House?") {
+		w.How != "Cheap on the Auction House: mail bracers, level 8–10" || !strings.Contains(strings.Join(w.Details, " "), "Set the level range to 8 to 10") || !strings.Contains(strings.Join(w.Asks, "|"), "What else should I pick up at the Auction House") {
 		t.Errorf("wrists: %+v", w)
 	}
 	if m := regexp.MustCompile(`(?i)\bgold\b|\bsilver\b|\bprice|\d+[gsc]\b`).FindString(w.Text + w.How + strings.Join(w.Details, " ")); m != "" {
 		t.Errorf("wrists shows a price: %q", m)
 	}
-	if got := cloak.Asks; len(got) == 0 || got[0] != "How do I get Traveler's Shawl?" && got[1] != "How do I get Traveler's Shawl?" {
+	if got := cloak.Asks; len(got) == 0 || got[0] != "How much does Traveler's Shawl help my warrior?" {
 		t.Errorf("asks: %v", got)
 	}
 	// The quest that rewards the cloak says so.

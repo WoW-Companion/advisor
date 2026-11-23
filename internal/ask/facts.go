@@ -116,6 +116,10 @@ const GroundingRules = "How to answer: answer from these facts first. Look anyth
 	"whether it is a class quest, why it is listed) and what it usually means. Never invent specifics such as a reward, " +
 	"an ability name or a location that is not in the facts."
 
+// JustReadRule is added whenever a question arrives with a ref: the player clicked the entry and has
+// read its card, so the answer is only what the card does not say, in the short answer shape.
+const JustReadRule = "The player has just read this entry's card, so don't repeat its facts. Answer only the new part of their question, in the short shape above."
+
 // subjectFacts is the block that expands q's ref into the entry's facts and its place in the plan, with
 // a closing blank line; "" without a ref or when the entry is gone. The entry's own facts (title,
 // kind, ids, giver, zone, coordinates, level, class flag, why, details, plan step) are always put in.
@@ -141,6 +145,7 @@ func subjectFacts(cfg Config, cc loaded, q Question) string {
 		b.WriteString("Place in the plan: not one of the plan's steps.\n")
 	}
 	b.WriteString(GroundingRules + "\n")
+	b.WriteString(JustReadRule + "\n")
 	return b.String() + "\n"
 }
 

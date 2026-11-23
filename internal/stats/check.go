@@ -110,7 +110,10 @@ func (p Prof) asks(top string) []string {
 	if sp := p.Spec; sp != "" {
 		out = append(out, fmt.Sprintf("Why does %s want %s?", sp, Name(p.top())))
 	}
-	return append(out, "Which of my items should I swap first?")
+	if top != "" {
+		return append(out, fmt.Sprintf("Which worn item costs me the most %s?", Name(top)))
+	}
+	return append(out, "Which stat matters most for my play style?")
 }
 
 // top is the stat the profile values most.
