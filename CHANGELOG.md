@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.17
+
+- Talent advice now comes from the advisor's own curated builds, with no web lookup. Ask which talent to take next and the answer is "Take <talent> (<rank>): <why>", then at most two short bullets: the next picks in your level band, and why they fit your play style. It uses your chosen spec, or the spec that matches your role (damage, tank or healer) when none is set.
+- The guide web address is gone from the play style questions, the settings and the help text, and the advisor never fetches a guide for talents. A guide address saved earlier is quietly ignored.
+- For a class or spec with no curated build yet, the answer says so in one line and lists the talents you can take right now as options, not a recommendation.
+
 ## 0.7.16
 
 - Each upgrade's first suggested question now follows the way we suggest getting it. A craft asks "How do I make Gemmed Copper Gauntlets?"; a quest asks how to get the item from that quest; an Auction House item or shopping list asks how to find it there; a dungeon drop asks how to get it from the boss; a creature drop asks where to farm it. The earlier follow-up questions come after it, three at most.

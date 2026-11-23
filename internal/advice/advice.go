@@ -14,7 +14,6 @@ import (
 	"github.com/WoW-Companion/advisor/internal/questie"
 	"github.com/WoW-Companion/advisor/internal/quests"
 	"github.com/WoW-Companion/advisor/internal/store"
-	"github.com/WoW-Companion/advisor/internal/talents"
 )
 
 // Step kinds.
@@ -304,18 +303,6 @@ func talentStep(c character.Character) (Step, bool) {
 		Reason:  "milestone; " + TalentAsk,
 		Sources: []string{"capture: talents.unspent"},
 		Points:  n,
-	}
-	if g, ok := talents.GuideNext(c, n); ok && (len(g.Next) > 0 || g.Stale || len(g.Missing) > 0) {
-		// The saved plan names the picks; no model call and no dataset needed.
-		if len(g.Next) > 0 {
-			s.Title += ": take " + g.Describe()
-			s.Reason = "milestone; plan: " + g.Source()
-		}
-		for _, note := range g.Notes() {
-			s.Reason += "; " + note
-		}
-		s.Sources = append(s.Sources, "local talent plan "+g.Date)
-		return s, true
 	}
 	if names, pts := brief.TopGroups(t); pts > 0 {
 		if len(names) == 1 {

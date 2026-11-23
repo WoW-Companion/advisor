@@ -228,9 +228,6 @@ func style(c character.Character) string {
 	if p := c.Profile; p != nil {
 		spec = p.Spec
 	}
-	if spec == "" && c.Plan != nil {
-		spec = c.Plan.Spec
-	}
 	if spec != "" {
 		parts = append(parts, spec)
 	}

@@ -477,23 +477,6 @@ func TestOneObjective(t *testing.T) {
 	}
 }
 
-// The digest's talent lines and the NEXT note come from the saved plan, with no dataset.
-func TestTalentLinesFromPlan(t *testing.T) {
-	two, max := 2, 5
-	c := character.Character{Name: "Testwar", Level: &two, Talents: &character.Talents{Unspent: &two, Trees: []character.TalentTree{{Name: "T",
-		Talents: []character.Talent{{Name: "Test Whirl", Group: "Test Fury", Rank: 1, MaxRank: &max, SpellID: &max}}}}},
-		Plan: &character.TalentPlan{Spec: "Fury", GuideURL: "https://www.icy-veins.com/wow-forever/fury", Date: "2026-11-22",
-			Picks: []character.PlanPick{{Node: "Test Whirl", Rank: 5}}}}
-	got := talentLines(c, nil)
-	if len(got) != 3 || got[0].Line != "Test Whirl rank 2" || got[0].Spell != 5 {
-		t.Errorf("talent lines = %+v", got)
-	}
-	d := Build(c, nil, Options{Now: time.Unix(1, 0)})
-	if len(d.Sections) == 0 || !strings.Contains(d.Sections[0].Lines[0].Text, "take Test Whirl") {
-		t.Errorf("sections = %+v", d.Sections)
-	}
-}
-
 // structuredDigest holds one line of each kind, a class quest, an elite quest, a multi-objective quest
 // with an optional objective, a pick-up and the talent line; titles carry apostrophes, quotes and colons.
 func structuredDigest() Digest {

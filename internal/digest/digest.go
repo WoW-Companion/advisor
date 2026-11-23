@@ -398,12 +398,9 @@ func fitText(p dungeons.DungeonPick) string {
 	return s
 }
 
-// nextPick is the plan's next talent pick: its phrase with rank and branch, and its bare name; both
+// nextPick is the curated build's next talent pick: its phrase with rank and branch, and its bare name; both
 // "" when there is none.
 func nextPick(c character.Character, ds store.DataStore) (phrase, name string) {
-	if g, ok := talents.GuideNext(c, 1); ok && len(g.Next) > 0 {
-		return g.Describe(), g.Next[0].Name
-	}
 	if ds != nil {
 		if p := talents.Plan(c, ds, talents.Options{Limit: 1}); len(p.Next) > 0 {
 			return fmt.Sprintf("%s (rank %d)", p.Next[0].Name, p.Next[0].Rank), p.Next[0].Name
@@ -415,24 +412,12 @@ func nextPick(c character.Character, ds store.DataStore) (phrase, name string) {
 // talentLines is the next MaxTalents points of talents.Plan, with the node's spell id when the
 // dataset has one.
 func talentLines(c character.Character, ds store.DataStore) []TalentLine {
-	if g, ok := talents.GuideNext(c, MaxTalents); ok && len(g.Next) > 0 {
-		var out []TalentLine
-		for _, p := range g.Next {
-			l := TalentLine{Line: clip(fmt.Sprintf("%s rank %d", p.Name, p.Rank)), Asks: talentAsks(1, p.Name), Ref: talentsRef, Why: whyOf("Next pick in your plan")}
-			l.Details = talentContext(c, p.Name, p.Rank, p.Group)
-			if p.SpellID != nil {
-				l.Spell = *p.SpellID
-			}
-			out = append(out, l)
-		}
-		return out
-	}
 	if ds == nil {
 		return nil
 	}
 	var out []TalentLine
 	for _, p := range talents.Plan(c, ds, talents.Options{Limit: MaxTalents}).Next {
-		l := TalentLine{Line: clip(fmt.Sprintf("%s rank %d", p.Name, p.Rank)), Spell: spellID(ds, p.NodeID), Asks: talentAsks(1, p.Name), Ref: talentsRef, Why: whyOf("Next pick in your plan")}
+		l := TalentLine{Line: clip(fmt.Sprintf("%s rank %d", p.Name, p.Rank)), Spell: spellID(ds, p.NodeID), Asks: talentAsks(1, p.Name), Ref: talentsRef, Why: firstWhy(p.Rationale, "Next pick in your build")}
 		l.Details = talentContext(c, p.Name, p.Rank, "")
 		out = append(out, l)
 	}

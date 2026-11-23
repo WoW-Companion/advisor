@@ -32,9 +32,9 @@ WoWCompanionDigest = {
         { name = "Wolf Den", line = "lvl 10-14: Cloth Hood of the \"Sage\"", item_id = 1, details = { "For levels 10 to 14, right for your level", "Near Wolf drops Cloth Hood of the \"Sage\"", "It fits your head slot" }, asks = { "What should I bring to Wolf Den?", "Should I run Wolf Den solo or wait for a group?" }, ref = "dungeon:1", why = "Drops Cloth Hood of the \"Sage\" for your head slot" },
       },
       talents = {
-        { line = "Penance rank 1", spell_id = 1001, details = { "Next pick: Penance, rank 1" }, asks = { "Why does the Penance talent suit my play style?", "What changes in play once I take the Penance talent?" }, ref = "talents", why = "Next pick in your plan" },
-        { line = "Power Word: Shield rank 1", details = { "Next pick: Power Word: Shield, rank 1" }, asks = { "Why does the Power Word: Shield talent suit my play style?", "What changes in play once I take the Power Word: Shield talent?" }, ref = "talents", why = "Next pick in your plan" },
-        { line = "Power Word: Shield rank 2", details = { "Next pick: Power Word: Shield, rank 2" }, asks = { "Why does the Power Word: Shield talent suit my play style?", "What changes in play once I take the Power Word: Shield talent?" }, ref = "talents", why = "Next pick in your plan" },
+        { line = "Penance rank 1", spell_id = 1001, details = { "Next pick: Penance, rank 1" }, asks = { "Why does the Penance talent suit my play style?", "What changes in play once I take the Penance talent?" }, ref = "talents", why = "Core heal" },
+        { line = "Power Word: Shield rank 1", details = { "Next pick: Power Word: Shield, rank 1" }, asks = { "Why does the Power Word: Shield talent suit my play style?", "What changes in play once I take the Power Word: Shield talent?" }, ref = "talents", why = "Shield" },
+        { line = "Power Word: Shield rank 2", details = { "Next pick: Power Word: Shield, rank 2" }, asks = { "Why does the Power Word: Shield talent suit my play style?", "What changes in play once I take the Power Word: Shield talent?" }, ref = "talents", why = "Shield" },
       },
     },
     ["Otherchar"] = {
@@ -48,7 +48,7 @@ WoWCompanionDigest = {
         } },
       },
       talents = {
-        { line = "Deadly Poison rank 1", spell_id = 2001, details = { "Next pick: Deadly Poison, rank 1" }, asks = { "Why does the Deadly Poison talent suit my play style?", "What changes in play once I take the Deadly Poison talent?" }, ref = "talents", why = "Next pick in your plan" },
+        { line = "Deadly Poison rank 1", spell_id = 2001, details = { "Next pick: Deadly Poison, rank 1" }, asks = { "Why does the Deadly Poison talent suit my play style?", "What changes in play once I take the Deadly Poison talent?" }, ref = "talents", why = "Poison" },
       },
     },
   },
