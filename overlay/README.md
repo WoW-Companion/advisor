@@ -38,8 +38,8 @@ In WoW, set **Display Mode** to **Windowed (Fullscreen)** (System, Graphics). A 
 cannot show anything above it; Windowed (Fullscreen) looks the same and lets the overlay appear on top.
 
 The app needs ForeverScribe installed (required); the WoW Companion addon is optional, for in-game extras
-(panel, tracker, tooltips, right-click "Ask about this"). Questions queued in game are answered here in the
-overlay, marked "asked in game", after `/reload`; nothing is written to the game folder. A leftover
+(panel, tracker, tooltips, right-click "Ask about this"). Questions are asked here in the
+overlay; in-game question chips copy the question for pasting. Nothing is written to the game folder. A leftover
 `WoWCompanion_Answers` folder can be deleted. It finds your SavedVariables itself, and shows your characters and NEXT list without an AI
 client. To ask questions it needs one: it picks the first of Claude Code, Codex, Antigravity CLI and Gemini CLI (legacy) it finds
 (search places in `docs/ask.md`). Choose another in the settings panel, **AI client** (Auto, Claude, Codex,

@@ -5,16 +5,15 @@ import (
 	"testing"
 )
 
-// The Ask feed paints a question asked in game at once, marked as from the game, and the answer as
-// it streams; the "Question from game" toast is off unless the setting is on.
-func TestAskFeedShowsInGameAsks(t *testing.T) {
-	js := read(t, "app.js")
-	for _, want := range []string{"WowcAsking.gameMark", "e.status === 'answering'", "cfg.gameToast === true", "gameToast: false", "Question from game", "e.source === 'game'"} {
-		if !strings.Contains(js, want) {
-			t.Errorf("app.js lacks %s", want)
+// The overlay no longer shows or answers questions asked in game: no pending card, no game mark,
+// no answer-pending call.
+func TestNoInGameAskPath(t *testing.T) {
+	for _, f := range []string{"app.js", "launch.js", "asking.js"} {
+		js := read(t, f)
+		for _, bad := range []string{"answer-pending", "pendingCard", "gameMark", "You asked in game", "gameToast", "Question from game"} {
+			if strings.Contains(js, bad) {
+				t.Errorf("%s still has %s", f, bad)
+			}
 		}
-	}
-	if !strings.Contains(js, "events.addEventListener('history'") {
-		t.Error("the feed does not follow history events")
 	}
 }

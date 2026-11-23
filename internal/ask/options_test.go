@@ -25,8 +25,8 @@ func fakeClient(t *testing.T, name string, o Options) []string {
 	tail := map[string][]string{"claude": {"-p", "{prompt}"}, "codex": {"exec", "{prompt}"}, "gemini": {"-p", "{prompt}"}}[name]
 	cfg.Command = append([]string{bin}, tail...)
 	cfg.Options = o
-	if res, err := Run(context.Background(), cfg); err != nil || res.Failed != 0 {
-		t.Fatalf("%s: %+v %v", name, res, err)
+	if _, err := runAgent(context.Background(), cfg, Question{ID: "1", Character: "R:C", Text: "What now?"}); err != nil {
+		t.Fatalf("%s: %v", name, err)
 	}
 	raw, err := os.ReadFile(out)
 	if err != nil {

@@ -68,13 +68,9 @@ card.setStyle({ role: 'damage', focus: 'leveling', spec: '' });
 assert(opts[0].className.includes('on') && opts[2].className.includes('on') && !opts[1].className.includes('on'));
 assert(A.NEEDS_LINE.startsWith('Tell me how you like to play'));
 
-// Wording: a short question, the game mark, no reload text, no preamble.
+// Wording: a short question, no reload text, no preamble.
 assert.strictEqual(A.shortQuestion("I'm a level 12 priest. Where should my talent point go?"), 'Where should my talent point go?');
 assert.strictEqual(A.shortQuestion('Where should my talent point go?'), 'Where should my talent point go?');
-assert.strictEqual(A.gameMark, 'from game');
-assert.strictEqual(A.savedNote({ source: 'game', status: 'done' }, false), '');
-assert.strictEqual(A.savedNote({ source: 'web', status: 'done' }, true), '');
-assert.strictEqual(A.savedNote({ source: 'game', status: 'done' }, true), 'Also in game after your next login');
-const shown = [ul.textContent, card.textContent, A.NEEDS_LINE, A.gameMark, A.savedNote({ source: 'game', status: 'done' }, true), A.shortQuestion("I'm a level 12 priest. Hi?")].join('\n');
+const shown = [ul.textContent, card.textContent, A.NEEDS_LINE, A.shortQuestion("I'm a level 12 priest. Hi?")].join('\n');
 for (const bad of ['/reload', 'Answers.lua', "I'm a level"]) assert(!shown.includes(bad), bad);
 console.log('ok');

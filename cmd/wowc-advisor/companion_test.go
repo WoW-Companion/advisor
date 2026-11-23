@@ -1,14 +1,11 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
-	"io"
 	"net"
 	"os"
 	"path/filepath"
 	"reflect"
-	"strings"
 	"testing"
 )
 
@@ -65,10 +62,3 @@ func TestListenFromAnyPort(t *testing.T) {
 	}
 }
 
-// ask writes Answers.lua only behind --answers-file; without it the error points at the overlay.
-func TestAskNeedsAnswersFile(t *testing.T) {
-	err := askCmd(context.Background(), nil, io.Discard, io.Discard)
-	if err == nil || !strings.Contains(err.Error(), "--answers-file") || !strings.Contains(err.Error(), "overlay") {
-		t.Errorf("err = %v", err)
-	}
-}

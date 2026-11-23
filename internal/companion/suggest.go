@@ -5,10 +5,8 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"strings"
 	"time"
 
-	"github.com/WoW-Companion/advisor/internal/ask"
 	"github.com/WoW-Companion/advisor/internal/digest"
 	"github.com/WoW-Companion/advisor/internal/server"
 )
@@ -191,42 +189,4 @@ func (s *Server) refreshPlanHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(res)
-}
-
-// answerPending answers one old in-game ask the player chose to have answered: {"id": "<ask id>"}.
-func (s *Server) answerPending(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		ID string `json:"id"`
-	}
-	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, MaxBody)).Decode(&req); err != nil || req.ID == "" {
-		http.Error(w, "bad request", http.StatusBadRequest)
-		return
-	}
-	if len(s.cfg.Ask.Command) == 0 {
-		http.Error(w, ErrNoAgent, http.StatusConflict)
-		return
-	}
-	raw, err := readFile(s.cfg.Ask.SavedVariables)
-	if err != nil {
-		http.Error(w, "the game's questions could not be read", http.StatusConflict)
-		return
-	}
-	qs, _ := ask.Questions(raw)
-	id := strings.TrimPrefix(req.ID, "game-")
-	for _, q := range qs {
-		if q.ID != id {
-			continue
-		}
-		s.mu.Lock()
-		_, started := s.gameDone[q.ID]
-		s.mu.Unlock()
-		if started || q.Answered || s.ledgered(q) {
-			http.Error(w, "that question was already answered", http.StatusConflict)
-			return
-		}
-		go s.answerQuestion(s.ctx, q)
-		w.WriteHeader(http.StatusAccepted)
-		return
-	}
-	http.NotFound(w, r)
 }

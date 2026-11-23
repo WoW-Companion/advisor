@@ -1,20 +1,13 @@
-# /ask: answering questions from the game
+# Asking questions
 
-**The overlay answers these for you.** A question queued in game (right-click "Ask about this", or `/ask`)
-lands in the addon's SavedVariables (`WoWCompanion.lua`, next to `ForeverScribe.lua`). With the overlay (or
-`wowc-advisor companion`) running, it shows up in the overlay chat, marked "asked in game", on the next
-`/reload`, and is answered there, streaming, once each. Nothing is written to the game folder.
+Questions are asked in the overlay (or the browser companion, `wowc-advisor companion`): type one, or
+click a suggestion or a quick button. The overlay passes it to your AI client, which answers from your
+character's data. Nothing is written to the game folder.
 
-**Deprecated: `--answers-file`.** `wowc-advisor ask` is for anyone still on an older addon that has the
-`WoWCompanion_Answers` slot. It runs a headless agent CLI per unanswered question and writes
-`Interface/AddOns/WoWCompanion_Answers/Answers.lua` (schema 1) only when you pass `--answers-file`;
-`companion --answers-file` does the same alongside the overlay chat. Without the flag, `ask` stops and
-points at the overlay. The folder can be deleted if you do not use it.
-
-```
-wowc-advisor ask --answers-file --agent claude --savedvariables /path/to/ForeverScribe.lua
-wowc-advisor ask --answers-file --agent claude --watch     # poll the file; remind to /reload after each pass
-```
+In game, the right-click **Ask about this** and the panel's question chips **copy** the question. Paste it
+into the overlay. The old in-game `/ask` queue, the "asked in game" cards and `Answers.lua` are gone;
+`wowc-advisor ask` was removed with them. Leftover `WoWCompanion_Answers` folders and files are no
+longer read and can be deleted.
 
 ## The agent
 
@@ -88,7 +81,6 @@ each name it checks every directory of `PATH` first, then these (`.exe`, `.cmd`,
 
 An explicit `--agent` or config value always wins. `companion --handshake` reports the result in its JSON
 line: `"agent":"claude","agent_source":"auto"` (`agent_source` is `flag`, `config`, `auto` or `none`).
-`ask` and `ask --watch` do not auto-detect; they still need an agent.
 
 A custom command gets the prompt as its last argument, or wherever `{prompt}` / `{mcp_config}` appear.
 The agent's environment also has `WOWC_QUESTION`, `WOWC_CHARACTER` and `WOWC_MCP_CONFIG`. The MCP

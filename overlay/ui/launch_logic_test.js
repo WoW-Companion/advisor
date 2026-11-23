@@ -34,17 +34,6 @@ assert.strictEqual(L.gapLabel(at(22, 23, 58), now), 'Yesterday, 11:58 PM');
 assert.strictEqual(L.gapLabel(at(23, 0, 5), now), 'Today, 12:05 AM');
 assert.strictEqual(L.gapLabel(at(20, 15, 30), now), 'Nov 20, 3:30 PM');
 
-// An old in-game ask is one card; nothing is sent until Answer now.
-let answered = [], dismissed = [];
-const card = L.pendingCard(doc, { id: 'game-7', question: "I'm a level 12 Hunter. Where do I turn in Wolves at the Door?", at: at(22, 23, 0) }, now, e => answered.push(e.id), e => dismissed.push(e.id));
-assert(card.textContent.startsWith('You asked in game last night: ‘'), card.textContent);
-assert(card.textContent.includes('Where do I turn in Wolves at the Door?') && !card.textContent.includes('level 12'));
-assert.deepStrictEqual(answered, [], 'shown, not sent');
-card.find('pending-dismiss')[0].onclick();
-assert.deepStrictEqual([answered, dismissed], [[], ['game-7']]);
-card.find('pending-answer')[0].onclick();
-assert.deepStrictEqual(answered, ['game-7']);
-
 // Suggestions: at most three, a dismissal hides one for that day only, the hover text is its why.
 const list = ['a', 'b', 'c', 'd', 'e'].map(id => ({ id, label: 'L' + id, why: 'because ' + id, action: 'ask', question: 'q' + id }));
 assert.strictEqual(L.visibleSuggestions(list, {}, 'Aria', '2026-11-23').length, 3);

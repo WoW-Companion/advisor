@@ -6,7 +6,7 @@ const win = window.__TAURI__.window.getCurrentWindow();
 
 const $ = id => document.getElementById(id);
 const log = $('log'), who = $('who'), badge = $('badge'), text = $('text'), send = $('send');
-const DEFAULTS = { opacity: 92, solidHover: false, mode: 'overlay', keyVis: 'Ctrl+Shift+W', keyCt: 'Ctrl+Shift+T', nextOpen: null, settingsOpen: false, chatOpen: true, size: 'M', checkUpdates: true, cleared: [], who: '', setupSeen: false, setupHidden: [], gameDir: '', length: 'standard', byClient: {}, usage: true, groups: { ai: true }, gameToast: false, quickBar: true, dismissedAsks: [], dismissedSugg: {} };
+const DEFAULTS = { opacity: 92, solidHover: false, mode: 'overlay', keyVis: 'Ctrl+Shift+W', keyCt: 'Ctrl+Shift+T', nextOpen: null, settingsOpen: false, chatOpen: true, size: 'M', checkUpdates: true, cleared: [], who: '', setupSeen: false, setupHidden: [], gameDir: '', length: 'standard', byClient: {}, usage: true, groups: { ai: true }, quickBar: true, dismissedSugg: {} };
 // nextOpen null means automatic: open until the chat has a message, then collapsed. A click makes it a choice.
 const cfg = { ...DEFAULTS, ...JSON.parse(localStorage.getItem('wowc') || '{}') };
 cfg.settingsOpen = false; // the settings open from the gear for this session only; a launch starts calm
@@ -104,7 +104,6 @@ async function connect(c) {
   const es = events;
   events.addEventListener('game', ev => { state = JSON.parse(ev.data); setChars(); showBadge(); });
   events.addEventListener('reask', onReask);
-  events.addEventListener('history', ev => render(JSON.parse(ev.data).filter(e => e.source === 'game')));
   events.onerror = () => {
     // The stream drops when the sidecar dies or is restarted; only a drop of the current stream
     // while nothing is restarting is news. The shell's "sidecar-down" explains why.
@@ -498,7 +497,7 @@ function restoreChat() {
   log.replaceChildren();
   const turns = chats.load(who.value);
   for (const t of turns) {
-    put('q-' + t.id, 'q', WowcAsking.shortQuestion(t.q), t.src === 'game' ? WowcAsking.gameMark : null);
+    put('q-' + t.id, 'q', WowcAsking.shortQuestion(t.q), null);
     put('a-' + t.id, 'a', t.a);
   }
   if (turns.length) log.appendChild(WowcLaunch.gapDivider(document, turns[turns.length - 1].at, Date.now()));
@@ -509,40 +508,11 @@ function render(history) {
   for (const e of history) {
     if (who.value && keyOf(e.character) !== who.value) continue; // each character has its own chat
     if (cfg.cleared.includes('q-' + e.id) || cfg.cleared.includes('a-' + e.id)) continue;
-    if (e.status === 'pending') { showPending(e); continue; }
-    document.getElementById('p-' + e.id)?.remove();
-    put('q-' + e.id, 'q', WowcAsking.shortQuestion(e.question), e.source === 'game' ? WowcAsking.gameMark : null);
+    put('q-' + e.id, 'q', WowcAsking.shortQuestion(e.question), null);
     const body = e.status === 'waiting' ? 'Waiting for an answer…' : (e.status === 'answering' && !e.answer ? 'Answering…' : e.answer);
-    const note = WowcAsking.savedNote(e, cfg.autoDigest !== false);
-    put('a-' + e.id, 'a' + (e.status === 'error' ? ' err' : e.status === 'answering' ? ' live' : ''), body, note);
-    if (e.status === 'done' && e.source === 'game') chats.add(keyOf(e.character), { id: e.id, q: WowcAsking.shortQuestion(e.question), a: e.answer, at: e.at, src: 'game' });
-    if (e.source === 'game' && !seenGame.has(e.id)) { seenGame.add(e.id); if (cfg.gameToast === true && seenGameReady) toast('Question from game'); }
+    put('a-' + e.id, 'a' + (e.status === 'error' ? ' err' : e.status === 'answering' ? ' live' : ''), body, null);
   }
-  seenGameReady = true;
 }
-// An in-game ask too old to answer by itself is one small card; only "Answer now" sends it.
-function showPending(e) {
-  if (cfg.dismissedAsks.includes(e.id) || document.getElementById('p-' + e.id)) return;
-  const card = WowcLaunch.pendingCard(document, e, Date.now(), answerPending, dismissPending);
-  card.id = 'p-' + e.id;
-  log.appendChild(card);
-  scrollDown(); showPanes();
-}
-async function answerPending(e) {
-  try {
-    const r = await api('/api/answer-pending', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: e.id }) });
-    if (r.ok) { document.getElementById('p-' + e.id)?.remove(); return; }
-    toast((await r.text()).trim() || 'Could not answer that.');
-  } catch (err) { toast('Could not reach the advisor.'); }
-  document.querySelector('#p-' + e.id + ' .pending-answer')?.removeAttribute('disabled');
-}
-function dismissPending(e) {
-  cfg.dismissedAsks = [...cfg.dismissedAsks, e.id].slice(-200); save();
-  document.getElementById('p-' + e.id)?.remove(); showPanes();
-}
-// A question asked in game appears in the feed at once. The optional toast is off by default (cfg.gameToast).
-const seenGame = new Set();
-let seenGameReady = false;
 function toast(msg) {
   const el = document.createElement('div'); el.className = 'toast'; el.textContent = msg;
   document.body.appendChild(el);

@@ -33,22 +33,19 @@ func funcBody(t *testing.T, js, name string) string {
 }
 
 // A launch opens on the saved chat and sends nothing: restoring and rendering never call the ask
-// endpoints; only the Answer now button reaches the pending one.
+// endpoints.
 func TestLaunchSendsNothing(t *testing.T) {
 	js := read(t, "app.js")
-	for _, name := range []string{"restoreChat", "render", "showPending", "load"} {
+	for _, name := range []string{"restoreChat", "render", "load"} {
 		body := funcBody(t, js, name)
-		for _, bad := range []string{"/api/ask", "/api/answer-pending", "ask(", "askEntry(", "answerPending("} {
-			if strings.Contains(strings.ReplaceAll(body, "function showPending(", ""), bad) && !(name == "showPending" && bad == "answerPending(") {
+		for _, bad := range []string{"/api/ask", "ask(", "askEntry("} {
+			if strings.Contains(body, bad) {
 				t.Errorf("%s calls %s: a launch must send nothing", name, bad)
 			}
 		}
 	}
 	if !strings.Contains(funcBody(t, js, "load"), "restoreChat()") {
 		t.Error("load does not restore the saved chat")
-	}
-	if strings.Count(js, "/api/answer-pending") != 1 {
-		t.Error("the pending endpoint must be reached from one place, the Answer now button")
 	}
 }
 
@@ -90,7 +87,7 @@ func TestLaunchWiring(t *testing.T) {
 	if body := funcBody(t, js, "refreshPlan"); strings.Contains(body, "/api/ask") {
 		t.Error("Refresh must not ask the AI")
 	}
-	for _, want := range []string{".dot.amber", ".dot.red", ".entry-why", ".gap", ".pending", ".quick"} {
+	for _, want := range []string{".dot.amber", ".dot.red", ".entry-why", ".gap", ".quick"} {
 		if !strings.Contains(css, want) {
 			t.Errorf("style.css lacks %s", want)
 		}

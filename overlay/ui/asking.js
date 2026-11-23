@@ -115,12 +115,7 @@
     const rest = t.replace(/^I(?:'|’)?m an? (?:level \d+ )?[^.?!]*\.\s+/i, '');
     return rest || t;
   }
-  // gameMark: the small mark on a question asked in game.
-  const gameMark = 'from game';
-  // savedNote: the dim note under an answer that was also saved for the game; only with that setting on.
-  const savedNote = (e, on) => (on && e.source === 'game' && e.status === 'done') ? 'Also in game after your next login' : '';
-
-  const api = { entryList, fit, onAskKey, needsCard, shortQuestion, gameMark, savedNote, NEEDS_LINE };
+  const api = { entryList, fit, onAskKey, needsCard, shortQuestion, NEEDS_LINE };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.WowcAsking = api;
 })(typeof window !== 'undefined' ? window : globalThis);

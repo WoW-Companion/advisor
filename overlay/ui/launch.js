@@ -45,28 +45,6 @@
   }
   function gapDivider(doc, atSec, nowMs) { return el(doc, 'div', 'gap', gapLabel(atSec, nowMs)); }
 
-  // --- old in-game asks ----------------------------------------------------------------------
-  function sinceWords(atSec, nowMs) {
-    const at = new Date(atSec * 1000), days = Math.round((dayStart(new Date(nowMs)) - dayStart(at)) / 86400000);
-    if (days <= 0) return 'earlier today';
-    if (days === 1) return at.getHours() >= 18 ? 'last night' : 'yesterday';
-    return days + ' days ago';
-  }
-  // pendingCard: "You asked in game last night: '…'" with Answer now and Dismiss. Nothing is sent until
-  // onAnswer, which the Answer now button alone calls.
-  function pendingCard(doc, e, nowMs, onAnswer, onDismiss) {
-    const card = el(doc, 'div', 'pending');
-    card.append(el(doc, 'span', 'pending-text', 'You asked in game ' + sinceWords(e.at, nowMs) + ': ‘' + asking().shortQuestion(e.question) + '’'));
-    const row = el(doc, 'div', 'pending-btns');
-    const yes = el(doc, 'button', 'pending-answer', 'Answer now'), no = el(doc, 'button', 'pending-dismiss', 'Dismiss');
-    yes.type = no.type = 'button';
-    yes.onclick = () => { yes.disabled = true; onAnswer(e); };
-    no.onclick = () => onDismiss(e);
-    row.append(yes, no);
-    card.append(row);
-    return card;
-  }
-
   // --- suggestions ---------------------------------------------------------------------------
   const MAX_SUGGESTIONS = 3;
   // visibleSuggestions: the advisor's list minus what was dismissed today, never more than three.
@@ -162,7 +140,7 @@
     return /map units/.test(s) ? s.replace(/,?\s*(?:about\s+)?[\d.,]+\s*map units/i, '') : s;
   }
 
-  const api = { chatStore, gapLabel, gapDivider, sinceWords, pendingCard, visibleSuggestions, suggestionRow, QUICK, quickAction, quickBar, styleNeeds, freshness, planLine, dayKey, MAX_TURNS, MAX_SUGGESTIONS };
+  const api = { chatStore, gapLabel, gapDivider, visibleSuggestions, suggestionRow, QUICK, quickAction, quickBar, styleNeeds, freshness, planLine, dayKey, MAX_TURNS, MAX_SUGGESTIONS };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.WowcLaunch = api;
 })(typeof window !== 'undefined' ? window : globalThis);
