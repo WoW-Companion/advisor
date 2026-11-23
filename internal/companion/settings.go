@@ -93,6 +93,7 @@ func (s *Server) setProfile(w http.ResponseWriter, r *http.Request) {
 	_, err := profile.Update(s.profilesPath(), req.Character, func(e *profile.Entry) error {
 		if e.Profile != nil {
 			req.GuideURL = cmp.Or(req.GuideURL, e.Profile.GuideURL)
+			req.StatPref = cmp.Or(req.StatPref, e.Profile.StatPref)
 		}
 		p, err := profile.Clean(req.Profile)
 		e.Profile = &p

@@ -351,11 +351,12 @@ function showStyle() {
   const c = state && state.characters.find(c => c.key === who.value), st = (c && c.style) || {};
   for (const card of document.querySelectorAll('.style-card')) if (card.dataset.character === who.value && card.setStyle) card.setStyle(st);
   $('style-role').value = st.role || ''; $('style-focus').value = st.focus || ''; $('style-spec').value = st.spec || '';
+  $('style-pref').value = st.stat_pref || '';
 }
 // saveStyle stores a play style for one character; the settings section and the inline card both use it.
-async function saveStyle(character, { role, focus, spec }) {
+async function saveStyle(character, { role, focus, spec, stat_pref }) {
   try {
-    const r = await api('/api/profile', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ character, role, focus, spec: (spec || '').trim() }) });
+    const r = await api('/api/profile', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ character, role, focus, spec: (spec || '').trim(), stat_pref: stat_pref || '' }) });
     if (!r.ok) return false;
     state.characters = await r.json(); showNext();
     return true;
@@ -364,9 +365,9 @@ async function saveStyle(character, { role, focus, spec }) {
 function pushStyle() {
   const role = $('style-role').value, focus = $('style-focus').value;
   if (!who.value || !role || !focus) return;
-  saveStyle(who.value, { role, focus, spec: $('style-spec').value });
+  saveStyle(who.value, { role, focus, spec: $('style-spec').value, stat_pref: $('style-pref').value });
 }
-for (const id of ['style-role', 'style-focus', 'style-spec']) $(id).onchange = pushStyle;
+for (const id of ['style-role', 'style-focus', 'style-spec', 'style-pref']) $(id).onchange = pushStyle;
 
 function showNext() {
   showStyle();

@@ -32,6 +32,7 @@ import (
 	"github.com/WoW-Companion/advisor/internal/route"
 	"github.com/WoW-Companion/advisor/internal/server"
 	"github.com/WoW-Companion/advisor/internal/store"
+	"github.com/WoW-Companion/advisor/internal/unlock"
 )
 
 //go:embed page.html
@@ -444,7 +445,7 @@ func (s *Server) reload() {
 	s.loadErr, s.chars, s.captured = "", nil, 0
 	s.planKeys = map[string]map[string]bool{}
 	for _, c := range f.Characters {
-		c = profile.Attach(s.profilesPath(), c)
+		c = character.AttachTotals(unlock.AddonSV(s.cfg.Ask.SavedVariables), profile.Attach(s.profilesPath(), c))
 		ci := CharInfo{Key: c.Key, Name: c.Name, Class: c.Class, Next: []string{NoDataMessage}, Style: c.Profile}
 		if ds != nil {
 			qx := questie.ForSavedVariables(s.cfg.Ask.SavedVariables)

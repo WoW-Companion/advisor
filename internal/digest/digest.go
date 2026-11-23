@@ -11,10 +11,12 @@ import (
 	"unicode/utf8"
 
 	"github.com/WoW-Companion/advisor/internal/advice"
+	"github.com/WoW-Companion/advisor/internal/brief"
 	"github.com/WoW-Companion/advisor/internal/character"
 	"github.com/WoW-Companion/advisor/internal/dataset"
 	"github.com/WoW-Companion/advisor/internal/dungeons"
 	"github.com/WoW-Companion/advisor/internal/questie"
+	"github.com/WoW-Companion/advisor/internal/stats"
 	"github.com/WoW-Companion/advisor/internal/store"
 	"github.com/WoW-Companion/advisor/internal/talents"
 	"github.com/WoW-Companion/advisor/internal/wording"
@@ -107,6 +109,13 @@ type Line struct {
 	HasXY   bool
 }
 
+// StatsEntry is the optional stats entry (schema 1.7): the stat check in plain words.
+type StatsEntry struct {
+	Insights []string // 1-3 sentences, each at most stats.MaxInsight characters
+	Profile  string   // for example "Fury · leveling"
+	Asks     []string
+}
+
 // DungeonLine is one dungeons entry: the dungeon, its level fit and top upgrade; Item is zero when
 // absent.
 type DungeonLine struct {
@@ -148,6 +157,7 @@ type Digest struct {
 	Sections  []Section
 	Dungeons  []DungeonLine // optional, at most MaxDungeons
 	Talents   []TalentLine  // optional, at most MaxTalents
+	Stats     *StatsEntry   // optional: present only for a character with a play style
 }
 
 // Options is what Build needs besides the capture and the dataset.
@@ -290,7 +300,12 @@ func Build(c character.Character, ds store.DataStore, opt Options) Digest {
 		// Training is a level milestone: it follows the talent and class lines and leads the quests.
 		quests = append(quests[:len(milestones):len(milestones)], append([]Line{t}, quests[len(milestones):]...)...)
 	}
-	ups, note, link := upgradeLines(c, ds, PlanQuests(steps))
+	group := ""
+	if names, _ := brief.TopGroups(c.Talents); len(names) == 1 {
+		group = names[0]
+	}
+	sc := stats.Check(c, ds, group)
+	ups, note, link := upgradeLines(c, ds, PlanQuests(steps), shortStat(sc))
 	notes = append(notes, note...)
 	for i := range quests {
 		if w, ok := link.questWhy[quests[i].Quest]; ok && quests[i].Quest != 0 {
@@ -314,6 +329,9 @@ func Build(c character.Character, ds store.DataStore, opt Options) Digest {
 	}
 	d.Dungeons = dungeonLines(c, ds)
 	d.Talents = talentLines(c, ds)
+	if sc.Needs == "" && len(sc.Insights) > 0 {
+		d.Stats = &StatsEntry{Insights: sc.Insights, Profile: sc.Profile, Asks: asksOf("Which of my items should I swap first?", sc.Asks...)}
+	}
 	return d
 }
 

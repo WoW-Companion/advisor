@@ -16,6 +16,7 @@ import (
 	"strings"
 
 	"github.com/WoW-Companion/advisor/internal/character"
+	"github.com/WoW-Companion/advisor/internal/stats"
 	"github.com/WoW-Companion/advisor/internal/store"
 )
 
@@ -102,6 +103,32 @@ func Weights(class, group string) (spec string, w map[int64]float64, rationale s
 		return name, w, sw.Rationale, true
 	}
 	return "", nil, "", false
+}
+
+// HasStat reports whether the item carries the named stat (a name of the stats package).
+func (it Item) HasStat(stat string) bool {
+	id, ok := statIDs[stat]
+	if !ok {
+		return false
+	}
+	for _, t := range it.StatTypes {
+		if t == id {
+			return true
+		}
+	}
+	return false
+}
+
+// idWeights maps stat names to the client's item stat type ids; a name that is not an item stat is
+// left out.
+func idWeights(byName map[string]float64) map[int64]float64 {
+	w := map[int64]float64{}
+	for stat, v := range byName {
+		if id, ok := statIDs[stat]; ok {
+			w[id] = v
+		}
+	}
+	return w
 }
 
 // Item is the part of an items row the advisor uses.
@@ -216,7 +243,11 @@ func Find(c character.Character, ds store.DataStore, group string, opt Options) 
 		return res, fmt.Errorf("no gear rules for class %q yet", c.Class)
 	}
 	var w map[int64]float64
-	if spec, ww, why, ok := Weights(c.Class, group); ok {
+	if p, ok := stats.For(c, group); ok {
+		// The player's play style: the stat compass's weights, shared with the stat check and the
+		// Auction House suffixes, so the advice agrees everywhere.
+		res.Spec, res.Rationale, w = p.Label(), "Ballpark stat priorities for "+p.Title(), idWeights(p.Weights)
+	} else if spec, ww, why, ok := Weights(c.Class, group); ok {
 		res.Spec, res.Rationale, w = spec, why, ww
 	} else if group == "" {
 		res.Reason = "spec unknown (no talent points captured)"

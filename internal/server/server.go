@@ -242,13 +242,18 @@ func (c Config) profilesPath() string {
 	return profile.Path()
 }
 
+// withTotals attaches the stat totals the addon recorded (WoWCompanionDB.stats), when it did.
+func withTotals(cfg Config, c character.Character) character.Character {
+	return character.AttachTotals(unlock.AddonSV(cfg.SavedVariables), c)
+}
+
 // chosen is brief.Choose with the player's saved play style and talent plan attached.
 func chosen(cfg Config, f character.File, name string) (character.Character, error) {
 	c, err := brief.Choose(f, name)
 	if err != nil {
 		return c, err
 	}
-	return profile.Attach(cfg.profilesPath(), c), nil
+	return withTotals(cfg, profile.Attach(cfg.profilesPath(), c)), nil
 }
 
 func toolError(msg string) *mcp.CallToolResult {
@@ -521,7 +526,7 @@ func WriteDigest(cfg Config, name string) (DigestOutput, error) {
 	plans := route.Envelope{Generated: now.Unix()}
 	ropt := route.OptionsFor(unlock.AddonSV(cfg.SavedVariables), ds)
 	for _, c := range kept {
-		c = profile.Attach(cfg.profilesPath(), c)
+		c = withTotals(cfg, profile.Attach(cfg.profilesPath(), c))
 		plan := route.BuildWith(c, qx, ropt)
 		plans.Plans = append(plans.Plans, plan)
 		d := digest.Build(c, ds, digest.Options{Now: now, Client: f.ClientOf(c), DatasetBuild: datasetBuild, Questie: qx, Unlocks: route.UnlockNotes(plan)})
@@ -748,6 +753,8 @@ func New(cfg Config) *mcp.Server {
 		}
 		return nil, out, nil
 	})
+
+	addStatCheck(s, cfg)
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "upgrade_paths",

@@ -2,10 +2,12 @@ package paths
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/WoW-Companion/advisor/internal/character"
 	"github.com/WoW-Companion/advisor/internal/gear"
+	statcompass "github.com/WoW-Companion/advisor/internal/stats"
 	"github.com/WoW-Companion/advisor/internal/store"
 	"github.com/WoW-Companion/advisor/internal/wording"
 )
@@ -83,6 +85,28 @@ func roleOf(class string, p *character.Profile) string {
 	}
 	return "damage"
 }
+
+// orderSuffixes puts the suffixes in the order of the stat weights of the character's play style: the
+// one giving the most wanted stats first (the sum of the weights of its stats; a tie keeps the curated
+// order). Without a play style the curated order stands.
+func orderSuffixes(c character.Character, keys []string) []string {
+	p, ok := statcompass.For(c, "")
+	if !ok {
+		return keys
+	}
+	score := func(key string) float64 {
+		sum := 0.0
+		for _, id := range suffixes[key].Stats {
+			sum += p.Weights[statNames[id]]
+		}
+		return sum
+	}
+	out := append([]string(nil), keys...)
+	sort.SliceStable(out, func(i, j int) bool { return score(out[i]) > score(out[j]) })
+	return out
+}
+
+var statNames = map[int64]string{statAgility: statcompass.Agility, statStrength: statcompass.Strength, statIntellect: statcompass.Intellect, statSpirit: statcompass.Spirit, statStamina: statcompass.Stamina}
 
 // baseName is an item's name without a known stat suffix: "Striking Hammer of the Bear" is
 // "Striking Hammer".
@@ -194,7 +218,7 @@ func Shop(c character.Character, ds store.DataStore, slot string, cands []gear.C
 
 	rows, _ := ds.Filter("items", store.Range{Column: "required_level", Min: 0, Max: int64(*c.Level + gear.EquipWindow)})
 	var quoted []string
-	for _, key := range wantedSuffixes[strings.ToUpper(c.Class)][roleOf(c.Class, c.Profile)] {
+	for _, key := range orderSuffixes(c, wantedSuffixes[strings.ToUpper(c.Class)][roleOf(c.Class, c.Profile)]) {
 		if s := suffixes[key]; verified(s, rows) {
 			sh.Suffixes = append(sh.Suffixes, fmt.Sprintf("%s (%s)", s.Name, s.Words))
 			quoted = append(quoted, "'"+s.Name+"'")

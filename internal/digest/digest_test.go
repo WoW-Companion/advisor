@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"github.com/parquet-go/parquet-go"
 
@@ -549,5 +550,31 @@ func TestBuildProgressObjectives(t *testing.T) {
 	want := []Objective{{"Peacebloom", 3, 8, true}, {Text: "Bring a flask of tea"}}
 	if got.Kind != KindProgress || got.Title != "Gather Peacebloom" || got.Level != 12 || got.Zone != "Dunemark" || fmt.Sprint(got.Objectives) != fmt.Sprint(want) {
 		t.Errorf("got %+v", got)
+	}
+}
+
+// A character with a play style gets the optional stats entry, short and plain; one without gets none.
+func TestStatsEntry(t *testing.T) {
+	ds := synthStore(t)
+	c := synthChar()
+	if d := Build(c, ds, synthOpt); d.Stats != nil {
+		t.Errorf("stats without a play style: %+v", d.Stats)
+	}
+	c.Profile = &character.Profile{Role: "healer", Focus: "leveling", Spec: "Discipline"}
+	d := Build(c, ds, synthOpt)
+	if d.Stats == nil || len(d.Stats.Insights) == 0 || len(d.Stats.Insights) > 3 || d.Stats.Profile != "Discipline · leveling" || len(d.Stats.Asks) == 0 {
+		t.Fatalf("stats = %+v", d.Stats)
+	}
+	for _, in := range d.Stats.Insights {
+		if utf8.RuneCountInString(in) > 90 || strings.Contains(in, "%") {
+			t.Errorf("insight %q", in)
+		}
+	}
+	got := one(d).Lua()
+	if err := SlotCheck(got); err != nil {
+		t.Error(err)
+	}
+	if _, err := lua.Parse(got); err != nil || !strings.Contains(got, "stats = { profile = ") {
+		t.Errorf("lua: %v", err)
 	}
 }

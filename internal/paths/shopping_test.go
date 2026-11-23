@@ -216,3 +216,41 @@ func TestWaysAreRankedWithTheAuctionHouseInTheMiddle(t *testing.T) {
 		}
 	}
 }
+
+// TestSuffixOrderFollowsPlayStyle: the same shop, listed by the play style's stat weights: Fury puts
+// Strength + Agility ahead of Strength + Stamina, Protection the reverse.
+func TestSuffixOrderFollowsPlayStyle(t *testing.T) {
+	ds := store.New(store.ReaderSource{
+		"items": tbl(t, []itemRow{
+			chain(201, "Ridged Chain Vest", 14, 8, 2, 0),
+			stats(chain(202, "Ridged Chain Vest of the Bear", 14, 8, 2, 0), 4, 7),
+			stats(chain(203, "Ridged Chain Vest of the Monkey", 14, 8, 2, 0), 3, 7),
+			stats(chain(204, "Ridged Chain Vest of the Tiger", 14, 8, 2, 0), 4, 3),
+			stats(chain(205, "Ridged Chain Vest of Stamina", 14, 8, 2, 0), 7),
+			stats(chain(206, "Ridged Chain Vest of Strength", 14, 8, 2, 0), 4),
+		}),
+		"loot_sources": tbl(t, append(manyCreatures(201), append(manyCreatures(202), append(manyCreatures(203), append(manyCreatures(204), append(manyCreatures(205), manyCreatures(206)...)...)...)...)...)),
+		"npcs":         tbl(t, []npcRow{}),
+	})
+	order := func(role, spec string) string {
+		c := shopWarrior(role)
+		c.Profile.Spec = spec
+		sh, ok := ShoppingList(c, ds, "", "chest", Options{})
+		if !ok {
+			t.Fatal("no list")
+		}
+		var n []string
+		for _, s := range sh.Suffixes {
+			n = append(n, suffixName(s))
+		}
+		return strings.Join(n, ", ")
+	}
+	fury, prot := order("damage", "Fury"), order("tank", "Protection")
+	if !strings.HasPrefix(fury, "of the Tiger, of the Bear") {
+		t.Errorf("Fury: %s", fury)
+	}
+	if !strings.HasPrefix(prot, "of the Bear, of the Monkey") {
+		t.Errorf("Protection: %s", prot)
+	}
+	t.Logf("Fury: %s | Protection: %s", fury, prot)
+}
