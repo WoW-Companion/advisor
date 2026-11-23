@@ -84,7 +84,7 @@
       <label class="row"><span class="lbl">Role</span><span class="ctl"><select id="style-role"><option value="">Not set</option><option value="damage">Damage</option><option value="tank">Tank</option><option value="healer">Healer</option><option value="balanced">Balanced</option></select></span></label>
       <label class="row"><span class="lbl">Focus</span><span class="ctl"><select id="style-focus"><option value="">Not set</option><option value="leveling">Leveling</option><option value="dungeons">Dungeons</option><option value="pvp">PvP</option><option value="mixed">Mixed</option></select></span></label>
       <label class="row"><span class="lbl">Spec</span><span class="ctl"><input id="style-spec" placeholder="for example Fury"></span></label>
-      <small>For the character chosen above. Talent advice follows it; ask "What talents should I get?" and the AI asks once if it is not set.</small>
+      <small>For the character chosen above. Talent advice follows it; the buttons also appear in the chat when a question needs it.</small>
     </details>
     <details class="grp" data-group="game">
       <summary>Game</summary>
@@ -116,6 +116,7 @@
   <section id="next" class="next">
     <button id="next-head" class="next-head" type="button" aria-expanded="true"><b>Next</b><span id="next-line"></span></button>
     <ol id="next-list"></ol>
+    <div id="entries"></div>
     <div id="plan" class="plan" hidden><b>Plan</b><span id="plan-line"></span><ol id="plan-list"></ol></div>
   </section>
 
@@ -128,6 +129,7 @@
 </main>
 <script src="version.js"></script>
 <script src="nextlist.js"></script>
+<script src="asking.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

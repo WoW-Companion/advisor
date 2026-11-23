@@ -9,7 +9,7 @@ import (
 // it streams; the "Question from game" toast is off unless the setting is on.
 func TestAskFeedShowsInGameAsks(t *testing.T) {
 	js := read(t, "app.js")
-	for _, want := range []string{"'asked in game'", "e.status === 'answering'", "cfg.gameToast === true", "gameToast: false", "Question from game", "e.source === 'game'"} {
+	for _, want := range []string{"WowcAsking.gameMark", "e.status === 'answering'", "cfg.gameToast === true", "gameToast: false", "Question from game", "e.source === 'game'"} {
 		if !strings.Contains(js, want) {
 			t.Errorf("app.js lacks %s", want)
 		}
