@@ -24,7 +24,7 @@ import (
 
 // Schema is the version of one character's entry; EnvelopeSchema is the file's.
 const (
-	Schema         = "1.8"
+	Schema         = "1.9"
 	EnvelopeSchema = "2.0"
 )
 
@@ -98,7 +98,7 @@ type Line struct {
 	// Schema 1.6. Why is one short, factual reason (at most MaxWhy characters), left out when no fact fits.
 	Why string
 	// Schema 1.7, upgrades: Wear is "Wear now" or "From level N", Gain "Big upgrade", "Solid upgrade" or
-	// "Small upgrade", Replaces "instead of your <item>" or "fills an empty slot", How the best path's
+	// "Small upgrade", Replaces the worn item's name alone ("" for an empty slot; schema 1.9), How the best path's
 	// one line and PathKind its kind (quest, craft, auction, dungeon or creature), for the icon.
 	Wear, Gain, Replaces, How, PathKind string
 	// Unlocks is on a turn-in line: the follow-ups turning it in unlocks (not written to Digest.lua).

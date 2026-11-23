@@ -242,6 +242,8 @@ func Find(c character.Character, ds store.DataStore, group string, opt Options) 
 	if !ok {
 		return res, fmt.Errorf("no gear rules for class %q yet", c.Class)
 	}
+	// Dual Wield is only offered once it is learned (see weapons.go).
+	rl.DualWield = rl.DualWield && knowsDualWield(c, ds, strings.ToUpper(c.Class))
 	var w map[int64]float64
 	if p, ok := stats.For(c, group); ok {
 		// The player's play style: the stat compass's weights, shared with the stat check and the
@@ -260,6 +262,7 @@ func Find(c character.Character, ds store.DataStore, group string, opt Options) 
 	if err != nil {
 		return res, fmt.Errorf("items table: %w", err)
 	}
+	lo := loadoutOf(c, ds, group)
 	bySlot := map[string][]Item{}
 	anyStats := false
 	for _, row := range rows {
@@ -294,7 +297,7 @@ func Find(c character.Character, ds store.DataStore, group string, opt Options) 
 
 	ranked := map[string][]Candidate{}
 	for slot, items := range bySlot {
-		ranked[slot] = rank(c, ds, slot, items, w)
+		ranked[slot] = rank(c, ds, slot, items, w, lo)
 	}
 	for _, pair := range pairedSlots {
 		dedupe(ranked, c, pair[0], pair[1], opt.Limit)
@@ -381,7 +384,7 @@ func dedupe(ranked map[string][]Candidate, c character.Character, a, b string, l
 }
 
 // rank scores the items against what the character wears in slot and keeps the upgrades.
-func rank(c character.Character, ds store.DataStore, slot string, items []Item, w map[int64]float64) []Candidate {
+func rank(c character.Character, ds store.DataStore, slot string, items []Item, w map[int64]float64, lo loadout) []Candidate {
 	eq, worn := c.Equipment[slot]
 	worn = worn && (eq.ItemID != nil && *eq.ItemID != 0 || eq.ItemLevel != nil)
 	var cur Item
@@ -401,9 +404,17 @@ func rank(c character.Character, ds store.DataStore, slot string, items []Item, 
 	}
 	var out []Candidate
 	for _, it := range items {
-		byStats := w != nil && it.StatsKnown && (!worn || curKnown && cur.StatsKnown)
+		if !lo.allows(slot, it) {
+			continue
+		}
+		// A two-hander also takes the off hand: it is weighed against both slots together.
+		var off *Item
+		if slot == "mainhand" && it.Slot == invTwoHand && lo.off != nil {
+			off = lo.off
+		}
+		byStats := w != nil && it.StatsKnown && (!worn || curKnown && cur.StatsKnown) && (off == nil || off.StatsKnown)
 		// An item that is not above what is worn, or a placeholder for an empty slot, is no upgrade.
-		if worn && it.ItemLevel <= cur.ItemLevel || !worn && it.ItemLevel <= 1 {
+		if off == nil && (worn && it.ItemLevel <= cur.ItemLevel || !worn && it.ItemLevel <= 1) {
 			continue
 		}
 		cand := Candidate{Item: it, Slot: slot, Basis: BasisItemLevel, Empty: !worn}
@@ -415,6 +426,9 @@ func rank(c character.Character, ds store.DataStore, slot string, items []Item, 
 		cand.Delta = cand.Score
 		if worn {
 			cand.Delta -= score(cur, w, byStats)
+			if off != nil {
+				cand.Delta -= score(*off, w, byStats)
+			}
 			if cand.Delta <= 0 {
 				continue
 			}

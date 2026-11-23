@@ -195,7 +195,10 @@ type Character struct {
 	// Profile and Plan are the player's own, kept locally (internal/profile) and attached after the
 	// capture is read; nil when the player has set none. They are never part of a capture.
 	Profile *Profile
-	Plan    *TalentPlan
+	// KnownSpells are the spell ids the character knows (a recipe's spell id included), when a capture
+	// lists them; nil when it does not.
+	KnownSpells map[int64]bool
+	Plan        *TalentPlan
 	// Totals are the stat totals the addon records (WoWCompanionDB.stats), attached with AttachTotals;
 	// nil when none.
 	Totals *Totals

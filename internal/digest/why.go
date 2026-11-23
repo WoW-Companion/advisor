@@ -98,14 +98,11 @@ func trainingWhy(spells []TrainSpell) string {
 	return ""
 }
 
-// upgradeWhy is the gain of an upgrade in plain words: an empty slot filled, or how big the upgrade is.
+// upgradeWhy is the one fact an upgrade's other fields do not hold: it adds a stat the character is
+// short on. Empty otherwise.
 func upgradeWhy(c character.Character, slot string, cd gear.Candidate, short string) string {
-	name := strings.ToLower(wording.SlotName(slot, cd.Item.Slot))
 	if short != "" && cd.Item.HasStat(short) {
-		return firstWhy("Adds the "+stats.Name(short)+" you're short on", GainWord(cd)+" for your "+name)
+		return firstWhy("Adds the " + stats.Name(short) + " you're short on")
 	}
-	if cd.Empty {
-		return firstWhy("Fills your empty " + name + " slot")
-	}
-	return firstWhy(GainWord(cd) + " for your " + name)
+	return "" // the gain and the slot are fields of their own
 }

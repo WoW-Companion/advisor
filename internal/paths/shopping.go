@@ -23,7 +23,9 @@ type Shopping struct {
 	Suffixes []string `json:"suffixes,omitempty" jsonschema:"stat suffixes that fit, in plain words"`
 	Examples []string `json:"examples,omitempty" jsonschema:"one to three base items that drop in this range"`
 	Line     string   `json:"line" jsonschema:"one line for the digest"`
-	Steps    []string `json:"search_steps" jsonschema:"the in-game search, step by step"`
+	// Desc is the list's kind of item, level range and suffixes alone: no slot, no gain.
+	Desc  string   `json:"-"`
+	Steps []string `json:"search_steps" jsonschema:"the in-game search, step by step"`
 	// Best is the best upgrade among the items that fit the list.
 	Best gear.Candidate `json:"-"`
 }
@@ -174,6 +176,9 @@ func Shop(c character.Character, ds store.DataStore, slot string, cands []gear.C
 		if cd.Soon {
 			continue // not an upgrade for them now
 		}
+		if len(els) > 0 && cd.Item.Slot != els[0].cd.Item.Slot {
+			continue // one kind of item per list: a one-hander list never holds a two-hander
+		}
 		row, err := ds.Get("items", cd.Item.ID)
 		if err != nil {
 			continue
@@ -213,7 +218,10 @@ func Shop(c character.Character, ds store.DataStore, slot string, cands []gear.C
 	case isArmorSlot:
 		sh.Type = noun
 	default:
-		sh.Type = strings.ToLower(wording.SlotName(slot, 0))
+		sh.Type = strings.ToLower(wording.SlotName(slot, sh.Best.Item.Slot))
+		if _, hand := map[int]bool{13: true, 17: true, 21: true, 22: true}[sh.Best.Item.Slot]; hand {
+			sh.Type += " weapon"
+		}
 	}
 
 	rows, _ := ds.Filter("items", store.Range{Column: "required_level", Min: 0, Max: int64(*c.Level + gear.EquipWindow)})
@@ -224,12 +232,12 @@ func Shop(c character.Character, ds store.DataStore, slot string, cands []gear.C
 			quoted = append(quoted, "'"+s.Name+"'")
 		}
 	}
-	name := wording.SlotName(slot, 0)
-	sh.Line = fmt.Sprintf("%s: any green %s, level %s", name, sh.Type, levelRange(lo, hi))
+	name := wording.SlotName(slot, sh.Best.Item.Slot)
+	sh.Desc = fmt.Sprintf("any green %s, level %s", sh.Type, levelRange(lo, hi))
 	if len(quoted) > 0 {
-		sh.Line += ", " + joinOr(quoted)
+		sh.Desc += ", " + joinOr(quoted)
 	}
-	sh.Line += " — cheap on the Auction House"
+	sh.Line = name + ": " + sh.Desc + " — cheap on the Auction House"
 	sh.Steps = searchSteps(sh, isArmorSlot, armor)
 	return sh, true
 }
@@ -259,13 +267,13 @@ func contains(l []string, s string) bool {
 
 // searchSteps is the in-game Auction House search in plain steps. Never a price.
 func searchSteps(sh Shopping, armorSlot bool, armor string) []string {
-	filter := "In the Auction House's Browse tab, pick the " + strings.ToLower(wording.SlotName(sh.Slot, 0)) + " slot"
+	filter := "In the Auction House's Browse tab, pick the " + strings.ToLower(wording.SlotName(sh.Slot, sh.Best.Item.Slot)) + " slot"
 	if armorSlot {
 		filter = "In the Auction House's Browse tab, pick Armor"
 		if armor != "" {
 			filter += ", then " + wording.Upper(armor)
 		}
-		filter += ", then the " + strings.ToLower(wording.SlotName(sh.Slot, 0)) + " slot"
+		filter += ", then the " + strings.ToLower(wording.SlotName(sh.Slot, sh.Best.Item.Slot)) + " slot"
 	}
 	steps := []string{
 		filter + ".",

@@ -381,25 +381,19 @@ func (f *finder) craft() (Path, bool) {
 		if !ok {
 			continue
 		}
-		line := fmt.Sprintf("Make it with your %s", prof)
-		if need > 0 {
-			line += fmt.Sprintf(" (the recipe needs skill %d, you have %d; learn it from your trainer if you haven't)", need, have)
-		} else {
-			line += " (learn the recipe from your trainer if you haven't)"
+		line := fmt.Sprintf("Learn it from a %s trainer, then make it", prof)
+		if f.c.KnownSpells[i64(r["spell_id"])] {
+			line = fmt.Sprintf("You can make this (%s)", prof)
 		}
-		var miss []string
+		var mats []string
+		missing := 0
 		for _, g := range reagents {
-			if g.Missing > 0 {
-				miss = append(miss, fmt.Sprintf("%d more %s", g.Missing, g.Name))
-			}
+			mats = append(mats, fmt.Sprintf("%d/%d %s", min(g.Have, g.Need), g.Need, g.Name))
+			missing += g.Missing
 		}
-		if len(miss) == 0 {
-			line += "; you have every material"
-		} else {
-			line += "; you still need " + strings.Join(miss, ", ")
-		}
+		line += "; have " + strings.Join(mats, ", ")
 		rank := rankCraft
-		if len(miss) == 0 {
+		if missing == 0 {
 			rank = rankReadyCraft
 		}
 		return Path{Kind: Craft, Line: line, Reagents: reagents, rank: rank}, true

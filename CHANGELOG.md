@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.14
+
+- Cleaner upgrade cards. Each fact now shows once: the item's name, then its slot, when to wear it, how big the gain is, and the item it replaces (just its name). The same words no longer repeat in the title, the badges and the details, and a shopping entry no longer starts with "Cloak: Cloak:".
+- Weapons and off-hands you can really use. You are only offered an off-hand weapon once you have learned Dual Wield (a level 10 warrior is not), a shield is only replaced by a better shield, and a two-hander is only suggested over a one-hand weapon and shield for a damage play style where it beats both together. The slot label always matches the item: One-hand, Main hand, Two-hand, Off hand, Shield or Held in off hand.
+- Plainer crafting lines. "Learn it from a Blacksmithing trainer, then make it; have 2/4 Copper Bar", or "You can make this (Blacksmithing)" when you already know the recipe. The "recipe needs skill 1, you have 35" wording is gone and the line is no longer cut off.
+
 ## 0.7.13
 
 - A suggestion now always gets a useful answer. Click a suggested question about a class quest and the companion starts from what your Next list already knows (who gives it, where, its level, whether it is a class quest and why it is listed) instead of searching by name and saying it found no match. When little is known it says so plainly and never makes up a reward.

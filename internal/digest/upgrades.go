@@ -146,23 +146,11 @@ func upgradeLine(c character.Character, slot string, cd gear.Candidate, best pat
 		wear = fmt.Sprintf("From level %d", cd.Item.ReqLevel)
 	}
 	gain := GainWord(cd)
-	replaces := "fills an empty slot"
-	if !cd.Empty {
-		replaces = "instead of what you wear"
-		if eq, ok := c.Equipment[slot]; ok && eq.Name != "" {
-			replaces = "instead of your " + eq.Name
-		}
-	}
-	text := fmt.Sprintf("%s: %s. %s, %s, %s", name, cd.Item.Name, wear, strings.ToLower(gain), replaces)
-	l := Line{Text: clip(text), Item: int(cd.Item.ID), Slot: name, ILvl: cd.Item.ItemLevel, Wear: wear, Gain: gain, Replaces: replaces, How: oneLineHow(best.Line), PathKind: best.Kind}
+	l := Line{Text: clip(cd.Item.Name), Item: int(cd.Item.ID), Slot: name, ILvl: cd.Item.ItemLevel, Wear: wear, Gain: gain, Replaces: replacedName(c, slot, cd.Empty), How: oneLineHow(best.Line), PathKind: best.Kind}
 	if cd.Soon {
 		l.AtLevel = cd.Item.ReqLevel
 	}
-	l.Details = finishDetails([]string{
-		name + ": " + cd.Item.Name,
-		wear + ". " + gain + ", " + replaces,
-		wording.Upper(best.Line),
-	})
+	l.Details = finishDetails([]string{wording.Upper(best.Line)}) // the way in full; the item, wear, gain and replaces are fields
 	l.Asks, l.Ref = upgradeAsks(cd.Item.Name), itemRef(int(cd.Item.ID))
 	l.Why = upgradeWhy(c, slot, cd, short)
 	return l
@@ -173,32 +161,31 @@ func upgradeLine(c character.Character, slot string, cd gear.Candidate, best pat
 func shoppingLine(c character.Character, slot string, sh paths.Shopping) Line {
 	name := wording.SlotName(slot, sh.Best.Item.Slot)
 	gain := GainWord(sh.Best)
-	replaces := "fills an empty slot"
-	if !sh.Best.Empty {
-		replaces = "instead of what you wear"
-		if eq, ok := c.Equipment[slot]; ok && eq.Name != "" {
-			replaces = "instead of your " + eq.Name
-		}
-	}
 	how := auctionHow(sh)
-	l := Line{Text: clip(sh.Line), Slot: name, Wear: "Wear now", Gain: gain, Replaces: replaces, How: how, PathKind: paths.Auction}
-	details := []string{sh.Line}
+	l := Line{Text: clip(sh.Desc), Slot: name, Wear: "Wear now", Gain: gain, Replaces: replacedName(c, slot, sh.Best.Empty), How: how, PathKind: paths.Auction}
+	var details []string
 	if len(sh.Suffixes) > 0 {
 		details = append(details, "Suffixes that fit: "+strings.Join(sh.Suffixes, "; "))
 	}
 	if len(sh.Examples) > 0 {
 		details = append(details, "Examples: "+strings.Join(sh.Examples, ", "))
 	}
-	l.Details = finishDetails(append(details, wear(gain, replaces)))
+	l.Details = finishDetails(details)
 	if len(sh.Steps) > 0 { // the full search steps live here, whole, not in how
 		l.Details = append(l.Details[:min(len(l.Details), MaxDetails-1)], "Search steps: "+strings.Join(sh.Steps, " "))
 	}
 	l.Asks, l.Ref = shoppingAsks(), noteRef("auction-"+slot)
-	l.Why = firstWhy(gain + " for your " + strings.ToLower(name))
 	return l
 }
 
-func wear(gain, replaces string) string { return "Wear now. " + gain + ", " + replaces }
+// replacedName is the name of the item in the slot, nothing but the name; empty for an empty slot (or
+// when the capture holds no name for it).
+func replacedName(c character.Character, slot string, empty bool) string {
+	if empty {
+		return ""
+	}
+	return c.Equipment[slot].Name
+}
 
 // groupOf is the character's one top talent group name; "" when unknown or split.
 func groupOf(c character.Character) string {
