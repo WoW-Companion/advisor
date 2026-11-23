@@ -208,6 +208,9 @@ type Subject struct {
 	Ref, Kind, Text string
 	Details         []string
 	Place, Of       int // the 1-based position in the next-quests plan, and its length
+	// Line is the entry itself when it is a section line (not a dungeon or talent line): its ids,
+	// giver, zone, level, class flag, why and objectives.
+	Line *Line
 }
 
 // AllAsks lists every entry's questions with their refs.
@@ -242,7 +245,8 @@ func (d Digest) Subject(ref string) (Subject, bool) {
 			if l.Ref != ref {
 				continue
 			}
-			sub := Subject{Ref: ref, Kind: l.Kind, Text: l.Text, Details: l.Details}
+			line := l
+			sub := Subject{Ref: ref, Kind: l.Kind, Text: l.Text, Details: l.Details, Line: &line}
 			if s.ID == NextQuests {
 				sub.Place, sub.Of = i+1, len(s.Lines)
 			}

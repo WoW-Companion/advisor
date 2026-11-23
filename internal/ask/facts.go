@@ -38,7 +38,7 @@ func Facts(cfg Config, q Question) string {
 	}
 	c, f := cc.c, cc.f
 	if cc.ds == nil {
-		return NoDataFacts + "\n\n" + subjectFacts(cc, q) + capRunes(brief.Character(c, f.ClientOf(c), time.Now()), FactsBudget)
+		return NoDataFacts + "\n\n" + subjectFacts(cfg, cc, q) + capRunes(brief.Character(c, f.ClientOf(c), time.Now()), FactsBudget)
 	}
 	all := advice.WhatsNextWith(c, cc.ds, cc.qx)
 	next := advice.Render(c, advice.Limit(all, FactsSteps), len(all))
@@ -49,7 +49,7 @@ func Facts(cfg Config, q Question) string {
 	if g, ok := digest.FindGiver(c, cc.qx, digest.PlanQuests(all), digest.PlanNPCs(all)); ok {
 		giver = "Quest giver with something for the character now (not in the plan): " + g.Text() + "."
 	}
-	return capRunes(subjectFacts(cc, q)+brief.Character(c, f.ClientOf(c), time.Now())+"\n\n"+styleLine(c)+"\n\n"+next+join(giver), FactsBudget)
+	return capRunes(subjectFacts(cfg, cc, q)+brief.Character(c, f.ClientOf(c), time.Now())+"\n\n"+styleLine(c)+"\n\n"+next+join(giver), FactsBudget)
 }
 
 func join(s string) string {
@@ -107,9 +107,19 @@ func ResolveRef(cfg Config, q Question) string {
 	return cc.digest().RefFor(q.Text)
 }
 
+// GroundingRules tell the agent how to use a subject's facts: they are the answer's first source, ids
+// are the key for lookups (a quest or item can be missing from the dataset by name), and a miss is
+// never reported to the player as "no match".
+const GroundingRules = "How to answer: answer from these facts first. Look anything up by id (quest id, NPC id, item id), " +
+	"never by name alone. A lookup that finds nothing is not an answer: never tell the player there was \"no match\" or that " +
+	"you cannot tell what this is. When the facts are thin, say plainly what they do show (who gives it, where, the level, " +
+	"whether it is a class quest, why it is listed) and what it usually means. Never invent specifics such as a reward, " +
+	"an ability name or a location that is not in the facts."
+
 // subjectFacts is the block that expands q's ref into the entry's facts and its place in the plan, with
-// a closing blank line; "" without a ref or when the entry is gone.
-func subjectFacts(cc loaded, q Question) string {
+// a closing blank line; "" without a ref or when the entry is gone. The entry's own facts (title,
+// kind, ids, giver, zone, coordinates, level, class flag, why, details, plan step) are always put in.
+func subjectFacts(cfg Config, cc loaded, q Question) string {
 	d := cc.digest()
 	ref := q.Ref
 	if ref == "" {
@@ -121,6 +131,7 @@ func subjectFacts(cc loaded, q Question) string {
 	}
 	var b strings.Builder
 	b.WriteString("The player's short question is about this entry of their panel; answer it with this context.\nSubject: " + sub.Text + "\n")
+	b.WriteString(entryFacts(cfg, cc, sub))
 	for _, d := range sub.Details {
 		b.WriteString("- " + d + "\n")
 	}
@@ -129,7 +140,59 @@ func subjectFacts(cc loaded, q Question) string {
 	} else {
 		b.WriteString("Place in the plan: not one of the plan's steps.\n")
 	}
+	b.WriteString(GroundingRules + "\n")
 	return b.String() + "\n"
+}
+
+// entryFacts lists the structured facts of a subject, one "Label: value" line each; nothing unknown.
+func entryFacts(cfg Config, cc loaded, sub digest.Subject) string {
+	var b strings.Builder
+	put := func(k, v string) {
+		if v != "" {
+			b.WriteString(k + ": " + v + "\n")
+		}
+	}
+	put("Ref", sub.Ref)
+	put("Kind", sub.Kind)
+	l := sub.Line
+	if l == nil {
+		return b.String()
+	}
+	put("Title", l.Title)
+	if l.Quest > 0 {
+		put("Quest id", fmt.Sprint(l.Quest))
+	}
+	if l.Item > 0 {
+		put("Item id", fmt.Sprint(l.Item))
+	}
+	if strings.HasPrefix(sub.Ref, "npc:") {
+		put("NPC id", strings.TrimPrefix(sub.Ref, "npc:"))
+	}
+	put("Giver or turn-in NPC", l.NPC)
+	put("Zone", l.Zone)
+	if l.Level > 0 {
+		put("Level", fmt.Sprint(l.Level))
+	}
+	if l.Class {
+		put("Class quest", "yes (this character's own class)")
+	}
+	if l.Elite {
+		put("Elite or group quest", "yes")
+	}
+	put("Why it is listed", l.Why)
+	for _, o := range l.Objectives {
+		put("Objective", o.Text)
+	}
+	if l.Quest > 0 && cc.qx != nil && cc.ds != nil {
+		p := route.BuildWith(cc.c, cc.qx, route.OptionsFor(cfg.SavedVariables, cc.ds))
+		for _, s := range p.Steps {
+			if s.QuestID == l.Quest {
+				put("Plan step", fmt.Sprintf("%d. %s (%.0f, %.0f)", s.N, s.Label, s.X, s.Y))
+				break
+			}
+		}
+	}
+	return b.String()
 }
 
 // styleLine is one line of the saved play style, or the reminder that none is saved.
