@@ -214,9 +214,6 @@ func styleLine(c character.Character) string {
 	if c.Profile.Spec != "" {
 		s += ", " + c.Profile.Spec
 	}
-	if c.Plan != nil {
-		s += "; talent plan from " + c.Plan.GuideURL + " saved " + c.Plan.Date
-	}
 	return s + "."
 }
 
@@ -250,7 +247,7 @@ func (c Config) Prompt(q Question) string {
 	if i < 0 {
 		return p
 	}
-	return p[:i] + talentRule(CanFetchGuide(c.Command, q.Text)) + p[i+1:]
+	return p[:i] + talentRule() + p[i+1:]
 }
 
 // PathStepsRule is added when the player asks an upgrade's first question, the one that follows the

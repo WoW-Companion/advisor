@@ -60,13 +60,11 @@ All character tools take an optional `character` name (omit it when only one was
    where to run, `inventory_review` for what to do with bags and bank. Each step carries its reason and source; relay them, and say "unknown" where a
    step says a level or zone is unknown.
 3. Talents: call `get_character_profile` first. If `needs_profile` is true, ask the player its short
-   multiple-choice question and stop; save the answer with `set_character_profile`. With a saved plan,
-   relay its next picks as the tools give them and credit the guide with its link. Build or refresh the
-   plan only when none is saved, the player asks to refresh it, or the spec changed: call `talent_tree`,
-   read the player's chosen guide (default: the Icy Veins WoW: Forever guide, found from the class
-   overview page; only that site, only if your client can fetch it narrowly, else show the link), then
-   save a plan of node names copied exactly from `talent_tree` and target ranks. Never store, quote or
-   copy guide text.
+   multiple-choice question and stop; save the answer with `set_character_profile`. Then call
+   `talent_plan`: the next pick comes from the advisor's curated build for the saved spec, with the
+   build's reason. Answer "Take <talent> (<rank>): <reason>." with at most 2 bullets. Never look a
+   guide up on the web. With no build for the class or spec, say so in one line and name the talents
+   it lists as options, not a recommendation.
 4. Base every statement about their character on what the tools returned.
 5. Name your source in the answer: "ForeverScribe capture at <time>", as the brief states it.
 

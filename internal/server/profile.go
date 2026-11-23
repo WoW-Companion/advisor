@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
@@ -13,34 +12,21 @@ import (
 	"github.com/WoW-Companion/advisor/internal/talents"
 )
 
-// TalentPlanInput is a talent plan as the model builds it from the player's guide: node names and target
-// ranks only. Guide text is never passed here.
-type TalentPlanInput struct {
-	Spec     string               `json:"spec" jsonschema:"the spec the guide is for, for example Fury"`
-	GuideURL string               `json:"guide_url" jsonschema:"the https URL of the guide the plan came from"`
-	Picks    []character.PlanPick `json:"picks" jsonschema:"talent nodes in the order to take them: node is the exact name from talent_tree, rank is the rank to reach"`
-}
-
 // ProfileInput is the set_character_profile argument.
 type ProfileInput struct {
-	Character string           `json:"character,omitempty" jsonschema:"character name; omit when only one was captured"`
-	Role      string           `json:"role,omitempty" jsonschema:"damage, tank, healer or balanced; required the first time"`
-	Focus     string           `json:"focus,omitempty" jsonschema:"leveling, dungeons, pvp or mixed; required the first time"`
-	Spec      string           `json:"spec,omitempty" jsonschema:"the spec tree the player chose, for example Fury"`
-	StatPref  string           `json:"stat_pref,omitempty" jsonschema:"optional stat preference: balanced, damage (more damage) or survival (more survivability)"`
-	GuideURL  string           `json:"guide_url,omitempty" jsonschema:"the player's chosen guide page (https); omit for the default Icy Veins WoW: Forever guide"`
-	Plan      *TalentPlanInput `json:"plan,omitempty" jsonschema:"a new talent plan; nodes not in the captured tree are dropped and listed"`
+	Character string `json:"character,omitempty" jsonschema:"character name; omit when only one was captured"`
+	Role      string `json:"role,omitempty" jsonschema:"damage, tank, healer or balanced; required the first time"`
+	Focus     string `json:"focus,omitempty" jsonschema:"leveling, dungeons, pvp or mixed; required the first time"`
+	Spec      string `json:"spec,omitempty" jsonschema:"the spec tree the player chose, for example Fury"`
+	StatPref  string `json:"stat_pref,omitempty" jsonschema:"optional stat preference: balanced, damage (more damage) or survival (more survivability)"`
 }
 
 // ProfileOutput is the get_character_profile and set_character_profile result.
 type ProfileOutput struct {
-	Character    string                `json:"character"`
-	Profile      *character.Profile    `json:"profile"`
-	NeedsProfile bool                  `json:"needs_profile" jsonschema:"no play style is saved: ask the player first"`
-	Plan         *character.TalentPlan `json:"plan,omitempty"`
-	Dropped      []string              `json:"dropped,omitempty" jsonschema:"plan entries not saved, with the reason"`
-	Overview     string                `json:"guide_overview_url,omitempty" jsonschema:"where to find the default guide for the class"`
-	Text         string                `json:"text" jsonschema:"plain-text rendering"`
+	Character    string             `json:"character"`
+	Profile      *character.Profile `json:"profile"`
+	NeedsProfile bool               `json:"needs_profile" jsonschema:"no play style is saved: ask the player first"`
+	Text         string             `json:"text" jsonschema:"plain-text rendering"`
 }
 
 // TreeInput is the talent_tree argument.
@@ -74,38 +60,19 @@ func renderProfile(c character.Character) string {
 		if p.StatPref != "" {
 			b.WriteString(", stat preference " + p.StatPref)
 		}
-		if p.GuideURL != "" {
-			b.WriteString(", guide " + p.GuideURL)
-		}
 		b.WriteString("\n")
-	}
-	switch g, ok := talents.GuideNext(c, 5); {
-	case !ok:
-		if c.Profile != nil {
-			b.WriteString("No talent plan saved. To build one: call talent_tree, fetch the guide (default: " + profile.Overview(c.Class) + ", then the spec's guide), then call set_character_profile with a plan of node names and ranks only.\n")
-		}
-	default:
-		fmt.Fprintf(&b, "Talent plan: %s, saved %s.\n", g.Source(), g.Date)
-		if len(g.Next) > 0 {
-			b.WriteString("Next picks: " + g.Describe() + "\n")
-		} else if g.Done {
-			b.WriteString("Every node of the plan is at its target rank.\n")
-		}
-		for _, n := range g.Notes() {
-			b.WriteString("Note: " + n + "\n")
-		}
 	}
 	return b.String()
 }
 
-func profileOutput(c character.Character, dropped []string) ProfileOutput {
-	return ProfileOutput{displayName(c), c.Profile, c.Profile == nil, c.Plan, dropped, profile.Overview(c.Class), renderProfile(c)}
+func profileOutput(c character.Character) ProfileOutput {
+	return ProfileOutput{displayName(c), c.Profile, c.Profile == nil, renderProfile(c)}
 }
 
 func addProfileTools(s *mcp.Server, cfg Config) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "get_character_profile",
-		Description: "The character's saved play style (role, focus, spec, guide) and talent plan. When none is saved, the result is the " +
+		Description: "The character's saved play style (role, focus, spec). When none is saved, the result is the " +
 			"multiple-choice question to put to the player before any talent advice. Stored locally on the player's PC.",
 	}, func(_ context.Context, _ *mcp.CallToolRequest, in TreeInput) (*mcp.CallToolResult, ProfileOutput, error) {
 		f, errResult := load(cfg.SavedVariables)
@@ -116,7 +83,7 @@ func addProfileTools(s *mcp.Server, cfg Config) {
 		if err != nil {
 			return toolError(err.Error()), ProfileOutput{}, nil
 		}
-		return nil, profileOutput(c, nil), nil
+		return nil, profileOutput(c), nil
 	})
 
 	mcp.AddTool(s, &mcp.Tool{
@@ -133,7 +100,6 @@ func addProfileTools(s *mcp.Server, cfg Config) {
 		if err != nil {
 			return toolError(err.Error()), ProfileOutput{}, nil
 		}
-		var dropped []string
 		saved, err := profile.Update(cfg.profilesPath(), c.Key, func(e *profile.Entry) error {
 			p := character.Profile{}
 			if e.Profile != nil {
@@ -142,7 +108,7 @@ func addProfileTools(s *mcp.Server, cfg Config) {
 			for _, v := range []struct {
 				to   *string
 				from string
-			}{{&p.Role, in.Role}, {&p.Focus, in.Focus}, {&p.Spec, in.Spec}, {&p.GuideURL, in.GuideURL}, {&p.StatPref, in.StatPref}} {
+			}{{&p.Role, in.Role}, {&p.Focus, in.Focus}, {&p.Spec, in.Spec}, {&p.StatPref, in.StatPref}} {
 				if strings.TrimSpace(v.from) != "" {
 					*v.to = v.from
 				}
@@ -152,26 +118,19 @@ func addProfileTools(s *mcp.Server, cfg Config) {
 				return err
 			}
 			e.Profile = &p
-			if in.Plan != nil {
-				chk, err := profile.ValidatePlan(c, character.TalentPlan{Spec: in.Plan.Spec, GuideURL: in.Plan.GuideURL, Date: time.Now().Format("2006-01-02"), Picks: in.Plan.Picks})
-				if err != nil {
-					return err
-				}
-				e.Plan, dropped = &chk.Plan, chk.Dropped
-			}
 			return nil
 		})
 		if err != nil {
 			return toolError("Not saved: " + err.Error()), ProfileOutput{}, nil
 		}
-		c.Profile, c.Plan = saved.Profile, saved.Plan
-		return nil, profileOutput(c, dropped), nil
+		c.Profile = saved.Profile
+		return nil, profileOutput(c), nil
 	})
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "talent_tree",
 		Description: "The captured class talent tree: every node's exact name, branch, rank and max rank, and whether it can be bought. " +
-			"Use these names, and only these, when building a talent plan from a guide. Source: ForeverScribe capture.",
+			"Use these names, and only these, when naming a talent. Source: ForeverScribe capture.",
 	}, func(_ context.Context, _ *mcp.CallToolRequest, in TreeInput) (*mcp.CallToolResult, TreeOutput, error) {
 		f, errResult := load(cfg.SavedVariables)
 		if errResult != nil {

@@ -53,6 +53,7 @@ type Result struct {
 	OffBuild     []OffBuild
 	Remaining    int      // points the build still adds, through the character's band
 	Missing      string   // why no plan could be made; empty when there is one
+	Options      []string // with Missing: talents open now (rank below max, can be bought), as options, not a recommendation
 	Available    []string // builds in the dataset, for Missing
 	Notes        []string
 }
@@ -156,8 +157,13 @@ func nodeName(ds store.DataStore, id int64) string {
 
 // Plan compares the build for the character's spec and level band with the captured points and
 // lists the next points to spend.
-func Plan(c character.Character, ds store.DataStore, opt Options) Result {
-	p := Result{Class: c.Class, Level: c.Level}
+func Plan(c character.Character, ds store.DataStore, opt Options) (p Result) {
+	p = Result{Class: c.Class, Level: c.Level}
+	defer func() {
+		if p.Missing != "" {
+			p.Options = openOptions(c, 5)
+		}
+	}()
 	if c.Talents != nil {
 		p.Unspent = c.Talents.Unspent
 	}
@@ -177,6 +183,12 @@ func Plan(c character.Character, ds store.DataStore, opt Options) Result {
 	p.Available = available(all)
 
 	want := strings.TrimSpace(opt.Spec)
+	if want == "" && c.Profile != nil {
+		want = strings.TrimSpace(c.Profile.Spec)
+	}
+	if want == "" && c.Profile != nil {
+		want = specForRole(all, c, c.Profile.Role)
+	}
 	if want == "" {
 		var why string
 		if want, why = inferSpec(c); why != "" {
@@ -299,4 +311,73 @@ func Plan(c character.Character, ds store.DataStore, opt Options) Result {
 		p.Notes = append(p.Notes, "Unspent points not captured: the points listed may not all be affordable yet.")
 	}
 	return p
+}
+
+// roleOf is the role a spec name stands for: the tank, healer and damage specs of every class. The
+// dataset's builds carry no role, so the spec's name decides; a name not listed is damage.
+func roleOf(spec string) string {
+	switch strings.ToLower(spec) {
+	case "protection", "blood", "guardian", "brewmaster", "vengeance":
+		return "tank"
+	case "holy", "discipline", "restoration", "mistweaver", "preservation":
+		return "healer"
+	}
+	return "damage"
+}
+
+// specForRole is the build spec of the character's class that matches the stored role, or "" when
+// none does or several do and the points spent do not tell them apart.
+func specForRole(all []buildStep, c character.Character, role string) string {
+	if role == "" || role == "balanced" {
+		return ""
+	}
+	var match []string
+	seen := map[string]bool{}
+	for _, s := range all {
+		if !seen[s.spec] && roleOf(s.spec) == role {
+			seen[s.spec] = true
+			match = append(match, s.spec)
+		}
+	}
+	if len(match) == 1 {
+		return match[0]
+	}
+	if len(match) > 1 {
+		if g, why := inferSpec(c); why == "" {
+			return matchSpec(buildsOf(match), g)
+		}
+	}
+	return ""
+}
+
+func buildsOf(specs []string) []buildStep {
+	out := make([]buildStep, len(specs))
+	for i, s := range specs {
+		out[i].spec = s
+	}
+	return out
+}
+
+// openOptions are up to n captured class talents that can be bought now: a rank still open and every
+// prerequisite met (the capture says the node can be bought).
+func openOptions(c character.Character, n int) []string {
+	var out []string
+	if c.Talents == nil {
+		return nil
+	}
+	for _, t := range c.Talents.Trees {
+		if t.IsProfession() {
+			continue
+		}
+		for _, tl := range t.Talents {
+			if len(out) >= n {
+				return out
+			}
+			if tl.CanBuy == nil || !*tl.CanBuy || tl.MaxRank != nil && tl.Rank >= *tl.MaxRank {
+				continue
+			}
+			out = append(out, fmt.Sprintf("%s (rank %d)", tl.Name, tl.Rank+1))
+		}
+	}
+	return out
 }

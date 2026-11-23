@@ -156,7 +156,6 @@ func execOnce(ctx context.Context, cfg Config, q Question, prompt string, extra 
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	argv := append(WithModel(Argv(cfg.Command, prompt, cfg.MCPConfig), cfg.Command, cfg.Options), extra...)
-	argv = WithGuide(argv, cfg.Command, q.Text)
 	cmd, err := Launch(ctx, argv, "WOWC_QUESTION="+q.Text, "WOWC_CHARACTER="+q.Character, "WOWC_MCP_CONFIG="+cfg.MCPConfig)
 	if err != nil {
 		return false, err
