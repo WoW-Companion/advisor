@@ -8,6 +8,7 @@ import (
 
 	"github.com/WoW-Companion/advisor/internal/advice"
 	"github.com/WoW-Companion/advisor/internal/character"
+	"github.com/WoW-Companion/advisor/internal/paths"
 	"github.com/WoW-Companion/advisor/internal/questie"
 	"github.com/WoW-Companion/advisor/internal/wording"
 )
@@ -59,73 +60,126 @@ func isItemObjective(s string) bool {
 	return s != ""
 }
 
-// questAsks are the questions of a quest line.
+// questAsks are the questions of a quest line: what the quest leads to and how it fits with the
+// quests nearby, never what its card already lists (objectives, giver, level).
 func questAsks(l Line) []string {
 	t := l.Title
 	if t == "" {
-		t = "this quest"
+		t = l.Text
 	}
 	switch l.Kind {
 	case KindTurnIn:
-		return asksOf("What does turning this in unlock?",
-			fmt.Sprintf("What does turning in %s unlock?", t), "What should I do after I turn it in?")
+		return asksOf(fmt.Sprintf("What comes after I hand in %s?", t),
+			fmt.Sprintf("What comes after I hand in %s?", t),
+			fmt.Sprintf("Should I finish anything nearby before handing in %s?", t))
 	case KindPickup:
-		return asksOf("Is this quest worth taking now?",
-			fmt.Sprintf("What's %s for?", t), fmt.Sprintf("Is %s worth taking now?", t))
+		return asksOf(fmt.Sprintf("Is %s worth taking now?", t),
+			fmt.Sprintf("What does %s lead to?", t),
+			fmt.Sprintf("Should I take %s before the other quests nearby?", t))
 	}
-	var cands []string
-	for _, o := range l.Objectives {
-		if o.HasCount && o.Have >= o.Need {
-			continue
-		}
-		if isItemObjective(o.Text) {
-			cands = append(cands, fmt.Sprintf("Where do I find %s?", o.Text))
-		}
-		break
-	}
-	cands = append(cands, fmt.Sprintf("How do I finish %s?", t))
-	return asksOf("How do I finish this quest?", cands...)
+	return asksOf(fmt.Sprintf("What should I do alongside %s to save time?", t),
+		fmt.Sprintf("What should I do alongside %s to save time?", t),
+		fmt.Sprintf("What does %s lead to?", t))
 }
 
+// talentAsks are the questions of a talent entry: why the pick suits the play style and what it changes.
 func talentAsks(points int, pick string) []string {
-	where := "Where should my talent point go?"
+	which := "Which talent should I take next for my play style?"
 	if points > 1 {
-		where = "Where should my talent points go?"
+		which = "Which talents should I take next for my play style?"
 	}
 	if pick == "" {
-		return asksOf(where, where)
+		return asksOf(which, which)
 	}
-	return asksOf(where, where, fmt.Sprintf("What does %s do?", pick))
+	return asksOf(which,
+		fmt.Sprintf("Why does the %s talent suit my play style?", pick),
+		fmt.Sprintf("What changes in play once I take the %s talent?", pick))
 }
 
-func upgradeAsks(item string) []string {
+// upgradeAsks are the questions of one upgrade entry: fit, staying power and, for a craft, whether
+// to spend the materials now. who is the player's spec and class ("Fury warrior"), slot the item's slot.
+func upgradeAsks(item, slot, pathKind, who string, craftMats []string) []string {
+	fallback := "Which of my upgrades should I get first?"
 	if item == "" {
-		return asksOf("Is this upgrade worth getting now?", "Is this upgrade worth getting now?")
+		return []string{fallback}
 	}
-	return asksOf("Is this upgrade worth getting now?",
-		fmt.Sprintf("How do I get %s?", item), fmt.Sprintf("Is %s worth getting now?", item))
+	fit := fmt.Sprintf("How much does %s help my build?", item)
+	if who != "" {
+		fit = fmt.Sprintf("How much does %s help my %s?", item, who)
+	}
+	outgrow := fmt.Sprintf("Will I outgrow %s soon?", item)
+	if slot != "" {
+		outgrow = fmt.Sprintf("Will %s stay my best pick for the %s slot?", item, strings.ToLower(slot))
+	}
+	if pathKind == paths.Craft {
+		mats := "the materials"
+		if len(craftMats) > 0 {
+			mats = "the " + strings.Join(craftMats, " and ")
+		}
+		return asksOf(fit, fmt.Sprintf("Is it worth making %s now, or should I save %s?", item, mats), fit, outgrow)
+	}
+	return asksOf(fit, fit, outgrow)
 }
 
-// shoppingAsks are the questions of a slot's Auction House shopping list.
-func shoppingAsks() []string {
-	return asksOf("What should I search for on the Auction House?", "What should I search for on the Auction House?", "Is this worth buying on the Auction House?")
+// shoppingAsks are the questions of a slot's Auction House shopping list: the alternative suffix,
+// priority and price sense, and a follow-up. slot is the slot in lower case, suffixes the plain
+// suffix names ("of Strength"), worn the item worn there ("" for an empty slot).
+func shoppingAsks(slot string, suffixes []string, worn string) []string {
+	if slot == "" {
+		return asksOf("Is the Auction House my best bet for an upgrade?", "Is the Auction House my best bet for an upgrade?")
+	}
+	more := "What else should I pick up at the Auction House while I'm there?"
+	if len(suffixes) == 0 {
+		return asksOf(more, fmt.Sprintf("Is the Auction House my best bet for my %s slot?", slot), more)
+	}
+	pick := fmt.Sprintf("For my %s slot, is '%s' my best pick for now?", slot, suffixes[0])
+	worth := fmt.Sprintf("Is '%s' gear for my %s slot worth a few silver?", suffixes[0], slot)
+	if worn != "" {
+		worth = fmt.Sprintf("Is '%s' worth a few silver over my %s?", suffixes[0], worn)
+	}
+	if len(suffixes) > 1 {
+		alt := fmt.Sprintf("Would '%s' do as well as '%s' for my %s?", suffixes[1], suffixes[0], slot)
+		return asksOf(pick, pick, alt, worth)
+	}
+	return asksOf(pick, pick, worth, more)
 }
 
 func materialAsks(item string) []string {
-	return asksOf("Should I keep this?", fmt.Sprintf("Should I keep %s?", item), fmt.Sprintf("What is %s used for?", item))
+	return asksOf(fmt.Sprintf("Should I keep %s?", item),
+		fmt.Sprintf("Will I need %s for a craft soon?", item), fmt.Sprintf("Is %s worth selling instead?", item))
 }
 
 func dungeonAsks(name string) []string {
-	return asksOf("Am I ready for this dungeon?", fmt.Sprintf("Am I ready for %s?", name), fmt.Sprintf("What should I bring to %s?", name))
+	return asksOf(fmt.Sprintf("Am I ready for %s?", name),
+		fmt.Sprintf("What should I bring to %s?", name), fmt.Sprintf("Should I run %s solo or wait for a group?", name))
 }
 
-func trainingAsks() []string {
-	return []string{"What should I train first?", "Which new abilities matter most?"}
+// trainingAsks name the first new ability (or the first one), the entry's subject.
+func trainingAsks(spells []TrainSpell) []string {
+	name := ""
+	for _, s := range spells {
+		if s.Name != "" && (name == "" || s.New) {
+			name = s.Name
+			if s.New {
+				break
+			}
+		}
+	}
+	if name == "" {
+		return []string{"Which new ability should I train first?"}
+	}
+	return asksOf("Which new ability should I train first?", "Which new ability should I train first?",
+		fmt.Sprintf("What does %s change in how I play?", name),
+		fmt.Sprintf("Is %s worth the gold now, or should I wait?", name))
 }
 
-// giverAsks is the question of a giver note.
-func giverAsks(npc string) []string {
-	return asksOf("What does this NPC have for me?", fmt.Sprintf("What does %s have for me?", npc))
+// giverAsks are the questions of a giver note: whether the quest is worth the trip now, and where it leads.
+func giverAsks(npc, title string) []string {
+	if title == "" {
+		return asksOf(fmt.Sprintf("What does %s have for me?", npc), fmt.Sprintf("What does %s have for me?", npc))
+	}
+	return asksOf(fmt.Sprintf("Is %s worth the trip to %s now?", title, npc),
+		fmt.Sprintf("Is %s worth the trip to %s now?", title, npc), fmt.Sprintf("What does %s lead to?", title))
 }
 
 // Giver is a quest giver worth a note: an NPC with a quest the character can pick up now that is not
@@ -183,7 +237,7 @@ func (g Giver) Line(c character.Character) Line {
 		fit = wording.Fit(g.Level, *c.Level)
 	}
 	l.Details = finishDetails([]string{where, fit})
-	l.Asks = giverAsks(g.NPC)
+	l.Asks = giverAsks(g.NPC, g.Title)
 	l.Why = questWhy(c, l)
 	l.Ref = npcRef(g.NPCID)
 	if g.NPCID == 0 {
@@ -286,4 +340,14 @@ func (d Digest) RefFor(text string) string {
 		}
 	}
 	return ""
+}
+
+// whoOf is the character as the player says it: "Fury warrior", "warrior" when no spec is known, ""
+// when neither is.
+func whoOf(c character.Character) string {
+	class := strings.ToLower(c.Class)
+	if g := groupOf(c); g != "" && class != "" {
+		return g + " " + class
+	}
+	return class
 }

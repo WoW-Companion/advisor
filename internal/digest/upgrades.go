@@ -151,7 +151,13 @@ func upgradeLine(c character.Character, slot string, cd gear.Candidate, best pat
 		l.AtLevel = cd.Item.ReqLevel
 	}
 	l.Details = finishDetails([]string{wording.Upper(best.Line)}) // the way in full; the item, wear, gain and replaces are fields
-	l.Asks, l.Ref = upgradeAsks(cd.Item.Name), itemRef(int(cd.Item.ID))
+	var mats []string
+	for _, g := range best.Reagents {
+		if g.Name != "" && len(mats) < 2 {
+			mats = append(mats, g.Name)
+		}
+	}
+	l.Asks, l.Ref = upgradeAsks(cd.Item.Name, name, best.Kind, whoOf(c), mats), itemRef(int(cd.Item.ID))
 	l.Why = upgradeWhy(c, slot, cd, short)
 	return l
 }
@@ -174,7 +180,12 @@ func shoppingLine(c character.Character, slot string, sh paths.Shopping) Line {
 	if len(sh.Steps) > 0 { // the full search steps live here, whole, not in how
 		l.Details = append(l.Details[:min(len(l.Details), MaxDetails-1)], "Search steps: "+strings.Join(sh.Steps, " "))
 	}
-	l.Asks, l.Ref = shoppingAsks(), noteRef("auction-"+slot)
+	var sufs []string
+	for _, x := range sh.Suffixes {
+		n, _, _ := strings.Cut(x, " (")
+		sufs = append(sufs, n)
+	}
+	l.Asks, l.Ref = shoppingAsks(strings.ToLower(name), sufs, l.Replaces), noteRef("auction-"+slot)
 	return l
 }
 

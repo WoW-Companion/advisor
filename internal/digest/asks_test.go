@@ -94,7 +94,7 @@ func TestGiverNoteOnlyForAnAvailableQuestNotInThePlan(t *testing.T) {
 	if len(l.Details) == 0 || !strings.Contains(l.Details[0], "Valanaar") {
 		t.Errorf("details = %q", l.Details)
 	}
-	if l.Ref != "npc:1" || len(l.Asks) != 1 || l.Asks[0] != "What does Endaria Mistgaze have for me?" {
+	if l.Ref != "npc:1" || len(l.Asks) != 2 || l.Asks[0] != "Is Lantern in the Mist worth the trip to Endaria Mistgaze now?" {
 		t.Errorf("ask/ref = %q %q", l.Asks, l.Ref)
 	}
 }
@@ -264,8 +264,8 @@ func TestWholeCutAndOneLineHow(t *testing.T) {
 
 func TestLuaCarriesAsksAndRef(t *testing.T) {
 	out := one(scoutDigest(t, true)).Lua()
-	for _, want := range []string{`schema = "1.9"`, `asks = { "What does turning in Unwelcome Spirits unlock?"`, `ref = "quest:700"`,
-		`kind = "giver"`, `ref = "npc:1"`, `asks = { "Where should my talent point go?"`, `ref = "talents"`, `ref = "training:10"`, `asks = { "What should I train first?"`} {
+	for _, want := range []string{`schema = "1.9"`, `asks = { "What comes after I hand in Unwelcome Spirits?"`, `ref = "quest:700"`,
+		`kind = "giver"`, `ref = "npc:1"`, `asks = { "Which talent should I take next for my play style?"`, `ref = "talents"`, `ref = "training:10"`, `asks = { "Which new ability should I train first?"`} {
 		if !strings.Contains(out, want) {
 			t.Errorf("lacks %s", want)
 		}
@@ -277,13 +277,13 @@ func TestLuaCarriesAsksAndRef(t *testing.T) {
 
 func TestSubjectAndExactAskMatch(t *testing.T) {
 	d := scoutDigest(t, true)
-	if got := d.RefFor("what does Endaria Mistgaze have for me"); got != "npc:1" {
+	if got := d.RefFor("is lantern in the mist worth the trip to endaria mistgaze now"); got != "npc:1" {
 		t.Errorf("ref = %q", got)
 	}
-	if got := d.RefFor("  Where should my TALENT point go?!  "); got != "talents" {
+	if got := d.RefFor("  Which TALENT should I take next for my play style?!  "); got != "talents" {
 		t.Errorf("ref = %q", got)
 	}
-	if got := d.RefFor("What does Endaria Mistgaze have for me and her sister?"); got != "" {
+	if got := d.RefFor("Is Lantern in the Mist worth the trip to Endaria Mistgaze now and later?"); got != "" {
 		t.Errorf("a different question got %q", got)
 	}
 	sub, ok := d.Subject("quest:700")

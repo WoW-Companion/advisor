@@ -67,7 +67,7 @@ to get it, and carries `wear` ("Wear now" or "From level 12"), `gain` ("Big upgr
 (item level plus quality, or the stat-weighted equivalent): 10 points or more, or an empty slot, is a big upgrade; 5 to
 10 is solid; the rest is small. The section has `summary = "N upgrades you can get"`. A quest whose reward is an upgrade
 has that as its `why` ("Rewards Traveler's Shawl, a big cloak upgrade"); a material needed for a craftable upgrade shows
-in `keep_materials` with "for <item>". The line's `asks` include "How do I get <item>?".
+in `keep_materials` with "for <item>". The line's `asks` follow the click: a fit question and a craft-or-save question for a craft.
 `elite` is set only when the dataset's quests table has an `elite` or `group` column that says so.
 
 **Stat check (schema 1.7, optional).** A character with a saved play style has `stats = { profile = "Fury · leveling", insights = { ... }, asks = { ... } }`: one to three plain sentences of at most 90 characters (what to raise and why, what is wasted, what is fine; never a number, percentage or id), the profile they were read for, and questions such as "How do I get more Strength?". It is left out with no play style. The weights behind it are in `docs/stats.md`. An upgrade's `why` may read "Adds the Strength you're short on".
@@ -101,7 +101,7 @@ of every section (`next_quests`, `upgrades`, `keep_materials`, `notes`) and ever
 
 | Field | Meaning |
 | ----- | ------- |
-| `asks` | a list of 1 to 3 short questions in the player's voice, written for that entry, each at most 90 characters, complete and never cut. No "I'm a level 10 warrior": the advisor knows the character. Examples: "What's The Skybreaker Bulwark for?", "Where should my talent point go?", "What should I train first?", "Is Veteran's Chain Belt worth getting now?", "Am I ready for Wolf Den?", "Should I keep Copper Ore?", "What does Endaria Mistgaze have for me?" |
+| `asks` | a list of 1 to 3 short questions in the player's voice, written for that entry, each at most 90 characters, complete and never cut. No "I'm a level 10 warrior": the advisor knows the character. Each names its subject (the item, the slot and suffix, the quest, the NPC, the talent or the ability), asks the natural next question the card does not answer, and reads whole when pasted alone: no "this" or "it" without a named antecedent, and nothing the entry's own text, why, how or details already state. Examples: "Would 'of the Bear' do as well as 'of Strength' for my cloak?", "Is it worth making Gemmed Copper Gauntlets now, or should I save the Copper Bar?", "What does Wind Hollow Essence lead to?", "Why does the Penance talent suit my play style?", "Is Lantern in the Mist worth the trip to Endaria Mistgaze now?" |
 | `ref` | a stable subject reference, never shown to players: `quest:<id>`, `npc:<id>`, `talents`, `training:<level>`, `item:<id>`, `dungeon:<id>` or `note:<slug>`. Sent back with the question (the asks record's optional `ref`), the advisor expands it into the entry's facts and its place in the plan |
 
 **Schema 1.8: no `prompt`, tidier strings.** The legacy `prompt` field is gone from every entry: addons 0.6.2 and
