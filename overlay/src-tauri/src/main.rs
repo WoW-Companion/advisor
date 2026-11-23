@@ -117,9 +117,79 @@ fn apply_click_through(app: &AppHandle, want: bool) {
     ui.click_through.store(on, Ordering::Relaxed);
     if let Some(w) = main_window(app) {
         let _ = w.set_ignore_cursor_events(on);
+        restore_styles(&w, on);
     }
     let _ = ui.click_item.set_checked(on);
     let _ = app.emit("clickthrough", on);
+}
+
+// Window extended-style bits (Windows). Click-through sets WS_EX_TRANSPARENT; turning it off must
+// clear it again, and WS_EX_NOACTIVATE must never stay, or the window cannot take keyboard focus.
+const WS_EX_TRANSPARENT: isize = 0x20;
+const WS_EX_LAYERED: isize = 0x80000;
+const WS_EX_NOACTIVATE: isize = 0x0800_0000;
+
+/// The extended style a window should have once click-through is `on` or off, from its current one.
+fn click_through_styles(ex: isize, on: bool) -> isize {
+    if on {
+        ex | WS_EX_TRANSPARENT | WS_EX_LAYERED
+    } else {
+        ex & !(WS_EX_TRANSPARENT | WS_EX_NOACTIVATE)
+    }
+}
+
+#[cfg(windows)]
+fn ex_style(w: &WebviewWindow) -> Option<isize> {
+    #[link(name = "user32")]
+    extern "system" {
+        fn GetWindowLongPtrW(hwnd: isize, index: i32) -> isize;
+    }
+    let h = w.hwnd().ok()?.0 as isize;
+    Some(unsafe { GetWindowLongPtrW(h, -20) })
+}
+
+#[cfg(windows)]
+fn restore_styles(w: &WebviewWindow, on: bool) {
+    #[link(name = "user32")]
+    extern "system" {
+        fn SetWindowLongPtrW(hwnd: isize, index: i32, v: isize) -> isize;
+    }
+    if let (Ok(h), Some(cur)) = (w.hwnd(), ex_style(w)) {
+        let want = click_through_styles(cur, on);
+        if want != cur {
+            unsafe { SetWindowLongPtrW(h.0 as isize, -20, want) };
+        }
+    }
+}
+
+#[cfg(not(windows))]
+fn ex_style(_: &WebviewWindow) -> Option<isize> {
+    None
+}
+
+#[cfg(not(windows))]
+fn restore_styles(_: &WebviewWindow, _: bool) {}
+
+/// Whether a global shortcut may be registered. A shortcut swallows its keys system-wide, so it
+/// must carry Ctrl, Alt or Super and end in a key that is not an editing or navigation key, and a
+/// bare Ctrl+letter clipboard or undo combination is never taken.
+fn shortcut_is_safe(spec: &str) -> bool {
+    let parts: Vec<String> = spec.split('+').map(|p| p.trim().to_ascii_lowercase()).collect();
+    let Some((key, mods)) = parts.split_last() else { return false };
+    let has = |names: &[&str]| mods.iter().any(|m| names.contains(&m.as_str()));
+    let strong = has(&["ctrl", "control", "commandorcontrol", "cmdorctrl", "alt", "option", "super", "cmd", "command", "meta"]);
+    if !strong || key.is_empty() || mods.iter().any(|m| m.is_empty()) {
+        return false;
+    }
+    const EDITING: [&str; 16] = [
+        "backspace", "delete", "del", "insert", "ins", "arrowleft", "arrowright", "arrowup", "arrowdown",
+        "left", "right", "up", "down", "home", "end", "enter",
+    ];
+    if EDITING.contains(&key.as_str()) {
+        return false;
+    }
+    let only_ctrl = mods.len() == 1 && has(&["ctrl", "control", "commandorcontrol", "cmdorctrl"]);
+    !(only_ctrl && matches!(key.as_str(), "v" | "c" | "x" | "a" | "z" | "y"))
 }
 
 fn apply_mode(app: &AppHandle, overlay: bool) {
@@ -291,6 +361,11 @@ fn set_shortcuts(app: AppHandle, visibility: String, click_through: String) -> R
     let gs = app.global_shortcut();
     let _ = gs.unregister_all();
     let mut errs = Vec::new();
+    for spec in [&visibility, &click_through] {
+        if !shortcut_is_safe(spec) {
+            return Err(format!("{spec}: a shortcut needs Ctrl, Alt or Super and must not be an editing key"));
+        }
+    }
     if let Err(e) = gs.on_shortcut(visibility.as_str(), |app, _, ev| {
         if ev.state() == ShortcutState::Pressed {
             toggle_visible(app);
@@ -465,6 +540,28 @@ fn read_clipboard(window: tauri::Window) -> Result<String, String> {
     clipboard_text()
 }
 
+/// Takes keyboard focus for the window; the page asks when the ask box is clicked.
+#[tauri::command]
+fn focus_window(window: tauri::Window) {
+    if window.label() == "main" {
+        let _ = window.set_focus();
+    }
+}
+
+/// The native line of the keyboard test: whether the window is focused and what could be eating keys.
+#[tauri::command]
+fn key_native_state(app: AppHandle) -> String {
+    let Some(w) = main_window(&app) else { return "native: no window".into() };
+    let ui = app.state::<Ui>();
+    let style = ex_style(&w).map(|s| format!("{s:#x}")).unwrap_or_else(|| "n/a".into());
+    format!(
+        "native: focused={} click-through={} ex-style={} (the host does not intercept keys itself)",
+        w.is_focused().unwrap_or(false),
+        ui.click_through.load(Ordering::Relaxed),
+        style
+    )
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
@@ -487,7 +584,9 @@ fn main() {
             hide_window,
             quit,
             set_shortcuts,
-            read_clipboard
+            read_clipboard,
+            focus_window,
+            key_native_state
         ])
         .setup(|app| {
             build_tray(app)?;
@@ -505,7 +604,7 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    use super::{ansi_to_string, cf_text_bytes, version_line};
+    use super::{ansi_to_string, cf_text_bytes, click_through_styles, shortcut_is_safe, version_line, WS_EX_LAYERED, WS_EX_NOACTIVATE, WS_EX_TRANSPARENT};
 
     #[test]
     fn cf_text_stops_at_the_nul_and_converts() {
@@ -520,5 +619,24 @@ mod tests {
         let app = env!("CARGO_PKG_VERSION");
         assert_eq!(version_line(""), format!("WoW Companion {app}"));
         assert_eq!(version_line("0.2.0"), format!("WoW Companion {app} \u{b7} advisor 0.2.0"));
+    }
+
+    #[test]
+    fn shortcuts_claim_only_their_own_keys() {
+        assert!(shortcut_is_safe("Ctrl+Shift+W"));
+        assert!(shortcut_is_safe("Ctrl+Alt+T"));
+        for bad in ["V", "Ctrl+V", "Ctrl+C", "Shift+V", "Ctrl+Backspace", "Alt+Delete", "Ctrl+ArrowLeft", "Shift+Insert", "", "Ctrl+"] {
+            assert!(!shortcut_is_safe(bad), "{bad}");
+        }
+    }
+
+    #[test]
+    fn click_through_off_restores_the_styles() {
+        let base = WS_EX_LAYERED;
+        let on = click_through_styles(base, true);
+        assert_eq!(on, base | WS_EX_TRANSPARENT);
+        assert_eq!(click_through_styles(on, false), base);
+        assert_eq!(click_through_styles(base | WS_EX_NOACTIVATE, false), base);
+        assert_eq!(click_through_styles(click_through_styles(base, true), true), on);
     }
 }
