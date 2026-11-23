@@ -2,6 +2,7 @@ package ui
 
 import (
 	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -76,10 +77,10 @@ func TestClientDisplayNames(t *testing.T) {
 	}
 }
 
-// Groups: six, the AI one open by default, state kept in cfg.groups; the version line sits outside
-// the scrolling body so it is always visible.
+// Groups: six, the AI one open by default, state kept in cfg.groups; the page has one scroll, its
+// own, and the version line closes it.
 func TestSettingsGroups(t *testing.T) {
-	html, js, css := read(t, "index.html"), read(t, "app.js"), read(t, "style.css")
+	html, js := read(t, "index.html"), read(t, "app.js")
 	got := regexp.MustCompile(`<details class="grp" data-group="(\w+)"`).FindAllStringSubmatch(html, -1)
 	var ids []string
 	for _, m := range got {
@@ -96,11 +97,66 @@ func TestSettingsGroups(t *testing.T) {
 			t.Errorf("app.js lacks %q", want)
 		}
 	}
-	body := html[strings.Index(html, `class="settings-body"`):strings.Index(html, `id="version"`)]
-	if strings.Count(body, "</div>") != 1 || strings.Contains(body, `id="version"`) {
-		t.Error("the version line must follow the scrolling body")
+	page := html[strings.Index(html, `id="settings"`):strings.Index(html, `class="bar"`)]
+	if strings.Index(page, `id="version"`) < strings.LastIndex(page, `</details>`) {
+		t.Error("the version line must sit at the bottom of the page")
 	}
-	if !regexp.MustCompile(`\.settings-body \{[^}]*overflow-x: hidden; overflow-y: auto`).MatchString(css) {
-		t.Error("the settings body must scroll vertically only")
+}
+
+// Settings is one full-height page with one scroll: the page itself. No inner box scrolls, the gear
+// shows an active state and a "Close settings" tooltip, Esc and Done close, and the chat scroll returns.
+func TestSettingsPage(t *testing.T) {
+	html, js := read(t, "index.html"), read(t, "app.js")
+	css := regexp.MustCompile(`(?s)/\*.*?\*/`).ReplaceAllString(read(t, "style.css"), "")
+	page := html[strings.Index(html, `id="settings"`):strings.Index(html, `class="bar"`)]
+	if strings.Contains(page, "settings-body") || strings.Contains(css, ".settings-body") {
+		t.Error("the fixed-height settings container is gone")
+	}
+	if !strings.Contains(page, `id="settings-done"`) || !strings.Contains(page, ">Done<") {
+		t.Error("the page needs a Done button")
+	}
+	scrollers := 0
+	for _, m := range ruleRE.FindAllStringSubmatch(css, -1) {
+		sel := strings.TrimSpace(m[1])
+		if strings.Contains(m[2], "overflow-y: auto") || strings.Contains(m[2], "overflow: auto") || strings.Contains(m[2], "overflow-y: scroll") {
+			if strings.Contains(sel, ".settings") {
+				scrollers++
+				if sel != ".settings" {
+					t.Errorf("%s scrolls inside the settings page", sel)
+				}
+			}
+		}
+	}
+	if scrollers != 1 {
+		t.Errorf("settings has %d scroll containers, want 1", scrollers)
+	}
+	if !regexp.MustCompile(`\.settings \{[^}]*flex: 1 1 auto`).MatchString(css) {
+		t.Error("the page must fill the window body")
+	}
+	if !regexp.MustCompile(`\.panel\.settings-open > :is\([^)]*#log[^)]*#form[^)]*\) \{ display: none; \}`).MatchString(css) {
+		t.Error("the page must replace the bar, Next list and chat (kept mounted, not removed)")
+	}
+	if !strings.Contains(css, `#settings-btn[aria-pressed=true]`) || !strings.Contains(css, `#settings-btn:focus-visible`) {
+		t.Error("the gear needs active and focus-visible looks")
+	}
+	for _, want := range []string{"'Close settings' : 'Settings'", "setAttribute('aria-pressed'", "ev.key === 'Escape'", "$('settings-done').onclick", "log.scrollTop = chatScroll"} {
+		if !strings.Contains(js, want) {
+			t.Errorf("app.js lacks %q", want)
+		}
+	}
+}
+
+// Six collapsed sections must fit at the default window height: each closed group is one summary row.
+func TestSettingsCollapsedFitDefaultHeight(t *testing.T) {
+	conf := read(t, "../src-tauri/tauri.conf.json")
+	m := regexp.MustCompile(`"height":\s*(\d+)`).FindStringSubmatch(conf)
+	if m == nil {
+		t.Fatal("no default window height in tauri.conf.json")
+	}
+	h, _ := strconv.Atoi(m[1])
+	// title bar 42 + page padding 20 + head 30 + 6 groups at about 36 + version 30 + gaps 56
+	const need = 42 + 20 + 30 + 6*36 + 30 + 56
+	if h < need {
+		t.Errorf("default height %d is under the %d the collapsed page needs", h, need)
 	}
 }

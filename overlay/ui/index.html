@@ -47,7 +47,7 @@
   </section>
 
   <section id="settings" class="settings" hidden>
-    <div class="settings-body">
+    <div class="settings-head"><b>Settings</b><button id="settings-done" type="button" title="Close settings">Done</button></div>
     <details class="grp" data-group="appearance">
       <summary>Appearance</summary>
       <label class="row"><span class="lbl">Opacity</span><span class="ctl"><input id="opacity" type="range" min="0" max="100" step="5"> <output id="opacity-out"></output></span></label>
@@ -103,7 +103,6 @@
       <summary>Updates</summary>
       <label class="row"><span class="lbl">Check for updates</span><span class="ctl"><input id="check-updates" type="checkbox"></span></label>
     </details>
-    </div>
     <small id="version" class="version"></small>
   </section>
 
