@@ -345,12 +345,16 @@ function setChars() {
 who.onchange = () => { cfg.who = who.value; save(); showNext(); if (!busy) restoreChat(); };
 
 // Play style: the chosen character's role, focus and spec, saved locally by the advisor. Both role
-// and focus are needed before it saves; the spec is optional.
+// and focus are needed before it saves; the spec is a dropdown of the class's specs.
 function showStyle() {
   const c = state && state.characters.find(c => c.key === who.value), st = (c && c.style) || {};
   for (const card of document.querySelectorAll('.style-card')) if (card.dataset.character === who.value && card.setStyle) card.setStyle(st);
-  $('style-role').value = st.role || ''; $('style-focus').value = st.focus || ''; $('style-spec').value = st.spec || '';
-  $('style-pref').value = st.stat_pref || '';
+  $('style-role').value = st.role || ''; $('style-focus').value = st.focus || '';
+  const sel = $('style-spec'), specs = (c && c.specs) || [];
+  sel.replaceChildren(Object.assign(document.createElement('option'), { value: '', textContent: 'Not sure yet' }));
+  for (const sp of specs) sel.append(Object.assign(document.createElement('option'), { value: sp, textContent: sp }));
+  sel.value = specs.includes(st.spec) ? st.spec : ''; // the sidecar already migrated an old typed spec
+  $('style-pref').value = st.stat_pref || 'balanced';
 }
 // saveStyle stores a play style for one character; the settings section and the inline card both use it.
 async function saveStyle(character, { role, focus, spec, stat_pref }) {
@@ -527,6 +531,7 @@ async function load() {
   pushSettings(); // the saved choices win over the sidecar's defaults
   setChars();
   showBadge();
+  showWhatsNew();
   restoreChat(); // the saved chat first, then the game's asks; nothing is sent
 }
 
@@ -729,3 +734,27 @@ $('setup-folder').onsubmit = ev => {
 };
 $('setup-open').onclick = () => { $('setup').hidden = false; loadSetup(false); };
 $('setup-close').onclick = () => { $('setup').hidden = true; };
+
+// --- What's new (Updates): the last few versions' changelog, bundled with the advisor ----------
+const RELEASES_PAGE = 'https://github.com/WoW-Companion/advisor/releases';
+async function showWhatsNew() {
+  const box = $('whats-new');
+  try {
+    const r = await api('/api/whats-new');
+    if (!r.ok) return;
+    const list = await r.json();
+    box.replaceChildren(Object.assign(document.createElement('b'), { textContent: 'What’s new' }));
+    list.forEach((rel, i) => {
+      const d = document.createElement('details');
+      d.open = i === 0;
+      d.append(Object.assign(document.createElement('summary'), { textContent: rel.version }));
+      const ul = document.createElement('ul');
+      for (const t of rel.lines) ul.append(Object.assign(document.createElement('li'), { textContent: t }));
+      d.append(ul);
+      box.append(d);
+    });
+    const a = Object.assign(document.createElement('a'), { href: '#', textContent: 'Full changelog on GitHub' });
+    a.onclick = ev => { ev.preventDefault(); invoke('open_install_page', { url: RELEASES_PAGE }).catch(e => notice(String(e))); };
+    box.append(a);
+  } catch (e) { /* the list is a nicety; the page works without it */ }
+}

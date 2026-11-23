@@ -88,7 +88,7 @@
     if (needs.specs && needs.specs.length) {
       const r = el(doc, 'div', 'style-row');
       sel = el(doc, 'select', 'style-spec');
-      sel.append(Object.assign(el(doc, 'option', '', 'Spec (optional)'), { value: '' }));
+      sel.append(Object.assign(el(doc, 'option', '', 'Not sure yet'), { value: '' }));
       for (const s of needs.specs) sel.append(Object.assign(el(doc, 'option', '', s), { value: s }));
       sel.value = pick.spec;
       sel.onchange = () => { pick.spec = sel.value; };

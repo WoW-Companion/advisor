@@ -61,4 +61,3 @@ func TestListenFromAnyPort(t *testing.T) {
 		t.Error("no port chosen")
 	}
 }
-

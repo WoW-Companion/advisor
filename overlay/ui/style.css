@@ -209,3 +209,6 @@ a:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; border-ra
 .quick-btn { display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px; font-size: 11px; border-radius: 10px; cursor: pointer; color: var(--muted); }
 .quick-btn:hover:not(:disabled) { color: var(--gold); border-color: var(--gold); }
 .quick-ic { color: var(--gold); }
+.whats-new { display: grid; gap: 2px; font-size: 12px; }
+.whats-new ul { margin: 2px 0 4px 16px; padding: 0; }
+.whats-new a { color: inherit; opacity: .8; }

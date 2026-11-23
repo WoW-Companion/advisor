@@ -59,3 +59,15 @@ func TestVersionLogicUnderNode(t *testing.T) {
 		t.Fatalf("%v\n%s", err, out)
 	}
 }
+
+// Updates shows the bundled changelog and links the full one on the releases page through the
+// shell's fixed list.
+func TestUpdatesShowsWhatsNew(t *testing.T) {
+	html, js, rs := read(t, "index.html"), read(t, "app.js"), read(t, "../src-tauri/src/main.rs")
+	if !strings.Contains(html, `id="whats-new"`) || !strings.Contains(js, "/api/whats-new") {
+		t.Error("the Updates section does not load the bundled changelog")
+	}
+	if !strings.Contains(rs, `"https://github.com/WoW-Companion/advisor/releases",`) || !strings.Contains(js, "RELEASES_PAGE") {
+		t.Error("the full changelog link is not on the opener's list")
+	}
+}

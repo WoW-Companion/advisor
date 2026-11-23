@@ -32,7 +32,9 @@ import (
 	"github.com/WoW-Companion/advisor/internal/route"
 	"github.com/WoW-Companion/advisor/internal/server"
 	"github.com/WoW-Companion/advisor/internal/store"
+	"github.com/WoW-Companion/advisor/internal/talents"
 	"github.com/WoW-Companion/advisor/internal/unlock"
+	"github.com/WoW-Companion/advisor/internal/whatsnew"
 )
 
 //go:embed page.html
@@ -130,6 +132,9 @@ type CharInfo struct {
 	PlanSteps []PlanStep `json:"plan_steps,omitempty"`
 	// Style is the saved play style (the overlay's "Play style" row); nil until the player sets one.
 	Style *character.Profile `json:"style,omitempty"`
+	// Specs is the class's spec names for the Spec dropdown; an old free-text spec in Style is
+	// already migrated to the matching one, or "" for "Not sure yet".
+	Specs []string `json:"specs,omitempty"`
 	// Suggestions is the ranked list of at most three next actions (see suggest.go).
 	Suggestions []Suggestion `json:"suggestions,omitempty"`
 }
@@ -293,6 +298,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/suggestions", s.suggestions)
 	mux.HandleFunc("POST /api/refresh-plan", s.refreshPlanHandler)
 	mux.HandleFunc("GET /api/update", s.update)
+	mux.HandleFunc("GET /api/whats-new", s.whatsNew)
 	mux.HandleFunc("GET /api/stream/{id}", s.stream)
 	mux.HandleFunc("GET /api/setup", s.setupState)
 	mux.HandleFunc("POST /api/setup/install-addon", s.setupInstall)
@@ -441,6 +447,12 @@ func (s *Server) reload() {
 	for _, c := range f.Characters {
 		c = character.AttachTotals(unlock.AddonSV(s.cfg.Ask.SavedVariables), profile.Attach(s.profilesPath(), c))
 		ci := CharInfo{Key: c.Key, Name: c.Name, Class: c.Class, Next: []string{NoDataMessage}, Style: c.Profile}
+		ci.Specs = talents.Specs(ds, c)
+		if c.Profile != nil && len(ci.Specs) > 0 {
+			p := *c.Profile
+			p.Spec = talents.MatchSpec(ci.Specs, p.Spec)
+			ci.Style = &p
+		}
 		if ds != nil {
 			qx := questie.ForSavedVariables(s.cfg.Ask.SavedVariables)
 			var plan route.Plan
@@ -843,4 +855,11 @@ func (s *Server) planStaleFor(capturedAt int64) bool {
 		return false
 	}
 	return planStale(digest.SiblingPath(p, route.File), capturedAt, s.cfg.Dataset)
+}
+
+// whatsNew answers the overlay's Updates section: the last few versions' changelog, from the
+// CHANGELOG.md bundled into the binary (no network).
+func (s *Server) whatsNew(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(whatsnew.Bundled())
 }
