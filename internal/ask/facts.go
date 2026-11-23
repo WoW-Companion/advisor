@@ -1,6 +1,7 @@
 package ask
 
 import (
+	"fmt"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -8,6 +9,7 @@ import (
 	"github.com/WoW-Companion/advisor/internal/advice"
 	"github.com/WoW-Companion/advisor/internal/brief"
 	"github.com/WoW-Companion/advisor/internal/character"
+	"github.com/WoW-Companion/advisor/internal/digest"
 	"github.com/WoW-Companion/advisor/internal/profile"
 	"github.com/WoW-Companion/advisor/internal/questie"
 	"github.com/WoW-Companion/advisor/internal/route"
@@ -29,32 +31,104 @@ const (
 // chosen or the capture cannot be read (the agent then uses its tools, as before). The block is cut
 // at FactsBudget characters.
 func Facts(cfg Config, q Question) string {
-	if cfg.SavedVariables == "" {
+	cc, ok := load(cfg, q.Character)
+	if !ok {
 		return ""
+	}
+	c, f := cc.c, cc.f
+	if cc.ds == nil {
+		return NoDataFacts + "\n\n" + subjectFacts(cc, q) + capRunes(brief.Character(c, f.ClientOf(c), time.Now()), FactsBudget)
+	}
+	all := advice.WhatsNextWith(c, cc.ds, cc.qx)
+	next := advice.Render(c, advice.Limit(all, FactsSteps), len(all))
+	if cc.qx != nil {
+		next += "\n\n" + route.Render(route.BuildWith(c, cc.qx, route.OptionsFor(cfg.SavedVariables, cc.ds)), FactsPlanSteps)
+	}
+	var giver string
+	if g, ok := digest.FindGiver(c, cc.qx, digest.PlanQuests(all), digest.PlanNPCs(all)); ok {
+		giver = "Quest giver with something for the character now (not in the plan): " + g.Text() + "."
+	}
+	return capRunes(subjectFacts(cc, q)+brief.Character(c, f.ClientOf(c), time.Now())+"\n\n"+styleLine(c)+"\n\n"+next+join(giver), FactsBudget)
+}
+
+func join(s string) string {
+	if s == "" {
+		return ""
+	}
+	return "\n\n" + s
+}
+
+// loaded is a character read for a question.
+type loaded struct {
+	c  character.Character
+	f  character.File
+	ds store.DataStore
+	qx *questie.Index
+}
+
+// load reads the capture and picks the question's character, with its saved play style; ok is false
+// when the capture cannot be read or the character chosen (the agent then uses its tools).
+func load(cfg Config, key string) (loaded, bool) {
+	if cfg.SavedVariables == "" {
+		return loaded{}, false
 	}
 	f, err := character.LoadFile(cfg.SavedVariables)
 	if err != nil {
-		return ""
+		return loaded{}, false
 	}
-	c, err := brief.Choose(f, q.Character)
+	c, err := brief.Choose(f, key)
 	if err != nil {
+		return loaded{}, false
+	}
+	l := loaded{c: profile.Attach(profile.Path(), c), f: f}
+	if cfg.Dataset != "" {
+		l.ds = store.NewDir(cfg.Dataset)
+	}
+	l.qx = questie.ForSavedVariables(cfg.SavedVariables)
+	return l, true
+}
+
+// digestOf is the digest the player's panel shows for the loaded character.
+func (l loaded) digest() digest.Digest {
+	return digest.Build(l.c, l.ds, digest.Options{Now: time.Now(), Client: l.f.ClientOf(l.c), Questie: l.qx})
+}
+
+// ResolveRef is q's ref: the one it carries, else that of the current suggested question of the
+// character that the text matches exactly (case and punctuation aside); "" when neither.
+func ResolveRef(cfg Config, q Question) string {
+	if q.Ref != "" {
+		return q.Ref
+	}
+	cc, ok := load(cfg, q.Character)
+	if !ok {
 		return ""
 	}
-	c = profile.Attach(profile.Path(), c)
-	var ds store.DataStore
-	if cfg.Dataset != "" {
-		ds = store.NewDir(cfg.Dataset)
+	return cc.digest().RefFor(q.Text)
+}
+
+// subjectFacts is the block that expands q's ref into the entry's facts and its place in the plan, with
+// a closing blank line; "" without a ref or when the entry is gone.
+func subjectFacts(cc loaded, q Question) string {
+	d := cc.digest()
+	ref := q.Ref
+	if ref == "" {
+		ref = d.RefFor(q.Text)
 	}
-	if ds == nil {
-		return NoDataFacts + "\n\n" + capRunes(brief.Character(c, f.ClientOf(c), time.Now()), FactsBudget)
+	sub, ok := d.Subject(ref)
+	if !ok {
+		return ""
 	}
-	qx := questie.ForSavedVariables(cfg.SavedVariables)
-	all := advice.WhatsNextWith(c, ds, qx)
-	next := advice.Render(c, advice.Limit(all, FactsSteps), len(all))
-	if qx != nil {
-		next += "\n\n" + route.Render(route.BuildWith(c, qx, route.OptionsFor(cfg.SavedVariables, ds)), FactsPlanSteps)
+	var b strings.Builder
+	b.WriteString("The player's short question is about this entry of their panel; answer it with this context.\nSubject: " + sub.Text + "\n")
+	for _, d := range sub.Details {
+		b.WriteString("- " + d + "\n")
 	}
-	return capRunes(brief.Character(c, f.ClientOf(c), time.Now())+"\n\n"+styleLine(c)+"\n\n"+next, FactsBudget)
+	if sub.Place > 0 {
+		fmt.Fprintf(&b, "Place in the plan: step %d of %d next steps.\n", sub.Place, sub.Of)
+	} else {
+		b.WriteString("Place in the plan: not one of the plan's steps.\n")
+	}
+	return b.String() + "\n"
 }
 
 // styleLine is one line of the saved play style, or the reminder that none is saved.

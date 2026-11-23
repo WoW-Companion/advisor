@@ -67,7 +67,7 @@ func materials(c character.Character, ds store.DataStore) []Line {
 	}
 	var out []Line
 	for _, k := range keep {
-		out = append(out, Line{Text: clip(fmt.Sprintf("%s x%d", k.Name, k.Count)), Item: int(k.ItemID)})
+		out = append(out, Line{Text: clip(fmt.Sprintf("%s x%d", k.Name, k.Count)), Item: int(k.ItemID), Asks: materialAsks(k.Name), Ref: itemRef(int(k.ItemID))})
 	}
 	return out
 }
@@ -96,7 +96,7 @@ func guessMaterials(c character.Character) []Line {
 	})
 	var out []Line
 	for _, k := range kept {
-		out = append(out, Line{Text: clip(fmt.Sprintf("%s x%d", k.name, k.n)), Item: k.id})
+		out = append(out, Line{Text: clip(fmt.Sprintf("%s x%d", k.name, k.n)), Item: k.id, Asks: materialAsks(k.name), Ref: itemRef(k.id)})
 	}
 	return out
 }

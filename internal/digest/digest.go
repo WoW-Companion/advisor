@@ -24,7 +24,7 @@ import (
 
 // Schema is the version of one character's entry; EnvelopeSchema is the file's.
 const (
-	Schema         = "1.4"
+	Schema         = "1.5"
 	EnvelopeSchema = "2.0"
 )
 
@@ -47,7 +47,7 @@ const (
 	MaxNotes     = 6
 	MaxDungeons  = 3
 	MaxTalents   = 3
-	MaxText      = 60
+	MaxText      = 110
 )
 
 // Line kinds, for a Line's Kind.
@@ -57,6 +57,7 @@ const (
 	KindProgress = "progress"
 	KindTalent   = "talent"
 	KindNote     = "note"
+	KindGiver    = "giver"
 )
 
 // Objective is one objective of a quest: its text without the count, and the count when known.
@@ -91,6 +92,10 @@ type Line struct {
 	// (at most MaxPrompt characters); both are set on every entry.
 	Details []string
 	Prompt  string
+	// Schema 1.5. Asks is 1-3 short natural questions for this entry, Ref the stable subject the
+	// advisor expands (never shown to players).
+	Asks []string
+	Ref  string
 	// Unlocks is on a turn-in line: the follow-ups turning it in unlocks (not written to Digest.lua).
 	Unlocks []string
 	Spells  []TrainSpell // training: the abilities and ranks
@@ -106,6 +111,8 @@ type DungeonLine struct {
 	Item    int
 	Details []string
 	Prompt  string
+	Asks    []string
+	Ref     string
 }
 
 // TalentLine is one talents entry: the next point to spend; Spell is zero when the dataset has none.
@@ -114,6 +121,8 @@ type TalentLine struct {
 	Spell   int
 	Details []string
 	Prompt  string
+	Asks    []string
+	Ref     string
 }
 
 // Section is an ordered group of lines.
@@ -150,29 +159,21 @@ type Options struct {
 // NoDataText is what NEXT says when no game dataset has downloaded.
 const NoDataText = "Game data not downloaded yet; see Setup"
 
-// clip shortens s to MaxText characters.
+// clip shortens s to at most MaxText characters, cutting at a word boundary: "..." follows a whole
+// word, never half of one. Text is only shortened where an older addon needs a short line; the whole
+// wording always goes in the details.
 func clip(s string) string {
 	if utf8.RuneCountInString(s) <= MaxText {
 		return s
 	}
 	r := []rune(s)
-	return strings.TrimRight(string(r[:MaxText-3]), " ") + "..."
-}
-
-// clipWords is clip that never cuts a word: it ends at the last space that leaves room for "...".
-func clipWords(s string) string {
-	if utf8.RuneCountInString(s) <= MaxText {
-		return s
-	}
-	head := string([]rune(s)[:MaxText-3])
-	if i := strings.LastIndex(head, " "); i > 0 {
-		// A word ends where the next rune is a space.
-		if r := []rune(s); r[MaxText-3] == ' ' {
-			return strings.TrimRight(head, " ") + "..."
+	head := string(r[:MaxText-3])
+	if r[MaxText-3] != ' ' {
+		if i := strings.LastIndex(head, " "); i > 0 {
+			head = head[:i]
 		}
-		return strings.TrimRight(head[:i], " ") + "..."
 	}
-	return clip(s)
+	return strings.TrimRight(head, " ,;:") + "..."
 }
 
 // oneObjective keeps a quest's progress readable on one Next line: the first objective plus "+N more".
@@ -234,15 +235,17 @@ func Build(c character.Character, ds store.DataStore, opt Options) Digest {
 	var quests, milestones []Line
 	for _, s := range steps {
 		if s.Kind == advice.KindTalent { // milestones lead the NEXT section
-			l := Line{Text: clip(talentNote(c, ds, s.Title)), Kind: KindTalent, Points: s.Points}
+			l := Line{Text: talentNote(c, ds, s.Title), Kind: KindTalent, Points: s.Points}
 			pick, name := nextPick(c, ds)
 			l.Details, l.Prompt = talentStepContext(c, s, pick, name)
+			l.Asks, l.Ref = talentAsks(s.Points, name), talentsRef
 			quests, milestones = append(quests, l), append(milestones, l)
 			continue
 		}
 		if advice.IsClassQuest(s) {
 			l := Line{Text: clip(s.Title), Quest: s.QuestID, Kind: KindPickup, Title: s.Name, Level: s.Level, Class: true, Elite: s.Elite, NPC: s.NPC, Zone: s.Zone}
 			l.Details, l.Prompt = questContext(c, l, s.Reason)
+			l.Asks, l.Ref = questAsks(l), questRef(l.Quest)
 			quests, milestones = append(quests, l), append(milestones, l)
 			continue
 		}
@@ -267,18 +270,19 @@ func Build(c character.Character, ds store.DataStore, opt Options) Digest {
 			l.Objectives = objectivesOf(c, s.QuestID)
 		}
 		l.Details, l.Prompt = questContext(c, l, s.Reason)
+		l.Asks, l.Ref = questAsks(l), questRef(l.Quest)
 		quests = append(quests, l)
 	}
 	if ds == nil {
-		quests = append(milestones, Line{Text: NoDataText, Kind: KindNote})
+		quests = append(milestones, Line{Text: NoDataText, Kind: KindNote, Asks: asksOf("How do I download the game data?", "How do I download the game data?"), Ref: noteRef("no-data")})
 	} else if t, ok := trainingLine(c, ds, opt); ok {
 		// Training is a level milestone: it follows the talent and class lines and leads the quests.
 		quests = append(quests[:len(milestones):len(milestones)], append([]Line{t}, quests[len(milestones):]...)...)
 	}
 	ups, note := upgradeLines(c, ds)
 	notes = append(notes, note...)
-	if g := c.GiverLines(opt.Now, 1); len(g) > 0 {
-		notes = append(notes, Line{Text: clip(strings.Replace(g[0], "Quest giver you've met nearby: ", "Giver nearby: ", 1))})
+	if g, ok := FindGiver(c, opt.Questie, PlanQuests(steps), PlanNPCs(steps)); ok {
+		notes = append(notes, g.Line(c))
 	}
 	notes = append(notes, captureNotes(c, ds, opt)...)
 
@@ -339,7 +343,7 @@ func dungeonLines(c character.Character, ds store.DataStore) []DungeonLine {
 		if item == "" {
 			item = fmt.Sprintf("item %d", d.ItemID)
 		}
-		dl := DungeonLine{Name: clip(p.Name), Line: clip(fitText(p) + ": " + item), Item: int(d.ItemID)}
+		dl := DungeonLine{Name: p.Name, Line: clip(fitText(p) + ": " + item), Item: int(d.ItemID), Asks: dungeonAsks(p.Name), Ref: dungeonRef(p.MapID)}
 		dl.Details, dl.Prompt = dungeonContext(c, p, d)
 		out = append(out, dl)
 	}
@@ -375,7 +379,7 @@ func talentLines(c character.Character, ds store.DataStore) []TalentLine {
 	if g, ok := talents.GuideNext(c, MaxTalents); ok && len(g.Next) > 0 {
 		var out []TalentLine
 		for _, p := range g.Next {
-			l := TalentLine{Line: clip(fmt.Sprintf("%s rank %d", p.Name, p.Rank))}
+			l := TalentLine{Line: clip(fmt.Sprintf("%s rank %d", p.Name, p.Rank)), Asks: talentAsks(1, p.Name), Ref: talentsRef}
 			l.Details, l.Prompt = talentContext(c, p.Name, p.Rank, p.Group)
 			if p.SpellID != nil {
 				l.Spell = *p.SpellID
@@ -389,7 +393,7 @@ func talentLines(c character.Character, ds store.DataStore) []TalentLine {
 	}
 	var out []TalentLine
 	for _, p := range talents.Plan(c, ds, talents.Options{Limit: MaxTalents}).Next {
-		l := TalentLine{Line: clip(fmt.Sprintf("%s rank %d", p.Name, p.Rank)), Spell: spellID(ds, p.NodeID)}
+		l := TalentLine{Line: clip(fmt.Sprintf("%s rank %d", p.Name, p.Rank)), Spell: spellID(ds, p.NodeID), Asks: talentAsks(1, p.Name), Ref: talentsRef}
 		l.Details, l.Prompt = talentContext(c, p.Name, p.Rank, "")
 		out = append(out, l)
 	}
@@ -424,7 +428,8 @@ func stepNotes(c character.Character, ds store.DataStore, steps []advice.Step) [
 		}
 	}
 	if failed > 0 {
-		out = append(out, Line{Text: wording.Count(failed, "failed quest", "failed quests") + ": abandon", Kind: KindNote})
+		out = append(out, Line{Text: wording.Count(failed, "failed quest", "failed quests") + ": abandon", Kind: KindNote,
+			Asks: asksOf("Should I abandon my failed quests?", "Should I abandon my failed quests?"), Ref: noteRef("failed-quests")})
 	}
 	return out
 }
@@ -447,13 +452,13 @@ func talentNote(c character.Character, ds store.DataStore, title string) string 
 func captureNotes(c character.Character, ds store.DataStore, opt Options) []Line {
 	var out []Line
 	if !c.BankCaptured {
-		out = append(out, Line{Text: "Bank not captured: open your bank once"})
+		out = append(out, Line{Text: "Bank not captured: open your bank once", Kind: KindNote, Asks: asksOf("Why does my bank need opening?", "Why does my bank need opening?"), Ref: noteRef("bank")})
 	}
 	switch {
 	case ds == nil:
 		// The NEXT section says so (NoDataText); no second line here.
 	case opt.DatasetBuild != "" && opt.Client.Build != "" && !dataset.Matches(opt.DatasetBuild, opt.Client.Version, opt.Client.Build):
-		out = append(out, Line{Text: clip(fmt.Sprintf("Dataset is build %s, game is %s", opt.DatasetBuild, opt.Client.Build))})
+		out = append(out, Line{Text: fmt.Sprintf("Dataset is build %s, game is %s", opt.DatasetBuild, opt.Client.Build), Kind: KindNote, Asks: asksOf("What does the dataset mismatch mean?", "What does the dataset mismatch mean?"), Ref: noteRef("dataset-build")})
 	}
 	return out
 }
@@ -470,7 +475,7 @@ func upgradeLines(c character.Character, ds store.DataStore) (lines, notes []Lin
 	}
 	res, err := gear.Find(c, ds, group, gear.Options{Limit: 1})
 	if err != nil {
-		return nil, []Line{{Text: clip("No gear upgrades: " + err.Error())}}
+		return nil, []Line{{Text: "No gear upgrades: " + err.Error(), Kind: KindNote, Asks: asksOf("Why are there no gear upgrades?", "Why are there no gear upgrades?"), Ref: noteRef("no-upgrades")}}
 	}
 	slots := make([]string, 0, len(res.Slots))
 	for s := range res.Slots {
@@ -511,12 +516,35 @@ func upgradeLines(c character.Character, ds store.DataStore) (lines, notes []Lin
 				}
 			}
 		}
-		l := Line{Text: clipWords(text), Item: int(cd.Item.ID), Slot: slot, ILvl: int(cd.Item.ItemLevel)}
+		l := Line{Text: clip(text), Item: int(cd.Item.ID), Slot: slot, ILvl: int(cd.Item.ItemLevel)}
 		if cd.Soon {
 			l.AtLevel = int(cd.Item.ReqLevel)
 		}
 		l.Details, l.Prompt = upgradeContext(c, slot, cd)
+		l.Asks, l.Ref = upgradeAsks(cd.Item.Name), itemRef(int(cd.Item.ID))
 		lines = append(lines, l)
 	}
 	return lines, nil
+}
+
+// PlanQuests is the quest ids of the plan's steps.
+func PlanQuests(steps []advice.Step) map[int]bool {
+	out := map[int]bool{}
+	for _, s := range steps {
+		if s.QuestID != 0 {
+			out[s.QuestID] = true
+		}
+	}
+	return out
+}
+
+// PlanNPCs is the givers the plan's pick-up steps name (a turn-in NPC is not a giver).
+func PlanNPCs(steps []advice.Step) map[string]bool {
+	out := map[string]bool{}
+	for _, s := range steps {
+		if s.NPC != "" && (strings.HasPrefix(s.Title, advice.PickUpPrefix) || advice.IsClassQuest(s)) {
+			out[s.NPC] = true
+		}
+	}
+	return out
 }

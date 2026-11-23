@@ -1,7 +1,7 @@
 # In-game digest
 
 `wowc-advisor digest [NAME]` (and the MCP tool `update_digest`) writes the data-only
-`WoWCompanion_Digest/Digest.lua` the WoW Companion panel shows (format: schema 2.0, one schema 1.4 entry
+`WoWCompanion_Digest/Digest.lua` the WoW Companion panel shows (format: schema 2.0, one schema 1.5 entry
 per character; the addon repo's `docs/digest-format.md`). Type `/reload` in game afterwards.
 
 **Every captured character.** The file holds one entry for each character in your SavedVariables, so an
@@ -12,8 +12,8 @@ WoWCompanionDigest = {
   schema = "2.0",
   generated = 1795271211,        -- unix seconds, when the file was written
   characters = {
-    ["Testchar"] = { schema = "1.4", ... },   -- exactly the 1.4 digest below, for that character
-    ["Otherchar"] = { schema = "1.4", ... },
+    ["Testchar"] = { schema = "1.5", ... },   -- exactly the 1.5 digest below, for that character
+    ["Otherchar"] = { schema = "1.5", ... },
   },
 }
 ```
@@ -83,7 +83,23 @@ also has:
 
 Only facts the advisor holds go in; no guide text.
 
-A line's `text` is at most 60 characters. A section with nothing to say is left out.
+A line's `text` is at most 110 characters, shortened only at a word boundary (the complete wording is in
+`details`); notes are never shortened. A section with nothing to say is left out.
+
+**Natural asks and refs (schema 1.5).** Additive and optional: older addons ignore both fields. Every entry
+of every section (`next_quests`, `upgrades`, `keep_materials`, `notes`) and every `dungeons` and `talents` entry has:
+
+| Field | Meaning |
+| ----- | ------- |
+| `asks` | a list of 1 to 3 short questions in the player's voice, written for that entry, each at most 90 characters, complete and never cut. No "I'm a level 10 warrior": the advisor knows the character. Examples: "What's The Skybreaker Bulwark for?", "Where should my talent point go?", "What should I train first?", "Is Veteran's Chain Belt worth getting now?", "Am I ready for Wolf Den?", "Should I keep Copper Ore?", "What does Endaria Mistgaze have for me?" |
+| `ref` | a stable subject reference, never shown to players: `quest:<id>`, `npc:<id>`, `talents`, `training:<level>`, `item:<id>`, `dungeon:<id>` or `note:<slug>`. Sent back with the question (the asks record's optional `ref`), the advisor expands it into the entry's facts and its place in the plan |
+
+`prompt` stays for older addons. It is rebuilt from the same facts and never holds another field's text verbatim.
+
+**Giver notes.** A `notes` line with `kind = "giver"` (fields `npc`, `zone`, `x`, `y`, `quest`, `title`) appears
+only when the NPC has a quest the character can pick up now (from the player's own Questie data) that is not
+already a plan step, and whose NPC is not a pick-up giver in the plan. Its text is "<NPC> in <Zone> has a quest for you: <Title>". An NPC who is only
+the turn-in of an open quest never gets a note, and with nothing to offer there is no giver note.
 
 **Materials.** `keep_materials` is `professions.KeepList` (see `docs/professions.md`): bag and bank items
 that are reagents for the character's recipes. Only when the dataset has no recipes for the

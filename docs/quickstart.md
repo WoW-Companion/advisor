@@ -247,8 +247,8 @@ Use the overlay instead, and delete the folder.
 the character in the box at the top.
 
 **Answers are too long or too short, or I want to save tokens.** Open the overlay settings. **Answer
-length** is Brief (a few lines, the top 1-3 actions), Standard (a short numbered plan, the default) or
-Detailed (a fuller plan with alternatives); on the command line it is `--length` on `ask` and `companion`.
+length** is Brief (the answer and at most one bullet), Standard (the answer, then at most 3 short bullets; the default) or
+Detailed (a few more sentences of reasoning). Every length answers the question asked and never repeats your plan; on the command line it is `--length` on `ask` and `companion`.
 **Model** picks the AI client's small, fast tier (Efficient, the default), Balanced, Best, or Custom with a
 model name you type (`--model`). Efficient is `haiku` for Claude Code and `flash-lite` for Gemini CLI; Codex and Antigravity
 have no stable model alias, so it keeps its own model and the tiers set its reasoning effort instead. Each

@@ -86,6 +86,7 @@ func (l Line) writeFields(b *strings.Builder) {
 		fmt.Fprintf(b, ", x = %.1f, y = %.1f", l.X, l.Y)
 	}
 	writeContext(b, l.Details, l.Prompt)
+	writeAsks(b, l.Asks, l.Ref)
 }
 
 // writeContext renders the schema 1.4 fields of an entry: details (a list of strings) and prompt.
@@ -102,6 +103,23 @@ func writeContext(b *strings.Builder, details []string, prompt string) {
 	}
 	if prompt != "" {
 		fmt.Fprintf(b, ", prompt = %s", Quote(prompt))
+	}
+}
+
+// writeAsks renders the schema 1.5 fields of an entry: asks (a list of strings) and ref.
+func writeAsks(b *strings.Builder, asks []string, ref string) {
+	if len(asks) > 0 {
+		b.WriteString(", asks = { ")
+		for i, a := range asks {
+			if i > 0 {
+				b.WriteString(", ")
+			}
+			b.WriteString(Quote(a))
+		}
+		b.WriteString(" }")
+	}
+	if ref != "" {
+		fmt.Fprintf(b, ", ref = %s", Quote(ref))
 	}
 }
 
@@ -137,6 +155,7 @@ func (d Digest) Lua() string {
 				fmt.Fprintf(&b, ", item_id = %d", l.Item)
 			}
 			writeContext(&b, l.Details, l.Prompt)
+			writeAsks(&b, l.Asks, l.Ref)
 			b.WriteString(" },\n")
 		}
 		b.WriteString("  },\n")
@@ -149,6 +168,7 @@ func (d Digest) Lua() string {
 				fmt.Fprintf(&b, ", spell_id = %d", l.Spell)
 			}
 			writeContext(&b, l.Details, l.Prompt)
+			writeAsks(&b, l.Asks, l.Ref)
 			b.WriteString(" },\n")
 		}
 		b.WriteString("  },\n")

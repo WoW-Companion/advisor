@@ -102,6 +102,10 @@ type Entry struct {
 	Usage     string `json:"usage,omitempty"`     // "≈3.1k tokens · haiku": tokens when the CLI reported them, and the model; only with the setting on
 	Notice    string `json:"notice,omitempty"`    // a one-line notice, e.g. the reasoning setting was dropped
 	At        int64  `json:"at"`
+	// Needs is set, with Status "needs", when the question needs a play style the character has not
+	// saved: the choices to show as buttons. No AI call was made. Saving the choice (POST /api/profile)
+	// asks the question again, once, and says so with a "reask" event.
+	Needs *ask.Needs `json:"needs,omitempty"`
 }
 
 // CharInfo is one captured character.
@@ -221,7 +225,8 @@ type Server struct {
 	game     []Entry
 	gameDone map[string]Entry // in-game question id -> its answer, kept in memory (no Answers.lua)
 	turns    map[string]*turn
-	busy     map[string]bool // client address -> an answer is in flight
+	busy     map[string]bool       // client address -> an answer is in flight
+	pending  map[string]askRequest // character -> the question waiting for a play style
 	seq      int
 	subs     map[chan event]bool
 	digest   DigestState
@@ -241,7 +246,7 @@ func New(cfg Config) *Server {
 	if cfg.Debounce <= 0 {
 		cfg.Debounce = 2 * time.Second
 	}
-	s := &Server{cfg: cfg, Token: hex.EncodeToString(b), turns: map[string]*turn{}, busy: map[string]bool{}, subs: map[chan event]bool{}}
+	s := &Server{cfg: cfg, Token: hex.EncodeToString(b), turns: map[string]*turn{}, busy: map[string]bool{}, pending: map[string]askRequest{}, subs: map[chan event]bool{}}
 	s.data.dir = cfg.Dataset
 	s.digest = DigestState{Enabled: cfg.AutoDigest}
 	s.opts, s.usageOn = cfg.Ask.Options.Normalize(), !cfg.NoUsage
@@ -635,6 +640,10 @@ func sseHeaders(w http.ResponseWriter) {
 type askRequest struct {
 	Character string `json:"character"`
 	Text      string `json:"text"`
+	// Ref is the optional subject of the question (an entry's ref from the digest, see docs/digest.md):
+	// the advisor expands it into the entry's facts. A question that exactly matches one of the
+	// character's suggested asks gets that entry's ref without it.
+	Ref string `json:"ref,omitempty"`
 }
 
 func (s *Server) ask(w http.ResponseWriter, r *http.Request) {
@@ -657,23 +666,33 @@ func (s *Server) ask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	client, _, _ := net.SplitHostPort(r.RemoteAddr)
-	s.mu.Lock()
-	if s.busy[client] {
-		s.mu.Unlock()
+	id, ok := s.startAsk(client, req)
+	if !ok {
 		http.Error(w, "an answer is already being written", http.StatusTooManyRequests)
 		return
 	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"id": id})
+}
+
+// startAsk begins an answer for req in the background and returns its turn id; ok is false when this
+// client already has one in flight.
+func (s *Server) startAsk(client string, req askRequest) (id string, ok bool) {
+	s.mu.Lock()
+	if s.busy[client] {
+		s.mu.Unlock()
+		return "", false
+	}
 	s.busy[client] = true
 	s.seq++
-	id := fmt.Sprintf("t%d", s.seq)
+	id = fmt.Sprintf("t%d", s.seq)
 	t := &turn{wake: make(chan struct{})}
 	s.turns[id] = t
 	delete(s.turns, fmt.Sprintf("t%d", s.seq-50)) // finished streams are not kept for long
 	history := s.historyFor(req.Character)
 	s.mu.Unlock()
 	go s.answer(id, client, t, req, history)
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"id": id})
+	return id, true
 }
 
 // historyFor is the earlier web turns of one character as a block of prompt text, within the caps.
@@ -707,9 +726,22 @@ func (s *Server) historyFor(char string) string {
 }
 
 func (s *Server) answer(id, client string, t *turn, req askRequest, history string) {
-	q := ask.Question{ID: id, Character: req.Character, Text: history + req.Text}
 	e := Entry{ID: id, Source: "web", Character: req.Character, Question: req.Text, At: time.Now().Unix()}
 	ac := s.askCfg()
+	plain := ask.Question{Character: req.Character, Text: req.Text, Ref: req.Ref}
+	plain.Ref = ask.ResolveRef(ac, plain)
+	if n, needs := ask.PlayStyleNeeded(ac, plain); needs {
+		// A question that needs a play style is not worth an AI call: offer the choices, and ask it again
+		// once the choice is saved (setProfile).
+		e.Status, e.Needs = "needs", &n
+		s.mu.Lock()
+		s.pending[req.Character] = askRequest{Character: req.Character, Text: req.Text, Ref: plain.Ref}
+		delete(s.busy, client)
+		s.mu.Unlock()
+		t.emit("done", e, true)
+		return
+	}
+	q := ask.Question{ID: id, Character: req.Character, Text: history + req.Text, Ref: plain.Ref}
 	text, streamed, usage, err := ask.RespondUsage(s.ctx, ac, q, ac.Prompt(q), s.cfg.Stream, func(chunk string) {
 		t.emit("chunk", map[string]string{"text": chunk}, false)
 	})
