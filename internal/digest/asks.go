@@ -96,9 +96,11 @@ func talentAsks(points int, pick string) []string {
 		fmt.Sprintf("What changes in play once I take the %s talent?", pick))
 }
 
-// upgradeAsks are the questions of one upgrade entry: fit, staying power and, for a craft, whether
-// to spend the materials now. who is the player's spec and class ("Fury warrior"), slot the item's slot.
-func upgradeAsks(item, slot, pathKind, who string, craftMats []string) []string {
+// upgradeAsks are the questions of one upgrade entry. The first follows the path the card suggests
+// (how to make it, get it from the quest, find it on the Auction House, get it from the boss, farm
+// it); then fit and staying power and, for a craft, whether to spend the materials now. who is the
+// player's spec and class ("Fury warrior"), slot the item's slot.
+func upgradeAsks(item, slot, who string, best paths.Path, craftMats []string) []string {
 	fallback := "Which of my upgrades should I get first?"
 	if item == "" {
 		return []string{fallback}
@@ -111,14 +113,33 @@ func upgradeAsks(item, slot, pathKind, who string, craftMats []string) []string 
 	if slot != "" {
 		outgrow = fmt.Sprintf("Will %s stay my best pick for the %s slot?", item, strings.ToLower(slot))
 	}
-	if pathKind == paths.Craft {
+	first := ""
+	switch best.Kind {
+	case paths.Craft:
+		first = fmt.Sprintf("How do I make %s?", item)
+	case paths.Quest:
+		if best.Quest != "" {
+			first = fmt.Sprintf("How do I get %s from %s?", item, best.Quest)
+		}
+	case paths.Auction:
+		first = fmt.Sprintf("How do I find %s on the Auction House?", item)
+	case paths.Dungeon:
+		if best.Boss != "" && best.Dungeon != "" {
+			first = fmt.Sprintf("How do I get %s from %s in %s?", item, best.Boss, best.Dungeon)
+		}
+	case paths.Creature:
+		if best.Creature != "" {
+			first = fmt.Sprintf("Where do I farm %s from %s?", item, best.Creature)
+		}
+	}
+	if best.Kind == paths.Craft {
 		mats := "the materials"
 		if len(craftMats) > 0 {
 			mats = "the " + strings.Join(craftMats, " and ")
 		}
-		return asksOf(fit, fmt.Sprintf("Is it worth making %s now, or should I save %s?", item, mats), fit, outgrow)
+		return asksOf(fit, first, fmt.Sprintf("Is it worth making %s now, or should I save %s?", item, mats), fit)
 	}
-	return asksOf(fit, fit, outgrow)
+	return asksOf(fit, first, fit, outgrow)
 }
 
 // shoppingAsks are the questions of a slot's Auction House shopping list: the alternative suffix,
@@ -132,6 +153,7 @@ func shoppingAsks(slot string, suffixes []string, worn string) []string {
 	if len(suffixes) == 0 {
 		return asksOf(more, fmt.Sprintf("Is the Auction House my best bet for my %s slot?", slot), more)
 	}
+	find := fmt.Sprintf("How do I find a green %s '%s' on the Auction House?", slot, suffixes[0])
 	pick := fmt.Sprintf("For my %s slot, is '%s' my best pick for now?", slot, suffixes[0])
 	worth := fmt.Sprintf("Is '%s' gear for my %s slot worth a few silver?", suffixes[0], slot)
 	if worn != "" {
@@ -139,9 +161,9 @@ func shoppingAsks(slot string, suffixes []string, worn string) []string {
 	}
 	if len(suffixes) > 1 {
 		alt := fmt.Sprintf("Would '%s' do as well as '%s' for my %s?", suffixes[1], suffixes[0], slot)
-		return asksOf(pick, pick, alt, worth)
+		return asksOf(pick, find, pick, alt)
 	}
-	return asksOf(pick, pick, worth, more)
+	return asksOf(pick, find, pick, worth)
 }
 
 func materialAsks(item string) []string {

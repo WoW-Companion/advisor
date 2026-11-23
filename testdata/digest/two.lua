@@ -15,7 +15,7 @@ WoWCompanionDigest = {
           { text = "Gather Peacebloom (Dunemark)", quest = 101, kind = "progress", title = "Gather Peacebloom", level = 12, zone = "Dunemark", details = { "In Dunemark", "Right for your level" }, asks = { "What should I do alongside Gather Peacebloom to save time?", "What does Gather Peacebloom lead to?" }, ref = "quest:101" },
         } },
         { id = "upgrades", summary = "1 upgrade you can get", lines = {
-          { text = "Cloth Hood of the \"Sage\"", item = 1, slot = "Head", ilvl = 20, wear = "Wear now", gain = "Small upgrade", how = "Drops sometimes from Near Wolf in Wolf Den (levels 10 to 14)", pathKind = "dungeon", details = { "Drops sometimes from Near Wolf in Wolf Den (levels 10 to 14)" }, asks = { "How much does Cloth Hood of the \"Sage\" help my Discipline priest?", "Will Cloth Hood of the \"Sage\" stay my best pick for the head slot?" }, ref = "item:1" },
+          { text = "Cloth Hood of the \"Sage\"", item = 1, slot = "Head", ilvl = 20, wear = "Wear now", gain = "Small upgrade", how = "Drops sometimes from Near Wolf in Wolf Den (levels 10 to 14)", pathKind = "dungeon", details = { "Drops sometimes from Near Wolf in Wolf Den (levels 10 to 14)" }, asks = { "How do I get Cloth Hood of the \"Sage\" from Near Wolf in Wolf Den?", "How much does Cloth Hood of the \"Sage\" help my Discipline priest?", "Will Cloth Hood of the \"Sage\" stay my best pick for the head slot?" }, ref = "item:1" },
         } },
         { id = "keep_materials", lines = {
           { text = "Copper Ore x20", item = 2770, asks = { "Will I need Copper Ore for a craft soon?", "Is Copper Ore worth selling instead?" }, ref = "item:2770" },

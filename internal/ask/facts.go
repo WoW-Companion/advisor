@@ -146,6 +146,11 @@ func subjectFacts(cfg Config, cc loaded, q Question) string {
 	}
 	b.WriteString(GroundingRules + "\n")
 	b.WriteString(JustReadRule + "\n")
+	if sub.Line != nil && len(sub.Line.Asks) > 0 && digest.SameAsk(q.Text, sub.Line.Asks[0]) {
+		if r := PathStepsRule(sub.Line.PathKind); r != "" {
+			b.WriteString(r + "\n")
+		}
+	}
 	return b.String() + "\n"
 }
 
@@ -246,4 +251,24 @@ func (c Config) Prompt(q Question) string {
 		return p
 	}
 	return p[:i] + talentRule(CanFetchGuide(c.Command, q.Text)) + p[i+1:]
+}
+
+// PathStepsRule is added when the player asks an upgrade's first question, the one that follows the
+// path the card suggests: they want the steps, not the card's one line again. It keeps the short
+// answer shape (one answer line, then at most 3 steps) and takes its facts from upgrade_paths.
+func PathStepsRule(kind string) string {
+	const shape = " Call upgrade_paths with the item id for the facts. Give one answer line, then at most 3 steps as short bullets; do not repeat the card's one line."
+	switch kind {
+	case "craft":
+		return "The player asks how to make this item. Steps, in order: where the trainer is if the recipe is not known yet; the materials with the counts they have and still need, and where to get each missing one (mining nodes, a vendor or the Auction House); where to craft it (a forge and anvil for blacksmithing)." + shape
+	case "quest":
+		return "The player asks how to get this item from its quest. Steps: where to pick up the quest, what it asks, where to hand it in and choose the reward." + shape
+	case "auction":
+		return "The player asks how to find this on the Auction House. Steps: where the Auction House is, the Browse filters (slot, level range, quality), and what to look for in the results. Never name a price." + shape
+	case "dungeon":
+		return "The player asks how to get this item from a dungeon boss. Steps: where the dungeon entrance is, how to reach the boss, and how often it drops." + shape
+	case "creature":
+		return "The player asks where to farm this item. Steps: which creature carries it, where it lives, and how often it drops." + shape
+	}
+	return ""
 }
