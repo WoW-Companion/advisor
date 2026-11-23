@@ -96,6 +96,7 @@
       <summary>Shortcuts</summary>
       <label class="row"><span class="lbl">Show / hide</span><span class="ctl"><input id="key-vis" class="key" readonly></span></label>
       <label class="row"><span class="lbl">Click-through</span><span class="ctl"><input id="key-ct" class="key" readonly></span></label>
+      <label class="row"><span class="lbl">Show the quick bar</span><span class="ctl"><input id="quick-on" type="checkbox"></span></label>
       <small>Focus a shortcut box and press the new keys (with Ctrl, Shift or Alt).</small>
     </details>
     <details class="grp" data-group="updates">
@@ -108,7 +109,7 @@
 
   <div class="bar">
     <select id="who" aria-label="Character"></select>
-    <span id="badge" class="chip" title="data from game: …">…</span>
+    <span id="badge" class="dot" role="img" aria-label="Game save age" title="Last game save: unknown"></span>
     <button id="clear" class="tiny" type="button" title="Clear the chat">Clear</button>
     <button id="chat-toggle" class="tiny" type="button" aria-expanded="true" title="Collapse the chat">&#9662;</button>
   </div>
@@ -120,7 +121,10 @@
     <div id="plan" class="plan" hidden><b>Plan</b><span id="plan-line"></span><ol id="plan-list"></ol></div>
   </section>
 
+  <div id="suggs" hidden></div>
+
   <div id="log" aria-live="polite"></div>
+  <div id="quick-slot"></div>
   <form id="form">
     <textarea id="text" maxlength="1000" rows="1" placeholder="Ask about this character…"></textarea>
     <button id="send">Ask</button>
@@ -130,6 +134,7 @@
 <script src="version.js"></script>
 <script src="nextlist.js"></script>
 <script src="asking.js"></script>
+<script src="launch.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

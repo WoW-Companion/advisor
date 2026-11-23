@@ -6,10 +6,12 @@ const win = window.__TAURI__.window.getCurrentWindow();
 
 const $ = id => document.getElementById(id);
 const log = $('log'), who = $('who'), badge = $('badge'), text = $('text'), send = $('send');
-const DEFAULTS = { opacity: 92, solidHover: false, mode: 'overlay', keyVis: 'Ctrl+Shift+W', keyCt: 'Ctrl+Shift+T', nextOpen: null, settingsOpen: false, chatOpen: true, size: 'M', checkUpdates: true, cleared: [], who: '', setupSeen: false, setupHidden: [], gameDir: '', length: 'standard', byClient: {}, usage: true, groups: { ai: true }, gameToast: false };
+const DEFAULTS = { opacity: 92, solidHover: false, mode: 'overlay', keyVis: 'Ctrl+Shift+W', keyCt: 'Ctrl+Shift+T', nextOpen: null, settingsOpen: false, chatOpen: true, size: 'M', checkUpdates: true, cleared: [], who: '', setupSeen: false, setupHidden: [], gameDir: '', length: 'standard', byClient: {}, usage: true, groups: { ai: true }, gameToast: false, quickBar: true, dismissedAsks: [], dismissedSugg: {} };
 // nextOpen null means automatic: open until the chat has a message, then collapsed. A click makes it a choice.
 const cfg = { ...DEFAULTS, ...JSON.parse(localStorage.getItem('wowc') || '{}') };
+cfg.settingsOpen = false; // the settings open from the gear for this session only; a launch starts calm
 const save = () => localStorage.setItem('wowc', JSON.stringify(cfg));
+const chats = WowcLaunch.chatStore(localStorage); // each character's last 50 turns, on this PC only
 
 let conn = null, state = null, busy = false, events = null;
 
@@ -200,6 +202,7 @@ $('chat-toggle').onclick = () => { cfg.chatOpen = !cfg.chatOpen; save(); showPan
 $('size').onchange = ev => { cfg.size = ev.target.value; save(); showPanes(); };
 $('clear').onclick = () => {
   cfg.cleared = [...new Set([...cfg.cleared, ...[...log.children].map(e => e.id).filter(Boolean)])].slice(-500);
+  chats.clear(who.value);
   save(); log.replaceChildren(); showPanes();
 };
 
@@ -314,10 +317,9 @@ async function pushDigest() {
 function showBadge() {
   if (!state) return;
   showDigest();
-  const t = state.captured_at, s = t ? Date.now() / 1000 - t : 0;
-  badge.textContent = t ? ago(t) : '—';
-  badge.className = 'chip' + (!t || s > 7200 ? ' red' : s > 1800 ? ' amber' : '');
-  badge.title = 'data from game: ' + (t ? new Date(t * 1000).toLocaleTimeString() : 'no capture yet') + (state.error ? ' — ' + state.error : '') + digestNote();
+  const f = WowcLaunch.freshness(state.captured_at, Date.now());
+  badge.className = 'dot' + (f.cls ? ' ' + f.cls : '');
+  badge.title = f.tip + (state.error ? '\n' + state.error : '') + digestNote();
 }
 function setChars() {
   const cur = who.value || cfg.who;
@@ -329,7 +331,7 @@ function setChars() {
   who.value = state.characters.some(c => c.key === cur) ? cur : state.default;
   showNext();
 }
-who.onchange = () => { cfg.who = who.value; save(); showNext(); };
+who.onchange = () => { cfg.who = who.value; save(); showNext(); if (!busy) restoreChat(); };
 
 // Play style: the chosen character's role, focus and spec, saved locally by the advisor. Both role
 // and focus are needed before it saves; the spec is optional.
@@ -371,18 +373,84 @@ function showNext() {
   // plan_steps carries the lock state; an older advisor sends only the text.
   const plan = (c && c.plan_steps && c.plan_steps.length) ? c.plan_steps : ((c && c.plan) || []);
   $('plan').hidden = !plan.length;
-  $('plan-line').textContent = (c && c.plan_line) || '';
+  $('plan-line').textContent = WowcLaunch.planLine(c && c.plan_line);
   $('plan-list').replaceChildren(...plan.map(t => {
     const li = document.createElement('li');
     li.textContent = typeof t === 'string' ? t : t.text;
-    if (t && t.x) { // the place, shown dimly after the action
-      const xy = document.createElement('span'); xy.className = 'plan-xy'; xy.textContent = ` (${Math.round(t.x)}, ${Math.round(t.y)})`;
+    if (t && t.x) { // the place, shown dimly at the end
+      const xy = document.createElement('span'); xy.className = 'plan-xy'; xy.textContent = ` · ${Math.round(t.x)}, ${Math.round(t.y)}`;
       li.appendChild(xy);
     }
     if (t && t.locked) li.className = 'locked';
     return li;
   }));
+  showSuggestions(c);
+  showQuick();
 }
+
+// --- suggestions row and quick bar ---------------------------------------------------------
+// At most three chips on one line, hidden when empty. A chip's × hides it for the rest of today.
+function currentChar() { return state && state.characters.find(c => c.key === who.value); }
+function showSuggestions(c) {
+  const day = WowcLaunch.dayKey(new Date());
+  cfg.dismissedSugg = Object.fromEntries(Object.entries(cfg.dismissedSugg || {}).filter(([, d]) => d === day)); // yesterday's are forgotten
+  const items = WowcLaunch.visibleSuggestions(c && c.suggestions, cfg.dismissedSugg, who.value, day);
+  $('suggs').hidden = !items.length;
+  $('suggs').replaceChildren(...(items.length ? [WowcLaunch.suggestionRow(document, items, runSuggestion, s => {
+    cfg.dismissedSugg[who.value + '|' + s.id] = day; save(); showSuggestions(currentChar());
+  })] : []));
+}
+function runSuggestion(s) {
+  if (s.action === 'ask') askEntry(s.question, s.ref);
+  else if (s.action === 'play_style') showStyleCard();
+  else if (s.action === 'refresh_plan') refreshPlan();
+  else if (s.action === 'open_entry') openEntry(s.ref);
+}
+// open_entry: scroll the Next list to the entry and open its question chips.
+function openEntry(ref) {
+  cfg.nextOpen = true; save(); showPanes();
+  const c = currentChar(), i = ((c && c.entries) || []).findIndex(e => e.ref === ref);
+  const row = i >= 0 && $('entries').querySelectorAll('.entry-row')[i];
+  if (row && !row.parentNode.className.includes(' open')) row.click();
+  if (row && row.scrollIntoView) row.scrollIntoView({ block: 'nearest' });
+}
+// The play-style card in the chat, saved with the same store as the settings section; no question waits on it.
+function showStyleCard() {
+  const c = currentChar();
+  if (!c) return;
+  const a = put(null, 'a', WowcAsking.NEEDS_LINE);
+  const card = WowcAsking.needsCard(document, WowcLaunch.styleNeeds(), async style => {
+    if (await saveStyle(c.key, style)) a.remove(); else a.append(Object.assign(document.createElement('small'), { textContent: 'Could not save that. Try again.' }));
+  }, c.style);
+  card.dataset.character = c.key;
+  a.append(card);
+  scrollDown(true);
+}
+// Refresh: the advisor rebuilds the plan from the newest save; no AI is asked. One sentence comes back.
+async function refreshPlan() {
+  if (!conn) return;
+  try {
+    const r = await api('/api/refresh-plan', { method: 'POST' });
+    if (!r.ok) { toast((await r.text()).trim() || 'Could not update the plan.'); return; }
+    toast((await r.json()).message || 'Plan updated.');
+    const r2 = await api('/api/state');
+    if (r2.ok) { state = await r2.json(); setChars(); showBadge(); }
+  } catch (e) { toast('Could not reach the advisor.'); }
+}
+function quickBar() {
+  const slot = $('quick-slot');
+  slot.replaceChildren(WowcLaunch.quickBar(document, id => {
+    const act = WowcLaunch.quickAction(id, currentChar());
+    if (!act) return;
+    if (act.act === 'ask') askEntry(act.question, act.ref);
+    else if (act.act === 'play_style') showStyleCard();
+    else if (act.act === 'refresh') refreshPlan();
+  }));
+}
+function showQuick() { $('quick-slot').hidden = cfg.quickBar === false; }
+quickBar();
+$('quick-on').checked = cfg.quickBar !== false;
+$('quick-on').onchange = ev => { cfg.quickBar = ev.target.checked; save(); showQuick(); };
 
 // A chip: the player's short question goes out with the entry's ref; nothing else shows in the chat.
 function askEntry(question, ref) { if (!busy && conn) ask(question, ref); }
@@ -409,16 +477,55 @@ function put(id, cls, body, note) {
   showPanes();
   return el;
 }
+// A game entry's character may be a name or a key; the page keys everything by the key.
+const keyOf = c => { const k = state && state.characters.find(x => x.key === c || x.name === c); return k ? k.key : c; };
+// restoreChat: the character's saved chat, scrolled to the bottom, with a dim divider for the gap.
+// It shows what was said; it never sends anything.
+function restoreChat() {
+  log.replaceChildren();
+  const turns = chats.load(who.value);
+  for (const t of turns) {
+    put('q-' + t.id, 'q', WowcAsking.shortQuestion(t.q), t.src === 'game' ? WowcAsking.gameMark : null);
+    put('a-' + t.id, 'a', t.a);
+  }
+  if (turns.length) log.appendChild(WowcLaunch.gapDivider(document, turns[turns.length - 1].at, Date.now()));
+  if (state) render(state.history);
+  showPanes(); scrollDown(true);
+}
 function render(history) {
   for (const e of history) {
+    if (who.value && keyOf(e.character) !== who.value) continue; // each character has its own chat
     if (cfg.cleared.includes('q-' + e.id) || cfg.cleared.includes('a-' + e.id)) continue;
+    if (e.status === 'pending') { showPending(e); continue; }
+    document.getElementById('p-' + e.id)?.remove();
     put('q-' + e.id, 'q', WowcAsking.shortQuestion(e.question), e.source === 'game' ? WowcAsking.gameMark : null);
     const body = e.status === 'waiting' ? 'Waiting for an answer…' : (e.status === 'answering' && !e.answer ? 'Answering…' : e.answer);
     const note = WowcAsking.savedNote(e, cfg.autoDigest !== false);
     put('a-' + e.id, 'a' + (e.status === 'error' ? ' err' : e.status === 'answering' ? ' live' : ''), body, note);
+    if (e.status === 'done' && e.source === 'game') chats.add(keyOf(e.character), { id: e.id, q: WowcAsking.shortQuestion(e.question), a: e.answer, at: e.at, src: 'game' });
     if (e.source === 'game' && !seenGame.has(e.id)) { seenGame.add(e.id); if (cfg.gameToast === true && seenGameReady) toast('Question from game'); }
   }
   seenGameReady = true;
+}
+// An in-game ask too old to answer by itself is one small card; only "Answer now" sends it.
+function showPending(e) {
+  if (cfg.dismissedAsks.includes(e.id) || document.getElementById('p-' + e.id)) return;
+  const card = WowcLaunch.pendingCard(document, e, Date.now(), answerPending, dismissPending);
+  card.id = 'p-' + e.id;
+  log.appendChild(card);
+  scrollDown(); showPanes();
+}
+async function answerPending(e) {
+  try {
+    const r = await api('/api/answer-pending', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: e.id }) });
+    if (r.ok) { document.getElementById('p-' + e.id)?.remove(); return; }
+    toast((await r.text()).trim() || 'Could not answer that.');
+  } catch (err) { toast('Could not reach the advisor.'); }
+  document.querySelector('#p-' + e.id + ' .pending-answer')?.removeAttribute('disabled');
+}
+function dismissPending(e) {
+  cfg.dismissedAsks = [...cfg.dismissedAsks, e.id].slice(-200); save();
+  document.getElementById('p-' + e.id)?.remove(); showPanes();
 }
 // A question asked in game appears in the feed at once. The optional toast is off by default (cfg.gameToast).
 const seenGame = new Set();
@@ -437,7 +544,7 @@ async function load() {
   pushSettings(); // the saved choices win over the sidecar's defaults
   setChars();
   showBadge();
-  render(state.history);
+  restoreChat(); // the saved chat first, then the game's asks; nothing is sent
 }
 
 // Streaming text is painted at most once per frame, so a fast stream stays smooth.
@@ -446,6 +553,7 @@ function ask(question, ref) {
   scrollDown(true);
   put(null, 'q', question);
   const a = put(null, 'a live', '…');
+  a.wowc = { q: question, char: who.value };
   const body = { character: who.value, text: question };
   if (ref) body.ref = ref;
   api('/api/ask', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
@@ -467,6 +575,7 @@ function follow(id, a) {
     es.close();
     if (e.status === 'needs' && e.needs) { showNeeds(a, e.needs); stop(); return; }
     a.textContent = e.answer; scrollDown();
+    if (e.status === 'done' && a.wowc && e.answer) chats.add(a.wowc.char, { id: 't' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), q: a.wowc.q, a: e.answer, at: Math.floor(Date.now() / 1000) });
     if (e.status === 'error') a.classList.add('err');
     for (const t of [e.usage, e.notice]) if (t) { const s = document.createElement('small'); s.textContent = t; if (t === e.usage && e.usage_tip) s.title = e.usage_tip; a.appendChild(s); }
     stop();
@@ -491,6 +600,7 @@ let reaskBubble = null;
 function onReask(ev) {
   const { id } = JSON.parse(ev.data);
   const a = put(null, 'a live', '…');
+  if (reaskBubble) a.wowc = reaskBubble.wowc;
   if (reaskBubble) { reaskBubble.querySelector('.style-card')?.remove(); reaskBubble = null; }
   follow(id, a);
 }
