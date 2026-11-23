@@ -110,7 +110,10 @@ fn toggle_visible(app: &AppHandle) {
 /// Gives keyboard focus to the web view itself (WebView2's MoveFocus), never the bare host window:
 /// focusing the host window can pull Win32 focus off the web view and lose the editing keys.
 fn focus_webview(app: &AppHandle) {
-    if let Some(v) = app.get_webview("main") {
+    if let Some(w) = app.get_webview_window("main") {
+        // The stable path: a webview window derefs to its inner webview, whose set_focus moves
+        // WebView2 focus (the window's own set_focus would only focus the host window).
+        let v: &tauri::Webview<_> = w.as_ref();
         let _ = v.set_focus();
     }
 }

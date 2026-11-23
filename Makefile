@@ -5,6 +5,12 @@ verify:
 	@out="$$(gofmt -l .)"; if [ -n "$$out" ]; then echo "gofmt needed on:"; echo "$$out"; exit 1; fi
 	go vet ./...
 	go test ./...
+	@if command -v cargo >/dev/null 2>&1; then \
+		echo "cargo check --locked (overlay/src-tauri)"; \
+		(cd overlay/src-tauri && cargo check --locked) || exit 1; \
+	else \
+		echo "verify: cargo not found; skipping the overlay Rust compile check"; \
+	fi
 
 # The release archives and SHA256SUMS for every platform in dist/ (git-ignored): the same script the
 # release workflow runs. VERSION and COMMIT override the VERSION file and git's HEAD.
