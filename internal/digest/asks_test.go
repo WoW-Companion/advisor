@@ -132,14 +132,14 @@ type entry struct {
 func entriesOf(d Digest) (out []entry) {
 	for _, s := range d.Sections {
 		for _, l := range s.Lines {
-			out = append(out, entry{l.Text, l.Ref, l.Asks, append([]string{l.Prompt}, l.Details...)})
+			out = append(out, entry{l.Text, l.Ref, l.Asks, append([]string{}, l.Details...)})
 		}
 	}
 	for _, l := range d.Dungeons {
-		out = append(out, entry{l.Name + ": " + l.Line, l.Ref, l.Asks, append([]string{l.Prompt, l.Line}, l.Details...)})
+		out = append(out, entry{l.Name + ": " + l.Line, l.Ref, l.Asks, append([]string{l.Line}, l.Details...)})
 	}
 	for _, l := range d.Talents {
-		out = append(out, entry{l.Line, l.Ref, l.Asks, append([]string{l.Prompt}, l.Details...)})
+		out = append(out, entry{l.Line, l.Ref, l.Asks, append([]string{}, l.Details...)})
 	}
 	return out
 }
@@ -194,36 +194,77 @@ func TestEveryEntryKindHasNaturalAsks(t *testing.T) {
 	}
 }
 
-func TestNoDigestTextIsCut(t *testing.T) {
+// digestStrings is every player-facing string of d except the asks (questions may end in "for"): line text, why, how, details and the rest.
+func digestStrings(d Digest) []string {
+	var out []string
+	for _, s := range d.Sections {
+		out = append(out, s.Summary)
+		for _, l := range s.Lines {
+			out = append(out, l.Text, l.Title, l.Why, l.How, l.Slot, l.Wear, l.Gain, l.Replaces)
+			out = append(out, l.Details...)
+		}
+	}
+	for _, l := range d.Dungeons {
+		out = append(append(out, l.Name, l.Line, l.Why), l.Details...)
+	}
+	for _, l := range d.Talents {
+		out = append(append(out, l.Line, l.Why), l.Details...)
+	}
+	return out
+}
+
+// No player-facing digest string ends in a cut word, "..." or an ellipsis, and a how is one line.
+func TestNoDigestStringIsCut(t *testing.T) {
 	long := scout()
 	long.Quests = []character.Quest{{QuestID: 701, Title: "A Very Long Quest Title That Keeps Going On And On Past Any Sensible Panel Width", Level: ip(10),
 		Objectives: []character.Objective{{Text: "Gather the Whispering Hollow Essence from the ancient trees", Have: ip(1), Need: ip(9)}}}}
 	opt := synthOpt
 	opt.Questie = valanaar(true)
-	d := Build(long, warriorStore(t), opt)
-	for _, s := range d.Sections {
-		for _, l := range s.Lines {
-			if utf8.RuneCountInString(l.Text) > MaxText {
-				t.Errorf("text too long: %q", l.Text)
+	for name, d := range map[string]Digest{
+		"long":  Build(long, warriorStore(t), opt),
+		"scout": scoutDigest(t, true),
+		"synth": Build(synthChar(), synthStore(t), synthOpt),
+		"rogue": Build(synthRogue(), synthStore(t), synthOpt),
+	} {
+		for _, s := range digestStrings(d) {
+			s = strings.TrimSpace(s)
+			if s == "" {
+				continue
 			}
-			if i := strings.Index(l.Text, "..."); i >= 0 && (i != len(l.Text)-3 || l.Text[i-1] == ' ') {
-				t.Errorf("text cut oddly: %q", l.Text)
+			if strings.HasSuffix(s, "...") || strings.HasSuffix(s, "…") {
+				t.Errorf("%s: cut with an ellipsis: %q", name, s)
 			}
-			if s.ID == Notes && strings.HasSuffix(l.Text, "...") {
-				t.Errorf("a note was cut: %q", l.Text)
+			w := strings.Fields(s)
+			if last := strings.ToLower(strings.Trim(w[len(w)-1], `.,;:!?()'"`)); len(w) > 1 && danglers[last] {
+				t.Errorf("%s: ends on a cut word %q: %q", name, last, s)
 			}
-			for _, x := range append(l.Details, l.Prompt) {
-				if strings.Contains(x, "...") {
-					t.Errorf("cut text in %q", x)
+		}
+		for _, sec := range d.Sections {
+			for _, l := range sec.Lines {
+				if n := utf8.RuneCountInString(l.How); n > MaxHow || strings.Contains(l.How, "\n") {
+					t.Errorf("%s: how is %d characters: %q", name, n, l.How)
 				}
 			}
 		}
 	}
 }
 
+func TestWholeCutAndOneLineHow(t *testing.T) {
+	long := "Open the Auction House and search for the item. Then pick the level range of the list and filter by armor type and slot as shown"
+	if got := wholeCut(long, 60); got != "Open the Auction House and search for the item." {
+		t.Errorf("wholeCut = %q", got)
+	}
+	if got := wholeCut("Take the old road to the", 20); strings.HasSuffix(got, " the") {
+		t.Errorf("wholeCut kept a dangling word: %q", got)
+	}
+	if got := oneLineHow(long); utf8.RuneCountInString(got) > MaxHow || strings.HasSuffix(got, "...") {
+		t.Errorf("oneLineHow = %q", got)
+	}
+}
+
 func TestLuaCarriesAsksAndRef(t *testing.T) {
 	out := one(scoutDigest(t, true)).Lua()
-	for _, want := range []string{`schema = "1.7"`, `asks = { "What does turning in Unwelcome Spirits unlock?"`, `ref = "quest:700"`,
+	for _, want := range []string{`schema = "1.8"`, `asks = { "What does turning in Unwelcome Spirits unlock?"`, `ref = "quest:700"`,
 		`kind = "giver"`, `ref = "npc:1"`, `asks = { "Where should my talent point go?"`, `ref = "talents"`, `ref = "training:10"`, `asks = { "What should I train first?"`} {
 		if !strings.Contains(out, want) {
 			t.Errorf("lacks %s", want)

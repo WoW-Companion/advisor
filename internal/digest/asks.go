@@ -170,7 +170,7 @@ func (g Giver) Text() string {
 	return fmt.Sprintf("%s%s has a quest for you: %s", g.NPC, where, g.Title)
 }
 
-// Line is the giver note as a digest line, with its details and prompt.
+// Line is the giver note as a digest line, with its details.
 func (g Giver) Line(c character.Character) Line {
 	l := Line{Text: g.Text(), Kind: KindGiver, NPC: g.NPC, Zone: g.Zone, Quest: g.QuestID, Title: g.Title, Level: g.Level, X: g.X, Y: g.Y, HasXY: true}
 	where := g.NPC
@@ -183,11 +183,6 @@ func (g Giver) Line(c character.Character) Line {
 		fit = wording.Fit(g.Level, *c.Level)
 	}
 	l.Details = finishDetails([]string{where, fit})
-	facts := fmt.Sprintf("%s in %s has the quest %q for me.", g.NPC, g.Zone, g.Title)
-	if g.Zone == "" {
-		facts = fmt.Sprintf("%s has the quest %q for me.", g.NPC, g.Title)
-	}
-	l.Prompt = makePrompt(c, "", facts, " Is it worth taking now, and what should I know first?")
 	l.Asks = giverAsks(g.NPC)
 	l.Why = questWhy(c, l)
 	l.Ref = npcRef(g.NPCID)

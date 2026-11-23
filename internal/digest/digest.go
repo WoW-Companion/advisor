@@ -24,7 +24,7 @@ import (
 
 // Schema is the version of one character's entry; EnvelopeSchema is the file's.
 const (
-	Schema         = "1.7"
+	Schema         = "1.8"
 	EnvelopeSchema = "2.0"
 )
 
@@ -88,10 +88,9 @@ type Line struct {
 	ILvl    int    // upgrades: the item's level (not shown to players)
 	AtLevel int    // upgrades: the character level the item needs, when not yet wearable
 
-	// Schema 1.4. Details is 1-4 short context lines, Prompt a ready question for the companion's AI
-	// (at most MaxPrompt characters); both are set on every entry.
+	// Schema 1.4. Details is 1-4 short context lines, set on every entry. The legacy prompt field
+	// was removed in schema 1.8: the companion builds its own question from the entry's ref.
 	Details []string
-	Prompt  string
 	// Schema 1.5. Asks is 1-3 short natural questions for this entry, Ref the stable subject the
 	// advisor expands (never shown to players).
 	Asks []string
@@ -123,7 +122,6 @@ type DungeonLine struct {
 	Line    string
 	Item    int
 	Details []string
-	Prompt  string
 	Asks    []string
 	Ref     string
 	Why     string
@@ -134,7 +132,6 @@ type TalentLine struct {
 	Line    string
 	Spell   int
 	Details []string
-	Prompt  string
 	Asks    []string
 	Ref     string
 	Why     string
@@ -177,21 +174,26 @@ type Options struct {
 // NoDataText is what NEXT says when no game dataset has downloaded.
 const NoDataText = "Game data not downloaded yet; see Setup"
 
-// clip shortens s to at most MaxText characters, cutting at a word boundary: "..." follows a whole
-// word, never half of one. Text is only shortened where an older addon needs a short line; the whole
-// wording always goes in the details.
+// clip is s for a line of text. Past MaxText it drops the optional tail that an older addon has no
+// room for, a trailing "(zone)" or "from <giver>", and keeps what is left only when that reads whole;
+// otherwise it keeps all of s: a line is never cut short, with or without "...".
 func clip(s string) string {
 	if utf8.RuneCountInString(s) <= MaxText {
 		return s
 	}
-	r := []rune(s)
-	head := string(r[:MaxText-3])
-	if r[MaxText-3] != ' ' {
-		if i := strings.LastIndex(head, " "); i > 0 {
-			head = head[:i]
+	t := s
+	if i := strings.LastIndex(t, " ("); i > 0 && strings.HasSuffix(t, ")") {
+		t = t[:i]
+	}
+	if utf8.RuneCountInString(t) > MaxText {
+		if i := strings.LastIndex(t, " from "); i > 0 {
+			t = t[:i]
 		}
 	}
-	return strings.TrimRight(head, " ,;:") + "..."
+	if utf8.RuneCountInString(t) <= MaxText {
+		return t
+	}
+	return s
 }
 
 // oneObjective keeps a quest's progress readable on one Next line: the first objective plus "+N more".
@@ -255,7 +257,7 @@ func Build(c character.Character, ds store.DataStore, opt Options) Digest {
 		if s.Kind == advice.KindTalent { // milestones lead the NEXT section
 			l := Line{Text: talentNote(c, ds, s.Title), Kind: KindTalent, Points: s.Points}
 			pick, name := nextPick(c, ds)
-			l.Details, l.Prompt = talentStepContext(c, s, pick, name)
+			l.Details = talentStepContext(c, s, pick, name)
 			l.Asks, l.Ref = talentAsks(s.Points, name), talentsRef
 			l.Why = talentWhy(c, name)
 			quests, milestones = append(quests, l), append(milestones, l)
@@ -263,7 +265,7 @@ func Build(c character.Character, ds store.DataStore, opt Options) Digest {
 		}
 		if advice.IsClassQuest(s) {
 			l := Line{Text: clip(s.Title), Quest: s.QuestID, Kind: KindPickup, Title: s.Name, Level: s.Level, Class: true, Elite: s.Elite, NPC: s.NPC, Zone: s.Zone}
-			l.Details, l.Prompt = questContext(c, l, s.Reason)
+			l.Details = questContext(c, l, s.Reason)
 			l.Asks, l.Ref = questAsks(l), questRef(l.Quest)
 			l.Why = questWhy(c, l)
 			quests, milestones = append(quests, l), append(milestones, l)
@@ -289,7 +291,7 @@ func Build(c character.Character, ds store.DataStore, opt Options) Digest {
 		default:
 			l.Objectives = objectivesOf(c, s.QuestID)
 		}
-		l.Details, l.Prompt = questContext(c, l, s.Reason)
+		l.Details = questContext(c, l, s.Reason)
 		l.Asks, l.Ref = questAsks(l), questRef(l.Quest)
 		l.Why = questWhy(c, l)
 		quests = append(quests, l)
@@ -378,7 +380,7 @@ func dungeonLines(c character.Character, ds store.DataStore) []DungeonLine {
 			item = fmt.Sprintf("item %d", d.ItemID)
 		}
 		dl := DungeonLine{Name: p.Name, Line: clip(fitText(p) + ": " + item), Item: int(d.ItemID), Asks: dungeonAsks(p.Name), Ref: dungeonRef(p.MapID)}
-		dl.Details, dl.Prompt = dungeonContext(c, p, d)
+		dl.Details = dungeonContext(c, p, d)
 		if d.Item != "" && d.Slot != "" {
 			dl.Why = firstWhy("Drops "+d.Item+" for your "+wording.Slot(d.Slot)+" slot", "Has an upgrade for your "+wording.Slot(d.Slot)+" slot")
 		}
@@ -417,7 +419,7 @@ func talentLines(c character.Character, ds store.DataStore) []TalentLine {
 		var out []TalentLine
 		for _, p := range g.Next {
 			l := TalentLine{Line: clip(fmt.Sprintf("%s rank %d", p.Name, p.Rank)), Asks: talentAsks(1, p.Name), Ref: talentsRef, Why: whyOf("Next pick in your plan")}
-			l.Details, l.Prompt = talentContext(c, p.Name, p.Rank, p.Group)
+			l.Details = talentContext(c, p.Name, p.Rank, p.Group)
 			if p.SpellID != nil {
 				l.Spell = *p.SpellID
 			}
@@ -431,7 +433,7 @@ func talentLines(c character.Character, ds store.DataStore) []TalentLine {
 	var out []TalentLine
 	for _, p := range talents.Plan(c, ds, talents.Options{Limit: MaxTalents}).Next {
 		l := TalentLine{Line: clip(fmt.Sprintf("%s rank %d", p.Name, p.Rank)), Spell: spellID(ds, p.NodeID), Asks: talentAsks(1, p.Name), Ref: talentsRef, Why: whyOf("Next pick in your plan")}
-		l.Details, l.Prompt = talentContext(c, p.Name, p.Rank, "")
+		l.Details = talentContext(c, p.Name, p.Rank, "")
 		out = append(out, l)
 	}
 	return out

@@ -90,7 +90,7 @@ func (l Line) writeFields(b *strings.Builder) {
 	if l.HasXY {
 		fmt.Fprintf(b, ", x = %.1f, y = %.1f", l.X, l.Y)
 	}
-	writeContext(b, l.Details, l.Prompt)
+	writeContext(b, l.Details)
 	writeAsks(b, l.Asks, l.Ref)
 	writeWhy(b, l.Why)
 }
@@ -102,8 +102,8 @@ func writeWhy(b *strings.Builder, why string) {
 	}
 }
 
-// writeContext renders the schema 1.4 fields of an entry: details (a list of strings) and prompt.
-func writeContext(b *strings.Builder, details []string, prompt string) {
+// writeContext renders the schema 1.4 fields of an entry: details (a list of strings).
+func writeContext(b *strings.Builder, details []string) {
 	if len(details) > 0 {
 		b.WriteString(", details = { ")
 		for i, d := range details {
@@ -113,9 +113,6 @@ func writeContext(b *strings.Builder, details []string, prompt string) {
 			b.WriteString(Quote(d))
 		}
 		b.WriteString(" }")
-	}
-	if prompt != "" {
-		fmt.Fprintf(b, ", prompt = %s", Quote(prompt))
 	}
 }
 
@@ -171,7 +168,7 @@ func (d Digest) Lua() string {
 			if l.Item != 0 {
 				fmt.Fprintf(&b, ", item_id = %d", l.Item)
 			}
-			writeContext(&b, l.Details, l.Prompt)
+			writeContext(&b, l.Details)
 			writeAsks(&b, l.Asks, l.Ref)
 			writeWhy(&b, l.Why)
 			b.WriteString(" },\n")
@@ -185,7 +182,7 @@ func (d Digest) Lua() string {
 			if l.Spell != 0 {
 				fmt.Fprintf(&b, ", spell_id = %d", l.Spell)
 			}
-			writeContext(&b, l.Details, l.Prompt)
+			writeContext(&b, l.Details)
 			writeAsks(&b, l.Asks, l.Ref)
 			writeWhy(&b, l.Why)
 			b.WriteString(" },\n")

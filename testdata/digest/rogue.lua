@@ -4,7 +4,7 @@ WoWCompanionDigest = {
   generated = 1800000000,
   characters = {
     ["Testrogue"] = {
-      schema = "1.7",
+      schema = "1.8",
       generated = 1800000000,
       build = "1.60.0.64000",
       character = "Testrogue",
@@ -14,7 +14,7 @@ WoWCompanionDigest = {
         } },
       },
       talents = {
-        { line = "Deadly Poison rank 1", spell_id = 2001, details = { "Next pick: Deadly Poison, rank 1" }, prompt = "I'm a level 12 rogue. My next talent pick is Deadly Poison, rank 1. Why this pick now, and what does it change?", asks = { "Where should my talent point go?", "What does Deadly Poison do?" }, ref = "talents", why = "Next pick in your plan" },
+        { line = "Deadly Poison rank 1", spell_id = 2001, details = { "Next pick: Deadly Poison, rank 1" }, asks = { "Where should my talent point go?", "What does Deadly Poison do?" }, ref = "talents", why = "Next pick in your plan" },
       },
     },
   },
