@@ -12,8 +12,8 @@ WoWCompanionDigest = {
   schema = "2.0",
   generated = 1795271211,        -- unix seconds, when the file was written
   characters = {
-    ["Testchar"] = { schema = "1.6", ... },   -- exactly the 1.6 digest below, for that character
-    ["Otherchar"] = { schema = "1.6", ... },
+    ["Testchar"] = { schema = "1.7", ... },   -- exactly the 1.7 digest below, for that character
+    ["Otherchar"] = { schema = "1.7", ... },
   },
 }
 ```
@@ -30,7 +30,7 @@ The digest adds no advice logic: it is built from `whats_next` and `upgrade_find
 | Section | From | Cap |
 | ------- | ---- | --- |
 | `next_quests` | turn-ins and open quests from `whats_next`, with their zone and quest id | 8 |
-| `upgrades` | one line per slot: the top `upgrade_finder` candidate and its first source, with the item id | 8 |
+| `upgrades` | one line per slot: the best upgrade that has a dependable way to be got (see [upgrade-paths.md](upgrade-paths.md)), with the item id | 8 |
 | `keep_materials` | bag and bank reagents of the character's professions' recipes still worth making (`professions.KeepList`), most numerous first | 10 |
 | `notes` | unspent talents, (naming the build's next node, see talents.md), failed quests, no dataset, bank not captured, dataset build differs from the game | 6 |
 
@@ -58,7 +58,16 @@ addons, and adds these when known. None is truncated; only `text` is capped (60 
 | `objectives` | `{ { text = "Windsong Crawler Meat", have = 0, need = 6 }, ... }`, every objective of a logged quest including optional ones; `have` and `need` only when the capture has a count |
 | `points` | the unspent talent point count, on the talent line |
 
-An `upgrades` line adds `slot`, `ilvl` and `atLevel` (the level the item needs, only when the character is not yet that level) beside `text` and `item`.
+An `upgrades` line adds `slot` (plain words: "Cloak", "Wrists", "Two-hand weapon"), `ilvl` (not shown to players) and `atLevel` (the level the item needs, only when the character is not yet that level) beside `text` and `item`.
+
+**Upgrades you can get (schema 1.7).** An upgrades line is written only for an item with at least one dependable way
+to get it, and carries `wear` ("Wear now" or "From level 12"), `gain` ("Big upgrade", "Solid upgrade" or
+"Small upgrade"), `replaces` ("instead of your <item>" or "fills an empty slot"), `how` (the best way, one line) and
+`pathKind` (`quest`, `craft`, `auction`, `dungeon` or `creature`, for the icon). The gain comes from the existing score
+(item level plus quality, or the stat-weighted equivalent): 10 points or more, or an empty slot, is a big upgrade; 5 to
+10 is solid; the rest is small. The section has `summary = "N upgrades you can get"`. A quest whose reward is an upgrade
+has that as its `why` ("Rewards Traveler's Shawl, a big cloak upgrade"); a material needed for a craftable upgrade shows
+in `keep_materials` with "for <item>". The line's `asks` include "How do I get <item>?".
 `elite` is set only when the dataset's quests table has an `elite` or `group` column that says so.
 
 **Training, details and prompts (schema 1.4).** From the dataset's `class_spells` table, `next_quests` gets one

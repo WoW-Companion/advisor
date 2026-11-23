@@ -4,7 +4,7 @@ WoWCompanionDigest = {
   generated = 1800000000,
   characters = {
     ["Testpriest"] = {
-      schema = "1.6",
+      schema = "1.7",
       generated = 1800000000,
       build = "1.60.0.64000",
       character = "Testpriest",
@@ -17,8 +17,8 @@ WoWCompanionDigest = {
           { text = "Pick up: Wolves at the Door (Dunemark)", quest = 903, kind = "pickup", title = "Wolves at the Door", level = 11, zone = "Dunemark" },
           { text = "Game data not downloaded yet; see Setup", kind = "note" },
         } },
-        { id = "upgrades", lines = {
-          { text = "head: Cloth Hood (ilvl 20, at level 14)", item = 1, slot = "head", ilvl = 20, atLevel = 14 },
+        { id = "upgrades", summary = "1 upgrade you can get", lines = {
+          { text = "Head: Cloth Hood. From level 14, big upgrade, fills an empty slot", item = 1, slot = "Head", ilvl = 20, atLevel = 14, wear = "From level 14", gain = "Big upgrade", replaces = "fills an empty slot", how = "Drops sometimes from Near Wolf in Wolf Den (levels 10 to 14)", pathKind = "dungeon" },
         } },
       },
     },

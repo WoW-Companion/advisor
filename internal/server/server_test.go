@@ -62,7 +62,7 @@ func exercise(t *testing.T, cs *mcp.ClientSession) {
 	for _, tool := range tools.Tools {
 		names = append(names, tool.Name)
 	}
-	if strings.Join(names, ",") != "character_brief,doctor,dungeon_plan,farm_spots,get_character_profile,inventory_review,list_characters,profession_plan,quest_chain,quest_plan,server_info,set_character_profile,talent_plan,talent_tree,update_digest,upgrade_finder,whats_next" {
+	if strings.Join(names, ",") != "character_brief,doctor,dungeon_plan,farm_spots,get_character_profile,inventory_review,list_characters,profession_plan,quest_chain,quest_plan,server_info,set_character_profile,talent_plan,talent_tree,update_digest,upgrade_finder,upgrade_paths,whats_next" {
 		t.Errorf("tools = %v", names)
 	}
 	call := func(name string, args map[string]any) (string, bool) {
@@ -92,6 +92,9 @@ func exercise(t *testing.T, cs *mcp.ClientSession) {
 	}
 	if text, isErr := call("upgrade_finder", map[string]any{"character": "testpriest"}); !isErr || !strings.Contains(text, "No dataset configured") {
 		t.Errorf("upgrade_finder without dataset = %q, error %v", text, isErr)
+	}
+	if text, isErr := call("upgrade_paths", map[string]any{"character": "testpriest", "item": "Hood"}); !isErr || !strings.Contains(text, "No dataset configured") {
+		t.Errorf("upgrade_paths without dataset = %q, error %v", text, isErr)
 	}
 	if text, isErr := call("upgrade_finder", map[string]any{"character": "testpriest", "slot": "knees"}); !isErr || !strings.Contains(text, "Unknown slot") {
 		t.Errorf("upgrade_finder bad slot = %q, error %v", text, isErr)

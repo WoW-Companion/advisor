@@ -97,16 +97,11 @@ func trainingWhy(spells []TrainSpell) string {
 	return ""
 }
 
-// upgradeWhy is the stat or slot gain of an upgrade: the item levels gained, or an empty slot filled.
+// upgradeWhy is the gain of an upgrade in plain words: an empty slot filled, or how big the upgrade is.
 func upgradeWhy(c character.Character, slot string, cd gear.Candidate) string {
-	name := wording.Slot(slot)
+	name := strings.ToLower(wording.SlotName(slot, cd.Item.Slot))
 	if cd.Empty {
 		return firstWhy("Fills your empty " + name + " slot")
 	}
-	if cur, ok := c.Equipment[slot]; ok && cur.ItemLevel != nil {
-		if gain := int(cd.Item.ItemLevel) - *cur.ItemLevel; gain > 0 {
-			return firstWhy(fmt.Sprintf("+%d item %s for your %s slot", gain, wording.Plural(gain, "level", "levels"), name))
-		}
-	}
-	return ""
+	return firstWhy(GainWord(cd) + " for your " + name)
 }

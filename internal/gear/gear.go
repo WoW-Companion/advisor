@@ -148,6 +148,8 @@ type Candidate struct {
 type Options struct {
 	Slot  string // one capture slot name; empty for all
 	Limit int    // most candidates per slot, best first; 0 for all
+	// NoSources skips the per-candidate source lookup, for a caller that finds its own.
+	NoSources bool
 }
 
 // Result is what a search found.
@@ -274,7 +276,9 @@ func Find(c character.Character, ds store.DataStore, group string, opt Options) 
 			cands = cands[:opt.Limit]
 		}
 		for i := range cands {
-			cands[i].Sources = sources(ds, cands[i].Item.ID, level)
+			if !opt.NoSources {
+				cands[i].Sources = sources(ds, cands[i].Item.ID, level)
+			}
 			if cands[i].Basis == BasisStats {
 				res.ItemLevelOnly = false
 			}

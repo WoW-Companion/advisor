@@ -380,3 +380,13 @@ func TestPromptForbidsPermissionCoaching(t *testing.T) {
 		}
 	}
 }
+
+func TestPromptRequiresUpgradePaths(t *testing.T) {
+	p := Prompt(Question{Character: "Realm:Name", Text: "How do I get the shawl?"})
+	if !strings.Contains(p, "call upgrade_paths") || !strings.Contains(p, "never say a source is unknown without it") {
+		t.Errorf("prompt does not require upgrade_paths: %s", p)
+	}
+	if got := Sources("used upgrade_paths"); len(got) != 1 || got[0] != "upgrade_paths" {
+		t.Errorf("Sources = %v", got)
+	}
+}

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.7.10
+
+- Upgrades are now only gear you can actually get. Each one comes with its best way, in plain words: finish a quest and choose it, make it with your own profession (with the materials you have and still need), buy it on the Auction House, or kill a dungeon boss or a named creature that drops it often. Random world drops are left out.
+- Each upgrade reads like a sentence: the slot ("Cloak", "Chest", "Wrists", "Two-hand weapon"), the item, "Wear now" or "From level 12", "Big upgrade", "Solid upgrade" or "Small upgrade", and what it replaces ("instead of your ..." or "fills an empty slot"). The "ilvl" and doubled slot text are gone, and the list's summary reads "N upgrades you can get".
+- A quest that rewards an upgrade says so ("Rewards Traveler's Shawl, a big cloak upgrade"), and a material you need for a craftable upgrade shows "for <item>" in Keep materials.
+- Ask "How do I get <item>?" or "Which upgrade first?" and the companion now looks the answer up with the new upgrade_paths tool instead of guessing; an item with no dependable way is called a random drop, not worth chasing, and the best gettable item for that slot is named instead.
+- Auction House prices are shown only when the game data holds a real auction price, with the date it was seen; a vendor sell price is never shown as one.
+
 ## 0.7.9
 
 - Settings is now a full-height page. Click the gear and every section shows at once with a single scroll bar for the whole page (and only when it is taller than the window), instead of a small box scrolling inside the window. Open a section such as Play style and the page grows; the version line sits at the bottom.

@@ -29,6 +29,8 @@ import (
 	"github.com/WoW-Companion/advisor/internal/inventory"
 	"github.com/WoW-Companion/advisor/internal/items"
 	"github.com/WoW-Companion/advisor/internal/lua"
+	"github.com/WoW-Companion/advisor/internal/names"
+	"github.com/WoW-Companion/advisor/internal/paths"
 	"github.com/WoW-Companion/advisor/internal/professions"
 	"github.com/WoW-Companion/advisor/internal/profile"
 	"github.com/WoW-Companion/advisor/internal/questie"
@@ -39,6 +41,7 @@ import (
 	"github.com/WoW-Companion/advisor/internal/svfind"
 	"github.com/WoW-Companion/advisor/internal/talents"
 	"github.com/WoW-Companion/advisor/internal/unlock"
+	"github.com/WoW-Companion/advisor/internal/wording"
 )
 
 // Version is the advisor's version. Release builds set it from main at link time.
@@ -307,6 +310,35 @@ type UpgradeOutput struct {
 	ItemLevelOnly bool                        `json:"item_level_only" jsonschema:"true when upgrades are ranked by item level alone"`
 	Slots         map[string][]gear.Candidate `json:"slots"`
 	Text          string                      `json:"text" jsonschema:"plain-text rendering"`
+}
+
+// PathsInput is the upgrade_paths argument: an item, or a slot.
+type PathsInput struct {
+	Character string `json:"character,omitempty" jsonschema:"character name; omit when only one was captured"`
+	Item      string `json:"item,omitempty" jsonschema:"item name, exact or part of it; give this or slot"`
+	Slot      string `json:"slot,omitempty" jsonschema:"one slot (head, neck, shoulder, back, chest, wrist, hands, waist, legs, feet, finger1, finger2, trinket1, trinket2, mainhand, offhand, ranged): the best upgrades there that can be got"`
+}
+
+// PathsOutput is the upgrade_paths result: names only, never ids.
+type PathsOutput struct {
+	Character string         `json:"character"`
+	Results   []paths.Result `json:"results" jsonschema:"one per item, each with its ways to get it, best first"`
+	Text      string         `json:"text" jsonschema:"plain-words rendering"`
+}
+
+// noPaths is the result accompanying an error; the output schema wants a list, not null.
+var noPaths = PathsOutput{Results: []paths.Result{}}
+
+// stripIDs removes the "(id)" the name resolver appends: a player-facing list names items only.
+func stripIDs(l []string) []string {
+	out := make([]string, len(l))
+	for i, s := range l {
+		if j := strings.LastIndex(s, " ("); j > 0 {
+			s = s[:j]
+		}
+		out[i] = s
+	}
+	return out
 }
 
 // noUpgrades is the result accompanying an error; the output schema wants a map, not null.
@@ -714,6 +746,83 @@ func New(cfg Config) *mcp.Server {
 		if in.Brief { // the text carries the same data; send it once
 			out.Slots = map[string][]gear.Candidate{} // not nil: the output schema wants an object, and null fails it
 		}
+		return nil, out, nil
+	})
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "upgrade_paths",
+		Description: "How the character can dependably get an item (give item) or the best gettable upgrades for a slot (give slot): ranked ways, " +
+			"quest reward, craft with have/need counts from bags and bank, Auction House (a price only when a real auction price is held), dungeon boss, named creature. " +
+			"Call it for any 'how do I get ...' or 'which upgrade first' question; never say a source is unknown without calling it. " +
+			"An item with no way is a random drop, not worth chasing, and the answer names the best gettable item for its slot instead.",
+	}, func(_ context.Context, _ *mcp.CallToolRequest, in PathsInput) (*mcp.CallToolResult, PathsOutput, error) {
+		f, errResult := load(cfg.SavedVariables)
+		if errResult != nil {
+			return errResult, noPaths, nil
+		}
+		c, err := chosen(cfg, f, in.Character)
+		if err != nil {
+			return toolError(err.Error()), noPaths, nil
+		}
+		if cfg.Dataset == "" {
+			return toolError("No dataset configured (set WOWC_DATASET)."), noPaths, nil
+		}
+		ds := store.NewDir(cfg.Dataset)
+		slot := strings.ToLower(strings.TrimSpace(in.Slot))
+		if slot != "" && !slices.Contains(brief.Slots, slot) {
+			return toolError("Unknown slot '" + in.Slot + "'; use one of: " + strings.Join(brief.Slots, ", ") + "."), noPaths, nil
+		}
+		if slot == "" && strings.TrimSpace(in.Item) == "" {
+			return toolError("Give an item name or a slot."), noPaths, nil
+		}
+		name := c.Name
+		if name == "" {
+			name = c.Key
+		}
+		group := ""
+		if names, _ := brief.TopGroups(c.Talents); len(names) == 1 {
+			group = names[0]
+		}
+		popt := paths.Options{PlanQuests: digest.PlanQuests(advice.WhatsNextWith(c, ds, questie.ForSavedVariables(cfg.SavedVariables)))}
+		out := PathsOutput{Character: name, Results: []paths.Result{}}
+		var text []string
+		if strings.TrimSpace(in.Item) != "" {
+			id, iname, cands := names.Resolve(ds, names.Items, in.Item)
+			if id == 0 {
+				msg := "No item matches '" + in.Item + "'."
+				if len(cands) > 0 {
+					msg = "Several items match; name one of: " + strings.Join(stripIDs(cands), "; ") + "."
+				}
+				return toolError(msg), noPaths, nil
+			}
+			r := paths.For(c, ds, id, popt)
+			r.Item = iname
+			if r.Slot = paths.SlotOf(c, ds, group, id); !r.Dependable() && r.Slot != "" {
+				if alt, err := paths.InSlot(c, ds, group, r.Slot, popt, 1); err == nil && len(alt) > 0 {
+					r.Reason += ". The best " + wording.Slot(r.Slot) + " you can get instead is " + alt[0].Result.Item + ": " + alt[0].Result.Paths[0].Line
+					out.Results = append(out.Results, r, alt[0].Result)
+					text = append(text, r.Text(), alt[0].Result.Text())
+					out.Text = strings.Join(text, "\n\n")
+					return nil, out, nil
+				}
+			}
+			out.Results = append(out.Results, r)
+			text = append(text, r.Text())
+		}
+		if slot != "" {
+			got, err := paths.InSlot(c, ds, group, slot, popt, 3)
+			if err != nil {
+				return toolError("Could not find upgrades: " + err.Error()), noPaths, nil
+			}
+			if len(got) == 0 {
+				text = append(text, "No upgrade for "+wording.Slot(slot)+" has a dependable way to be got right now.")
+			}
+			for _, g := range got {
+				out.Results = append(out.Results, g.Result)
+				text = append(text, g.Result.Text())
+			}
+		}
+		out.Text = strings.Join(text, "\n\n")
 		return nil, out, nil
 	})
 
