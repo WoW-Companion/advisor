@@ -101,6 +101,7 @@ async function connect(c) {
   events = sse('/api/events');
   const es = events;
   events.addEventListener('game', ev => { state = JSON.parse(ev.data); setChars(); showBadge(); });
+  events.addEventListener('reask', onReask);
   events.addEventListener('history', ev => render(JSON.parse(ev.data).filter(e => e.source === 'game')));
   events.onerror = () => {
     // The stream drops when the sidecar dies or is restarted; only a drop of the current stream
@@ -334,15 +335,22 @@ who.onchange = () => { cfg.who = who.value; save(); showNext(); };
 // and focus are needed before it saves; the spec is optional.
 function showStyle() {
   const c = state && state.characters.find(c => c.key === who.value), st = (c && c.style) || {};
+  for (const card of document.querySelectorAll('.style-card')) if (card.dataset.character === who.value && card.setStyle) card.setStyle(st);
   $('style-role').value = st.role || ''; $('style-focus').value = st.focus || ''; $('style-spec').value = st.spec || '';
 }
-async function pushStyle() {
+// saveStyle stores a play style for one character; the settings section and the inline card both use it.
+async function saveStyle(character, { role, focus, spec }) {
+  try {
+    const r = await api('/api/profile', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ character, role, focus, spec: (spec || '').trim() }) });
+    if (!r.ok) return false;
+    state.characters = await r.json(); showNext();
+    return true;
+  } catch (e) { return false; /* the next state load shows what is saved */ }
+}
+function pushStyle() {
   const role = $('style-role').value, focus = $('style-focus').value;
   if (!who.value || !role || !focus) return;
-  try {
-    const r = await api('/api/profile', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ character: who.value, role, focus, spec: $('style-spec').value.trim() }) });
-    if (r.ok) { state.characters = await r.json(); showNext(); }
-  } catch (e) { /* the next state load shows what is saved */ }
+  saveStyle(who.value, { role, focus, spec: $('style-spec').value });
 }
 for (const id of ['style-role', 'style-focus', 'style-spec']) $(id).onchange = pushStyle;
 
@@ -353,6 +361,9 @@ function showNext() {
   // next_lines carries the structured fields; an older advisor sends only the text.
   const lines = (c && c.next_lines && c.next_lines.length) ? c.next_lines : items;
   $('next-line').textContent = items.length ? items[0] : 'Nothing queued yet.';
+  const entries = (c && c.entries) || [];
+  $('next-list').hidden = entries.length > 0;
+  $('entries').replaceChildren(...(entries.length ? [WowcAsking.entryList(document, entries, askEntry)] : []));
   $('next-list').replaceChildren(...(lines.length ? lines : ['Nothing queued yet.']).map(t => {
     if (!lines.length) { const li = document.createElement('li'); li.textContent = t; li.className = 'none'; return li; }
     return WowcNext.render(document, t, c && c.level);
@@ -368,6 +379,9 @@ function showNext() {
     return li;
   }));
 }
+
+// A chip: the player's short question goes out with the entry's ref; nothing else shows in the chat.
+function askEntry(question, ref) { if (!busy && conn) ask(question, ref); }
 
 // Follow the newest text unless the reader has scrolled up.
 let stick = true;
@@ -394,10 +408,9 @@ function put(id, cls, body, note) {
 function render(history) {
   for (const e of history) {
     if (cfg.cleared.includes('q-' + e.id) || cfg.cleared.includes('a-' + e.id)) continue;
-    const where = e.character ? ' · ' + e.character : '';
-    put('q-' + e.id, 'q', e.question, e.source === 'game' ? 'asked in game' + where : null);
+    put('q-' + e.id, 'q', WowcAsking.shortQuestion(e.question), e.source === 'game' ? WowcAsking.gameMark : null);
     const body = e.status === 'waiting' ? 'Waiting for an answer…' : (e.status === 'answering' && !e.answer ? 'Answering…' : e.answer);
-    const note = e.source === 'game' && e.status === 'done' ? 'answered into Answers.lua too — /reload in game' : '';
+    const note = WowcAsking.savedNote(e, cfg.autoDigest !== false);
     put('a-' + e.id, 'a' + (e.status === 'error' ? ' err' : e.status === 'answering' ? ' live' : ''), body, note);
     if (e.source === 'game' && !seenGame.has(e.id)) { seenGame.add(e.id); if (cfg.gameToast === true && seenGameReady) toast('Question from game'); }
   }
@@ -424,32 +437,64 @@ async function load() {
 }
 
 // Streaming text is painted at most once per frame, so a fast stream stays smooth.
-function ask(question) {
+function ask(question, ref) {
   busy = true; send.disabled = true;
   scrollDown(true);
   put(null, 'q', question);
   const a = put(null, 'a live', '…');
+  const body = { character: who.value, text: question };
+  if (ref) body.ref = ref;
+  api('/api/ask', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+    .then(r => r.ok ? r.json() : r.text().then(t => { throw new Error(t); }))
+    .then(({ id }) => follow(id, a))
+    .catch(err => { a.textContent = err.message; a.classList.add('err'); settle(); });
+}
+function settle() { busy = false; send.disabled = false; text.focus(); }
+// follow streams one answer into bubble a. A "needs" answer turns the bubble into the play-style card.
+function follow(id, a) {
+  busy = true; send.disabled = true;
   let got = '', queued = false;
   const paint = () => { queued = false; a.textContent = got; scrollDown(); };
-  const stop = () => { a.classList.remove('live'); busy = false; send.disabled = false; text.focus(); };
-  api('/api/ask', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ character: who.value, text: question }) })
-    .then(r => r.ok ? r.json() : r.text().then(t => { throw new Error(t); }))
-    .then(({ id }) => {
-      const es = sse('/api/stream/' + id);
-      es.addEventListener('chunk', ev => { got += JSON.parse(ev.data).text; if (!queued) { queued = true; requestAnimationFrame(paint); } });
-      es.addEventListener('done', ev => {
-        const e = JSON.parse(ev.data);
-        es.close(); a.textContent = e.answer; scrollDown();
-        if (e.status === 'error') a.classList.add('err');
-        for (const t of [e.usage, e.notice]) if (t) { const s = document.createElement('small'); s.textContent = t; if (t === e.usage && e.usage_tip) s.title = e.usage_tip; a.appendChild(s); }
-        stop();
-      });
-      es.onerror = () => { es.close(); if (busy) { a.textContent = got || 'The connection dropped.'; stop(); } };
-    })
-    .catch(err => { a.textContent = err.message; a.classList.add('err'); stop(); });
+  const stop = () => { a.classList.remove('live'); settle(); };
+  const es = sse('/api/stream/' + id);
+  es.addEventListener('chunk', ev => { got += JSON.parse(ev.data).text; if (!queued) { queued = true; requestAnimationFrame(paint); } });
+  es.addEventListener('done', ev => {
+    const e = JSON.parse(ev.data);
+    es.close();
+    if (e.status === 'needs' && e.needs) { showNeeds(a, e.needs); stop(); return; }
+    a.textContent = e.answer; scrollDown();
+    if (e.status === 'error') a.classList.add('err');
+    for (const t of [e.usage, e.notice]) if (t) { const s = document.createElement('small'); s.textContent = t; if (t === e.usage && e.usage_tip) s.title = e.usage_tip; a.appendChild(s); }
+    stop();
+  });
+  es.onerror = () => { es.close(); if (busy) { a.textContent = got || 'The connection dropped.'; stop(); } };
 }
-$('form').onsubmit = ev => { ev.preventDefault(); const q = text.value.trim(); if (q && !busy && conn) { text.value = ''; ask(q); } };
-text.onkeydown = ev => { if (ev.key === 'Enter' && !ev.shiftKey) { ev.preventDefault(); $('form').requestSubmit(); } };
+// The play-style card: saving stores the style (the settings section's store) and the server asks the
+// original question again, which arrives as a "reask" event into a new bubble.
+function showNeeds(a, needs) {
+  const c = state && state.characters.find(c => c.key === needs.character);
+  a.textContent = WowcAsking.NEEDS_LINE;
+  a.classList.remove('live');
+  const card = WowcAsking.needsCard(document, needs, async style => {
+    reaskBubble = a;
+    if (!(await saveStyle(needs.character, style))) { reaskBubble = null; a.append(Object.assign(document.createElement('small'), { textContent: 'Could not save that. Try again.' })); }
+  }, c && c.style);
+  card.dataset.character = needs.character;
+  a.append(card);
+  scrollDown();
+}
+let reaskBubble = null;
+function onReask(ev) {
+  const { id } = JSON.parse(ev.data);
+  const a = put(null, 'a live', '…');
+  if (reaskBubble) { reaskBubble.querySelector('.style-card')?.remove(); reaskBubble = null; }
+  follow(id, a);
+}
+const fitBox = () => WowcAsking.fit(text, 18, 6);
+$('form').onsubmit = ev => { ev.preventDefault(); const q = text.value.trim(); if (q && !busy && conn) { text.value = ''; fitBox(); ask(q); } };
+text.onkeydown = ev => WowcAsking.onAskKey(ev, () => $('form').requestSubmit());
+text.oninput = fitBox;
+fitBox();
 setInterval(() => showBadge(), 30000);
 
 // --- version line and update notice ---------------------------------------------------------

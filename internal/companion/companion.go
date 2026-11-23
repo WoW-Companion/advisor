@@ -119,8 +119,11 @@ type CharInfo struct {
 	// NextLines is the same quests as Next with the digest's structured, untruncated fields, so the
 	// overlay can lay them out like the in-game panel. Next stays for older pages.
 	NextLines []NextLine `json:"next_lines,omitempty"`
-	Plan      []string   `json:"plan,omitempty"`      // the route's first stops, in order
-	PlanLine  string     `json:"plan_line,omitempty"` // "N stops, about D map units"
+	// Entries is the character's current panel entries in the in-game panel's order, each with its
+	// suggested questions (asks) and ref, so the overlay can offer them as one-click questions.
+	Entries  []PlanEntry `json:"entries,omitempty"`
+	Plan     []string    `json:"plan,omitempty"`      // the route's first stops, in order
+	PlanLine string      `json:"plan_line,omitempty"` // "N stops, about D map units"
 	// PlanSteps is the same stops with their lock state, so the overlay can dim a locked one.
 	PlanSteps []PlanStep `json:"plan_steps,omitempty"`
 	// Style is the saved play style (the overlay's "Play style" row); nil until the player sets one.
@@ -435,7 +438,9 @@ func (s *Server) reload() {
 			if qx != nil {
 				plan = route.BuildWith(c, qx, route.OptionsFor(s.cfg.Ask.SavedVariables, ds))
 			}
-			ci.NextLines = nextQuests(c, f, ds, qx, route.UnlockNotes(plan))
+			d := digest.Build(c, ds, digest.Options{Now: time.Now(), Client: f.ClientOf(c), Questie: qx, Unlocks: route.UnlockNotes(plan)})
+			ci.NextLines = nextFrom(d)
+			ci.Entries = entriesOf(d)
 			ci.Next = nextTexts(ci.NextLines)
 			if qx != nil {
 				ci.Plan, ci.PlanLine = route.Lines(plan, PlanStops)
@@ -806,7 +811,11 @@ func readFile(p string) (string, error) {
 
 // nextQuests is the top NextQuests lines of the character's digest "next quests" section.
 func nextQuests(c character.Character, f character.File, ds store.DataStore, qx *questie.Index, unlocks map[int][]string) []NextLine {
-	d := digest.Build(c, ds, digest.Options{Now: time.Now(), Client: f.ClientOf(c), Questie: qx, Unlocks: unlocks})
+	return nextFrom(digest.Build(c, ds, digest.Options{Now: time.Now(), Client: f.ClientOf(c), Questie: qx, Unlocks: unlocks}))
+}
+
+// nextFrom is the top NextQuests lines of d's "next quests" section.
+func nextFrom(d digest.Digest) []NextLine {
 	for _, sec := range d.Sections {
 		if sec.ID != digest.NextQuests {
 			continue

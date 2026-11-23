@@ -114,7 +114,7 @@ button:disabled { opacity: .5; cursor: default; }
 .toast { position: fixed; right: 10px; bottom: 10px; padding: 6px 10px; border: 1px solid var(--gold); border-radius: 4px; background: rgba(20, 16, 10, .95); color: var(--gold); font-size: 12px; z-index: 50; }
 
 #form { display: flex; gap: 6px; padding: 6px 12px 8px; border-top: 1px solid rgba(217, 176, 90, .2); }
-#text { flex: 1 1 auto; resize: none; height: 30px; padding: 4px 8px; }
+#text { flex: 1 1 auto; resize: none; height: 28px; padding: 4px 8px; }
 #text:focus, #who:focus, .key:focus { outline: 1px solid var(--gold); }
 #send { background: linear-gradient(rgba(217, 176, 90, .22), rgba(217, 176, 90, .22)), rgba(var(--slate), .65); font-weight: 600; }
 
@@ -155,3 +155,26 @@ a:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; border-ra
 .next .diff-yellow { color: #f2d04f; }
 .next .diff-green { color: #6fcf5f; }
 .next .diff-grey { color: #9a9a9a; }
+
+/* Entries: one line each, questions as chips beneath the open one. */
+.next ol[hidden] { display: none !important; }
+.next #entries { display: none; margin: 3px 0 1px; }
+.next.open #entries { display: block; }
+.entries { list-style: none; margin: 0; padding: 0; }
+.entry-row { display: flex; align-items: baseline; gap: 6px; width: 100%; padding: 1px 2px; border: 0; background: none; text-align: left; cursor: pointer; }
+.entry-row:hover:not(:disabled) { background: rgba(217, 176, 90, .1); }
+.entry-title { flex: 0 1 auto; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.entry-status { flex: none; color: var(--muted); font-size: 11px; }
+.ic { flex: none; width: 12px; text-align: center; color: var(--gold); }
+.chips { display: none; flex-wrap: wrap; gap: 4px; padding: 2px 0 3px 18px; }
+.entry.open .chips { display: flex; }
+.chip-ask { padding: 1px 8px; border-radius: 10px; font-size: 11px; cursor: pointer; }
+.chip-ask:hover { border-color: var(--gold); }
+/* The inline play-style card in an answer. */
+.style-card { margin-top: 4px; display: grid; gap: 3px; white-space: normal; }
+.style-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.style-lbl { width: 56px; color: var(--muted); font-size: 11px; }
+.style-card .opt { padding: 1px 8px; font-size: 11px; cursor: pointer; }
+.style-card .opt.on { border-color: var(--gold); color: var(--gold); background: rgba(217, 176, 90, .16); }
+.style-save { justify-self: start; cursor: pointer; }
+#text { line-height: 18px; overflow-y: hidden; box-sizing: border-box; }

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.7.7
+
+- Ask without pasting. The overlay's Next section now lists your character's current entries (quests, talents, training, upgrades, notes, dungeons) one line each, in the same order as the in-game panel. Click an entry to see its questions as buttons, such as "Where should my talent point go?"; click one and just that question appears in the chat with a short answer. Nothing needs copying from the game.
+- The ask box grows as you type or paste, up to six lines, then scrolls, and shrinks back after you send. Enter sends; Shift+Enter starts a new line.
+- A talent question now asks how you like to play first: role and activity buttons (and an optional spec) appear right in the chat. Save stores them, the same as the Play style settings, and your question is answered automatically.
+- Questions asked in the game show as your short question with a small "from game" mark. The overlay no longer tells you to `/reload`.
+- Behind this: every in-game entry carries 1 to 3 natural questions and a hidden reference (digest schema 1.5), so a typed question that matches one is answered with that entry's facts; answers are shorter, and the advisor says honestly when a quest giver cannot be found.
+
 ## 0.7.6
 
 - The prompts and notes on the in-game cards now read as plain sentences: correct plurals ("1 unspent talent point"), your saved play style and talent plan named in the question, a separate question for picking up, working on and turning in a quest, upgrade sources in words (a drop from a creature, a quest reward, crafted by a profession) and never an id. Card notes are short player-facing lines (who and where, what is left, what it unlocks, how the level fits) with no internal labels or cut-off text.
