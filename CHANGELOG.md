@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.7.9
+
+- Settings is now a full-height page. Click the gear and every section shows at once with a single scroll bar for the whole page (and only when it is taller than the window), instead of a small box scrolling inside the window. Open a section such as Play style and the page grows; the version line sits at the bottom.
+- The gear lights up in gold while settings are open, its tooltip reads "Close settings", and it shows a clear keyboard focus ring. Click the gear again, press Esc, or use the new Done button to close; your chat is exactly where you left it.
+
 ## 0.7.8
 
 - The overlay picks up where you left off. It opens on your last chat for the character (the last 50 turns, kept on your PC only), with a dim line marking the gap, such as "Yesterday, 11:58 PM", and sends nothing by itself. Clear empties that character's chat.

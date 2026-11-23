@@ -175,9 +175,17 @@ $('mode').onclick = () => invoke('set_mode', { overlay: cfg.mode !== 'overlay' }
 $('tray').onclick = () => invoke('hide_window');
 $('close').onclick = () => invoke('quit');
 $('grip').onmousedown = ev => { ev.preventDefault(); win.startResizeDragging('SouthEast'); };
+let chatScroll = 0; // the chat's scroll offset while the settings page covers it
 function showPanes() {
+  const wasOpen = !$('settings').hidden;
+  if (cfg.settingsOpen && !wasOpen) chatScroll = log.scrollTop; // the chat keeps its place underneath
   $('settings').hidden = !cfg.settingsOpen;
-  $('settings-btn').setAttribute('aria-expanded', String(cfg.settingsOpen));
+  $('panel').classList.toggle('settings-open', cfg.settingsOpen);
+  const gear = $('settings-btn');
+  gear.setAttribute('aria-expanded', String(cfg.settingsOpen));
+  gear.setAttribute('aria-pressed', String(cfg.settingsOpen));
+  gear.title = cfg.settingsOpen ? 'Close settings' : 'Settings';
+  gear.setAttribute('aria-label', gear.title);
   const next = nextOpen();
   $('next').classList.toggle('open', next);
   $('next-head').setAttribute('aria-expanded', String(next));
@@ -188,6 +196,7 @@ function showPanes() {
   t.textContent = cfg.chatOpen ? '\u25BE' : '\u25B8';
   document.body.dataset.size = cfg.size;
   $('size').value = cfg.size;
+  if (!cfg.settingsOpen && wasOpen) log.scrollTop = chatScroll;
 }
 const nextOpen = () => cfg.nextOpen === null ? !log.children.length : cfg.nextOpen;
 // Settings groups: the AI group starts open, the rest closed; each remembers what the user chose.
@@ -196,7 +205,10 @@ for (const d of document.querySelectorAll('details[data-group]')) {
   d.open = g in cfg.groups ? !!cfg.groups[g] : g === 'ai';
   d.ontoggle = () => { cfg.groups[g] = d.open; save(); };
 }
-$('settings-btn').onclick = () => { cfg.settingsOpen = !cfg.settingsOpen; save(); showPanes(); };
+const setSettings = on => { cfg.settingsOpen = on; save(); showPanes(); if (on) $('settings').scrollTop = 0; };
+$('settings-btn').onclick = () => setSettings(!cfg.settingsOpen);
+$('settings-done').onclick = () => setSettings(false);
+document.addEventListener('keydown', ev => { if (ev.key === 'Escape' && cfg.settingsOpen && !ev.target.classList.contains('key')) setSettings(false); });
 $('next-head').onclick = () => { cfg.nextOpen = !nextOpen(); save(); showPanes(); };
 $('chat-toggle').onclick = () => { cfg.chatOpen = !cfg.chatOpen; save(); showPanes(); if (cfg.chatOpen) scrollDown(true); };
 $('size').onchange = ev => { cfg.size = ev.target.value; save(); showPanes(); };
