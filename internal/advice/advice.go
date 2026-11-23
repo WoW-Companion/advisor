@@ -5,6 +5,7 @@ package advice
 
 import (
 	"fmt"
+	"github.com/WoW-Companion/advisor/internal/wording"
 	"sort"
 	"strings"
 
@@ -154,12 +155,7 @@ func lvl(p *int) int {
 
 func isTrue(b *bool) bool { return b != nil && *b }
 
-func plural(n int, one, many string) string {
-	if n == 1 {
-		return one
-	}
-	return many
-}
+func plural(n int, one, many string) string { return wording.Plural(n, one, many) }
 
 // WhatsNext returns every step for the character, best first. ds may be nil (no dataset).
 func WhatsNext(c character.Character, ds store.DataStore) []Step { return WhatsNextWith(c, ds, nil) }
