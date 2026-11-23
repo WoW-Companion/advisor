@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.7.12
+
+- New stat check. Once you have chosen a play style, the companion reads your stats in plain words: what to raise and why it helps how you play ("Fury wants more Strength: more attack power, so every hit lands harder"), what is wasted ("2 items give Spirit, which a warrior barely uses: swap them first"), and what is already fine. At low levels it reminds you that quest gear matters more than fine-tuning. Ask about your stats, or "what should I look for?", and the new stat_check tool answers; with no play style it offers the choices first.
+- Play style gains an optional Stat preference (Balanced, More damage, More survivability) in Settings.
+- Upgrades and the Auction House list now follow the same stat priorities, so the advice agrees everywhere: a Fury warrior sees "of the Tiger" ahead of "of the Bear", a Protection warrior the reverse, and an upgrade can say "Adds the Strength you're short on". The in-game digest gains a short stats entry.
+- The priorities are ballpark guidance, not a rule: players differ.
+
 ## 0.7.11
 
 - Cheap world-drop gear is now an Auction House shopping list. When the best way to upgrade a slot is the Auction House, or no quest or craft helps, the upgrade reads like "Chest: any green mail chest, level 8-10, 'of the Bear' - cheap on the Auction House", with a few example base items and the stat suffixes that fit your class and play style ("of the Bear (Strength + Stamina)"). Ask "What should I search for on the Auction House?" and the companion gives the in-game search in plain steps: what to type, the level range, the armor type or slot filter.

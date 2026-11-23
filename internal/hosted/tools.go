@@ -20,7 +20,7 @@ import (
 const NotAvailable = "not available in knowledge-only mode: this server holds game data only, and reads no character files"
 
 // CharacterTools are the full server's tools that read the character capture or local files.
-var CharacterTools = []string{"list_characters", "character_brief", "whats_next", "upgrade_finder", "upgrade_paths", "profession_plan",
+var CharacterTools = []string{"list_characters", "character_brief", "whats_next", "upgrade_finder", "upgrade_paths", "stat_check", "profession_plan",
 	"talent_plan", "talent_tree", "get_character_profile", "set_character_profile", "dungeon_plan", "farm_spots", "quest_chain", "quest_plan", "inventory_review", "update_digest", "doctor"}
 
 const (

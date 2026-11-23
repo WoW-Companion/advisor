@@ -196,6 +196,9 @@ type Character struct {
 	// capture is read; nil when the player has set none. They are never part of a capture.
 	Profile *Profile
 	Plan    *TalentPlan
+	// Totals are the stat totals the addon records (WoWCompanionDB.stats), attached with AttachTotals;
+	// nil when none.
+	Totals *Totals
 }
 
 // Profile is a character's play style: role (tank, healer, damage or balanced), focus (leveling,
@@ -205,6 +208,8 @@ type Profile struct {
 	Focus    string `json:"focus"`
 	Spec     string `json:"spec,omitempty"`
 	GuideURL string `json:"guide_url,omitempty"`
+	// StatPref is the optional stat preference: balanced, damage or survival ("" is balanced).
+	StatPref string `json:"stat_pref,omitempty"`
 }
 
 // PlanPick is one entry of a talent plan: a captured node's name and the rank to reach.

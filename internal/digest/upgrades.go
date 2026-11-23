@@ -9,6 +9,7 @@ import (
 	"github.com/WoW-Companion/advisor/internal/character"
 	"github.com/WoW-Companion/advisor/internal/gear"
 	"github.com/WoW-Companion/advisor/internal/paths"
+	"github.com/WoW-Companion/advisor/internal/stats"
 	"github.com/WoW-Companion/advisor/internal/store"
 	"github.com/WoW-Companion/advisor/internal/wording"
 )
@@ -52,15 +53,12 @@ func lowerGain(g string) string { return strings.ToLower(strings.TrimSuffix(g, "
 // upgradeLines is one entry per slot: the best candidate that has a dependable way to be got, in
 // plain words. An item with no way is never listed. The second result is a note when the search could
 // not run.
-func upgradeLines(c character.Character, ds store.DataStore, planQuests map[int]bool) (lines, notes []Line, link upgradeLinks) {
+func upgradeLines(c character.Character, ds store.DataStore, planQuests map[int]bool, short string) (lines, notes []Line, link upgradeLinks) {
 	link = upgradeLinks{questWhy: map[int]string{}, craftFor: map[int64]string{}}
 	if ds == nil {
 		return nil, nil, link // captureNotes says so
 	}
-	group := ""
-	if names, _ := brief.TopGroups(c.Talents); len(names) == 1 {
-		group = names[0]
-	}
+	group := groupOf(c)
 	res, err := gear.Find(c, ds, group, gear.Options{NoSources: true})
 	if err != nil {
 		return nil, []Line{{Text: "No gear upgrades: " + err.Error(), Kind: KindNote, Asks: asksOf("Why are there no gear upgrades?", "Why are there no gear upgrades?"), Ref: noteRef("no-upgrades")}}, link
@@ -120,7 +118,7 @@ func upgradeLines(c character.Character, ds store.DataStore, planQuests map[int]
 		}
 		cd, best := foundCd, foundWay
 		taken[cd.Item.ID] = true
-		l := upgradeLine(c, slot, cd, best)
+		l := upgradeLine(c, slot, cd, best, short)
 		lines = append(lines, l)
 		if best.Kind == paths.Quest && best.QuestID != 0 {
 			link.questWhy[best.QuestID] = firstWhy(
@@ -140,7 +138,7 @@ func upgradeLines(c character.Character, ds store.DataStore, planQuests map[int]
 }
 
 // upgradeLine is one entry, in plain words: no item levels, no ids.
-func upgradeLine(c character.Character, slot string, cd gear.Candidate, best paths.Path) Line {
+func upgradeLine(c character.Character, slot string, cd gear.Candidate, best paths.Path, short string) Line {
 	name := wording.SlotName(slot, cd.Item.Slot)
 	wear := "Wear now"
 	if cd.Soon {
@@ -167,7 +165,7 @@ func upgradeLine(c character.Character, slot string, cd gear.Candidate, best pat
 	facts := fmt.Sprintf("%s for my %s slot, %s (%s). The best way to get it: %s", cd.Item.Name, strings.ToLower(name), strings.ToLower(gain), replaces, best.Line)
 	l.Prompt = makePrompt(c, "A possible upgrade is ", facts+".", " Is it worth getting for how I play?")
 	l.Asks, l.Ref = upgradeAsks(cd.Item.Name), itemRef(int(cd.Item.ID))
-	l.Why = upgradeWhy(c, slot, cd)
+	l.Why = upgradeWhy(c, slot, cd, short)
 	return l
 }
 
@@ -201,3 +199,22 @@ func shoppingLine(c character.Character, slot string, sh paths.Shopping) Line {
 }
 
 func wear(gain, replaces string) string { return "Wear now. " + gain + ", " + replaces }
+
+// groupOf is the character's one top talent group name; "" when unknown or split.
+func groupOf(c character.Character) string {
+	if names, _ := brief.TopGroups(c.Talents); len(names) == 1 {
+		return names[0]
+	}
+	return ""
+}
+
+// shortStat is the stat the stat check says the character is most short of; "" when none.
+func shortStat(r stats.Result) string {
+	best, gap := "", 0.0
+	for _, s := range stats.Primary {
+		if v := r.Lean[s]; v > gap && v > 0.05 {
+			best, gap = s, v
+		}
+	}
+	return best
+}

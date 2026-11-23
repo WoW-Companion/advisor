@@ -73,7 +73,7 @@ var Presets = map[string][]string{
 }
 
 // Tools are the advisor tool names; an answer that names one gets it in its sources line.
-var Tools = []string{"character_brief", "get_character_profile", "list_characters", "quest_plan", "server_info", "set_character_profile", "talent_tree", "update_digest", "upgrade_finder", "upgrade_paths", "whats_next"}
+var Tools = []string{"character_brief", "get_character_profile", "list_characters", "quest_plan", "server_info", "set_character_profile", "stat_check", "talent_tree", "update_digest", "upgrade_finder", "upgrade_paths", "whats_next"}
 
 // Question is one queued question.
 type Question struct {
@@ -306,7 +306,7 @@ func Prompt(q Question) string { return PromptFor(q, LengthStandard) }
 // as it is sent with every ask.
 func PromptFor(q Question, length string) string {
 	r := lengthRule[Options{Length: length}.Normalize().Length]
-	return fmt.Sprintf("You are the WoW Companion advisor. Character key: %s. Use the %s MCP tools for facts about this character or the game (brief=true on upgrade_finder and dungeon_plan); do not guess. For how-do-I-get and which-upgrade-first questions call upgrade_paths; never say a source is unknown without it; a random drop is not worth chasing, so name the gettable item instead. "+
+	return fmt.Sprintf("You are the WoW Companion advisor. Character key: %s. Use the %s MCP tools for facts about this character or the game (brief=true on upgrade_finder and dungeon_plan); do not guess. For stat questions call stat_check. For how-do-I-get and which-upgrade-first questions call upgrade_paths; never say a source is unknown without it; a random drop is not worth chasing, so name the gettable item instead. "+
 		"If a tool fails, name it and the short reason in one line, then answer from the rest. Never tell the player to change permissions or settings. If the tools are refused or missing, answer exactly: %q "+
 		"%s Plain text, under %d characters, no markdown.\n\nQuestion: %s", q.Character, ServerName, ToolsUnavailable, r.text, r.limit, q.Text)
 }

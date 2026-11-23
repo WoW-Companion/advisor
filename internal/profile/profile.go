@@ -25,6 +25,8 @@ const Env = "WOWC_PROFILES"
 var (
 	Roles = []string{"damage", "tank", "healer", "balanced"}
 	Foci  = []string{"leveling", "dungeons", "pvp", "mixed"}
+	// StatPrefs are the optional stat preferences ("" is balanced): see the stats package.
+	StatPrefs = []string{"", "balanced", "damage", "survival"}
 )
 
 // Limits on what is stored.
@@ -123,11 +125,14 @@ func Attach(path string, c character.Character) character.Character {
 func Clean(p character.Profile) (character.Profile, error) {
 	p.Role, p.Focus = strings.ToLower(strings.TrimSpace(p.Role)), strings.ToLower(strings.TrimSpace(p.Focus))
 	p.Spec, p.GuideURL = strings.TrimSpace(p.Spec), strings.TrimSpace(p.GuideURL)
+	p.StatPref = strings.ToLower(strings.TrimSpace(p.StatPref))
 	switch {
 	case !slices.Contains(Roles, p.Role):
 		return p, fmt.Errorf("role must be one of %s", strings.Join(Roles, ", "))
 	case !slices.Contains(Foci, p.Focus):
 		return p, fmt.Errorf("focus must be one of %s", strings.Join(Foci, ", "))
+	case !slices.Contains(StatPrefs, p.StatPref):
+		return p, fmt.Errorf("stat_pref must be one of %s", strings.Join(StatPrefs[1:], ", "))
 	case len(p.Spec) > MaxField:
 		return p, errors.New("spec is too long")
 	}

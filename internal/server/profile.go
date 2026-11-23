@@ -27,6 +27,7 @@ type ProfileInput struct {
 	Role      string           `json:"role,omitempty" jsonschema:"damage, tank, healer or balanced; required the first time"`
 	Focus     string           `json:"focus,omitempty" jsonschema:"leveling, dungeons, pvp or mixed; required the first time"`
 	Spec      string           `json:"spec,omitempty" jsonschema:"the spec tree the player chose, for example Fury"`
+	StatPref  string           `json:"stat_pref,omitempty" jsonschema:"optional stat preference: balanced, damage (more damage) or survival (more survivability)"`
 	GuideURL  string           `json:"guide_url,omitempty" jsonschema:"the player's chosen guide page (https); omit for the default Icy Veins WoW: Forever guide"`
 	Plan      *TalentPlanInput `json:"plan,omitempty" jsonschema:"a new talent plan; nodes not in the captured tree are dropped and listed"`
 }
@@ -69,6 +70,9 @@ func renderProfile(c character.Character) string {
 		fmt.Fprintf(&b, "Play style: %s, %s", p.Role, p.Focus)
 		if p.Spec != "" {
 			b.WriteString(", spec " + p.Spec)
+		}
+		if p.StatPref != "" {
+			b.WriteString(", stat preference " + p.StatPref)
 		}
 		if p.GuideURL != "" {
 			b.WriteString(", guide " + p.GuideURL)
@@ -138,7 +142,7 @@ func addProfileTools(s *mcp.Server, cfg Config) {
 			for _, v := range []struct {
 				to   *string
 				from string
-			}{{&p.Role, in.Role}, {&p.Focus, in.Focus}, {&p.Spec, in.Spec}, {&p.GuideURL, in.GuideURL}} {
+			}{{&p.Role, in.Role}, {&p.Focus, in.Focus}, {&p.Spec, in.Spec}, {&p.GuideURL, in.GuideURL}, {&p.StatPref, in.StatPref}} {
 				if strings.TrimSpace(v.from) != "" {
 					*v.to = v.from
 				}

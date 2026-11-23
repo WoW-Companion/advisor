@@ -14,6 +14,7 @@ import (
 	"github.com/WoW-Companion/advisor/internal/questie"
 	"github.com/WoW-Companion/advisor/internal/route"
 	"github.com/WoW-Companion/advisor/internal/store"
+	"github.com/WoW-Companion/advisor/internal/unlock"
 )
 
 // Pre-fetched facts: the character's brief and next steps are put in the prompt, so most questions
@@ -80,7 +81,7 @@ func load(cfg Config, key string) (loaded, bool) {
 	if err != nil {
 		return loaded{}, false
 	}
-	l := loaded{c: profile.Attach(profile.Path(), c), f: f}
+	l := loaded{c: character.AttachTotals(unlock.AddonSV(cfg.SavedVariables), profile.Attach(profile.Path(), c)), f: f}
 	if cfg.Dataset != "" {
 		l.ds = store.NewDir(cfg.Dataset)
 	}

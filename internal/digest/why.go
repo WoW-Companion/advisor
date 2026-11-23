@@ -8,6 +8,7 @@ import (
 
 	"github.com/WoW-Companion/advisor/internal/character"
 	"github.com/WoW-Companion/advisor/internal/gear"
+	"github.com/WoW-Companion/advisor/internal/stats"
 	"github.com/WoW-Companion/advisor/internal/wording"
 )
 
@@ -98,8 +99,11 @@ func trainingWhy(spells []TrainSpell) string {
 }
 
 // upgradeWhy is the gain of an upgrade in plain words: an empty slot filled, or how big the upgrade is.
-func upgradeWhy(c character.Character, slot string, cd gear.Candidate) string {
+func upgradeWhy(c character.Character, slot string, cd gear.Candidate, short string) string {
 	name := strings.ToLower(wording.SlotName(slot, cd.Item.Slot))
+	if short != "" && cd.Item.HasStat(short) {
+		return firstWhy("Adds the "+stats.Name(short)+" you're short on", GainWord(cd)+" for your "+name)
+	}
 	if cd.Empty {
 		return firstWhy("Fills your empty " + name + " slot")
 	}

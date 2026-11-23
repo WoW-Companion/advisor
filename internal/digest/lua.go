@@ -192,6 +192,18 @@ func (d Digest) Lua() string {
 		}
 		b.WriteString("  },\n")
 	}
+	if d.Stats != nil {
+		fmt.Fprintf(&b, "  stats = { profile = %s, insights = { ", Quote(d.Stats.Profile))
+		for i, in := range d.Stats.Insights {
+			if i > 0 {
+				b.WriteString(", ")
+			}
+			b.WriteString(Quote(in))
+		}
+		b.WriteString(" }")
+		writeAsks(&b, d.Stats.Asks, "")
+		b.WriteString(" },\n")
+	}
 	b.WriteString("}")
 	return b.String()
 }

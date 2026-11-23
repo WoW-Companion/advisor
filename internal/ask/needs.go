@@ -1,6 +1,7 @@
 package ask
 
 import (
+	"regexp"
 	"strings"
 
 	"github.com/WoW-Companion/advisor/internal/character"
@@ -25,6 +26,7 @@ type Needs struct {
 	Character  string   `json:"character"`
 	Question   string   `json:"question"` // the original question, as asked
 	Ref        string   `json:"ref,omitempty"`
+	Hook       string   `json:"hook,omitempty"` // for a stat question: "Choose a play style for a stat check"
 	Roles      []Option `json:"roles"`
 	Activities []Option `json:"activities"`
 	Specs      []string `json:"specs,omitempty"` // the class's trees, optional
@@ -47,7 +49,14 @@ func options(values []string, labels map[string]string) []Option {
 // needsStyle reports whether the question is one that needs the character's play style: a talent
 // question, or one about the talents entry.
 func needsStyle(q Question) bool {
-	return TalentQuestion(q.Text) || q.Ref == "talents"
+	return TalentQuestion(q.Text) || q.Ref == "talents" || StatQuestion(q)
+}
+
+var statWords = regexp.MustCompile(`(?i)\b(stats?|strength|agility|stamina|intellect|spirit)\b`)
+
+// StatQuestion reports whether a question is about the character's stats (the stat check's subject).
+func StatQuestion(q Question) bool {
+	return q.Ref == "stats" || statWords.MatchString(q.Text)
 }
 
 // PlayStyleNeeded is the choices to put to the player instead of an AI call, when q needs a play style
@@ -69,6 +78,9 @@ func NeedsFor(c character.Character, q Question) Needs {
 	n := Needs{Needs: NeedsPlayStyle, Character: q.Character, Question: q.Text, Ref: q.Ref,
 		Roles:      options(profile.Roles, nil),
 		Activities: options(profile.Foci, activityLabels)}
+	if StatQuestion(q) && !TalentQuestion(q.Text) && q.Ref != "talents" {
+		n.Hook = "Choose a play style for a stat check"
+	}
 	if c.Talents != nil {
 		for _, t := range c.Talents.Trees {
 			if !t.IsProfession() {

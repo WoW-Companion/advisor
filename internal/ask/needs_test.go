@@ -84,3 +84,15 @@ func TestQuestionsReadTheRef(t *testing.T) {
 		t.Errorf("%+v %v", qs, err)
 	}
 }
+
+func TestStatQuestionNeedsAPlayStyleWithTheHook(t *testing.T) {
+	cfg := Config{SavedVariables: priestCapture}
+	key := priestKey(t)
+	n, ok := PlayStyleNeeded(cfg, Question{Character: key, Text: "Do I have enough Stamina?"})
+	if !ok || n.Needs != "play_style" || n.Hook != "Choose a play style for a stat check" {
+		t.Errorf("needs = %+v, %v", n, ok)
+	}
+	if n, _ := PlayStyleNeeded(cfg, Question{Character: key, Text: "Which talents should I take?"}); n.Hook != "" {
+		t.Errorf("hook on a talent question: %q", n.Hook)
+	}
+}

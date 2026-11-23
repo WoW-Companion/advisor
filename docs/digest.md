@@ -70,6 +70,8 @@ has that as its `why` ("Rewards Traveler's Shawl, a big cloak upgrade"); a mater
 in `keep_materials` with "for <item>". The line's `asks` include "How do I get <item>?".
 `elite` is set only when the dataset's quests table has an `elite` or `group` column that says so.
 
+**Stat check (schema 1.7, optional).** A character with a saved play style has `stats = { profile = "Fury · leveling", insights = { ... }, asks = { ... } }`: one to three plain sentences of at most 90 characters (what to raise and why, what is wasted, what is fine; never a number, percentage or id), the profile they were read for, and questions such as "How do I get more Strength?". It is left out with no play style. The weights behind it are in `docs/stats.md`. An upgrade's `why` may read "Adds the Strength you're short on".
+
 **Training, details and prompts (schema 1.4).** From the dataset's `class_spells` table, `next_quests` gets one
 `kind = "training"` line, after the talent and class lines, when the character's level unlocks trainer-taught
 abilities or ranks. It covers the levels after the last capture's level, or the character's own level when

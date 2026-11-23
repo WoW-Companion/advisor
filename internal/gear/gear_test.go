@@ -422,3 +422,35 @@ func TestUnobtainableItemsNeverSuggested(t *testing.T) {
 		t.Errorf("head candidates = %q, want only the real items", got)
 	}
 }
+
+// TestUpgradeRankingFollowsPlayStyle: a Strength helm and a Stamina helm of the same level swap places
+// between Fury and Protection; the preference moves it too.
+func TestUpgradeRankingFollowsPlayStyle(t *testing.T) {
+	const mailArmor = 3
+	rows := []itemRow{
+		it(1, "Brute Helm", 20, 8, 2, 4, mailArmor, headSlot, 4),
+		it(2, "Sturdy Helm", 20, 8, 2, 4, mailArmor, headSlot, 7),
+	}
+	ds := store.New(store.ReaderSource{"items": table(t, rows)})
+	top := func(p character.Profile) string {
+		c := char("WARRIOR", 10, nil)
+		c.Profile = &p
+		res, err := Find(c, ds, "", Options{Slot: "head"})
+		if err != nil || len(res.Slots["head"]) == 0 {
+			t.Fatalf("%v %v", err, res)
+		}
+		for _, cd := range res.Slots["head"] {
+			t.Logf("%s/%s: %s delta %.1f", p.Role, p.Spec, cd.Item.Name, cd.Delta)
+		}
+		return res.Slots["head"][0].Item.Name
+	}
+	if got := top(character.Profile{Role: "damage", Focus: "leveling", Spec: "Fury"}); got != "Brute Helm" {
+		t.Errorf("Fury: %s", got)
+	}
+	if got := top(character.Profile{Role: "tank", Focus: "leveling", Spec: "Protection"}); got != "Sturdy Helm" {
+		t.Errorf("Protection: %s", got)
+	}
+	if got := top(character.Profile{Role: "tank", Focus: "leveling", Spec: "Protection", StatPref: "damage"}); got == "" {
+		t.Error("preference")
+	}
+}

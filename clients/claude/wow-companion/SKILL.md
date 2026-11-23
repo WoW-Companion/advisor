@@ -39,6 +39,13 @@ All character tools take an optional `character` name (omit it when only one was
   the armor type or slot filter to pick, and that these are usually cheap. A slot may return a shopping
   list (base item, level range, stat suffixes, examples): relay it. Never quote or guess an Auction House
   price; there is no price data.
+- `stat_check`: the character's stat priorities for their saved play style (class, spec, role,
+  activity and stat preference) and one to three plain insights: what to raise and why, what is wasted,
+  what is fine, plus worn items worth swapping first. Call it for any stat or "what should I look
+  for" question. Keep the short shape: relay the insights in plain words, never numbers, percentages
+  or ids, and say in one clause at most that preferences vary. With no play style it returns
+  `needs: play_style`: offer the choices and save them with `set_character_profile`. Upgrade
+  ranking and Auction House suffixes follow the same priorities.
 - `profession_plan`: the next recipes that still give skill-ups per profession (optional
   `profession`), with reagents held and missing.
 - `talent_plan`: where the next talent points go against the curated build (optional `spec`,
@@ -60,7 +67,7 @@ All character tools take an optional `character` name (omit it when only one was
 
 1. Call `list_characters` to see which characters were captured. If there is one, or the
    player named one, call `character_brief` (pass `character` when there are several).
-2. Pick the tool that matches the question: `whats_next` for "what should I do", `upgrade_paths`
+2. Pick the tool that matches the question: `whats_next` for "what should I do", `stat_check` for stats and what to look for, `upgrade_paths`
    for any "how do I get ..." or "which upgrade first" question, `upgrade_finder` for gear, `profession_plan` for professions, `talent_plan` for talents, `dungeon_plan` for
    where to run, `inventory_review` for what to do with bags and bank. Each step carries its reason and source; relay them, and say "unknown" where a
    step says a level or zone is unknown.
