@@ -189,6 +189,7 @@ The companion sits beside the game, not inside it, and changes nothing in the cl
 | `character_brief` | Level, class, gear, money and quests of one character. |
 | `whats_next` | The ranked next steps: turn-ins, talents, open quests. |
 | `upgrade_finder` | Better gear per slot and where it drops. |
+| `upgrade_paths` | How to get an upgrade: quest reward, craft, Auction House, dungeon boss or named creature. |
 | `profession_plan` | How to level each profession. |
 | `talent_plan` | Where the next talent points go. |
 | `get_character_profile` | The character's saved play style and talent plan (or the question to ask first). |

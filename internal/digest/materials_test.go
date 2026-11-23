@@ -49,11 +49,11 @@ func TestMaterialsFromRecipes(t *testing.T) {
 		Bank:        []character.ItemStack{{ItemID: 7, Count: 2, Name: "Bolt of Cloth"}},
 	}
 	// Recipes decide: the bank counts and Linen Cloth (a name match, not a reagent) is not kept.
-	if got := materials(c, ds); len(got) != 1 || got[0].Text != "Bolt of Cloth x5" || got[0].Item != 7 {
+	if got := materials(c, ds, nil); len(got) != 1 || got[0].Text != "Bolt of Cloth x5" || got[0].Item != 7 {
 		t.Errorf("with recipes: %+v", got)
 	}
 	// No recipes table: the name guess over the bags.
-	if got := materials(c, store.New(store.ReaderSource{})); len(got) != 2 || !strings.HasPrefix(got[0].Text, "Linen Cloth") {
+	if got := materials(c, store.New(store.ReaderSource{}), nil); len(got) != 2 || !strings.HasPrefix(got[0].Text, "Linen Cloth") {
 		t.Errorf("fallback: %+v", got)
 	}
 }

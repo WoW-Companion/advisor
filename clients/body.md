@@ -17,6 +17,11 @@ All character tools take an optional `character` name (omit it when only one was
 - `quest_plan`: an efficient ordered quest route (pick-ups, objectives, turn-ins with map coordinates, then the next zone), from
   the player's own Questie; the order is computed, so relay it as is.
 - `upgrade_finder`: gear upgrades per slot (optional `slot`, `limit`) with where each drops.
+- `upgrade_paths`: how the character can dependably get an item (`item`) or the best gettable upgrades
+  for a slot (`slot`): quest reward, craft with materials held and missing, Auction House, dungeon boss,
+  named creature. Call it for every "how do I get ..." or "which upgrade first" question; never say a
+  source is unknown without having called it. When it says an item is a random drop, say plainly it is
+  not worth chasing and name the gettable item it gives for that slot.
 - `profession_plan`: the next recipes that still give skill-ups per profession (optional
   `profession`), with reagents held and missing.
 - `talent_plan`: where the next talent points go against the curated build (optional `spec`,
@@ -38,8 +43,8 @@ All character tools take an optional `character` name (omit it when only one was
 
 1. Call `list_characters` to see which characters were captured. If there is one, or the
    player named one, call `character_brief` (pass `character` when there are several).
-2. Pick the tool that matches the question: `whats_next` for "what should I do", `upgrade_finder`
-   for gear, `profession_plan` for professions, `talent_plan` for talents, `dungeon_plan` for
+2. Pick the tool that matches the question: `whats_next` for "what should I do", `upgrade_paths`
+   for any "how do I get ..." or "which upgrade first" question, `upgrade_finder` for gear, `profession_plan` for professions, `talent_plan` for talents, `dungeon_plan` for
    where to run, `inventory_review` for what to do with bags and bank. Each step carries its reason and source; relay them, and say "unknown" where a
    step says a level or zone is unknown.
 3. Talents: call `get_character_profile` first. If `needs_profile` is true, ask the player its short

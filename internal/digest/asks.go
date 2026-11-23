@@ -103,7 +103,7 @@ func upgradeAsks(item string) []string {
 		return asksOf("Is this upgrade worth getting now?", "Is this upgrade worth getting now?")
 	}
 	return asksOf("Is this upgrade worth getting now?",
-		fmt.Sprintf("Is %s worth getting now?", item), fmt.Sprintf("Where do I get %s?", item))
+		fmt.Sprintf("How do I get %s?", item), fmt.Sprintf("Is %s worth getting now?", item))
 }
 
 func materialAsks(item string) []string {

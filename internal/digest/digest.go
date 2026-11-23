@@ -11,11 +11,9 @@ import (
 	"unicode/utf8"
 
 	"github.com/WoW-Companion/advisor/internal/advice"
-	"github.com/WoW-Companion/advisor/internal/brief"
 	"github.com/WoW-Companion/advisor/internal/character"
 	"github.com/WoW-Companion/advisor/internal/dataset"
 	"github.com/WoW-Companion/advisor/internal/dungeons"
-	"github.com/WoW-Companion/advisor/internal/gear"
 	"github.com/WoW-Companion/advisor/internal/questie"
 	"github.com/WoW-Companion/advisor/internal/store"
 	"github.com/WoW-Companion/advisor/internal/talents"
@@ -24,7 +22,7 @@ import (
 
 // Schema is the version of one character's entry; EnvelopeSchema is the file's.
 const (
-	Schema         = "1.6"
+	Schema         = "1.7"
 	EnvelopeSchema = "2.0"
 )
 
@@ -85,7 +83,7 @@ type Line struct {
 	Points     int // unspent talent points, for the talent line
 
 	Slot    string // upgrades: the slot
-	ILvl    int    // upgrades: the item's level
+	ILvl    int    // upgrades: the item's level (not shown to players)
 	AtLevel int    // upgrades: the character level the item needs, when not yet wearable
 
 	// Schema 1.4. Details is 1-4 short context lines, Prompt a ready question for the companion's AI
@@ -98,6 +96,10 @@ type Line struct {
 	Ref  string
 	// Schema 1.6. Why is one short, factual reason (at most MaxWhy characters), left out when no fact fits.
 	Why string
+	// Schema 1.7, upgrades: Wear is "Wear now" or "From level N", Gain "Big upgrade", "Solid upgrade" or
+	// "Small upgrade", Replaces "instead of your <item>" or "fills an empty slot", How the best path's
+	// one line and PathKind its kind (quest, craft, auction, dungeon or creature), for the icon.
+	Wear, Gain, Replaces, How, PathKind string
 	// Unlocks is on a turn-in line: the follow-ups turning it in unlocks (not written to Digest.lua).
 	Unlocks []string
 	Spells  []TrainSpell // training: the abilities and ranks
@@ -133,6 +135,8 @@ type TalentLine struct {
 type Section struct {
 	ID    string
 	Lines []Line
+	// Summary is the section's one line count, such as "3 upgrades you can get" (schema 1.7).
+	Summary string
 }
 
 // Digest is the whole file.
@@ -286,18 +290,23 @@ func Build(c character.Character, ds store.DataStore, opt Options) Digest {
 		// Training is a level milestone: it follows the talent and class lines and leads the quests.
 		quests = append(quests[:len(milestones):len(milestones)], append([]Line{t}, quests[len(milestones):]...)...)
 	}
-	ups, note := upgradeLines(c, ds)
+	ups, note, link := upgradeLines(c, ds, PlanQuests(steps))
 	notes = append(notes, note...)
+	for i := range quests {
+		if w, ok := link.questWhy[quests[i].Quest]; ok && quests[i].Quest != 0 {
+			quests[i].Why = w
+		}
+	}
 	if g, ok := FindGiver(c, opt.Questie, PlanQuests(steps), PlanNPCs(steps)); ok {
 		notes = append(notes, g.Line(c))
 	}
 	notes = append(notes, captureNotes(c, ds, opt)...)
 
 	for _, s := range []Section{
-		{NextQuests, capLines(quests, MaxQuests)},
-		{Upgrades, capLines(ups, MaxUpgrades)},
-		{KeepMaterials, capLines(materials(c, ds), MaxMaterials)},
-		{Notes, capLines(notes, MaxNotes)},
+		{NextQuests, capLines(quests, MaxQuests), ""},
+		{Upgrades, capLines(ups, MaxUpgrades), upgradesSummary(len(capLines(ups, MaxUpgrades)))},
+		{KeepMaterials, capLines(materials(c, ds, link.craftFor), MaxMaterials), ""},
+		{Notes, capLines(notes, MaxNotes), ""},
 	} {
 		if len(s.Lines) > 0 {
 			d.Sections = append(d.Sections, s)
@@ -471,71 +480,6 @@ func captureNotes(c character.Character, ds store.DataStore, opt Options) []Line
 		out = append(out, Line{Text: fmt.Sprintf("Dataset is build %s, game is %s", opt.DatasetBuild, opt.Client.Build), Kind: KindNote, Asks: asksOf("What does the dataset mismatch mean?", "What does the dataset mismatch mean?"), Ref: noteRef("dataset-build")})
 	}
 	return out
-}
-
-// upgradeLines is one line per slot, the top candidate and its first source; the second result is
-// a note when the search could not run.
-func upgradeLines(c character.Character, ds store.DataStore) (lines, notes []Line) {
-	if ds == nil {
-		return nil, nil // captureNotes says so
-	}
-	group := ""
-	if names, _ := brief.TopGroups(c.Talents); len(names) == 1 {
-		group = names[0]
-	}
-	res, err := gear.Find(c, ds, group, gear.Options{Limit: 1})
-	if err != nil {
-		return nil, []Line{{Text: "No gear upgrades: " + err.Error(), Kind: KindNote, Asks: asksOf("Why are there no gear upgrades?", "Why are there no gear upgrades?"), Ref: noteRef("no-upgrades")}}
-	}
-	slots := make([]string, 0, len(res.Slots))
-	for s := range res.Slots {
-		slots = append(slots, s)
-	}
-	rank := map[string]int{}
-	for i, s := range brief.Slots {
-		rank[s] = i + 1
-	}
-	sort.Slice(slots, func(i, j int) bool {
-		a, b := rank[slots[i]], rank[slots[j]]
-		if a == 0 || b == 0 {
-			if a != b {
-				return a != 0
-			}
-			return slots[i] < slots[j]
-		}
-		return a < b
-	})
-	for _, slot := range slots {
-		cd := res.Slots[slot][0]
-		item := cd.Item.Name
-		if item == "" {
-			item = fmt.Sprintf("item %d", cd.Item.ID)
-		}
-		text := fmt.Sprintf("%s: %s (ilvl %d", slot, item, cd.Item.ItemLevel)
-		if cd.Soon {
-			text += fmt.Sprintf(", at level %d", cd.Item.ReqLevel)
-		}
-		text += ")"
-		if len(cd.Sources) > 0 {
-			s := cd.Sources[0]
-			// An unnamed source is left out, never shown as an id. The source goes on only whole: when
-			// it would push the line past the cap it is dropped.
-			if s.Name != "" {
-				if with := text + " from " + s.Name; utf8.RuneCountInString(with) <= MaxText {
-					text = with
-				}
-			}
-		}
-		l := Line{Text: clip(text), Item: int(cd.Item.ID), Slot: slot, ILvl: int(cd.Item.ItemLevel)}
-		if cd.Soon {
-			l.AtLevel = int(cd.Item.ReqLevel)
-		}
-		l.Details, l.Prompt = upgradeContext(c, slot, cd)
-		l.Asks, l.Ref = upgradeAsks(cd.Item.Name), itemRef(int(cd.Item.ID))
-		l.Why = upgradeWhy(c, slot, cd)
-		lines = append(lines, l)
-	}
-	return lines, nil
 }
 
 // PlanQuests is the quest ids of the plan's steps.

@@ -27,7 +27,7 @@ func TestGeneratedFilesInSync(t *testing.T) {
 }
 
 func TestEveryToolNamed(t *testing.T) {
-	for _, tool := range []string{"server_info", "list_characters", "character_brief", "whats_next", "upgrade_finder", "update_digest", "profession_plan", "talent_plan", "talent_tree", "get_character_profile", "set_character_profile", "dungeon_plan", "farm_spots", "quest_chain", "quest_plan", "inventory_review"} {
+	for _, tool := range []string{"server_info", "list_characters", "character_brief", "whats_next", "upgrade_finder", "upgrade_paths", "update_digest", "profession_plan", "talent_plan", "talent_tree", "get_character_profile", "set_character_profile", "dungeon_plan", "farm_spots", "quest_chain", "quest_plan", "inventory_review"} {
 		if !strings.Contains(body, "`"+tool+"`") {
 			t.Errorf("body.md never mentions %s", tool)
 		}

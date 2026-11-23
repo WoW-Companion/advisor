@@ -4,7 +4,7 @@ WoWCompanionDigest = {
   generated = 1800000000,
   characters = {
     ["Testchar"] = {
-      schema = "1.6",
+      schema = "1.7",
       generated = 1800000000,
       build = "1.60.0.64000",
       character = "Testchar",
@@ -14,9 +14,8 @@ WoWCompanionDigest = {
           { text = "Turn in Wolves at the Door (Dunemark)", quest = 100, kind = "turnin", title = "Wolves at the Door", level = 11, zone = "Dunemark", details = { "In Dunemark", "A level below you" }, prompt = "I'm a level 12 priest. I can turn in the quest \"Wolves at the Door\" in Dunemark. What does turning it in unlock, and what should I do next?", asks = { "What does turning in Wolves at the Door unlock?", "What should I do after I turn it in?" }, ref = "quest:100", why = "Done — hand it in on your way" },
           { text = "Gather Peacebloom (Dunemark)", quest = 101, kind = "progress", title = "Gather Peacebloom", level = 12, zone = "Dunemark", details = { "In Dunemark", "Right for your level" }, prompt = "I'm a level 12 priest. I'm working on the quest \"Gather Peacebloom\" in Dunemark. What is the best way to finish it, and what should I watch out for?", asks = { "How do I finish Gather Peacebloom?" }, ref = "quest:101" },
         } },
-        { id = "upgrades", lines = {
-          { text = "head: Cloth Hood of the \"Sage\" (ilvl 20) from Near Wolf", item = 1, slot = "head", ilvl = 20, details = { "Head: Cloth Hood of the \"Sage\", item level 20", "+4 item levels over your current item", "A drop from Near Wolf" }, prompt = "I'm a level 12 priest. A possible upgrade is Cloth Hood of the \"Sage\" for my head slot (item level 20), replacing your current item (item level 16). It is a drop from Near Wolf. Is it worth getting for how I play, and how do I get it?", asks = { "Is Cloth Hood of the \"Sage\" worth getting now?", "Where do I get Cloth Hood of the \"Sage\"?" }, ref = "item:1", why = "+4 item levels for your head slot" },
-          { text = "finger1: Ring of Mind (ilvl 18)", item = 6, slot = "finger1", ilvl = 18, details = { "Ring: Ring of Mind, item level 18", "Your slot is empty" }, prompt = "I'm a level 12 priest. A possible upgrade is Ring of Mind for my ring slot (item level 18). Is it worth getting for how I play, and how do I get it?", asks = { "Is Ring of Mind worth getting now?", "Where do I get Ring of Mind?" }, ref = "item:6", why = "Fills your empty ring slot" },
+        { id = "upgrades", summary = "1 upgrade you can get", lines = {
+          { text = "Head: Cloth Hood of the \"Sage\". Wear now, small upgrade, instead of what you wear", item = 1, slot = "Head", ilvl = 20, wear = "Wear now", gain = "Small upgrade", replaces = "instead of what you wear", how = "Drops sometimes from Near Wolf in Wolf Den (levels 10 to 14)", pathKind = "dungeon", details = { "Head: Cloth Hood of the \"Sage\"", "Wear now. Small upgrade, instead of what you wear", "Drops sometimes from Near Wolf in Wolf Den (levels 10 to 14)" }, prompt = "I'm a level 12 priest. A possible upgrade is Cloth Hood of the \"Sage\" for my head slot, small upgrade (instead of what you wear). The best way to get it: Drops sometimes from Near Wolf in Wolf Den (levels 10 to 14). Is it worth getting for how I play?", asks = { "How do I get Cloth Hood of the \"Sage\"?", "Is Cloth Hood of the \"Sage\" worth getting now?" }, ref = "item:1", why = "Small upgrade for your head" },
         } },
         { id = "keep_materials", lines = {
           { text = "Copper Ore x20", item = 2770, asks = { "Should I keep Copper Ore?", "What is Copper Ore used for?" }, ref = "item:2770" },
@@ -39,14 +38,11 @@ WoWCompanionDigest = {
       },
     },
     ["Otherchar"] = {
-      schema = "1.6",
+      schema = "1.7",
       generated = 1800000000,
       build = "1.60.0.64000",
       character = "Otherchar",
       sections = {
-        { id = "upgrades", lines = {
-          { text = "finger1: Ring of Mind (ilvl 18)", item = 6, slot = "finger1", ilvl = 18, details = { "Ring: Ring of Mind, item level 18", "Your slot is empty" }, prompt = "I'm a level 12 rogue. A possible upgrade is Ring of Mind for my ring slot (item level 18). Is it worth getting for how I play, and how do I get it?", asks = { "Is Ring of Mind worth getting now?", "Where do I get Ring of Mind?" }, ref = "item:6", why = "Fills your empty ring slot" },
-        } },
         { id = "notes", lines = {
           { text = "Dataset is build 1.59.0.63000, game is 64000", kind = "note", asks = { "What does the dataset mismatch mean?" }, ref = "note:dataset-build" },
         } },

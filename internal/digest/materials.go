@@ -5,6 +5,7 @@ import (
 	"sort"
 	"strings"
 	"unicode"
+	"unicode/utf8"
 
 	"github.com/WoW-Companion/advisor/internal/character"
 	"github.com/WoW-Companion/advisor/internal/professions"
@@ -60,20 +61,34 @@ func isMaterial(itemName string, professions []string) bool {
 
 // materials are the bag and bank items the character's professions use, most numerous first: the
 // reagents of recipes still worth making, or the name guess when the dataset lacks recipes.
-func materials(c character.Character, ds store.DataStore) []Line {
+func materials(c character.Character, ds store.DataStore, craftFor map[int64]string) []Line {
 	keep, err := professions.KeepList(c, ds)
 	if err != nil {
-		return guessMaterials(c)
+		return guessMaterials(c, craftFor)
 	}
 	var out []Line
 	for _, k := range keep {
-		out = append(out, Line{Text: clip(fmt.Sprintf("%s x%d", k.Name, k.Count)), Item: int(k.ItemID), Asks: materialAsks(k.Name), Ref: itemRef(int(k.ItemID))})
+		l := Line{Text: clip(fmt.Sprintf("%s x%d", k.Name, k.Count)), Item: int(k.ItemID), Asks: materialAsks(k.Name), Ref: itemRef(int(k.ItemID))}
+		forItem(&l, craftFor[k.ItemID])
+		out = append(out, l)
 	}
 	return out
 }
 
+// forItem marks a material as needed for a craftable upgrade: "for <item>" on the text when it fits,
+// and always as the why.
+func forItem(l *Line, item string) {
+	if item == "" {
+		return
+	}
+	if t := l.Text + ", for " + item; utf8.RuneCountInString(t) <= MaxText {
+		l.Text = t
+	}
+	l.Why = firstWhy("For " + item)
+}
+
 // guessMaterials is the name-fragment fallback, over the bags.
-func guessMaterials(c character.Character) []Line {
+func guessMaterials(c character.Character, craftFor map[int64]string) []Line {
 	var profs []string
 	for _, p := range c.Professions {
 		profs = append(profs, p.Name)
@@ -96,7 +111,9 @@ func guessMaterials(c character.Character) []Line {
 	})
 	var out []Line
 	for _, k := range kept {
-		out = append(out, Line{Text: clip(fmt.Sprintf("%s x%d", k.name, k.n)), Item: k.id, Asks: materialAsks(k.name), Ref: itemRef(k.id)})
+		l := Line{Text: clip(fmt.Sprintf("%s x%d", k.name, k.n)), Item: k.id, Asks: materialAsks(k.name), Ref: itemRef(k.id)}
+		forItem(&l, craftFor[int64(k.id)])
+		out = append(out, l)
 	}
 	return out
 }

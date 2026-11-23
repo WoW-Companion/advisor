@@ -4,14 +4,11 @@ WoWCompanionDigest = {
   generated = 1800000000,
   characters = {
     ["Testrogue"] = {
-      schema = "1.6",
+      schema = "1.7",
       generated = 1800000000,
       build = "1.60.0.64000",
       character = "Testrogue",
       sections = {
-        { id = "upgrades", lines = {
-          { text = "finger1: Ring of Mind (ilvl 18)", item = 6, slot = "finger1", ilvl = 18, details = { "Ring: Ring of Mind, item level 18", "Your slot is empty" }, prompt = "I'm a level 12 rogue. A possible upgrade is Ring of Mind for my ring slot (item level 18). Is it worth getting for how I play, and how do I get it?", asks = { "Is Ring of Mind worth getting now?", "Where do I get Ring of Mind?" }, ref = "item:6", why = "Fills your empty ring slot" },
-        } },
         { id = "notes", lines = {
           { text = "Dataset is build 1.59.0.63000, game is 64000", kind = "note", asks = { "What does the dataset mismatch mean?" }, ref = "note:dataset-build" },
         } },

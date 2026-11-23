@@ -68,6 +68,11 @@ func (l Line) writeFields(b *strings.Builder) {
 	str("slot", l.Slot)
 	num("ilvl", l.ILvl)
 	num("atLevel", l.AtLevel)
+	str("wear", l.Wear)
+	str("gain", l.Gain)
+	str("replaces", l.Replaces)
+	str("how", l.How)
+	str("pathKind", l.PathKind)
 	if len(l.Spells) > 0 {
 		b.WriteString(", spells = { ")
 		for i, sp := range l.Spells {
@@ -140,7 +145,11 @@ func (d Digest) Lua() string {
 	b.WriteString("{\n")
 	fmt.Fprintf(&b, "  schema = %s,\n  generated = %d,\n  build = %s,\n  character = %s,\n  sections = {\n", Quote(d.Schema), d.Generated, Quote(d.Build), Quote(d.Character))
 	for _, s := range d.Sections {
-		fmt.Fprintf(&b, "    { id = %s, lines = {\n", Quote(s.ID))
+		fmt.Fprintf(&b, "    { id = %s, ", Quote(s.ID))
+		if s.Summary != "" {
+			fmt.Fprintf(&b, "summary = %s, ", Quote(s.Summary))
+		}
+		b.WriteString("lines = {\n")
 		for _, l := range s.Lines {
 			fmt.Fprintf(&b, "      { text = %s", Quote(l.Text))
 			if l.Item != 0 {

@@ -90,6 +90,15 @@ type nodeRow struct {
 	Name    string `parquet:"name"`
 }
 
+func tblAny[T any](t *testing.T, rows []T) store.SizedReaderAt {
+	t.Helper()
+	var buf bytes.Buffer
+	if err := parquet.Write(&buf, rows); err != nil {
+		t.Fatal(err)
+	}
+	return store.SizedReaderAt{ReaderAt: bytes.NewReader(buf.Bytes()), Size: int64(buf.Len())}
+}
+
 func tbl(t *testing.T, rows any) store.SizedReaderAt {
 	t.Helper()
 	var buf bytes.Buffer
@@ -255,7 +264,7 @@ func TestEnvelopeTwoCharacters(t *testing.T) {
 	if err != nil || root["schema"] != "2.0" || len(chars) != 2 || chars["Testchar"] == nil || chars["Otherchar"] == nil {
 		t.Errorf("parse: %v %v", err, parsed)
 	}
-	if e, _ := chars["Testchar"].(lua.Table); e["schema"] != "1.6" || e["character"] != "Testchar" {
+	if e, _ := chars["Testchar"].(lua.Table); e["schema"] != "1.7" || e["character"] != "Testchar" {
 		t.Errorf("entry = %v", e)
 	}
 }
@@ -313,7 +322,7 @@ func TestCaps(t *testing.T) {
 func TestSchema12Sections(t *testing.T) {
 	ds := synthStore(t)
 	d := Build(synthChar(), ds, synthOpt)
-	if d.Schema != "1.6" || len(d.Dungeons) != 1 || d.Dungeons[0].Name != "Wolf Den" || d.Dungeons[0].Item != 1 {
+	if d.Schema != "1.7" || len(d.Dungeons) != 1 || d.Dungeons[0].Name != "Wolf Den" || d.Dungeons[0].Item != 1 {
 		t.Errorf("dungeons = %+v (schema %s)", d.Dungeons, d.Schema)
 	}
 	if len(d.Talents) != 3 || d.Talents[0].Spell != 1001 || d.Talents[1].Spell != 0 {
@@ -492,7 +501,7 @@ func TestTalentLinesFromPlan(t *testing.T) {
 // with an optional objective, a pick-up and the talent line; titles carry apostrophes, quotes and colons.
 func structuredDigest() Digest {
 	return Digest{Schema: Schema, Generated: 1800000000, Build: "1.60.0.64000", Character: "Testpriest", Sections: []Section{
-		{NextQuests, []Line{
+		{ID: NextQuests, Lines: []Line{
 			{Text: "You have 2 unspent talent points: Penance", Kind: KindTalent, Points: 2},
 			{Text: "Class quest: pick up The Skybreaker's Bulwark from Seena Sk...", Quest: 900, Kind: KindPickup, Title: "The Skybreaker's Bulwark", Level: 10, Class: true, NPC: "Seena Skyward", Zone: "Dunemark"},
 			{Text: "Turn in \"Blood\" Tithe: Part 2 (Dunemark)", Quest: 901, Kind: KindTurnIn, Title: "\"Blood\" Tithe: Part 2", Level: 9, Elite: true, NPC: "Aamelia O'Windfield", Zone: "Dunemark"},
@@ -501,7 +510,8 @@ func structuredDigest() Digest {
 			{Text: "Pick up: Wolves at the Door (Dunemark)", Quest: 903, Kind: KindPickup, Title: "Wolves at the Door", Level: 11, Zone: "Dunemark"},
 			{Text: "Game data not downloaded yet; see Setup", Kind: KindNote},
 		}},
-		{Upgrades, []Line{{Text: "head: Cloth Hood (ilvl 20, at level 14)", Item: 1, Slot: "head", ILvl: 20, AtLevel: 14}}},
+		{ID: Upgrades, Summary: "1 upgrade you can get", Lines: []Line{{Text: "Head: Cloth Hood. From level 14, big upgrade, fills an empty slot", Item: 1, Slot: "Head", ILvl: 20, AtLevel: 14,
+			Wear: "From level 14", Gain: "Big upgrade", Replaces: "fills an empty slot", How: "Drops sometimes from Near Wolf in Wolf Den (levels 10 to 14)", PathKind: "dungeon"}}},
 	}}
 }
 

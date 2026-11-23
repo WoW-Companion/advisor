@@ -103,3 +103,29 @@ func Upper(s string) string {
 	}
 	return strings.ToUpper(s[:1]) + s[1:]
 }
+
+// SlotName is a capture slot as a player says it, capitalized: "back" is "Cloak", "wrist" is
+// "Wrists". invType is the item's inventory type when known (17 is a two-hander), else 0.
+func SlotName(slot string, invType int) string {
+	s := strings.ToLower(strings.TrimRight(slot, "0123456789"))
+	switch s {
+	case "back":
+		return "Cloak"
+	case "wrist":
+		return "Wrists"
+	case "shoulder":
+		return "Shoulders"
+	case "finger":
+		return "Ring"
+	case "mainhand":
+		if invType == 17 {
+			return "Two-hand weapon"
+		}
+		return "Main hand weapon"
+	case "offhand":
+		return "Off hand"
+	case "ranged":
+		return "Ranged weapon"
+	}
+	return Upper(s)
+}
