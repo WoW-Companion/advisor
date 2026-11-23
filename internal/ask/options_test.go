@@ -95,15 +95,22 @@ func TestOptionsNormalize(t *testing.T) {
 
 func TestPromptLengthInstructions(t *testing.T) {
 	q := Question{Character: "C-R", Text: "What next?"}
-	for length, want := range map[string]string{LengthBrief: "top 1-3 actions", LengthStandard: "short numbered plan", LengthDetailed: "alternatives", "": "short numbered plan"} {
-		if p := PromptFor(q, length); !strings.Contains(p, want) || !strings.Contains(p, "What next?") {
+	for length, want := range map[string]string{LengthBrief: "at most 1 bullet", LengthStandard: "under 1500 characters", LengthDetailed: "behind the answer", "": "under 1500 characters"} {
+		p := PromptFor(q, length)
+		if !strings.Contains(p, want) || !strings.Contains(p, "What next?") {
 			t.Errorf("%q: %s", length, p)
 		}
+		// Every length carries the short-answer rules.
+		for _, rule := range []string{"Answer the question asked in your first sentence", "at most 3 short bullets", "Never restate or re-list the plan", "Heads-up:", "rather than contradicting it silently"} {
+			if !strings.Contains(p, rule) {
+				t.Errorf("%q: prompt lacks %q", length, rule)
+			}
+		}
+		if strings.Contains(p, "numbered plan") {
+			t.Errorf("%q: still asks for a numbered plan", length)
+		}
 	}
-	if strings.Contains(PromptFor(q, LengthBrief), "alternatives") {
-		t.Error("brief mentions alternatives")
-	}
-	if n := len(PromptFor(Question{}, LengthDetailed)); n > 900 {
+	if n := len(PromptFor(Question{}, LengthDetailed)); n > 1500 {
 		t.Errorf("prompt grew to %d bytes", n)
 	}
 }

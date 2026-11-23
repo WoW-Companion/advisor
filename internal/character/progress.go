@@ -195,26 +195,3 @@ func (c Character) NearbyGivers(now time.Time) []Giver {
 	})
 	return out
 }
-
-// GiverLines renders up to max nearby givers, one line each; none when there are none.
-func (c Character) GiverLines(now time.Time, max int) []string {
-	gs := c.NearbyGivers(now)
-	if max > 0 && len(gs) > max {
-		gs = gs[:max]
-	}
-	var out []string
-	for _, g := range gs {
-		line := "Quest giver you've met nearby: " + g.Name
-		if g.Subzone != "" {
-			line += ", " + g.Subzone
-		}
-		line += fmt.Sprintf(" (%.1f, %.1f)", *g.X, *g.Y)
-		if g.Recent {
-			line += " — met in the last 7 days, may have quests"
-		} else {
-			line += " — may have quests"
-		}
-		out = append(out, line)
-	}
-	return out
-}

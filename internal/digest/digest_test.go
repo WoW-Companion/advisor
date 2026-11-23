@@ -255,7 +255,7 @@ func TestEnvelopeTwoCharacters(t *testing.T) {
 	if err != nil || root["schema"] != "2.0" || len(chars) != 2 || chars["Testchar"] == nil || chars["Otherchar"] == nil {
 		t.Errorf("parse: %v %v", err, parsed)
 	}
-	if e, _ := chars["Testchar"].(lua.Table); e["schema"] != "1.4" || e["character"] != "Testchar" {
+	if e, _ := chars["Testchar"].(lua.Table); e["schema"] != "1.5" || e["character"] != "Testchar" {
 		t.Errorf("entry = %v", e)
 	}
 }
@@ -313,7 +313,7 @@ func TestCaps(t *testing.T) {
 func TestSchema12Sections(t *testing.T) {
 	ds := synthStore(t)
 	d := Build(synthChar(), ds, synthOpt)
-	if d.Schema != "1.4" || len(d.Dungeons) != 1 || d.Dungeons[0].Name != "Wolf Den" || d.Dungeons[0].Item != 1 {
+	if d.Schema != "1.5" || len(d.Dungeons) != 1 || d.Dungeons[0].Name != "Wolf Den" || d.Dungeons[0].Item != 1 {
 		t.Errorf("dungeons = %+v (schema %s)", d.Dungeons, d.Schema)
 	}
 	if len(d.Talents) != 3 || d.Talents[0].Spell != 1001 || d.Talents[1].Spell != 0 {
@@ -443,15 +443,18 @@ func TestWriteIsAtomicAndNeedsTheAddon(t *testing.T) {
 }
 
 func TestClipWords(t *testing.T) {
-	long := "head: Restored Plate Helm of the Fallen Champion (ilvl 12) from Someone"
+	long := "head: Restored Plate Helm of the Fallen Champion (ilvl 12) from Someone Very Far Away In The Mountains Of Testland, ask nicely"
 	for _, tc := range []struct{ in, want string }{
 		{"head: Cloth Hood (ilvl 20)", "head: Cloth Hood (ilvl 20)"},
-		{long, "head: Restored Plate Helm of the Fallen Champion (ilvl..."},
-		{strings.Repeat("x", 70), strings.Repeat("x", 57) + "..."},
+		{long, "head: Restored Plate Helm of the Fallen Champion (ilvl 12) from Someone Very Far Away In The Mountains of..."},
+		{strings.Repeat("x", 120), strings.Repeat("x", 107) + "..."},
 	} {
-		got := clipWords(tc.in)
-		if got != tc.want || len([]rune(got)) > MaxText {
-			t.Errorf("clipWords(%q) = %q, want %q", tc.in, got, tc.want)
+		got := clip(tc.in)
+		if len([]rune(got)) > MaxText || (tc.want != "" && !strings.HasPrefix(tc.in, strings.TrimSuffix(got, "..."))) {
+			t.Errorf("clip(%q) = %q", tc.in, got)
+		}
+		if strings.HasSuffix(got, "...") && !strings.HasPrefix(tc.in, strings.TrimSuffix(got, "...")+" ") && !strings.HasPrefix(tc.in, strings.Repeat("x", 107)) {
+			t.Errorf("clip(%q) = %q cuts a word", tc.in, got)
 		}
 	}
 }

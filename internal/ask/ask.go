@@ -82,6 +82,9 @@ type Question struct {
 	Text      string
 	AskedAt   int64
 	Answered  bool
+	// Ref is the subject the question is about (a digest entry's ref, see docs/digest.md); empty for a
+	// free-typed question. The advisor expands it into the entry's facts.
+	Ref string
 }
 
 // Answer is one entry of Answers.lua.
@@ -105,7 +108,7 @@ func Questions(text string) ([]Question, error) {
 		if !ok {
 			continue
 		}
-		q := Question{ID: str(t["id"]), Character: str(t["character"]), Text: str(t["text"])}
+		q := Question{ID: str(t["id"]), Character: str(t["character"]), Text: str(t["text"]), Ref: str(t["ref"])}
 		q.AskedAt, _ = t["asked_at"].(int64)
 		q.Answered, _ = t["answered"].(bool)
 		if q.ID != "" && strings.TrimSpace(q.Text) != "" {

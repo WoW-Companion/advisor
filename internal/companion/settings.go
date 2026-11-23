@@ -3,6 +3,7 @@ package companion
 import (
 	"cmp"
 	"encoding/json"
+	"net"
 	"net/http"
 	"slices"
 
@@ -102,6 +103,17 @@ func (s *Server) setProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.reload()
+	// A question that was waiting for this play style is asked again, once.
+	s.mu.Lock()
+	again, waiting := s.pending[req.Character]
+	delete(s.pending, req.Character)
+	s.mu.Unlock()
+	if waiting {
+		client, _, _ := net.SplitHostPort(r.RemoteAddr)
+		if id, ok := s.startAsk(client, again); ok {
+			s.publish("reask", map[string]string{"id": id, "character": again.Character, "question": again.Text})
+		}
+	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(s.snapshot().Characters)
 }

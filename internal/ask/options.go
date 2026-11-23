@@ -74,15 +74,21 @@ func contains(l []string, s string) bool {
 	return false
 }
 
+// ShortAnswerRules shape every answer, whatever its length setting: the question first, little
+// after it, and the plan left alone. The length setting is an upper bound on top of them.
+const ShortAnswerRules = "Answer the question asked in your first sentence. Then add at most 3 short bullets (lines starting with \"- \"), only what matters for that question. " +
+	"Never restate or re-list the plan, and add no unrelated steps. One optional last line starting \"Heads-up:\" is allowed for something urgent and nearby (such as a quest ready to turn in on the way). " +
+	"The plan in the facts is shared context: if your answer would change what it says, say so in one plain sentence (for example \"Your plan has her later, after Unwelcome Spirits\") rather than contradicting it silently."
+
 // lengthRule is the instruction each length adds to the prompt, and the most characters an answer
 // of that length is kept to.
 var lengthRule = map[string]struct {
 	text  string
 	limit int
 }{
-	LengthBrief:    {"Be brief: a few short lines, only the top 1-3 actions, no background.", 600},
-	LengthStandard: {"Give a short numbered plan with a one-line reason for each step.", MaxAnswer},
-	LengthDetailed: {"Give a fuller plan: numbered steps, the reason for each, and alternatives where they matter.", 3000},
+	LengthBrief:    {ShortAnswerRules + " Be brief: at most 1 bullet, no background.", 600},
+	LengthStandard: {ShortAnswerRules, MaxAnswer},
+	LengthDetailed: {ShortAnswerRules + " You may spend a few more sentences on the reasoning behind the answer, never on the plan.", 3000},
 }
 
 // AnswerLimit is the most characters an answer of this length is kept to.

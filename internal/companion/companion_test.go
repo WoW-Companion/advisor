@@ -57,6 +57,9 @@ const addonVars = `WoWCompanionDB = { asks = {
 // answersPath is the Answers.lua path the legacy mode writes; the default leaves it empty.
 var legacyAnswers bool
 
+// captureAsSV points ask.Config.SavedVariables at ForeverScribe.lua, as the command line does.
+var captureAsSV bool
+
 func answersPath(dir string) string {
 	if legacyAnswers {
 		return filepath.Join(dir, "Answers.lua")
@@ -79,9 +82,13 @@ func start(t *testing.T, mode string, stream bool) *env {
 	t.Setenv("FAKE_MARK", e.mark)
 	write(t, filepath.Join(dir, "ForeverScribe.lua"), capture)
 	write(t, filepath.Join(dir, "WoWCompanion.lua"), "WoWCompanionDB = { asks = {} }\n")
+	asv := filepath.Join(dir, "WoWCompanion.lua")
+	if captureAsSV {
+		asv = filepath.Join(dir, "ForeverScribe.lua")
+	}
 	e.srv = New(Config{
 		ForeverScribe: filepath.Join(dir, "ForeverScribe.lua"), Stream: stream, Poll: 20 * time.Millisecond,
-		Ask: ask.Config{Command: []string{os.Args[0]}, Timeout: 5 * time.Second, SavedVariables: filepath.Join(dir, "WoWCompanion.lua"), AnswersPath: answersPath(dir)},
+		Ask: ask.Config{Command: []string{os.Args[0]}, Timeout: 5 * time.Second, SavedVariables: asv, AnswersPath: answersPath(dir)},
 	})
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -661,5 +668,52 @@ func TestNextLinesJSON(t *testing.T) {
 		if !strings.Contains(string(b), want) {
 			t.Errorf("state lacks %s: %s", want, b)
 		}
+	}
+}
+
+// A talent question for a character with no play style gets the choices without an AI call; saving
+// the play style asks the question again, once.
+func TestPlayStyleNeededThenReask(t *testing.T) {
+	captureAsSV = true // as in production, the ask config names the capture
+	defer func() { captureAsSV = false }()
+	e := start(t, "stream", true)
+	t.Setenv("WOWC_PROFILES", filepath.Join(e.dir, "profiles.json"))
+	live := events(e.do(t, "GET", "/api/events", "", nil).Body)
+	id := e.ask(t, "Where should my talent point go?")
+	ev := next(t, events(e.do(t, "GET", "/api/stream/"+id, "", nil).Body))
+	var got Entry
+	if err := json.Unmarshal([]byte(ev.data), &got); err != nil || ev.name != "done" || got.Status != "needs" || got.Needs == nil {
+		t.Fatalf("event %s %s, %v", ev.name, ev.data, err)
+	}
+	if got.Needs.Needs != "play_style" || got.Needs.Question != "Where should my talent point go?" || len(got.Needs.Roles) != 4 || len(got.Needs.Activities) != 4 {
+		t.Errorf("needs = %+v", got.Needs)
+	}
+	if _, err := os.Stat(e.mark); err == nil {
+		t.Fatal("the agent ran for a question that needs a play style")
+	}
+	resp := e.do(t, "POST", "/api/profile", `{"character":"R:New","role":"damage","focus":"leveling"}`, nil)
+	if resp.StatusCode != 200 {
+		t.Fatalf("profile save: %d", resp.StatusCode)
+	}
+	for {
+		if ev := next(t, live); ev.name == "reask" {
+			var r map[string]string
+			json.Unmarshal([]byte(ev.data), &r)
+			if r["question"] != "Where should my talent point go?" || r["id"] == "" {
+				t.Errorf("reask = %v", r)
+			}
+			break
+		}
+	}
+	for i := 0; ; i++ {
+		if _, err := os.Stat(e.mark); err == nil {
+			break
+		} else if i > 200 {
+			t.Fatal("the question was not asked again after the play style was saved")
+		}
+		time.Sleep(25 * time.Millisecond)
+	}
+	if n := len(e.srv.pending); n != 0 {
+		t.Errorf("pending = %d", n)
 	}
 }

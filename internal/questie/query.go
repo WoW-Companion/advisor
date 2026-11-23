@@ -17,6 +17,7 @@ type Where struct {
 }
 
 type Place struct {
+	ID   int    // the NPC's or object's id
 	Name string // the NPC or object
 	Sub  string // subzone, when the area has one
 	Zone string
@@ -92,7 +93,9 @@ func (ix *Index) nearest(refs []Ref, w Where) (Place, bool) {
 		}
 		for _, s := range e.Spawns {
 			if ix.onMap(s.Area, w) {
-				consider(ix.place(e, s, w))
+				pl := ix.place(e, s, w)
+				pl.ID = r.ID
+				consider(pl)
 			}
 		}
 	}

@@ -76,20 +76,12 @@ func TestNearbyGiversNearestFirst(t *testing.T) {
 	if !gs[0].Recent || gs[1].Recent {
 		t.Errorf("recent flags = %v %v", gs[0].Recent, gs[1].Recent)
 	}
-	lines := c.GiverLines(now, 1)
-	want := "Quest giver you've met nearby: Test Near Giver, Test Dock (61.6, 20.7)"
-	if len(lines) != 1 || !strings.HasPrefix(lines[0], want) || !strings.Contains(lines[0], "may have quests") {
-		t.Errorf("lines = %q", lines)
-	}
 }
 
 func TestNoNPCsTable(t *testing.T) {
 	c := fixture(t, "level30_caster.lua").Characters[0]
 	if c.NPCs != nil || c.LastKnownPosition() != nil || c.NearbyGivers(time.Now()) != nil {
 		t.Errorf("expected no npc data: %+v", c.NPCs)
-	}
-	if got := c.GiverLines(time.Now(), 5); len(got) != 0 {
-		t.Errorf("lines = %q", got)
 	}
 }
 

@@ -96,6 +96,26 @@ config starts `wowc-advisor serve --stdio` on your capture; claude, codex and ag
 same server in its own settings (see `docs/clients.md`). The capture file itself is never sent; the agent
 gets the question and the character key, and reads facts through the tools.
 
+## Asking naturally: refs, short answers, play style
+
+Each digest entry offers 1 to 3 short questions (`asks`) and a subject `ref` (schema 1.5, see `digest.md`).
+A question record in `WoWCompanionDB.asks`, and the overlay's `POST /api/ask` body, may carry that `ref`
+(`{ "character": ..., "text": ..., "ref": "quest:123" }`). With a ref the advisor expands the subject itself
+into the prompt: the entry's facts and its place in the plan, beside the character and play style. A typed
+question that exactly matches (ignoring case and punctuation) one of the character's current `asks` gets that
+entry's ref. Without a ref nothing changes.
+
+Every answer, at every length, answers the question asked in its first sentence, adds at most 3 short bullets
+about that question only, never restates the plan, and may end with one `Heads-up:` line. If the answer would
+change what the plan says, it says so in one sentence. The length setting stays an upper bound.
+
+**Play style as choices.** A talent question (or `ref` of `talents`) for a character with no saved play style is
+not sent to the AI. The overlay API answers with an entry whose `status` is `"needs"` and
+`needs = { needs: "play_style", character, question, ref, roles: [{value,label}], activities: [{value,label}], specs: [...] }`:
+roles damage, tank, healer, balanced; activities leveling, dungeons, PvP, mixed; specs optional, the class's trees.
+Saving the choice with `POST /api/profile` asks the original question once more automatically and sends a
+`reask` event (`{ id, character, question }`) on `/api/events`; stream that `id` as usual.
+
 ## Limits
 
 stdout is the answer, cut to 1,500 characters (at most 64 KB is read). Each run has a timeout

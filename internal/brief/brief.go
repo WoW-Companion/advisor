@@ -279,9 +279,6 @@ func gear(c character.Character) []string {
 	return lines
 }
 
-// MaxGivers caps the nearby quest givers the brief lists.
-const MaxGivers = 5
-
 func quests(c character.Character) []string {
 	if !c.QuestsCaptured {
 		return []string{"- " + notCaptured}
@@ -387,9 +384,6 @@ func Character(c character.Character, client character.Client, now time.Time) st
 	lines = append(lines, quests(c)...)
 	if pos := c.LastKnownPosition(); pos != nil {
 		lines = append(lines, "Last known position: "+pos.Label())
-		for _, g := range c.GiverLines(now, MaxGivers) {
-			lines = append(lines, "- "+g)
-		}
 	}
 	cl := ClientLine(client)
 	if cl == "" {
