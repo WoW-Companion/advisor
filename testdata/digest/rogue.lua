@@ -14,7 +14,7 @@ WoWCompanionDigest = {
         } },
       },
       talents = {
-        { line = "Deadly Poison rank 1", spell_id = 2001, details = { "Next pick: Deadly Poison, rank 1" }, asks = { "Why does the Deadly Poison talent suit my play style?", "What changes in play once I take the Deadly Poison talent?" }, ref = "talents", why = "Next pick in your plan" },
+        { line = "Deadly Poison rank 1", spell_id = 2001, details = { "Next pick: Deadly Poison, rank 1" }, asks = { "Why does the Deadly Poison talent suit my play style?", "What changes in play once I take the Deadly Poison talent?" }, ref = "talents", why = "Poison" },
       },
     },
   },
