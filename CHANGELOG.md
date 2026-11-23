@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.7.8
+
+- The overlay picks up where you left off. It opens on your last chat for the character (the last 50 turns, kept on your PC only), with a dim line marking the gap, such as "Yesterday, 11:58 PM", and sends nothing by itself. Clear empties that character's chat.
+- An in-game question that is more than 12 hours old is no longer answered on launch. It shows as one small card, "You asked in game last night: ...", with "Answer now" and "Dismiss". Newer in-game questions are answered as before.
+- Calmer by default: the settings stay behind the gear button (and the version line lives there), the Next list shows one entry until opened, and at most one row of up to three suggestions appears when something is worth doing, such as choosing a play style, turning in a ready quest or updating an old plan. Hover a suggestion to see why; its x hides it for today.
+- A slim quick bar above the ask box: What next?, Talents, Gear and Refresh. Refresh rebuilds your plan from your latest save, asks no AI, and answers in one sentence. Settings, Shortcuts can hide the bar.
+- Each Next entry shows a short reason under its title. The plan list reads as plain steps with the coordinates dim at the end, and says "23 stops". The red "17h" pill is now a small dot that turns amber after 12 hours and red after 3 days; hover it for the last save time.
+- Behind this: every entry carries a short "why", plan steps are plain sentences, the advisor ranks at most three suggested actions, a plan refresh endpoint rebuilds the plan from the newest save, and a ledger remembers answered in-game questions so none is answered twice.
+
 ## 0.7.7
 
 - Ask without pasting. The overlay's Next section now lists your character's current entries (quests, talents, training, upgrades, notes, dungeons) one line each, in the same order as the in-game panel. Click an entry to see its questions as buttons, such as "Where should my talent point go?"; click one and just that question appears in the chat with a short answer. Nothing needs copying from the game.

@@ -34,7 +34,9 @@
         open = null;
         if (!was && chips.children.length) { li.className += ' open'; open = li; }
       };
-      li.append(row, chips);
+      li.append(row);
+      if (e.why) li.append(el(doc, 'div', 'entry-why', e.why)); // one short reason, dim, under the title
+      li.append(chips);
       ul.append(li);
     }
     return ul;

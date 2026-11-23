@@ -125,7 +125,7 @@ type CharInfo struct {
 	// suggested questions (asks) and ref, so the overlay can offer them as one-click questions.
 	Entries  []PlanEntry `json:"entries,omitempty"`
 	Plan     []string    `json:"plan,omitempty"`      // the route's first stops, in order
-	PlanLine string      `json:"plan_line,omitempty"` // "N stops, about D map units"
+	PlanLine string      `json:"plan_line,omitempty"` // "N stops"
 	// PlanSteps is the same stops with their lock state, so the overlay can dim a locked one.
 	PlanSteps []PlanStep `json:"plan_steps,omitempty"`
 	// Style is the saved play style (the overlay's "Play style" row); nil until the player sets one.
