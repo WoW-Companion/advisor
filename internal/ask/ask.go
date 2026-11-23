@@ -12,13 +12,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"os/exec"
 	"strings"
 	"time"
 	"unicode/utf8"
-
-	"github.com/WoW-Companion/advisor/internal/lua"
 )
 
 // Schema is the Answers.lua format version this package writes.
@@ -87,43 +84,9 @@ type Question struct {
 	Ref string
 }
 
-// Answer is one entry of Answers.lua.
-type Answer struct {
-	AnsweredAt int64
-	Text       string
-	Sources    []string
-}
-
-// Questions reads WoWCompanionDB.asks out of a SavedVariables file's text. Entries without an id or
-// text are skipped.
-func Questions(text string) ([]Question, error) {
-	vars, err := lua.Parse(text)
-	if err != nil {
-		return nil, err
-	}
-	db, _ := vars["WoWCompanionDB"].(lua.Table)
-	var qs []Question
-	for _, e := range lua.List(db["asks"]) {
-		t, ok := e.(lua.Table)
-		if !ok {
-			continue
-		}
-		q := Question{ID: str(t["id"]), Character: str(t["character"]), Text: str(t["text"]), Ref: str(t["ref"])}
-		q.AskedAt, _ = t["asked_at"].(int64)
-		q.Answered, _ = t["answered"].(bool)
-		if q.ID != "" && strings.TrimSpace(q.Text) != "" {
-			qs = append(qs, q)
-		}
-	}
-	return qs, nil
-}
-
-func str(v any) string { s, _ := v.(string); return s }
-
 // Config is one pass's settings.
 type Config struct {
 	SavedVariables string       // the addon's WoWCompanion.lua
-	AnswersPath    string       // Answers.lua to write
 	Command        []string     // the agent argv, see Presets; empty when no agent is set up (the companion only)
 	Name, Source   string       // the agent's short name and where it came from (see Agent); may be empty
 	Dataset        string       // dataset directory for the pre-fetched next steps (empty: none)
@@ -141,66 +104,6 @@ func (c Config) now() time.Time {
 	}
 	return time.Now()
 }
-
-// Result says what a pass did.
-type Result struct {
-	Answered int // new answers written, failures included
-	Failed   int // of those, how many are error answers
-	Pending  int // unanswered questions left over the per-run limit
-}
-
-// Run is one pass: answer each unanswered question (up to MaxPerRun), then rewrite Answers.lua. The
-// file keeps the answers it already holds for questions still in the queue.
-func Run(ctx context.Context, cfg Config) (Result, error) {
-	var res Result
-	raw, err := os.ReadFile(cfg.SavedVariables)
-	if err != nil {
-		return res, err
-	}
-	qs, err := Questions(string(raw))
-	if err != nil {
-		return res, fmt.Errorf("%s: %w", cfg.SavedVariables, err)
-	}
-	have := ReadAnswers(cfg.AnswersPath)
-	answers := map[string]Answer{}
-	var todo []Question
-	for _, q := range qs {
-		if a, ok := have[q.ID]; ok {
-			answers[q.ID] = a
-		} else if !q.Answered {
-			todo = append(todo, q)
-		}
-	}
-	limit := cfg.MaxPerRun
-	if limit <= 0 {
-		limit = DefaultMaxPerRun
-	}
-	if len(todo) > limit {
-		res.Pending = len(todo) - limit
-		todo = todo[:limit]
-	}
-	for _, q := range todo {
-		if ctx.Err() != nil {
-			return res, ctx.Err()
-		}
-		a := Answer{AnsweredAt: cfg.now().Unix()}
-		out, err := runAgent(ctx, cfg, q)
-		if err != nil {
-			res.Failed++
-			a.Text = "Could not answer: " + err.Error()
-		} else {
-			a.Text, a.Sources = Clean(out), Sources(out)
-		}
-		answers[q.ID] = a
-		res.Answered++
-	}
-	if res.Answered == 0 && fileExists(cfg.AnswersPath) {
-		return res, nil
-	}
-	return res, WriteAnswers(cfg.AnswersPath, answers)
-}
-
-func fileExists(p string) bool { _, err := os.Stat(p); return err == nil }
 
 // runAgent runs the agent for q. The error is short and fit to show the player.
 func runAgent(ctx context.Context, cfg Config, q Question) (string, error) {

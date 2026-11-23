@@ -32,7 +32,9 @@ import (
 	"github.com/WoW-Companion/advisor/internal/route"
 	"github.com/WoW-Companion/advisor/internal/server"
 	"github.com/WoW-Companion/advisor/internal/store"
+	"github.com/WoW-Companion/advisor/internal/talents"
 	"github.com/WoW-Companion/advisor/internal/unlock"
+	"github.com/WoW-Companion/advisor/internal/whatsnew"
 )
 
 //go:embed page.html
@@ -72,7 +74,6 @@ type Config struct {
 	AddonAPI      string                                        // the addon's latest-release URL (empty: GitHub's)
 	Update        func(context.Context) (release.Result, error) // looks up the latest release for /api/update; nil answers no notice
 	Profiles      string                                        // the play-style store (empty: profile.Path())
-	Ledger        string                                        // the answered-asks file (empty: kept in memory only)
 	Now           func() time.Time                              // the clock for ask ages (nil: time.Now)
 }
 
@@ -131,6 +132,9 @@ type CharInfo struct {
 	PlanSteps []PlanStep `json:"plan_steps,omitempty"`
 	// Style is the saved play style (the overlay's "Play style" row); nil until the player sets one.
 	Style *character.Profile `json:"style,omitempty"`
+	// Specs is the class's spec names for the Spec dropdown; an old free-text spec in Style is
+	// already migrated to the matching one, or "" for "Not sure yet".
+	Specs []string `json:"specs,omitempty"`
 	// Suggestions is the ranked list of at most three next actions (see suggest.go).
 	Suggestions []Suggestion `json:"suggestions,omitempty"`
 }
@@ -232,8 +236,6 @@ type Server struct {
 	captured int64
 	loadErr  string
 	web      []Entry
-	game     []Entry
-	gameDone map[string]Entry // in-game question id -> its answer, kept in memory (no Answers.lua)
 	turns    map[string]*turn
 	busy     map[string]bool       // client address -> an answer is in flight
 	pending  map[string]askRequest // character -> the question waiting for a play style
@@ -244,7 +246,6 @@ type Server struct {
 	usageOn  bool
 	setup    setupCache
 	data     dataState
-	ledger   *ledger
 	planKeys map[string]map[string]bool // character -> every step of its current plan, for "N new steps"
 	refresh  sync.Mutex
 }
@@ -260,7 +261,6 @@ func New(cfg Config) *Server {
 		cfg.Debounce = 2 * time.Second
 	}
 	s := &Server{cfg: cfg, Token: hex.EncodeToString(b), turns: map[string]*turn{}, busy: map[string]bool{}, pending: map[string]askRequest{}, subs: map[chan event]bool{}}
-	s.ledger = openLedger(cfg.Ledger)
 	s.data.dir = cfg.Dataset
 	s.digest = DigestState{Enabled: cfg.AutoDigest}
 	s.opts, s.usageOn = cfg.Ask.Options.Normalize(), !cfg.NoUsage
@@ -297,8 +297,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/profile", s.setProfile)
 	mux.HandleFunc("GET /api/suggestions", s.suggestions)
 	mux.HandleFunc("POST /api/refresh-plan", s.refreshPlanHandler)
-	mux.HandleFunc("POST /api/answer-pending", s.answerPending)
 	mux.HandleFunc("GET /api/update", s.update)
+	mux.HandleFunc("GET /api/whats-new", s.whatsNew)
 	mux.HandleFunc("GET /api/stream/{id}", s.stream)
 	mux.HandleFunc("GET /api/setup", s.setupState)
 	mux.HandleFunc("POST /api/setup/install-addon", s.setupInstall)
@@ -424,7 +424,7 @@ func (s *Server) snapshot() State {
 			best, st.Default = c.CapturedAt, c.Key
 		}
 	}
-	st.History = append(append([]Entry{}, s.game...), s.web...)
+	st.History = append([]Entry{}, s.web...)
 	return st
 }
 
@@ -447,6 +447,12 @@ func (s *Server) reload() {
 	for _, c := range f.Characters {
 		c = character.AttachTotals(unlock.AddonSV(s.cfg.Ask.SavedVariables), profile.Attach(s.profilesPath(), c))
 		ci := CharInfo{Key: c.Key, Name: c.Name, Class: c.Class, Next: []string{NoDataMessage}, Style: c.Profile}
+		ci.Specs = talents.Specs(ds, c)
+		if c.Profile != nil && len(ci.Specs) > 0 {
+			p := *c.Profile
+			p.Spec = talents.MatchSpec(ci.Specs, p.Spec)
+			ci.Style = &p
+		}
 		if ds != nil {
 			qx := questie.ForSavedVariables(s.cfg.Ask.SavedVariables)
 			var plan route.Plan
@@ -492,11 +498,9 @@ func (s *Server) publish(name string, v any) {
 	}
 }
 
-// watch polls the two SavedVariables files: ForeverScribe.lua for new game data, and the addon's
-// WoWCompanion.lua for questions asked in game, which it answers into Answers.lua like ask --watch.
+// watch polls ForeverScribe.lua for new game data. Questions are asked in the overlay only.
 func (s *Server) watch(ctx context.Context) {
-	last, lastAsk := ask.Stamp(s.cfg.ForeverScribe), ""
-	var asking sync.Mutex
+	last := ask.Stamp(s.cfg.ForeverScribe)
 	var due time.Time // when the pending digest write falls due; zero when none
 	// Write at once, not on the first save: an upgraded addon lists Plan.lua before any save happens.
 	s.writeDigest()
@@ -511,13 +515,6 @@ func (s *Server) watch(ctx context.Context) {
 			due = time.Time{}
 			s.writeDigest()
 		}
-		if cur := ask.Stamp(s.cfg.Ask.SavedVariables); cur != lastAsk && cur != "" && asking.TryLock() {
-			lastAsk = cur
-			go func() {
-				defer asking.Unlock()
-				s.gameQuestions(ctx)
-			}()
-		}
 		select {
 		case <-ctx.Done():
 			return
@@ -526,140 +523,11 @@ func (s *Server) watch(ctx context.Context) {
 	}
 }
 
-// gameQuestions shows the in-game questions as waiting, answers them (writing Answers.lua), and
-// shows the answers.
-func (s *Server) gameQuestions(ctx context.Context) {
-	s.showGame()
-	if len(s.cfg.Ask.Command) == 0 {
-		return
-	}
-	if s.cfg.Ask.AnswersPath != "" { // the deprecated --answers-file mode: Answers.lua too
-		if res, err := ask.Run(ctx, s.askCfg()); err == nil && res.Answered > 0 {
-			s.showGame()
-		}
-		return
-	}
-	s.answerGame(ctx)
-}
-
-// answerGame answers each unanswered in-game question once, in the overlay only: nothing is written
-// to the game folder. Answered ids are kept in memory for the life of the companion.
-func (s *Server) answerGame(ctx context.Context) {
-	raw, err := readFile(s.cfg.Ask.SavedVariables)
-	if err != nil {
-		return
-	}
-	qs, err := ask.Questions(raw)
-	if err != nil {
-		return
-	}
-	for _, q := range qs {
-		s.mu.Lock()
-		_, started := s.gameDone[q.ID]
-		s.mu.Unlock()
-		if started || q.Answered || s.ledgered(q) || s.stale(q) {
-			continue
-		}
-		if ctx.Err() != nil {
-			return
-		}
-		s.answerQuestion(ctx, q)
-	}
-}
-
 func (s *Server) now() time.Time {
 	if s.cfg.Now != nil {
 		return s.cfg.Now()
 	}
 	return time.Now()
-}
-
-func (s *Server) ledgered(q ask.Question) bool {
-	_, ok := s.ledger.get(askKey(q.Character, q.AskedAt, q.Text))
-	return ok
-}
-
-// stale is true for an unanswered ask older than StaleAsk: it waits for the player to ask for it.
-func (s *Server) stale(q ask.Question) bool {
-	return q.AskedAt > 0 && s.now().Unix()-q.AskedAt > StaleAsk
-}
-
-// answerQuestion answers one in-game question, streams it into the feed, and records it in the ledger.
-func (s *Server) answerQuestion(ctx context.Context, q ask.Question) {
-	ac := s.askCfg()
-	// The answer streams into the feed as it arrives: the entry reads "answering" with the text so far.
-	var got strings.Builder
-	var last time.Time
-	text, _, err := ask.Respond(ctx, ac, ask.Question{ID: q.ID, Character: q.Character, Text: q.Text}, ac.Prompt(q), s.cfg.Stream, func(chunk string) {
-		got.WriteString(chunk)
-		s.mu.Lock()
-		if s.gameDone == nil {
-			s.gameDone = map[string]Entry{}
-		}
-		s.gameDone[q.ID] = Entry{Answer: got.String(), Status: "answering"}
-		s.mu.Unlock()
-		if time.Since(last) >= 100*time.Millisecond { // at most ten repaints a second
-			last = time.Now()
-			s.showGame()
-		}
-	})
-	e := Entry{Answer: text, Status: "done"}
-	if err != nil {
-		e.Answer, e.Status = "Could not answer: "+err.Error(), "error"
-	} else {
-		s.ledger.add(askKey(q.Character, q.AskedAt, q.Text), text, s.now().Unix())
-	}
-	s.mu.Lock()
-	if s.gameDone == nil {
-		s.gameDone = map[string]Entry{}
-	}
-	s.gameDone[q.ID] = e
-	s.mu.Unlock()
-	s.showGame()
-}
-
-func (s *Server) showGame() {
-	raw, err := readFile(s.cfg.Ask.SavedVariables)
-	if err != nil {
-		return
-	}
-	qs, err := ask.Questions(raw)
-	if err != nil {
-		return
-	}
-	have := map[string]ask.Answer{}
-	if s.cfg.Ask.AnswersPath != "" {
-		have = ask.ReadAnswers(s.cfg.Ask.AnswersPath)
-	}
-	var list []Entry
-	for _, q := range qs {
-		e := Entry{ID: "game-" + q.ID, Source: "game", Character: q.Character, Question: q.Text, Status: "waiting", At: q.AskedAt}
-		if a, ok := have[q.ID]; ok {
-			e.Answer, e.Status = a.Text, "done"
-			if strings.HasPrefix(a.Text, "Could not answer") {
-				e.Status = "error"
-			}
-		}
-		s.mu.Lock()
-		d, inMemory := s.gameDone[q.ID]
-		s.mu.Unlock()
-		switch row, done := s.ledger.get(askKey(q.Character, q.AskedAt, q.Text)); {
-		case inMemory:
-			e.Answer, e.Status = d.Answer, d.Status
-		case done: // answered before: shown as it was, never asked again
-			e.Answer, e.Status = row.Answer, "done"
-		case e.Status == "waiting" && s.stale(q):
-			e.Status = "pending" // an old ask: the overlay offers it, nothing answers it by itself
-		}
-		list = append(list, e)
-	}
-	if len(list) > maxEntries {
-		list = list[len(list)-maxEntries:]
-	}
-	s.mu.Lock()
-	s.game = list
-	s.mu.Unlock()
-	s.publish("history", s.snapshot().History)
 }
 
 func (s *Server) events(w http.ResponseWriter, r *http.Request) {
@@ -987,4 +855,11 @@ func (s *Server) planStaleFor(capturedAt int64) bool {
 		return false
 	}
 	return planStale(digest.SiblingPath(p, route.File), capturedAt, s.cfg.Dataset)
+}
+
+// whatsNew answers the overlay's Updates section: the last few versions' changelog, from the
+// CHANGELOG.md bundled into the binary (no network).
+func (s *Server) whatsNew(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(whatsnew.Bundled())
 }

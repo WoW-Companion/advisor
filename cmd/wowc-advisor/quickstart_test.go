@@ -119,7 +119,7 @@ func TestDocsPointAtReleaseInstaller(t *testing.T) {
 }
 
 // The setup order is ForeverScribe (required), the overlay (recommended), then the addon (optional);
-// the in-game /ask flow is legacy and the docs say Answers.lua needs the deprecated --answers-file.
+// the in-game /ask flow is legacy and the in-game /ask flow is gone.
 func TestDocsOverlayFirstOrder(t *testing.T) {
 	doc := read(t, "../../docs/quickstart.md")
 	last := -1
@@ -135,12 +135,6 @@ func TestDocsOverlayFirstOrder(t *testing.T) {
 	}
 	if !strings.Contains(doc, "Legacy: the in-game `/ask` flow") {
 		t.Error("quickstart has no legacy FAQ entry for the in-game /ask flow")
-	}
-	main := read(t, "main.go")
-	for _, f := range []string{"--answers-file"} {
-		if !strings.Contains(main, f) || !strings.Contains(read(t, "../../docs/ask.md"), f) {
-			t.Errorf("%s is not in the usage and docs/ask.md", f)
-		}
 	}
 	for _, p := range []string{"../../README.md", "../../overlay/README.md"} {
 		if d := read(t, p); !strings.Contains(d, "optional") || !strings.Contains(d, "WoWCompanion_Answers") && p != "../../README.md" {

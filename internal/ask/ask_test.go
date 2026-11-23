@@ -64,29 +64,6 @@ const savedVars = `WoWCompanionDB = {
 }
 `
 
-func TestQuestions(t *testing.T) {
-	qs, err := Questions(savedVars)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var ids []string
-	for _, q := range qs {
-		ids = append(ids, q.ID)
-	}
-	if want := []string{"100-1", "100-2", "100-4"}; !reflect.DeepEqual(ids, want) {
-		t.Errorf("ids = %v, want %v", ids, want)
-	}
-	if qs[1].Text != `Where is "Bob"?` || qs[1].AskedAt != 101 || qs[0].Answered != true {
-		t.Errorf("fields wrong: %+v", qs)
-	}
-	if _, err := Questions("WoWCompanionDB = {"); err == nil {
-		t.Error("malformed file should fail")
-	}
-	if qs, err := Questions("Other = 1\n"); err != nil || len(qs) != 0 {
-		t.Errorf("no db: %v %v", qs, err)
-	}
-}
-
 func TestArgv(t *testing.T) {
 	for _, tc := range []struct {
 		name string
@@ -121,152 +98,6 @@ func TestCleanAndSources(t *testing.T) {
 	}
 }
 
-func TestCheckAnswers(t *testing.T) {
-	for _, tc := range []struct {
-		name, text string
-		ok         bool
-	}{
-		{"empty answers", "WoWCompanionAnswers = { schema = 1, answers = {} }", true},
-		{"full", `WoWCompanionAnswers = { schema = 1, answers = { ["a-1"] = { answered_at = 5, text = "x", sources = { "whats_next" } } } }`, true},
-		{"wrong schema", `WoWCompanionAnswers = { schema = 2, answers = {} }`, false},
-		{"missing text", `WoWCompanionAnswers = { schema = 1, answers = { ["a"] = { answered_at = 5 } } }`, false},
-		{"missing time", `WoWCompanionAnswers = { schema = 1, answers = { ["a"] = { text = "x" } } }`, false},
-		{"bad sources", `WoWCompanionAnswers = { schema = 1, answers = { ["a"] = { answered_at = 5, text = "x", sources = { 3 } } } }`, false},
-		{"function call", `WoWCompanionAnswers = { schema = 1, answers = { ["a"] = { answered_at = os.time(), text = "x" } } }`, false},
-		{"second assignment", `WoWCompanionAnswers = { schema = 1, answers = {} }` + "\nX = 1", false},
-		{"other name", `Other = { schema = 1, answers = {} }`, false},
-	} {
-		if err := CheckAnswers(tc.text); (err == nil) != tc.ok {
-			t.Errorf("%s: err = %v", tc.name, err)
-		}
-	}
-}
-
-func TestAnswersLuaEscapes(t *testing.T) {
-	nasty := "line1\nline2 \"q\" \\ ]] --[[ \x01 end"
-	text := AnswersLua(map[string]Answer{`i"d`: {AnsweredAt: 9, Text: nasty, Sources: []string{"whats_next"}}})
-	if err := CheckAnswers(text); err != nil {
-		t.Fatalf("%v\n%s", err, text)
-	}
-	dir := t.TempDir()
-	p := filepath.Join(dir, "Answers.lua")
-	if err := WriteAnswers(p, map[string]Answer{`i"d`: {AnsweredAt: 9, Text: nasty}}); err != nil {
-		t.Fatal(err)
-	}
-	if got := ReadAnswers(p)[`i"d`]; got.Text != nasty || got.AnsweredAt != 9 {
-		t.Errorf("round trip: %+v", got)
-	}
-}
-
-func TestPaths(t *testing.T) {
-	sv, ans, err := Paths("/g/_classic_/WTF/Account/ACCT/SavedVariables/ForeverScribe.lua")
-	if err != nil || sv != "/g/_classic_/WTF/Account/ACCT/SavedVariables/WoWCompanion.lua" ||
-		ans != "/g/_classic_/Interface/AddOns/WoWCompanion_Answers/Answers.lua" {
-		t.Errorf("unix: %q %q %v", sv, ans, err)
-	}
-	sv, ans, err = Paths(`C:\WoW\WTF\Account\A\SavedVariables\ForeverScribe.lua`)
-	if err != nil || sv != `C:\WoW\WTF\Account\A\SavedVariables\WoWCompanion.lua` || ans != `C:\WoW\Interface\AddOns\WoWCompanion_Answers\Answers.lua` {
-		t.Errorf("windows: %q %q %v", sv, ans, err)
-	}
-	if _, _, err := Paths("/tmp/ForeverScribe.lua"); err == nil {
-		t.Error("expected an error")
-	}
-}
-
-// fixture writes a SavedVariables file and returns a Config that runs the fake agent in mode.
-func fixture(t *testing.T, mode string) Config {
-	t.Helper()
-	dir := t.TempDir()
-	sv := filepath.Join(dir, "WoWCompanion.lua")
-	if err := os.WriteFile(sv, []byte(savedVars), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	t.Setenv("FAKE_AGENT", mode)
-	return Config{SavedVariables: sv, AnswersPath: filepath.Join(dir, "Answers.lua"),
-		Command: []string{os.Args[0]}, Timeout: 5 * time.Second, Now: func() time.Time { return time.Unix(1000, 0) }}
-}
-
-// The end-to-end smoke test: a question goes in and a valid Answers.lua comes out.
-func TestRunEndToEnd(t *testing.T) {
-	cfg := fixture(t, "echo")
-	res, err := Run(context.Background(), cfg)
-	if err != nil || res.Answered != 2 || res.Failed != 0 {
-		t.Fatalf("res = %+v, err = %v", res, err)
-	}
-	raw, _ := os.ReadFile(cfg.AnswersPath)
-	if err := CheckAnswers(string(raw)); err != nil {
-		t.Fatalf("%v\n%s", err, raw)
-	}
-	got := ReadAnswers(cfg.AnswersPath)
-	if _, ok := got["100-1"]; ok || len(got) != 2 {
-		t.Errorf("answered question got an answer or count wrong: %v", got)
-	}
-	a := got["100-2"]
-	if !strings.Contains(a.Text, `question=Where is "Bob"? char=Thrall-Doomhammer`) || a.AnsweredAt != 1000 ||
-		!reflect.DeepEqual(a.Sources, []string{"whats_next"}) {
-		t.Errorf("answer = %+v", a)
-	}
-	// A second pass finds nothing new and leaves the file alone.
-	res, err = Run(context.Background(), cfg)
-	if err != nil || res.Answered != 0 {
-		t.Errorf("second pass = %+v, %v", res, err)
-	}
-	if len(ReadAnswers(cfg.AnswersPath)) != 2 {
-		t.Error("answers lost on second pass")
-	}
-}
-
-func TestRunFailures(t *testing.T) {
-	for _, tc := range []struct {
-		mode, want string
-		timeout    time.Duration
-		command    []string
-	}{
-		{"fail", "boom", 0, nil},
-		{"failout", "exited with status 3", 0, nil},
-		{"silent", "gave no answer", 0, nil},
-		{"hang", "took longer than", 100 * time.Millisecond, nil},
-		{"echo", "Couldn't find Agent", 0, []string{"/nonexistent/agent"}},
-	} {
-		cfg := fixture(t, tc.mode)
-		if tc.timeout != 0 {
-			cfg.Timeout = tc.timeout
-		}
-		if tc.command != nil {
-			cfg.Command = tc.command
-		}
-		res, err := Run(context.Background(), cfg)
-		if err != nil || res.Failed != 2 {
-			t.Fatalf("%s: res = %+v, err = %v", tc.mode, res, err)
-		}
-		raw, _ := os.ReadFile(cfg.AnswersPath)
-		if err := CheckAnswers(string(raw)); err != nil {
-			t.Fatalf("%s: invalid file: %v", tc.mode, err)
-		}
-		if a := ReadAnswers(cfg.AnswersPath)["100-2"]; !strings.HasPrefix(a.Text, "Could not answer: ") || !strings.Contains(a.Text, tc.want) || len(a.Text) > 100 {
-			t.Errorf("%s: text = %q", tc.mode, a.Text)
-		}
-	}
-}
-
-func TestRunLimitsAndCap(t *testing.T) {
-	cfg := fixture(t, "long")
-	cfg.MaxPerRun = 1
-	res, err := Run(context.Background(), cfg)
-	if err != nil || res.Answered != 1 || res.Pending != 1 {
-		t.Fatalf("res = %+v, err = %v", res, err)
-	}
-	if a := ReadAnswers(cfg.AnswersPath)["100-2"]; len([]rune(a.Text)) != MaxAnswer {
-		t.Errorf("answer length = %d", len([]rune(a.Text)))
-	}
-	if _, err := Run(context.Background(), Config{SavedVariables: cfg.SavedVariables, AnswersPath: cfg.AnswersPath}); err != nil {
-		t.Fatal(err) // already-answered 100-2 stays; 100-4 gets an error answer for the missing command
-	}
-	if a := ReadAnswers(cfg.AnswersPath)["100-4"]; !strings.Contains(a.Text, "no agent command") {
-		t.Errorf("text = %q", a.Text)
-	}
-}
-
 func TestResolveAgent(t *testing.T) {
 	conf := filepath.Join(t.TempDir(), "ask.json")
 	os.WriteFile(conf, []byte(`{"agent": "gemini"}`), 0o644)
@@ -287,6 +118,13 @@ func TestResolveAgent(t *testing.T) {
 	}
 }
 
+// fixture returns a Config that runs the fake agent in mode.
+func fixture(t *testing.T, mode string) Config {
+	t.Helper()
+	t.Setenv("FAKE_AGENT", mode)
+	return Config{Command: []string{os.Args[0]}, Timeout: 5 * time.Second, Now: func() time.Time { return time.Unix(1000, 0) }}
+}
+
 // runPreset runs a preset's argv through the fake agent and returns the arguments it received.
 func runPreset(t *testing.T, name string) []string {
 	t.Helper()
@@ -299,8 +137,8 @@ func runPreset(t *testing.T, name string) []string {
 		t.Fatal(err)
 	}
 	cfg.Command = append([]string{os.Args[0]}, Presets[name][1:]...)
-	if res, err := Run(context.Background(), cfg); err != nil || res.Failed != 0 {
-		t.Fatalf("%s: %+v %v", name, res, err)
+	if _, err := runAgent(context.Background(), cfg, Question{ID: "1", Character: "R:C", Text: "What now?"}); err != nil {
+		t.Fatalf("%s: %v", name, err)
 	}
 	raw, err := os.ReadFile(out)
 	if err != nil {

@@ -6,6 +6,7 @@ import (
 
 	"github.com/WoW-Companion/advisor/internal/character"
 	"github.com/WoW-Companion/advisor/internal/profile"
+	"github.com/WoW-Companion/advisor/internal/talents"
 )
 
 // NeedsPlayStyle is the Needs value of a question that cannot be answered before the character has a
@@ -70,7 +71,11 @@ func PlayStyleNeeded(cfg Config, q Question) (Needs, bool) {
 	if !ok || cc.c.Profile != nil {
 		return Needs{}, false
 	}
-	return NeedsFor(cc.c, q), true
+	n := NeedsFor(cc.c, q)
+	if specs := talents.Specs(cc.ds, cc.c); len(specs) > 0 {
+		n.Specs = specs
+	}
+	return n, true
 }
 
 // NeedsFor builds the choices for c.

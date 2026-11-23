@@ -78,13 +78,6 @@ func TestRefExpandsTheSubjectAndExactAsksGetIt(t *testing.T) {
 	}
 }
 
-func TestQuestionsReadTheRef(t *testing.T) {
-	qs, err := Questions(`WoWCompanionDB = { asks = { { id = "1", character = "A-B", text = "Q?", ref = "quest:9" }, { id = "2", character = "A-B", text = "R?" } } }`)
-	if err != nil || len(qs) != 2 || qs[0].Ref != "quest:9" || qs[1].Ref != "" {
-		t.Errorf("%+v %v", qs, err)
-	}
-}
-
 func TestStatQuestionNeedsAPlayStyleWithTheHook(t *testing.T) {
 	cfg := Config{SavedVariables: priestCapture}
 	key := priestKey(t)

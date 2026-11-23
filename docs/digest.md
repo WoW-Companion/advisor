@@ -12,8 +12,8 @@ WoWCompanionDigest = {
   schema = "2.0",
   generated = 1795271211,        -- unix seconds, when the file was written
   characters = {
-    ["Testchar"] = { schema = "1.7", ... },   -- exactly the 1.7 digest below, for that character
-    ["Otherchar"] = { schema = "1.7", ... },
+    ["Testchar"] = { schema = "1.8", ... },   -- exactly the 1.8 digest below, for that character
+    ["Otherchar"] = { schema = "1.8", ... },
   },
 }
 ```
@@ -72,7 +72,7 @@ in `keep_materials` with "for <item>". The line's `asks` include "How do I get <
 
 **Stat check (schema 1.7, optional).** A character with a saved play style has `stats = { profile = "Fury · leveling", insights = { ... }, asks = { ... } }`: one to three plain sentences of at most 90 characters (what to raise and why, what is wasted, what is fine; never a number, percentage or id), the profile they were read for, and questions such as "How do I get more Strength?". It is left out with no play style. The weights behind it are in `docs/stats.md`. An upgrade's `why` may read "Adds the Strength you're short on".
 
-**Training, details and prompts (schema 1.4).** From the dataset's `class_spells` table, `next_quests` gets one
+**Training and details (schema 1.4).** From the dataset's `class_spells` table, `next_quests` gets one
 `kind = "training"` line, after the talent and class lines, when the character's level unlocks trainer-taught
 abilities or ranks. It covers the levels after the last capture's level, or the character's own level when
 that is unknown (its `details` then say "Available at your level"). The addon filters out spells already
@@ -90,12 +90,11 @@ also has:
 | Field | Meaning |
 | ----- | ------- |
 | `details` | a list of 1 to 4 short strings (at most 120 characters each): a quest's reason, giver, location, level and open objectives (a turn-in that unlocks a follow-up adds `Unlocks: <Quest> (from <NPC>, here)`, see `plan-format.md`); an upgrade's slot, item level gain, source and level needed; a dungeon's level fit and top drop; the talent plan's next pick and why |
-| `prompt` | a ready question for the companion's AI, at most 500 characters. It names the character's level, race, class, spec, focus and role from the stored profile, the subject and its facts, and ends with the question |
 
 Only facts the advisor holds go in; no guide text.
 
-A line's `text` is at most 110 characters, shortened only at a word boundary (the complete wording is in
-`details`); notes are never shortened. A section with nothing to say is left out.
+A line's `text` is kept to about 110 characters by dropping an optional tail, and is never cut short (the complete
+wording is in `details`); notes are never shortened. A section with nothing to say is left out.
 
 **Natural asks and refs (schema 1.5).** Additive and optional: older addons ignore both fields. Every entry
 of every section (`next_quests`, `upgrades`, `keep_materials`, `notes`) and every `dungeons` and `talents` entry has:
@@ -105,7 +104,11 @@ of every section (`next_quests`, `upgrades`, `keep_materials`, `notes`) and ever
 | `asks` | a list of 1 to 3 short questions in the player's voice, written for that entry, each at most 90 characters, complete and never cut. No "I'm a level 10 warrior": the advisor knows the character. Examples: "What's The Skybreaker Bulwark for?", "Where should my talent point go?", "What should I train first?", "Is Veteran's Chain Belt worth getting now?", "Am I ready for Wolf Den?", "Should I keep Copper Ore?", "What does Endaria Mistgaze have for me?" |
 | `ref` | a stable subject reference, never shown to players: `quest:<id>`, `npc:<id>`, `talents`, `training:<level>`, `item:<id>`, `dungeon:<id>` or `note:<slug>`. Sent back with the question (the asks record's optional `ref`), the advisor expands it into the entry's facts and its place in the plan |
 
-`prompt` stays for older addons. It is rebuilt from the same facts and never holds another field's text verbatim.
+**Schema 1.8: no `prompt`, tidier strings.** The legacy `prompt` field is gone from every entry: addons 0.6.2 and
+later use `asks` and `ref`, and the advisor builds its own question from the ref. `how` is one line of at most 90
+characters ("Cheap on the Auction House: search 'of Strength', level 7–10"); an Auction House entry's full search steps
+are its last `details` line. No player-facing string is cut mid-sentence or ends in "..." or an ellipsis: a line
+that does not fit is shortened to a whole, shorter wording (the "(zone)" or "from <giver>" tail goes first) or kept whole.
 
 **A "why" line (schema 1.6).** Additive and optional. `next_quests`, `upgrades`, `dungeons` and `talents` entries
 may carry `why`: one short reason, at most 70 characters, plain words, no ids, never cut and never ending in "...".
@@ -120,9 +123,8 @@ style, a ready turn-in or class quest, an unspent talent point, a plan older tha
 `{id, label, why, action, question?, ref?}` with `action` one of `ask`, `play_style`, `refresh_plan`, `open_entry`;
 `GET /api/suggestions?character=` returns the same list. `POST /api/refresh-plan` rewrites Digest.lua and Plan.lua from
 the newest capture and answers `{message, new_steps, files}`. Each entry in `entries` has `why` and `class`;
-`plan_steps` carry the action in `text` and the place in `x` and `y`. In-game asks are answered once: an answered-asks
-ledger (character, ask time, hash of the text) keeps a launch from answering one twice; an unanswered ask older than
-12 hours is shown with status `pending` and answered only by `POST /api/answer-pending {"id": "<ask id>"}`.
+`plan_steps` carry the action in `text` and the place in `x` and `y`. Questions are asked in the overlay only: the advisor no longer watches for in-game asks,
+shows an "asked in game" card or writes `Answers.lua`; the in-game question chips copy the question for pasting.
 
 **Giver notes.** A `notes` line with `kind = "giver"` (fields `npc`, `zone`, `x`, `y`, `quest`, `title`) appears
 only when the NPC has a quest the character can pick up now (from the player's own Questie data) that is not

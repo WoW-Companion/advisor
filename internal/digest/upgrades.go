@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/WoW-Companion/advisor/internal/brief"
 	"github.com/WoW-Companion/advisor/internal/character"
@@ -153,7 +154,7 @@ func upgradeLine(c character.Character, slot string, cd gear.Candidate, best pat
 		}
 	}
 	text := fmt.Sprintf("%s: %s. %s, %s, %s", name, cd.Item.Name, wear, strings.ToLower(gain), replaces)
-	l := Line{Text: clip(text), Item: int(cd.Item.ID), Slot: name, ILvl: cd.Item.ItemLevel, Wear: wear, Gain: gain, Replaces: replaces, How: best.Line, PathKind: best.Kind}
+	l := Line{Text: clip(text), Item: int(cd.Item.ID), Slot: name, ILvl: cd.Item.ItemLevel, Wear: wear, Gain: gain, Replaces: replaces, How: oneLineHow(best.Line), PathKind: best.Kind}
 	if cd.Soon {
 		l.AtLevel = cd.Item.ReqLevel
 	}
@@ -162,8 +163,6 @@ func upgradeLine(c character.Character, slot string, cd gear.Candidate, best pat
 		wear + ". " + gain + ", " + replaces,
 		wording.Upper(best.Line),
 	})
-	facts := fmt.Sprintf("%s for my %s slot, %s (%s). The best way to get it: %s", cd.Item.Name, strings.ToLower(name), strings.ToLower(gain), replaces, best.Line)
-	l.Prompt = makePrompt(c, "A possible upgrade is ", facts+".", " Is it worth getting for how I play?")
 	l.Asks, l.Ref = upgradeAsks(cd.Item.Name), itemRef(int(cd.Item.ID))
 	l.Why = upgradeWhy(c, slot, cd, short)
 	return l
@@ -181,7 +180,7 @@ func shoppingLine(c character.Character, slot string, sh paths.Shopping) Line {
 			replaces = "instead of your " + eq.Name
 		}
 	}
-	how := "Search the Auction House: " + strings.Join(sh.Steps, " ")
+	how := auctionHow(sh)
 	l := Line{Text: clip(sh.Line), Slot: name, Wear: "Wear now", Gain: gain, Replaces: replaces, How: how, PathKind: paths.Auction}
 	details := []string{sh.Line}
 	if len(sh.Suffixes) > 0 {
@@ -191,8 +190,9 @@ func shoppingLine(c character.Character, slot string, sh paths.Shopping) Line {
 		details = append(details, "Examples: "+strings.Join(sh.Examples, ", "))
 	}
 	l.Details = finishDetails(append(details, wear(gain, replaces)))
-	facts := fmt.Sprintf("a shopping list for my %s slot, %s (%s): %s. Search steps: %s", strings.ToLower(name), strings.ToLower(gain), replaces, sh.Line, strings.Join(sh.Steps, " "))
-	l.Prompt = makePrompt(c, "A possible upgrade is ", facts, " What should I search for on the Auction House?")
+	if len(sh.Steps) > 0 { // the full search steps live here, whole, not in how
+		l.Details = append(l.Details[:min(len(l.Details), MaxDetails-1)], "Search steps: "+strings.Join(sh.Steps, " "))
+	}
 	l.Asks, l.Ref = shoppingAsks(), noteRef("auction-"+slot)
 	l.Why = firstWhy(gain + " for your " + strings.ToLower(name))
 	return l
@@ -217,4 +217,38 @@ func shortStat(r stats.Result) string {
 		}
 	}
 	return best
+}
+
+// MaxHow is the longest "how" line: one line, never a paragraph.
+const MaxHow = 90
+
+// auctionHow is a shopping list's one-line how, such as "Cheap on the Auction House: search 'of
+// Strength', level 7–10". The full search steps go into the entry's details.
+func auctionHow(sh paths.Shopping) string {
+	lv := fmt.Sprintf("level %d", sh.MaxLevel)
+	if sh.MinLevel < sh.MaxLevel {
+		lv = fmt.Sprintf("level %d–%d", sh.MinLevel, sh.MaxLevel)
+	}
+	if len(sh.Suffixes) > 0 {
+		name, _, _ := strings.Cut(sh.Suffixes[0], " (")
+		if how := fmt.Sprintf("Cheap on the Auction House: search '%s', %s", name, lv); utf8.RuneCountInString(how) <= MaxHow {
+			return how
+		}
+	}
+	return oneLineHow("Cheap on the Auction House: " + sh.Type + ", " + lv)
+}
+
+// oneLineHow is s as one line of at most MaxHow characters: whole when it fits, else its first
+// clause that fits, else its words without a dangling connector.
+func oneLineHow(s string) string {
+	s = strings.Join(strings.Fields(s), " ")
+	if utf8.RuneCountInString(s) <= MaxHow {
+		return s
+	}
+	for _, sep := range []string{". ", " — ", "; ", ": ", ", "} {
+		if i := strings.LastIndex(s[:len(wording.CutWords(s, MaxHow))], sep); i > 20 {
+			return strings.TrimRight(s[:i], " ,;:.—")
+		}
+	}
+	return wholeCut(s, MaxHow)
 }

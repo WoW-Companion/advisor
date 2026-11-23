@@ -101,33 +101,13 @@ func TestTrainingNeverInventsTrainer(t *testing.T) {
 	}
 }
 
-func TestPromptCapAndProfile(t *testing.T) {
-	opt := synthOpt
-	opt.PrevLevel = 8
-	l, _ := trainingOf(Build(warrior(10), warriorStore(t), opt))
-	for _, want := range []string{"level 10", "Skyborn", "warrior", "Arms", "questing", "Rend (Rank 2)", "Taunt"} {
-		if !strings.Contains(l.Prompt, want) {
-			t.Errorf("prompt lacks %q: %s", want, l.Prompt)
-		}
-	}
-	if n := utf8.RuneCountInString(l.Prompt); n > MaxPrompt {
-		t.Errorf("prompt is %d characters", n)
-	}
-	// A very long fact is cut, the question is kept, the cap holds.
-	long := makePrompt(warrior(10), "About ", strings.Repeat("Long Title ", 100), " Why?")
-	if utf8.RuneCountInString(long) > MaxPrompt || !strings.HasSuffix(long, " Why?") || !strings.Contains(long, "Arms") {
-		t.Errorf("long prompt = %d: %s", utf8.RuneCountInString(long), long)
-	}
-}
-
-// Every next_quests, upgrades, dungeons and talents entry carries details (1-4 lines) and a prompt
-// of at most 500 characters that names the profile.
+// Every next_quests, upgrades, dungeons and talents entry carries details (1-4 lines).
 func TestDetailsForEveryKind(t *testing.T) {
 	c := synthChar()
 	c.Profile = &character.Profile{Role: "healer", Focus: "dungeons", Spec: "Discipline"}
 	d := Build(c, synthStore(t), synthOpt)
 	kinds := map[string]bool{}
-	check := func(what string, details []string, prompt string) {
+	check := func(what string, details []string) {
 		kinds[what] = true
 		if len(details) < 1 || len(details) > MaxDetails {
 			t.Errorf("%s: %d details", what, len(details))
@@ -137,31 +117,28 @@ func TestDetailsForEveryKind(t *testing.T) {
 				t.Errorf("%s: detail %q", what, x)
 			}
 		}
-		if n := utf8.RuneCountInString(prompt); n == 0 || n > MaxPrompt || !strings.Contains(prompt, "Discipline") || !strings.Contains(prompt, "priest") {
-			t.Errorf("%s: prompt %q", what, prompt)
-		}
 	}
 	for _, s := range d.Sections {
 		for _, l := range s.Lines {
 			switch {
 			case s.ID == NextQuests && l.Kind != KindNote, s.ID == Upgrades:
 				k := s.ID + "/" + l.Kind
-				check(k, l.Details, l.Prompt)
+				check(k, l.Details)
 			}
 		}
 	}
 	for _, l := range d.Dungeons {
-		check("dungeons", l.Details, l.Prompt)
+		check("dungeons", l.Details)
 	}
 	for _, l := range d.Talents {
-		check("talents", l.Details, l.Prompt)
+		check("talents", l.Details)
 	}
 	for _, k := range []string{"next_quests/turnin", "next_quests/progress", "next_quests/talent", "upgrades/", "dungeons", "talents"} {
 		if !kinds[k] {
 			t.Errorf("no %s entry checked; got %v", k, kinds)
 		}
 	}
-	// The file passes the slot check and parses, with details a list and prompt a string.
+	// The file passes the slot check and parses, with details a list.
 	out := one(d).Lua()
 	if err := SlotCheck(out); err != nil {
 		t.Error(err)
@@ -176,7 +153,7 @@ func TestTrainingLuaFields(t *testing.T) {
 	opt.PrevLevel = 8
 	d := Build(warrior(10), warriorStore(t), opt)
 	out := one(d).Lua()
-	for _, want := range []string{`schema = "1.7"`, `asks = { "What should I train first?"`, `ref = "training:10"`, `kind = "training"`, `level = 10`, `spells = { { id = 6546, name = "Rend", rank = 2, new = false }, { id = 355, name = "Taunt", new = true } }`, `details = {`, `prompt = "`} {
+	for _, want := range []string{`schema = "1.8"`, `asks = { "What should I train first?"`, `ref = "training:10"`, `kind = "training"`, `level = 10`, `spells = { { id = 6546, name = "Rend", rank = 2, new = false }, { id = 355, name = "Taunt", new = true } }`, `details = {`} {
 		if !strings.Contains(out, want) {
 			t.Errorf("lacks %s:\n%s", want, out)
 		}
@@ -193,12 +170,12 @@ func TestTrainingLuaFields(t *testing.T) {
 func TestTurnInDetailsListWhatItUnlocks(t *testing.T) {
 	c := character.Character{Name: "Hero"}
 	l := Line{Kind: KindTurnIn, Title: "Quest 30", NPC: "Elder Test", Level: 9, Unlocks: []string{"Quest 31 (from Elder Test, here)"}}
-	d, prompt := questContext(c, l, "ready")
-	if !slices.Contains(d, "Unlocks: Quest 31 (from Elder Test, here)") || !strings.Contains(prompt, `unlocks "Quest 31"`) {
-		t.Fatalf("details %q, prompt %q", d, prompt)
+	d := questContext(c, l, "ready")
+	if !slices.Contains(d, "Unlocks: Quest 31 (from Elder Test, here)") {
+		t.Fatalf("details %q", d)
 	}
 	l.Kind = KindPickup
-	if d, _ := questContext(c, l, "ready"); slices.ContainsFunc(d, func(s string) bool { return strings.HasPrefix(s, "Unlocks:") }) {
+	if d := questContext(c, l, "ready"); slices.ContainsFunc(d, func(s string) bool { return strings.HasPrefix(s, "Unlocks:") }) {
 		t.Fatalf("a pick-up says what it unlocks: %q", d)
 	}
 }

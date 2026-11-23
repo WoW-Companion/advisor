@@ -114,7 +114,7 @@ func TestUpgradeEntriesArePlainAndDependable(t *testing.T) {
 	slots := map[string]Line{}
 	for _, l := range ups.Lines {
 		slots[l.Slot] = l
-		for _, s := range append([]string{l.Text, l.Wear, l.Gain, l.Replaces, l.How, l.Why, l.Prompt}, append(l.Details, l.Asks...)...) {
+		for _, s := range append([]string{l.Text, l.Wear, l.Gain, l.Replaces, l.How, l.Why}, append(l.Details, l.Asks...)...) {
 			if m := idDigits.FindString(s); m != "" {
 				t.Errorf("%s: player-facing text %q holds %q", l.Slot, s, m)
 			}
@@ -136,10 +136,10 @@ func TestUpgradeEntriesArePlainAndDependable(t *testing.T) {
 	}
 	w := slots["Wrists"]
 	if w.PathKind != "auction" || w.Text != "Wrists: any green mail bracers, level 8–10 — cheap on the Auction House" ||
-		!strings.Contains(w.How, "Set the level range to 8 to 10") || !strings.Contains(strings.Join(w.Asks, "|"), "What should I search for on the Auction House?") {
+		w.How != "Cheap on the Auction House: mail bracers, level 8–10" || !strings.Contains(strings.Join(w.Details, " "), "Set the level range to 8 to 10") || !strings.Contains(strings.Join(w.Asks, "|"), "What should I search for on the Auction House?") {
 		t.Errorf("wrists: %+v", w)
 	}
-	if m := regexp.MustCompile(`(?i)\bgold\b|\bsilver\b|\bprice|\d+[gsc]\b`).FindString(w.Text + w.How + w.Prompt + strings.Join(w.Details, " ")); m != "" {
+	if m := regexp.MustCompile(`(?i)\bgold\b|\bsilver\b|\bprice|\d+[gsc]\b`).FindString(w.Text + w.How + strings.Join(w.Details, " ")); m != "" {
 		t.Errorf("wrists shows a price: %q", m)
 	}
 	if got := cloak.Asks; len(got) == 0 || got[0] != "How do I get Traveler's Shawl?" && got[1] != "How do I get Traveler's Shawl?" {

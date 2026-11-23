@@ -170,7 +170,7 @@ func (g Giver) Text() string {
 	return fmt.Sprintf("%s%s has a quest for you: %s", g.NPC, where, g.Title)
 }
 
-// Line is the giver note as a digest line, with its details and prompt.
+// Line is the giver note as a digest line, with its details.
 func (g Giver) Line(c character.Character) Line {
 	l := Line{Text: g.Text(), Kind: KindGiver, NPC: g.NPC, Zone: g.Zone, Quest: g.QuestID, Title: g.Title, Level: g.Level, X: g.X, Y: g.Y, HasXY: true}
 	where := g.NPC
@@ -183,11 +183,6 @@ func (g Giver) Line(c character.Character) Line {
 		fit = wording.Fit(g.Level, *c.Level)
 	}
 	l.Details = finishDetails([]string{where, fit})
-	facts := fmt.Sprintf("%s in %s has the quest %q for me.", g.NPC, g.Zone, g.Title)
-	if g.Zone == "" {
-		facts = fmt.Sprintf("%s has the quest %q for me.", g.NPC, g.Title)
-	}
-	l.Prompt = makePrompt(c, "", facts, " Is it worth taking now, and what should I know first?")
 	l.Asks = giverAsks(g.NPC)
 	l.Why = questWhy(c, l)
 	l.Ref = npcRef(g.NPCID)
@@ -208,6 +203,9 @@ type Subject struct {
 	Ref, Kind, Text string
 	Details         []string
 	Place, Of       int // the 1-based position in the next-quests plan, and its length
+	// Line is the entry itself when it is a section line (not a dungeon or talent line): its ids,
+	// giver, zone, level, class flag, why and objectives.
+	Line *Line
 }
 
 // AllAsks lists every entry's questions with their refs.
@@ -242,7 +240,8 @@ func (d Digest) Subject(ref string) (Subject, bool) {
 			if l.Ref != ref {
 				continue
 			}
-			sub := Subject{Ref: ref, Kind: l.Kind, Text: l.Text, Details: l.Details}
+			line := l
+			sub := Subject{Ref: ref, Kind: l.Kind, Text: l.Text, Details: l.Details, Line: &line}
 			if s.ID == NextQuests {
 				sub.Place, sub.Of = i+1, len(s.Lines)
 			}

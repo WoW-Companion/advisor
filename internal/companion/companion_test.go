@@ -54,18 +54,8 @@ const addonVars = `WoWCompanionDB = { asks = {
 } }
 `
 
-// answersPath is the Answers.lua path the legacy mode writes; the default leaves it empty.
-var legacyAnswers bool
-
 // captureAsSV points ask.Config.SavedVariables at ForeverScribe.lua, as the command line does.
 var captureAsSV bool
-
-func answersPath(dir string) string {
-	if legacyAnswers {
-		return filepath.Join(dir, "Answers.lua")
-	}
-	return ""
-}
 
 type env struct {
 	base, dir, mark string
@@ -89,7 +79,7 @@ func start(t *testing.T, mode string, stream bool) *env {
 	e.srv = New(Config{
 		ForeverScribe: filepath.Join(dir, "ForeverScribe.lua"), Stream: stream, Poll: 20 * time.Millisecond,
 		Now: func() time.Time { return time.Unix(1000, 0) }, // the fixture's asks are at second 5
-		Ask: ask.Config{Command: []string{os.Args[0]}, Timeout: 5 * time.Second, SavedVariables: asv, AnswersPath: answersPath(dir)},
+		Ask: ask.Config{Command: []string{os.Args[0]}, Timeout: 5 * time.Second, SavedVariables: asv},
 	})
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -315,78 +305,17 @@ func TestGameDataChangeEvent(t *testing.T) {
 	}
 }
 
-// A question queued in game shows up in the overlay as "game", is answered once through the agent,
-// and no Answers.lua is written by default.
-func TestInGameQuestionIsAnswered(t *testing.T) {
+// A question queued in game is left alone: nothing answers it, it is not shown, and no Answers.lua
+// is written (questions are asked in the overlay).
+func TestInGameQuestionIsIgnored(t *testing.T) {
 	e := start(t, "text", false)
-	waitGameAnswer(t, e)
-	time.Sleep(100 * time.Millisecond) // a second pass would have re-asked by now
+	write(t, filepath.Join(e.dir, "WoWCompanion.lua"), addonVars)
+	time.Sleep(300 * time.Millisecond) // several polls
+	if h := e.srv.snapshot().History; len(h) != 0 {
+		t.Errorf("history = %+v, want none", h)
+	}
 	if _, err := os.Stat(filepath.Join(e.dir, "Answers.lua")); err == nil {
-		t.Error("Answers.lua was written without --answers-file")
-	}
-	e.srv.mu.Lock()
-	n := len(e.srv.gameDone)
-	e.srv.mu.Unlock()
-	if n != 1 {
-		t.Errorf("answered ids = %d, want 1", n)
-	}
-}
-
-// With --answers-file (deprecated) the answer is still written into Answers.lua.
-func TestInGameQuestionAnswersFile(t *testing.T) {
-	legacyAnswers = true
-	t.Cleanup(func() { legacyAnswers = false })
-	e := start(t, "text", false)
-	waitGameAnswer(t, e)
-	if a := ask.ReadAnswers(filepath.Join(e.dir, "Answers.lua"))["9-1"]; !strings.Contains(a.Text, "What now from the game?") {
-		t.Errorf("Answers.lua = %+v", a)
-	}
-}
-
-// The overlay's feed shows an in-game ask as "game" at once, then the answer streaming into it
-// ("answering", with the text so far) before it is done.
-func TestInGameQuestionStreamsIntoFeed(t *testing.T) {
-	e := start(t, "stream", true)
-	write(t, filepath.Join(e.dir, "WoWCompanion.lua"), addonVars)
-	sawAsk, sawPartial := false, false
-	deadline := time.Now().Add(5 * time.Second)
-	for time.Now().Before(deadline) {
-		h := e.srv.snapshot().History
-		if len(h) == 1 && h[0].Source == "game" && h[0].Question == "What now from the game?" {
-			sawAsk = true
-			if h[0].Status == "answering" && h[0].Answer != "" && h[0].Answer != "Hello there" {
-				sawPartial = true
-			}
-			if h[0].Status == "done" {
-				if h[0].Answer != "Hello there" {
-					t.Errorf("answer = %q", h[0].Answer)
-				}
-				break
-			}
-		}
-		time.Sleep(10 * time.Millisecond)
-	}
-	if !sawAsk || !sawPartial {
-		t.Errorf("ask shown %v, partial answer shown %v", sawAsk, sawPartial)
-	}
-}
-
-func waitGameAnswer(t *testing.T, e *env) {
-	t.Helper()
-	write(t, filepath.Join(e.dir, "WoWCompanion.lua"), addonVars)
-	deadline := time.Now().Add(5 * time.Second)
-	for {
-		h := e.srv.snapshot().History
-		if len(h) == 1 && h[0].Status == "done" {
-			if h[0].Source != "game" || !strings.Contains(h[0].Answer, "What now from the game?") {
-				t.Errorf("entry = %+v", h[0])
-			}
-			break
-		}
-		if time.Now().After(deadline) {
-			t.Fatalf("no answer; history %+v", h)
-		}
-		time.Sleep(10 * time.Millisecond)
+		t.Error("Answers.lua was written")
 	}
 }
 

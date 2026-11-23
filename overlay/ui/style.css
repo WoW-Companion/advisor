@@ -202,9 +202,6 @@ a:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; border-ra
 /* Saved chat: a dim divider for the gap, and the old in-game ask card. */
 .gap { align-self: center; color: var(--muted); font-size: 11px; display: flex; align-items: center; gap: 8px; width: 100%; }
 .gap::before, .gap::after { content: ""; flex: 1; border-top: 1px solid rgba(255, 255, 255, .12); }
-.pending { padding: 4px 8px; border: 1px dashed rgba(217, 176, 90, .35); border-radius: 8px; font-size: 12px; display: grid; gap: 3px; }
-.pending-btns { display: flex; gap: 6px; }
-.pending-btns button { padding: 1px 8px; font-size: 11px; cursor: pointer; }
 /* Quick bar: one slim, quiet row above the ask box. */
 #quick-slot { margin: 0 12px 3px; }
 #quick-slot[hidden] { display: none; }
@@ -212,3 +209,6 @@ a:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; border-ra
 .quick-btn { display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px; font-size: 11px; border-radius: 10px; cursor: pointer; color: var(--muted); }
 .quick-btn:hover:not(:disabled) { color: var(--gold); border-color: var(--gold); }
 .quick-ic { color: var(--gold); }
+.whats-new { display: grid; gap: 2px; font-size: 12px; }
+.whats-new ul { margin: 2px 0 4px 16px; padding: 0; }
+.whats-new a { color: inherit; opacity: .8; }

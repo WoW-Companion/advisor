@@ -1,6 +1,7 @@
 package ask
 
 import (
+	"github.com/WoW-Companion/advisor/internal/digest"
 	"strings"
 	"testing"
 )
@@ -66,5 +67,31 @@ func TestFactsCarryProgressAndGivers(t *testing.T) {
 	}
 	if n := len([]rune(p)); n > promptBudget {
 		t.Errorf("prompt is %d characters, budget %d", n, promptBudget)
+	}
+}
+
+// A class quest the dataset has never heard of (a synthetic id) still yields its own facts: the
+// ids, giver, zone, level, class flag and why come from the entry, not from a name lookup.
+func TestSubjectFactsComeFromTheEntry(t *testing.T) {
+	line := digest.Line{Text: "Class quest: Test Bulwark", Quest: 999001, Kind: digest.KindPickup, Title: "Test Bulwark", Level: 10, Class: true,
+		NPC: "Testgiver Skyward", Zone: "Testzone", Why: "Class quests usually give a class reward.", Ref: "quest:999001", Details: []string{"Pick it up from Testgiver Skyward."}}
+	d := digest.Digest{Sections: []digest.Section{{ID: digest.NextQuests, Lines: []digest.Line{line}}}}
+	sub, ok := d.Subject("quest:999001")
+	if !ok || sub.Line == nil {
+		t.Fatalf("subject not found: %+v", sub)
+	}
+	got := entryFacts(Config{}, loaded{}, sub)
+	for _, want := range []string{"Quest id: 999001", "Giver or turn-in NPC: Testgiver Skyward", "Zone: Testzone", "Level: 10", "Class quest: yes", "Why it is listed: Class quests usually give"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("facts lack %q:\n%s", want, got)
+		}
+	}
+}
+
+func TestGroundingRulesForbidNameOnlyLookupsAndNoMatch(t *testing.T) {
+	for _, want := range []string{"answer from these facts first", "by id", "never by name alone", "no match", "never invent", "Never invent"} {
+		if !strings.Contains(GroundingRules, want) && !strings.Contains(strings.ToLower(GroundingRules), strings.ToLower(want)) {
+			t.Errorf("rules lack %q", want)
+		}
 	}
 }

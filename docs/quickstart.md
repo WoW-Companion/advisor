@@ -106,10 +106,9 @@ game completely and start it again.
 
 Success: in game, `/wowc status` prints the addon version.
 
-Questions you queue in game (right-click **Ask about this**) are answered in the overlay: with the overlay
-open, `/reload` in game and the question appears in the overlay chat marked "asked in game", and is answered
-there. Nothing is written back to the game folder. A leftover `WoWCompanion_Answers` folder from an older
-setup is no longer used; you can delete it.
+Questions are asked in the overlay. In game, right-click **Ask about this** (or use a question chip in the panel) to copy the
+question, then paste it into the overlay. A leftover `WoWCompanion_Answers` folder from an older setup is no longer used; you
+can delete it.
 
 ### Put the digest in the game panel
 
@@ -140,9 +139,8 @@ Pick the way that suits you:
   the game; no `/reload` needed. The age chip tells you how fresh the data is.
 - **The browser companion**, `wowc-advisor companion --agent claude`, is the same chat in a browser tab
   (see below). Use it without the overlay.
-- **Queued in game** (addon installed): right-click **Ask about this**, then `/reload`. The question shows
-  up in the overlay marked "asked in game" and is answered there. `claude`, `codex`, `agy` and `gemini` (legacy) are the
-  agent presets; see [ask.md](ask.md).
+- **Asking from game** (addon installed): right-click **Ask about this** to copy the question, then paste it into the
+  overlay. `claude`, `codex`, `agy` and `gemini` (legacy) are the agent presets; see [ask.md](ask.md).
 
 The advisor's tools are pre-allowed for these runs and read-only (apart from `update_digest`, which writes
 the digest file); nothing else is. The presets pass the permission flags themselves, so you never approve
@@ -170,15 +168,13 @@ The companion sits beside the game, not inside it, and changes nothing in the cl
   URL with the token. Anyone with that URL can ask your AI agent, so use it on a network you trust.
   `--port N` picks the first port to try (default 4317; the next free one is used), `--no-open`
   skips opening the browser.
-- **Questions asked in game** show up in the page marked "asked in game", and are answered there, once each. Nothing is written
-  to the game folder. (`--answers-file` also writes Answers.lua for the old `WoWCompanion_Answers` addon;
-  it is deprecated.)
+- **Questions** are asked in the page. Nothing is written to the game folder.
 - **Streaming:** Claude (`--agent claude`) streams text as it arrives. Codex, Antigravity and Gemini answers appear
   once finished, marked "not streamed".
 - **Context:** the last 6 turns about the same character (at most 4,000 characters, answers cut to 600)
   are sent with each question. Questions are limited to 1,000 characters, and one answer runs at a time.
 - **Safety:** it binds to 127.0.0.1, checks the `Host` and `Origin` of every request, and needs the random
-  token printed at start (kept in a cookie). The agent runs exactly as `ask` runs it.
+  token printed at start (kept in a cookie). The agent runs the same way as in the overlay.
 
 ## What the advisor can answer
 
@@ -240,9 +236,8 @@ hidden (`Ctrl+Shift+W`) or at 0% opacity with click-through on.
 does not find it. Check that the folders sit in `_forever_\Interface\AddOns`.
 
 **Legacy: the in-game `/ask` flow.** Older addon versions had an Ask box and a History tab, answered
-through a `WoWCompanion_Answers` folder: `/ask`, `/reload`, run `wowc-advisor ask --answers-file --agent claude`
-(or `--watch`), `/reload` again. That folder is deprecated, and `ask` only writes it with `--answers-file`.
-Use the overlay instead, and delete the folder.
+through a `WoWCompanion_Answers` folder. That flow is gone: ask in the overlay (in-game question chips copy for pasting)
+and delete the folder.
 
 **A digest for another character.** `/reload` on that character so ForeverScribe captures it, then run
 `wowc-advisor digest` (every captured character is kept in one digest) and `/reload`. In the overlay pick
@@ -250,7 +245,7 @@ the character in the box at the top.
 
 **Answers are too long or too short, or I want to save tokens.** Open the overlay settings. **Answer
 length** is Brief (the answer and at most one bullet), Standard (the answer, then at most 3 short bullets; the default) or
-Detailed (a few more sentences of reasoning). Every length answers the question asked and never repeats your plan; on the command line it is `--length` on `ask` and `companion`.
+Detailed (a few more sentences of reasoning). Every length answers the question asked and never repeats your plan; on the command line it is `--length` on `companion`.
 **Model** picks the AI client's small, fast tier (Efficient, the default), Balanced, Best, or Custom with a
 model name you type (`--model`). Efficient is `haiku` for Claude Code and `flash-lite` for Gemini CLI; Codex and Antigravity
 have no stable model alias, so it keeps its own model and the tiers set its reasoning effort instead. Each

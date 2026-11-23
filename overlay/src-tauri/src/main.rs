@@ -234,8 +234,9 @@ fn set_agent(app: AppHandle, agent: String) -> Result<(), String> {
 
 /// The official install pages of the AI clients and of ForeverScribe, the Getting Started guide, and
 /// this app's latest-release page; the page may open these and nothing else, and only from a click.
-const INSTALL_PAGES: [&str; 7] = [
+const INSTALL_PAGES: [&str; 8] = [
     "https://github.com/WoW-Companion/advisor/releases/latest",
+    "https://github.com/WoW-Companion/advisor/releases",
     "https://github.com/MattMaximo/foreverscribe",
     "https://code.claude.com/docs/en/setup",
     "https://github.com/openai/codex",
