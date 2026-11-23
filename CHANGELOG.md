@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.7.19
+
+- A question copied in game now pastes into the overlay's ask box. The game puts plain text on the clipboard that Notepad understands but the overlay's own paste can miss, so the overlay now reads the clipboard directly whenever Ctrl+V or Shift+Insert pastes nothing. It pastes once, at the cursor, replacing any selected text.
+- A small paste button sits inside the right end of the ask box (hover for "Paste from clipboard") and inserts the clipboard text at the cursor.
+
 ## 0.7.18
 
 - The advisor now notices when the game data is republished for the same game build, for example when new talent builds are added. It checks when it starts and then once a day. If the data changed, it downloads the new copy, checks it and swaps it in. It leaves your current copy alone if you are offline or the download fails.

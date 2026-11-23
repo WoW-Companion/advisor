@@ -52,6 +52,47 @@
     return box.style.height;
   }
 
+  // insertText: puts text at the cursor, replacing any selection, and leaves the cursor after it.
+  function insertText(box, str) {
+    if (!str) return false;
+    const v = String(box.value || '');
+    const a = box.selectionStart == null ? v.length : box.selectionStart;
+    const b = box.selectionEnd == null ? a : box.selectionEnd;
+    const room = box.maxLength > 0 ? box.maxLength : Infinity;
+    const add = String(str).replace(/\r\n?/g, '\n').slice(0, Math.max(0, room - (v.length - (b - a))));
+    box.value = v.slice(0, a) + add + v.slice(b);
+    box.selectionStart = box.selectionEnd = a + add.length;
+    return true;
+  }
+
+  // wirePaste: a paste into the ask box that the web view leaves empty (the game can put only
+  // ANSI text on the clipboard) is read natively instead. readNative() resolves to the clipboard's
+  // text; after is called once text went in (the box refits). Returns { paste } for the paste button.
+  function wirePaste(box, readNative, after, raf) {
+    raf = raf || (fn => requestAnimationFrame(fn));
+    let reading = false, sawPaste = false;
+    const fromNative = async () => {
+      if (reading) return; // never paste twice
+      reading = true;
+      try { if (insertText(box, await readNative())) after(); } catch (e) { /* nothing to paste */ } finally { reading = false; }
+    };
+    box.addEventListener('paste', ev => {
+      sawPaste = true;
+      const t = ev.clipboardData && ev.clipboardData.getData ? ev.clipboardData.getData('text') : '';
+      if (t) return; // the web paste has it
+      ev.preventDefault();
+      fromNative();
+    });
+    box.addEventListener('keydown', ev => {
+      const key = String(ev.key || '').toLowerCase();
+      if (!((ev.ctrlKey || ev.metaKey) && key === 'v') && !(ev.shiftKey && key === 'insert')) return;
+      const before = box.value;
+      sawPaste = false;
+      raf(() => { if (!sawPaste && box.value === before) fromNative(); });
+    });
+    return { paste: () => { box.focus && box.focus(); return fromNative(); } };
+  }
+
   // onAskKey: Enter sends, Shift+Enter leaves the newline alone.
   function onAskKey(ev, submit) {
     if (ev.key === 'Enter' && !ev.shiftKey && !ev.isComposing) { ev.preventDefault(); submit(); return true; }
@@ -115,7 +156,7 @@
     const rest = t.replace(/^I(?:'|’)?m an? (?:level \d+ )?[^.?!]*\.\s+/i, '');
     return rest || t;
   }
-  const api = { entryList, fit, onAskKey, needsCard, shortQuestion, NEEDS_LINE };
+  const api = { entryList, fit, insertText, wirePaste, onAskKey, needsCard, shortQuestion, NEEDS_LINE };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.WowcAsking = api;
 })(typeof window !== 'undefined' ? window : globalThis);
