@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.7.13
+
+- A suggestion now always gets a useful answer. Click a suggested question about a class quest and the companion starts from what your Next list already knows (who gives it, where, its level, whether it is a class quest and why it is listed) instead of searching by name and saying it found no match. When little is known it says so plainly and never makes up a reward.
+- Spec is now a dropdown of your class's specs, such as Arms, Fury and Protection, plus "Not sure yet". A spec you typed before is kept when it matches one of them. Stat preference starts on Balanced.
+- Updates now shows what's new: the last five versions in plain words, newest first, each one collapsible, with a link to the full list on GitHub. It works without a network connection.
+- Questions are asked in the overlay only. The companion no longer watches for questions asked in game, the "You asked in game" card is gone, and Answers.lua is no longer written. In game, the question buttons copy the question so you can paste it into the overlay; anything already on disk is left alone.
+- Tidier in-game advice. An Auction House upgrade now reads as one short line, such as "Cheap on the Auction House: search 'of Strength', level 7–10", with the full search steps one click away in its details. Nothing in the advice is cut off mid-sentence any more, and the old long-question field is gone.
+
 ## 0.7.12
 
 - New stat check. Once you have chosen a play style, the companion reads your stats in plain words: what to raise and why it helps how you play ("Fury wants more Strength: more attack power, so every hit lands harder"), what is wasted ("2 items give Spirit, which a warrior barely uses: swap them first"), and what is already fine. At low levels it reminds you that quest gear matters more than fine-tuning. Ask about your stats, or "what should I look for?", and the new stat_check tool answers; with no play style it offers the choices first.

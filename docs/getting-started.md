@@ -15,8 +15,8 @@ Three small pieces work together.
   the minimap button. Quest counts update live as you play.
 
 **The loop:** play, then `/reload` (WoW saves), then the app writes fresh advice within seconds, then
-`/reload` again to see it in game. You can also ask a question in game; the app answers it in its window
-right away.
+`/reload` again to see it in game. Questions are asked in the app's window. In game, the question
+chips copy the question; paste it into the app (copy and paste is the back-and-forth).
 
 ```mermaid
 flowchart LR
@@ -24,7 +24,6 @@ flowchart LR
     S --> A[WoW Companion app]
     A --> F[Advice files]
     F -->|/reload loads| D[WoW Companion addon in game]
-    G -.->|Ask| A
 ```
 
 **Safety, said simply:** the addon only reads the game. The app never touches the game. Nothing is

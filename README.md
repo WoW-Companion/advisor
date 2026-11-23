@@ -48,7 +48,7 @@ automated. Your AI sees only what you ask it.
   game (Windowed (Fullscreen) only), finds your AI client and chats about the character you are playing.
   Recommended. It also answers questions you queue in game.
 - **WoW Companion addon** ([WoW-Companion/addon](https://github.com/WoW-Companion/addon)), optional: in-game
-  extras (the panel, tracker, tooltips and right-click "Ask about this", answered in the overlay after `/reload`).
+  extras (the panel, tracker, tooltips and right-click "Ask about this" copies the question to paste into the overlay).
 - **Advisor** (this repo, `wowc-advisor`): the brain. An MCP server and command line that read your
   ForeverScribe capture and a game dataset, answer with ranked advice, and write the digest.
   `wowc-advisor companion` is a browser chat beside the game.
