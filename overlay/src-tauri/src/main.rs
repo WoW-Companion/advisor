@@ -357,6 +357,114 @@ fn build_tray(app: &tauri::App) -> tauri::Result<()> {
     Ok(())
 }
 
+/// Text bytes of a `CF_TEXT` clipboard block: up to the first NUL.
+fn cf_text_bytes(raw: &[u8]) -> &[u8] {
+    let end = raw.iter().position(|&b| b == 0).unwrap_or(raw.len());
+    &raw[..end]
+}
+
+/// `CF_TEXT` is in the system (ANSI) code page; convert it to a string. Off Windows there is no
+/// code page to ask, so it is read as UTF-8.
+#[cfg(windows)]
+fn ansi_to_string(bytes: &[u8]) -> String {
+    #[link(name = "kernel32")]
+    extern "system" {
+        fn MultiByteToWideChar(cp: u32, flags: u32, src: *const u8, n: i32, dst: *mut u16, m: i32) -> i32;
+    }
+    if bytes.is_empty() {
+        return String::new();
+    }
+    unsafe {
+        let n = MultiByteToWideChar(0, 0, bytes.as_ptr(), bytes.len() as i32, std::ptr::null_mut(), 0);
+        if n <= 0 {
+            return String::from_utf8_lossy(bytes).into_owned();
+        }
+        let mut w = vec![0u16; n as usize];
+        MultiByteToWideChar(0, 0, bytes.as_ptr(), bytes.len() as i32, w.as_mut_ptr(), n);
+        String::from_utf16_lossy(&w)
+    }
+}
+
+#[cfg(not(windows))]
+fn ansi_to_string(bytes: &[u8]) -> String {
+    String::from_utf8_lossy(bytes).into_owned()
+}
+
+/// The clipboard's text: Unicode first, then `CF_TEXT` converted from the system code page. The
+/// game can write only `CF_TEXT`, which Notepad converts but a web view's paste does not pick up.
+#[cfg(windows)]
+fn clipboard_text() -> Result<String, String> {
+    use std::ffi::c_void;
+    #[link(name = "user32")]
+    extern "system" {
+        fn OpenClipboard(owner: *mut c_void) -> i32;
+        fn CloseClipboard() -> i32;
+        fn GetClipboardData(format: u32) -> *mut c_void;
+    }
+    #[link(name = "kernel32")]
+    extern "system" {
+        fn GlobalLock(h: *mut c_void) -> *mut c_void;
+        fn GlobalUnlock(h: *mut c_void) -> i32;
+        fn GlobalSize(h: *mut c_void) -> usize;
+    }
+    const CF_TEXT: u32 = 1;
+    const CF_UNICODETEXT: u32 = 13;
+    unsafe {
+        let mut opened = false;
+        for _ in 0..5 {
+            if OpenClipboard(std::ptr::null_mut()) != 0 {
+                opened = true;
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+        if !opened {
+            return Err("the clipboard is busy".into());
+        }
+        let mut out = String::new();
+        for fmt in [CF_UNICODETEXT, CF_TEXT] {
+            let h = GetClipboardData(fmt);
+            if h.is_null() {
+                continue;
+            }
+            let p = GlobalLock(h);
+            if p.is_null() {
+                continue;
+            }
+            let size = GlobalSize(h);
+            if fmt == CF_UNICODETEXT {
+                let w = std::slice::from_raw_parts(p as *const u16, size / 2);
+                let end = w.iter().position(|&c| c == 0).unwrap_or(w.len());
+                out = String::from_utf16_lossy(&w[..end]);
+            } else {
+                let b = std::slice::from_raw_parts(p as *const u8, size);
+                out = ansi_to_string(cf_text_bytes(b));
+            }
+            GlobalUnlock(h);
+            if !out.is_empty() {
+                break;
+            }
+        }
+        CloseClipboard();
+        Ok(out)
+    }
+}
+
+#[cfg(not(windows))]
+fn clipboard_text() -> Result<String, String> {
+    Err("reading the clipboard natively is only supported on Windows".into())
+}
+
+/// Reads the clipboard's text for the ask box when the web view's paste comes up empty. Only the
+/// main window may ask.
+#[tauri::command]
+fn read_clipboard(window: tauri::Window) -> Result<String, String> {
+    if window.label() != "main" {
+        return Err("not allowed".into());
+    }
+    clipboard_text()
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
@@ -378,7 +486,8 @@ fn main() {
             set_click_through,
             hide_window,
             quit,
-            set_shortcuts
+            set_shortcuts,
+            read_clipboard
         ])
         .setup(|app| {
             build_tray(app)?;
@@ -396,7 +505,15 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    use super::version_line;
+    use super::{ansi_to_string, cf_text_bytes, version_line};
+
+    #[test]
+    fn cf_text_stops_at_the_nul_and_converts() {
+        assert_eq!(cf_text_bytes(b"How do I? \0junk"), b"How do I? ");
+        assert_eq!(cf_text_bytes(b"no nul"), b"no nul");
+        assert_eq!(ansi_to_string(cf_text_bytes(b"Where is Stormwind?\r\nHelp\0\0")), "Where is Stormwind?\r\nHelp");
+        assert_eq!(ansi_to_string(b""), "");
+    }
 
     #[test]
     fn version_line_names_both_parts() {

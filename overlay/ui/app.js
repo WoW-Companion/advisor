@@ -597,6 +597,8 @@ const fitBox = () => WowcAsking.fit(text, 18, 6);
 $('form').onsubmit = ev => { ev.preventDefault(); const q = text.value.trim(); if (q && !busy && conn) { text.value = ''; fitBox(); ask(q); } };
 text.onkeydown = ev => WowcAsking.onAskKey(ev, () => $('form').requestSubmit());
 text.oninput = fitBox;
+const pasting = WowcAsking.wirePaste(text, () => invoke('read_clipboard'), fitBox);
+$('paste').onclick = () => pasting.paste();
 fitBox();
 setInterval(() => showBadge(), 30000);
 

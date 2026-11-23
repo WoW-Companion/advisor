@@ -74,3 +74,43 @@ assert.strictEqual(A.shortQuestion('Where should my talent point go?'), 'Where s
 const shown = [ul.textContent, card.textContent, A.NEEDS_LINE, A.shortQuestion("I'm a level 12 priest. Hi?")].join('\n');
 for (const bad of ['/reload', 'Answers.lua', "I'm a level"]) assert(!shown.includes(bad), bad);
 console.log('ok');
+
+// Pasting: an empty web paste reads the clipboard natively and inserts once; a normal web paste is left alone.
+(async () => {
+  const mk = () => {
+    const b = new El('textarea'); b.value = 'hello world'; b.selectionStart = 6; b.selectionEnd = 11; b.maxLength = 1000;
+    b.h = {}; b.addEventListener = (n, f) => { b.h[n] = f; };
+    return b;
+  };
+  const tick = () => new Promise(r => setImmediate(r));
+  let reads = 0, fits = 0, frames = [];
+  const wire = b => A.wirePaste(b, async () => { reads++; return 'a\r\nb'; }, () => fits++, f => frames.push(f));
+  // empty web paste: native read, once
+  let b = mk(); wire(b);
+  let prevented = false;
+  b.h.paste({ clipboardData: { getData: () => '' }, preventDefault: () => { prevented = true; } });
+  await tick();
+  assert(prevented); assert.strictEqual(reads, 1); assert.strictEqual(fits, 1);
+  assert.strictEqual(b.value, 'hello a\nb', 'replaces the selection');
+  // a normal web paste does not double, and Ctrl+V's frame check finds the paste event
+  b = mk(); wire(b); reads = 0; frames = [];
+  b.h.keydown({ key: 'v', ctrlKey: true });
+  b.h.paste({ clipboardData: { getData: () => 'text' }, preventDefault: () => assert.fail('must not prevent') });
+  frames.forEach(f => f()); await tick();
+  assert.strictEqual(reads, 0);
+  // Ctrl+V with no paste event and no change: read natively once
+  b = mk(); wire(b); frames = [];
+  b.h.keydown({ key: 'v', ctrlKey: true }); b.h.keydown({ key: 'Insert', shiftKey: true });
+  frames.forEach(f => f()); await tick();
+  assert.strictEqual(reads, 1, 'two frames, one insert');
+  // Ctrl+V that changed the box: no native read
+  b = mk(); wire(b); frames = []; reads = 0;
+  b.h.keydown({ key: 'v', ctrlKey: true }); b.value = 'changed';
+  frames.forEach(f => f()); await tick();
+  assert.strictEqual(reads, 0);
+  // the button inserts at the cursor
+  b = mk(); b.selectionStart = b.selectionEnd = 5; fits = 0;
+  await wire(b).paste();
+  assert.strictEqual(b.value, 'helloa\nb world'); assert.strictEqual(fits, 1);
+  console.log('paste ok');
+})().catch(e => { console.error(e); process.exit(1); });
