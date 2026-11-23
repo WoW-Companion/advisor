@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.7.20
+
+- The overlay's ask box now takes the arrow keys, Backspace, Delete, Ctrl+V and the menu's Paste. The overlay now takes keyboard focus as soon as you click the box, turning click-through off puts the window back exactly as it was, and a shortcut you set for show/hide or click-through can no longer be an editing key or a bare Ctrl+V or Ctrl+C.
+- Settings → Updates has a new Keyboard test field. Click it and press a key: it lists the last 8 key events the overlay gets and a line from the app on focus and window state, so if a key still does nothing you can see where it stops.
+
 ## 0.7.19
 
 - A question copied in game now pastes into the overlay's ask box. The game puts plain text on the clipboard that Notepad understands but the overlay's own paste can miss, so the overlay now reads the clipboard directly whenever Ctrl+V or Shift+Insert pastes nothing. It pastes once, at the cursor, replacing any selected text.

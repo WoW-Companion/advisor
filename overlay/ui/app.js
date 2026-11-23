@@ -600,6 +600,18 @@ text.oninput = fitBox;
 const pasting = WowcAsking.wirePaste(text, () => invoke('read_clipboard'), fitBox);
 $('paste').onclick = () => pasting.paste();
 fitBox();
+// A click gives the window keyboard focus (it is always on top and may not be the active window).
+text.addEventListener('pointerdown', () => { invoke('focus_window').catch(() => {}); });
+// Keyboard test (Settings → Updates): the page's last key events plus Rust's view of the window.
+{
+  const out = $('key-test-log'), field = $('key-test');
+  let native = '';
+  const show = lines => { out.textContent = lines.join('\n') + (native ? '\n' + native : ''); };
+  const kl = WowcKeyDiag.log(show);
+  WowcKeyDiag.attach(field, kl);
+  field.addEventListener('keydown', () => { invoke('key_native_state').then(s => { native = s; show(kl.lines); }).catch(() => {}); }, true);
+  WowcKeyDiag.attach(text, kl);
+}
 setInterval(() => showBadge(), 30000);
 
 // --- version line and update notice ---------------------------------------------------------
