@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/WoW-Companion/advisor/internal/digest"
+	"github.com/WoW-Companion/advisor/internal/wording"
 )
 
 // Schema is the Plan.lua format version (docs/plan-format.md).
@@ -81,7 +82,7 @@ func Render(p Plan, limit int) string {
 		return "Route plan: no stops (nothing to do on this map)."
 	}
 	var b strings.Builder
-	fmt.Fprintf(&b, "Route plan (%d stops in %s, about %.0f map units; ordered by a distance optimiser, not guessed):\n", p.Total, cmpZone(p.Zone), p.Distance)
+	fmt.Fprintf(&b, "Route plan (%s in %s; ordered by a distance optimiser, not guessed):\n", wording.Count(p.Total, "stop", "stops"), cmpZone(p.Zone))
 	for i, s := range p.Steps {
 		if i >= limit {
 			fmt.Fprintf(&b, "...and %d more stops\n", len(p.Steps)-limit)
@@ -120,9 +121,10 @@ func cmpZone(z string) string {
 	return z
 }
 
-// StepText is one overlay line: the label and place, and for a locked step where it waits.
+// StepText is one overlay line: the action, and for a locked step where it waits. The place is not
+// in it: X and Y are separate fields for the UI to show dimly.
 func StepText(s Stop) string {
-	t := fmt.Sprintf("%s (%.0f, %.0f)", s.Label, s.X, s.Y)
+	t := s.Label
 	if s.Locked && s.After > 0 {
 		t += fmt.Sprintf(" - after step %d", s.After)
 	}
@@ -141,7 +143,9 @@ func Lines(p Plan, limit int) (lines []string, summary string) {
 		lines = append(lines, "Find: "+f.Label)
 	}
 	if len(p.Steps) > 0 {
-		summary = fmt.Sprintf("%d stops, about %.0f map units", p.Total, p.Distance)
+		// The dataset and the capture hold no zone size, so there is no honest distance in yards: the
+		// count alone is shown.
+		summary = wording.Count(p.Total, "stop", "stops")
 	}
 	return lines, summary
 }

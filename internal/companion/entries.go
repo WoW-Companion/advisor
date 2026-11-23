@@ -13,6 +13,8 @@ type PlanEntry struct {
 	Kind   string   `json:"kind,omitempty"`
 	Title  string   `json:"title"`
 	Status string   `json:"status,omitempty"`
+	Why    string   `json:"why,omitempty"` // one short reason, at most 70 characters
+	Class  bool     `json:"class,omitempty"`
 	Asks   []string `json:"asks,omitempty"`
 	Ref    string   `json:"ref,omitempty"`
 }
@@ -37,7 +39,7 @@ func entriesOf(d digest.Digest) []PlanEntry {
 			continue
 		}
 		for _, l := range sec.Lines {
-			e := PlanEntry{Group: g, Kind: l.Kind, Title: l.Title, Status: statusOf(l), Asks: l.Asks, Ref: l.Ref}
+			e := PlanEntry{Group: g, Kind: l.Kind, Title: l.Title, Status: statusOf(l), Why: l.Why, Class: l.Class, Asks: l.Asks, Ref: l.Ref}
 			if e.Title == "" {
 				e.Title, e.Status = l.Text, ""
 			}
@@ -45,10 +47,10 @@ func entriesOf(d digest.Digest) []PlanEntry {
 		}
 	}
 	for _, l := range d.Dungeons {
-		add(PlanEntry{Group: "dungeons", Kind: "dungeon", Title: l.Name, Status: l.Line, Asks: l.Asks, Ref: l.Ref})
+		add(PlanEntry{Group: "dungeons", Kind: "dungeon", Title: l.Name, Status: l.Line, Why: l.Why, Asks: l.Asks, Ref: l.Ref})
 	}
 	for _, l := range d.Talents {
-		add(PlanEntry{Group: "talents", Kind: "talent", Title: l.Line, Asks: l.Asks, Ref: l.Ref})
+		add(PlanEntry{Group: "talents", Kind: "talent", Title: l.Line, Why: l.Why, Asks: l.Asks, Ref: l.Ref})
 	}
 	return out[:min(len(out), MaxEntries)]
 }

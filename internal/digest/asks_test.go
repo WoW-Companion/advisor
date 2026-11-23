@@ -223,7 +223,7 @@ func TestNoDigestTextIsCut(t *testing.T) {
 
 func TestLuaCarriesAsksAndRef(t *testing.T) {
 	out := one(scoutDigest(t, true)).Lua()
-	for _, want := range []string{`schema = "1.5"`, `asks = { "What does turning in Unwelcome Spirits unlock?"`, `ref = "quest:700"`,
+	for _, want := range []string{`schema = "1.6"`, `asks = { "What does turning in Unwelcome Spirits unlock?"`, `ref = "quest:700"`,
 		`kind = "giver"`, `ref = "npc:1"`, `asks = { "Where should my talent point go?"`, `ref = "talents"`, `ref = "training:10"`, `asks = { "What should I train first?"`} {
 		if !strings.Contains(out, want) {
 			t.Errorf("lacks %s", want)

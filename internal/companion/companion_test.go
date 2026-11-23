@@ -88,6 +88,7 @@ func start(t *testing.T, mode string, stream bool) *env {
 	}
 	e.srv = New(Config{
 		ForeverScribe: filepath.Join(dir, "ForeverScribe.lua"), Stream: stream, Poll: 20 * time.Millisecond,
+		Now: func() time.Time { return time.Unix(1000, 0) }, // the fixture's asks are at second 5
 		Ask: ask.Config{Command: []string{os.Args[0]}, Timeout: 5 * time.Second, SavedVariables: asv, AnswersPath: answersPath(dir)},
 	})
 	ln, err := net.Listen("tcp", "127.0.0.1:0")

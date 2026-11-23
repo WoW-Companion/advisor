@@ -1,7 +1,7 @@
 # In-game digest
 
 `wowc-advisor digest [NAME]` (and the MCP tool `update_digest`) writes the data-only
-`WoWCompanion_Digest/Digest.lua` the WoW Companion panel shows (format: schema 2.0, one schema 1.5 entry
+`WoWCompanion_Digest/Digest.lua` the WoW Companion panel shows (format: schema 2.0, one schema 1.6 entry
 per character; the addon repo's `docs/digest-format.md`). Type `/reload` in game afterwards.
 
 **Every captured character.** The file holds one entry for each character in your SavedVariables, so an
@@ -12,8 +12,8 @@ WoWCompanionDigest = {
   schema = "2.0",
   generated = 1795271211,        -- unix seconds, when the file was written
   characters = {
-    ["Testchar"] = { schema = "1.5", ... },   -- exactly the 1.5 digest below, for that character
-    ["Otherchar"] = { schema = "1.5", ... },
+    ["Testchar"] = { schema = "1.6", ... },   -- exactly the 1.6 digest below, for that character
+    ["Otherchar"] = { schema = "1.6", ... },
   },
 }
 ```
@@ -95,6 +95,23 @@ of every section (`next_quests`, `upgrades`, `keep_materials`, `notes`) and ever
 | `ref` | a stable subject reference, never shown to players: `quest:<id>`, `npc:<id>`, `talents`, `training:<level>`, `item:<id>`, `dungeon:<id>` or `note:<slug>`. Sent back with the question (the asks record's optional `ref`), the advisor expands it into the entry's facts and its place in the plan |
 
 `prompt` stays for older addons. It is rebuilt from the same facts and never holds another field's text verbatim.
+
+**A "why" line (schema 1.6).** Additive and optional. `next_quests`, `upgrades`, `dungeons` and `talents` entries
+may carry `why`: one short reason, at most 70 characters, plain words, no ids, never cut and never ending in "...".
+It is built only from facts the advisor holds, and left out when none fits: a class quest says "Class quest — these
+are worth doing first" (the dataset names no quest rewards, so none is claimed); a turn-in says what it unlocks or
+"Done — hand it in on your way"; an unspent talent point says "Your plan's next pick: <talent>" or "Choose a play style
+to get a pick"; training says "New: <ability>"; an upgrade says the item levels gained or the empty slot it fills; a
+giver note gives the quest's level fit. The overlay, the addon panel and the card details show the same text.
+
+**Companion API (for the overlay).** `GET /api/state` characters carry `suggestions`: at most 3, ranked (no play
+style, a ready turn-in or class quest, an unspent talent point, a plan older than the newest save or dataset), each
+`{id, label, why, action, question?, ref?}` with `action` one of `ask`, `play_style`, `refresh_plan`, `open_entry`;
+`GET /api/suggestions?character=` returns the same list. `POST /api/refresh-plan` rewrites Digest.lua and Plan.lua from
+the newest capture and answers `{message, new_steps, files}`. Each entry in `entries` has `why` and `class`;
+`plan_steps` carry the action in `text` and the place in `x` and `y`. In-game asks are answered once: an answered-asks
+ledger (character, ask time, hash of the text) keeps a launch from answering one twice; an unanswered ask older than
+12 hours is shown with status `pending` and answered only by `POST /api/answer-pending {"id": "<ask id>"}`.
 
 **Giver notes.** A `notes` line with `kind = "giver"` (fields `npc`, `zone`, `x`, `y`, `quest`, `title`) appears
 only when the NPC has a quest the character can pick up now (from the player's own Questie data) that is not

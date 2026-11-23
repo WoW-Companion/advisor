@@ -176,7 +176,7 @@ func TestTrainingLuaFields(t *testing.T) {
 	opt.PrevLevel = 8
 	d := Build(warrior(10), warriorStore(t), opt)
 	out := one(d).Lua()
-	for _, want := range []string{`schema = "1.5"`, `asks = { "What should I train first?"`, `ref = "training:10"`, `kind = "training"`, `level = 10`, `spells = { { id = 6546, name = "Rend", rank = 2, new = false }, { id = 355, name = "Taunt", new = true } }`, `details = {`, `prompt = "`} {
+	for _, want := range []string{`schema = "1.6"`, `asks = { "What should I train first?"`, `ref = "training:10"`, `kind = "training"`, `level = 10`, `spells = { { id = 6546, name = "Rend", rank = 2, new = false }, { id = 355, name = "Taunt", new = true } }`, `details = {`, `prompt = "`} {
 		if !strings.Contains(out, want) {
 			t.Errorf("lacks %s:\n%s", want, out)
 		}

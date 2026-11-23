@@ -375,6 +375,10 @@ function showNext() {
   $('plan-list').replaceChildren(...plan.map(t => {
     const li = document.createElement('li');
     li.textContent = typeof t === 'string' ? t : t.text;
+    if (t && t.x) { // the place, shown dimly after the action
+      const xy = document.createElement('span'); xy.className = 'plan-xy'; xy.textContent = ` (${Math.round(t.x)}, ${Math.round(t.y)})`;
+      li.appendChild(xy);
+    }
     if (t && t.locked) li.className = 'locked';
     return li;
   }));

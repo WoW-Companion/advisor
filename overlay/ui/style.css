@@ -178,3 +178,4 @@ a:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; border-ra
 .style-card .opt.on { border-color: var(--gold); color: var(--gold); background: rgba(217, 176, 90, .16); }
 .style-save { justify-self: start; cursor: pointer; }
 #text { line-height: 18px; overflow-y: hidden; box-sizing: border-box; }
+.plan-xy { opacity: 0.55; }
