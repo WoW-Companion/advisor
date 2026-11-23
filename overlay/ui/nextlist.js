@@ -39,6 +39,7 @@
     if (line.kind === 'turnin') {
       rows.push({ cls: 'nx-sub nx-ready', parts: [{ text: 'Ready to turn in' }] });
       if (line.npc) rows.push({ cls: 'nx-sub', parts: [{ text: 'Turn in to ' + line.npc }] });
+      if (line.unlocks && line.unlocks.length) rows.push({ cls: 'nx-sub nx-unlocks', parts: [{ text: 'Unlocks: ' + line.unlocks.join('; ') }] });
     } else if (line.kind === 'pickup' && line.npc) {
       rows.push({ cls: 'nx-sub', parts: [{ text: 'Pick up from ' + line.npc }] });
     }

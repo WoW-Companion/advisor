@@ -38,6 +38,7 @@ import (
 	"github.com/WoW-Companion/advisor/internal/store"
 	"github.com/WoW-Companion/advisor/internal/svfind"
 	"github.com/WoW-Companion/advisor/internal/talents"
+	"github.com/WoW-Companion/advisor/internal/unlock"
 )
 
 // Version is the advisor's version. Release builds set it from main at link time.
@@ -486,10 +487,12 @@ func WriteDigest(cfg Config, name string) (DigestOutput, error) {
 	out := DigestOutput{Path: path, Lines: map[string]map[string]int{}}
 	var parts []string
 	plans := route.Envelope{Generated: now.Unix()}
+	ropt := route.OptionsFor(unlock.AddonSV(cfg.SavedVariables), ds)
 	for _, c := range kept {
 		c = profile.Attach(cfg.profilesPath(), c)
-		plans.Plans = append(plans.Plans, route.Build(c, qx))
-		d := digest.Build(c, ds, digest.Options{Now: now, Client: f.ClientOf(c), DatasetBuild: datasetBuild, Questie: qx})
+		plan := route.BuildWith(c, qx, ropt)
+		plans.Plans = append(plans.Plans, plan)
+		d := digest.Build(c, ds, digest.Options{Now: now, Client: f.ClientOf(c), DatasetBuild: datasetBuild, Questie: qx, Unlocks: route.UnlockNotes(plan)})
 		env.Characters = append(env.Characters, d)
 		out.Characters = append(out.Characters, d.Character)
 		out.Lines[d.Character] = map[string]int{}
@@ -648,6 +651,7 @@ func New(cfg Config) *mcp.Server {
 		Name: "quest_plan",
 		Description: "Efficient ordered quest route for one captured character (by name; omit if only one): pick-ups, objectives and turn-ins " +
 			"with map coordinates, on the character's current map, then the next zone to travel to; quests too high a level are listed as later. " +
+			"Follow-up quests that turning in the plan's quests unlocks are routed too, marked locked, after the turn-in that unlocks them. " +
 			"The order comes from a distance optimiser over the player's own Questie data, not from a guess. Needs Questie installed.",
 	}, func(_ context.Context, _ *mcp.CallToolRequest, in BriefInput) (*mcp.CallToolResult, RouteOutput, error) {
 		f, errResult := load(cfg.SavedVariables)
@@ -658,7 +662,11 @@ func New(cfg Config) *mcp.Server {
 		if err != nil {
 			return toolError(err.Error()), RouteOutput{}, nil
 		}
-		p := route.Build(c, questie.ForSavedVariables(cfg.SavedVariables))
+		var ds store.DataStore
+		if cfg.Dataset != "" {
+			ds = store.NewDir(cfg.Dataset)
+		}
+		p := route.BuildWith(c, questie.ForSavedVariables(cfg.SavedVariables), route.OptionsFor(unlock.AddonSV(cfg.SavedVariables), ds))
 		return nil, RouteOutput{p, route.Render(p, MaxPlanText)}, nil
 	})
 

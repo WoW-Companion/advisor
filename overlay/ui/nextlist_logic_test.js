@@ -28,6 +28,10 @@ assert(!rows[1].cls.includes('nx-done') && rows[2].cls.includes('nx-done'));
 rows = describe({ text: 't', kind: 'turnin', title: 'Done Deal', level: 9, npc: 'Brann' }, 9);
 assert.deepStrictEqual(flat(rows), ['[9] Done Deal', 'Ready to turn in', 'Turn in to Brann']);
 
+// A turn-in that unlocks a follow-up says so in one quiet row.
+rows = describe({ text: 't', kind: 'turnin', title: 'Done Deal', level: 9, npc: 'Brann', unlocks: ['Next Deal (from Brann, here)'] }, 9);
+assert.deepStrictEqual(flat(rows).slice(3), ['Unlocks: Next Deal (from Brann, here)']);
+
 // Talent entry.
 assert.deepStrictEqual(flat(describe({ text: 'x', kind: 'talent', points: 3 }, 10)), ['3 unspent talent points']);
 assert.deepStrictEqual(flat(describe({ text: 'x', kind: 'talent', points: 1 }, 10)), ['1 unspent talent point']);

@@ -78,7 +78,7 @@ also has:
 
 | Field | Meaning |
 | ----- | ------- |
-| `details` | a list of 1 to 4 short strings (at most 120 characters each): a quest's reason, giver, location, level and open objectives; an upgrade's slot, item level gain, source and level needed; a dungeon's level fit and top drop; the talent plan's next pick and why |
+| `details` | a list of 1 to 4 short strings (at most 120 characters each): a quest's reason, giver, location, level and open objectives (a turn-in that unlocks a follow-up adds `Unlocks: <Quest> (from <NPC>, here)`, see `plan-format.md`); an upgrade's slot, item level gain, source and level needed; a dungeon's level fit and top drop; the talent plan's next pick and why |
 | `prompt` | a ready question for the companion's AI, at most 500 characters. It names the character's level, race, class, spec, focus and role from the stored profile, the subject and its facts, and ends with the question |
 
 Only facts the advisor holds go in; no guide text.

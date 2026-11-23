@@ -52,7 +52,7 @@ func Facts(cfg Config, q Question) string {
 	all := advice.WhatsNextWith(c, ds, qx)
 	next := advice.Render(c, advice.Limit(all, FactsSteps), len(all))
 	if qx != nil {
-		next += "\n\n" + route.Render(route.Build(c, qx), FactsPlanSteps)
+		next += "\n\n" + route.Render(route.BuildWith(c, qx, route.OptionsFor(cfg.SavedVariables, ds)), FactsPlanSteps)
 	}
 	return capRunes(brief.Character(c, f.ClientOf(c), time.Now())+"\n\n"+styleLine(c)+"\n\n"+next, FactsBudget)
 }
