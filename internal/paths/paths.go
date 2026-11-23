@@ -17,6 +17,19 @@ import (
 	"github.com/WoW-Companion/advisor/internal/wording"
 )
 
+// Order of the ways (lower first): a quest already in the log, a craft with every material on hand,
+// the Auction House, a quest not yet picked up, a dungeon boss, a craft that is missing materials,
+// then a named creature.
+const (
+	rankLogQuest = iota
+	rankReadyCraft
+	rankAuction
+	rankOtherQuest
+	rankDungeon
+	rankCraft
+	rankCreature
+)
+
 // Path kinds, most dependable first. The UI picks an icon from the kind.
 const (
 	Quest    = "quest"
@@ -41,17 +54,8 @@ const (
 	DungeonWindow = 3
 )
 
-// Price is a real auction price: copper and the day it was seen (YYYY-MM-DD). A vendor sell price
-// is never one.
-type Price struct {
-	Copper int64  `json:"copper"`
-	Seen   string `json:"seen"`
-}
-
 // Options carries what the capture and the plan add to the dataset.
 type Options struct {
-	// Prices holds real auction prices by item id; the capture holds none today.
-	Prices map[int64]Price
 	// PlanQuests are the quest ids the plan has as steps.
 	PlanQuests map[int]bool
 }
@@ -76,6 +80,7 @@ type Path struct {
 	Quest    string    `json:"quest,omitempty"`
 	QuestID  int       `json:"-"`
 	Choice   bool      `json:"choice_reward,omitempty"`
+	rank     int       // order among the ways: see the rank constants
 }
 
 // Result is the ways to get one item, best first.
@@ -84,7 +89,10 @@ type Result struct {
 	Slot   string `json:"slot,omitempty"`
 	Paths  []Path `json:"paths"`
 	Reason string `json:"reason,omitempty"` // when there is no path: why, in words
-	ItemID int64  `json:"-"`
+	// Shopping is the Auction House search for a slot, when the result stands for a slot's shopping
+	// list rather than one item.
+	Shopping *Shopping `json:"shopping,omitempty"`
+	ItemID   int64     `json:"-"`
 }
 
 // Best is the first path.
@@ -101,6 +109,16 @@ func (r Result) Dependable() bool { return len(r.Paths) > 0 }
 // Text renders the result as plain sentences.
 func (r Result) Text() string {
 	var b strings.Builder
+	if r.Shopping != nil {
+		fmt.Fprintf(&b, "%s\n", r.Shopping.Line)
+		if len(r.Shopping.Examples) > 0 {
+			fmt.Fprintf(&b, "Examples of base items: %s.\n", strings.Join(r.Shopping.Examples, ", "))
+		}
+		for i, st := range r.Shopping.Steps {
+			fmt.Fprintf(&b, "%d. %s\n", i+1, st)
+		}
+		return strings.TrimRight(b.String(), "\n")
+	}
 	if !r.Dependable() {
 		fmt.Fprintf(&b, "%s: %s", r.Item, r.Reason)
 		return b.String()
@@ -148,20 +166,6 @@ func Tradeable(bonding, quality int) bool {
 	return bonding != 1 && bonding != 4 && bonding != 5 && quality >= 1
 }
 
-// Money renders copper as "1g 20s": gold and silver, with copper only when under a silver.
-func Money(copper int64) string {
-	g, s, c := copper/10000, copper/100%100, copper%100
-	switch {
-	case g > 0 && s > 0:
-		return fmt.Sprintf("%dg %ds", g, s)
-	case g > 0:
-		return fmt.Sprintf("%dg", g)
-	case s > 0:
-		return fmt.Sprintf("%ds", s)
-	}
-	return fmt.Sprintf("%dc", c)
-}
-
 // creature is one creature that carries the item.
 type creature struct {
 	id         int64
@@ -205,22 +209,23 @@ func For(c character.Character, ds store.DataStore, itemID int64, opt Options) R
 	}
 	f.loot, _ = ds.Filter("loot_sources", store.Range{Column: "item_id", Min: itemID, Max: itemID})
 
+	crs := f.creatures()
 	if p, ok := f.quest(); ok {
 		res.Paths = append(res.Paths, p)
 	}
 	if p, ok := f.craft(); ok {
 		res.Paths = append(res.Paths, p)
 	}
-	if p, ok := f.auction(); ok {
+	if p, ok := f.auction(crs); ok {
 		res.Paths = append(res.Paths, p)
 	}
-	crs := f.creatures()
 	if p, ok := f.dungeon(crs); ok {
 		res.Paths = append(res.Paths, p)
 	}
 	if p, ok := f.named(crs); ok {
 		res.Paths = append(res.Paths, p)
 	}
+	sort.SliceStable(res.Paths, func(i, j int) bool { return res.Paths[i].rank < res.Paths[j].rank })
 	if len(res.Paths) == 0 {
 		res.Reason = f.why(crs)
 	}
@@ -332,7 +337,11 @@ func (f *finder) quest() (Path, bool) {
 	if len(from) > 0 {
 		line += " (" + strings.Join(from, ", ") + ")"
 	}
-	return Path{Kind: Quest, Line: line, Quest: best.name, QuestID: int(best.id), Choice: best.choice}, true
+	rank := rankOtherQuest
+	if best.rank == 0 {
+		rank = rankLogQuest
+	}
+	return Path{Kind: Quest, Line: line, Quest: best.name, QuestID: int(best.id), Choice: best.choice, rank: rank}, true
 }
 
 func firstText(row store.Row, keys ...string) string {
@@ -389,7 +398,11 @@ func (f *finder) craft() (Path, bool) {
 		} else {
 			line += "; you still need " + strings.Join(miss, ", ")
 		}
-		return Path{Kind: Craft, Line: line, Reagents: reagents}, true
+		rank := rankCraft
+		if len(miss) == 0 {
+			rank = rankReadyCraft
+		}
+		return Path{Kind: Craft, Line: line, Reagents: reagents, rank: rank}, true
 	}
 	return Path{}, false
 }
@@ -524,26 +537,41 @@ func cut(l []string, n int) []string {
 	return l
 }
 
-// auction is the Auction House path: only for an item that can be traded, with a price only when
-// a real auction price is held.
-func (f *finder) auction() (Path, bool) {
+// AuctionTradeable reports whether an item can be bought on the Auction House as gear: tradeable
+// (not bound on pickup) and uncommon quality or better.
+func AuctionTradeable(bonding, quality int) bool { return Tradeable(bonding, quality) && quality >= 2 }
+
+// worldDrop reports whether an item is a random world drop: carried by many creatures, or only by
+// creatures that drop it rarely.
+func worldDrop(crs []creature) bool {
+	if len(crs) == 0 {
+		return false
+	}
+	if len(crs) > WorldDropMany {
+		return true
+	}
+	for _, cr := range crs {
+		if cr.hasChance && cr.chance >= Sometimes {
+			return false
+		}
+	}
+	return true
+}
+
+// auction is the Auction House path: a tradeable item of uncommon quality or better that is a world
+// drop, or Bind on Equip from any source. It never says or depends on a price.
+func (f *finder) auction(crs []creature) (Path, bool) {
 	bonding, quality := int(i64(f.item["bonding"])), int(i64(f.item["quality"]))
-	if _, known := f.item["bonding"].(int64); !known || !Tradeable(bonding, quality) {
+	if _, known := f.item["bonding"].(int64); !known || !AuctionTradeable(bonding, quality) {
 		return Path{}, false // an unknown binding is not claimed tradeable
 	}
-	p, priced := f.opt.Prices[f.itemID]
-	priced = priced && p.Copper > 0 && p.Seen != ""
-	if len(f.loot) == 0 && !priced {
-		return Path{}, false // nothing says it exists to buy
+	if worldDrop(crs) {
+		return Path{Kind: Auction, Line: "Common world drop. Usually cheap on the Auction House.", rank: rankAuction}, true
 	}
-	bind := ""
-	if bonding == 2 {
-		bind = " (it's Bind on Equip)"
+	if bonding == 2 && len(f.loot) > 0 {
+		return Path{Kind: Auction, Line: "Bind on Equip, so it can be bought. Usually on the Auction House.", rank: rankAuction}, true
 	}
-	if priced {
-		return Path{Kind: Auction, Line: fmt.Sprintf("On the Auction House: about %s (seen %s)", Money(p.Copper), p.Seen)}, true
-	}
-	return Path{Kind: Auction, Line: "Usually on the Auction House" + bind}, true
+	return Path{}, false
 }
 
 // creatures lists the creatures that carry the item, one per creature, best chance first.
@@ -639,7 +667,7 @@ func (f *finder) dungeon(crs []creature) (Path, bool) {
 			if boss == "" || str(in["name"]) == "" {
 				continue
 			}
-			return Path{Kind: Dungeon, Line: fmt.Sprintf("Drops %s from %s in %s (levels %d to %d)", word, boss, str(in["name"]), *lo, *hi)}, true
+			return Path{Kind: Dungeon, Line: fmt.Sprintf("Drops %s from %s in %s (levels %d to %d)", word, boss, str(in["name"]), *lo, *hi), rank: rankDungeon}, true
 		}
 	}
 	return Path{}, false
@@ -665,5 +693,5 @@ func (f *finder) named(crs []creature) (Path, bool) {
 		}
 		from = append(from, s)
 	}
-	return Path{Kind: Creature, Line: wording.Upper("drops often from " + strings.Join(from, " or "))}, true
+	return Path{Kind: Creature, Line: wording.Upper("drops often from " + strings.Join(from, " or ")), rank: rankCreature}, true
 }

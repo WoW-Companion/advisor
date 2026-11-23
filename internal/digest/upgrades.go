@@ -86,6 +86,11 @@ func upgradeLines(c character.Character, ds store.DataStore, planQuests map[int]
 	opt := paths.Options{PlanQuests: planQuests}
 	taken := map[int64]bool{}
 	for _, slot := range slots {
+		var (
+			found    bool
+			foundCd  gear.Candidate
+			foundWay paths.Path
+		)
 		for i, cd := range res.Slots[slot] {
 			if i == paths.TryPerSlot {
 				break
@@ -93,28 +98,42 @@ func upgradeLines(c character.Character, ds store.DataStore, planQuests map[int]
 			if taken[cd.Item.ID] {
 				continue
 			}
-			pr := paths.For(c, ds, cd.Item.ID, opt)
-			best, ok := pr.Best()
+			best, ok := paths.For(c, ds, cd.Item.ID, opt).Best()
 			if !ok || cd.Item.Name == "" {
 				continue
 			}
-			taken[cd.Item.ID] = true
-			l := upgradeLine(c, slot, cd, best)
-			lines = append(lines, l)
-			if best.Kind == paths.Quest && best.QuestID != 0 {
-				link.questWhy[best.QuestID] = firstWhy(
-					fmt.Sprintf("Rewards %s, a %s %s upgrade", cd.Item.Name, lowerGain(l.Gain), strings.ToLower(l.Slot)),
-					fmt.Sprintf("Rewards %s, an upgrade", cd.Item.Name),
-					"Rewards an upgrade for you")
-			}
-			if best.Kind == paths.Craft {
-				for _, g := range best.Reagents {
-					if _, dup := link.craftFor[g.ItemID]; !dup {
-						link.craftFor[g.ItemID] = cd.Item.Name
-					}
+			found, foundCd, foundWay = true, cd, best
+			break
+		}
+		// A slot whose best way is the Auction House (or that has no quest or craft) gets a shopping
+		// list: what to search for, not one item.
+		bestKind := ""
+		if found {
+			bestKind = foundWay.Kind
+		}
+		if sh, ok := paths.Shop(c, ds, slot, res.Slots[slot], bestKind); ok {
+			lines = append(lines, shoppingLine(c, slot, sh))
+			continue
+		}
+		if !found {
+			continue
+		}
+		cd, best := foundCd, foundWay
+		taken[cd.Item.ID] = true
+		l := upgradeLine(c, slot, cd, best)
+		lines = append(lines, l)
+		if best.Kind == paths.Quest && best.QuestID != 0 {
+			link.questWhy[best.QuestID] = firstWhy(
+				fmt.Sprintf("Rewards %s, a %s %s upgrade", cd.Item.Name, lowerGain(l.Gain), strings.ToLower(l.Slot)),
+				fmt.Sprintf("Rewards %s, an upgrade", cd.Item.Name),
+				"Rewards an upgrade for you")
+		}
+		if best.Kind == paths.Craft {
+			for _, g := range best.Reagents {
+				if _, dup := link.craftFor[g.ItemID]; !dup {
+					link.craftFor[g.ItemID] = cd.Item.Name
 				}
 			}
-			break
 		}
 	}
 	return lines, nil, link
@@ -151,3 +170,34 @@ func upgradeLine(c character.Character, slot string, cd gear.Candidate, best pat
 	l.Why = upgradeWhy(c, slot, cd)
 	return l
 }
+
+// shoppingLine is a slot's Auction House shopping list as one entry: a kind of item, a level range and
+// the stat suffixes that fit, never a price.
+func shoppingLine(c character.Character, slot string, sh paths.Shopping) Line {
+	name := wording.SlotName(slot, sh.Best.Item.Slot)
+	gain := GainWord(sh.Best)
+	replaces := "fills an empty slot"
+	if !sh.Best.Empty {
+		replaces = "instead of what you wear"
+		if eq, ok := c.Equipment[slot]; ok && eq.Name != "" {
+			replaces = "instead of your " + eq.Name
+		}
+	}
+	how := "Search the Auction House: " + strings.Join(sh.Steps, " ")
+	l := Line{Text: clip(sh.Line), Slot: name, Wear: "Wear now", Gain: gain, Replaces: replaces, How: how, PathKind: paths.Auction}
+	details := []string{sh.Line}
+	if len(sh.Suffixes) > 0 {
+		details = append(details, "Suffixes that fit: "+strings.Join(sh.Suffixes, "; "))
+	}
+	if len(sh.Examples) > 0 {
+		details = append(details, "Examples: "+strings.Join(sh.Examples, ", "))
+	}
+	l.Details = finishDetails(append(details, wear(gain, replaces)))
+	facts := fmt.Sprintf("a shopping list for my %s slot, %s (%s): %s. Search steps: %s", strings.ToLower(name), strings.ToLower(gain), replaces, sh.Line, strings.Join(sh.Steps, " "))
+	l.Prompt = makePrompt(c, "A possible upgrade is ", facts, " What should I search for on the Auction House?")
+	l.Asks, l.Ref = shoppingAsks(), noteRef("auction-"+slot)
+	l.Why = firstWhy(gain + " for your " + strings.ToLower(name))
+	return l
+}
+
+func wear(gain, replaces string) string { return "Wear now. " + gain + ", " + replaces }

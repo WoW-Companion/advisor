@@ -18,10 +18,15 @@ All character tools take an optional `character` name (omit it when only one was
   the player's own Questie; the order is computed, so relay it as is.
 - `upgrade_finder`: gear upgrades per slot (optional `slot`, `limit`) with where each drops.
 - `upgrade_paths`: how the character can dependably get an item (`item`) or the best gettable upgrades
-  for a slot (`slot`): quest reward, craft with materials held and missing, Auction House, dungeon boss,
-  named creature. Call it for every "how do I get ..." or "which upgrade first" question; never say a
+  for a slot (`slot`): quest in the log, craft with materials held, Auction House, other quests, dungeon
+  boss, named creature. Call it for every "how do I get ..." or "which upgrade first" question; never say a
   source is unknown without having called it. When it says an item is a random drop, say plainly it is
-  not worth chasing and name the gettable item it gives for that slot.
+  not worth chasing and name the gettable item it gives for that slot. For an Auction House path (common
+  world drops and Bind on Equip gear, usually cheap on this server) give the in-game search in plain
+  steps: what to type (a base item name, or a suffix such as "of the Bear"), the level range to set,
+  the armor type or slot filter to pick, and that these are usually cheap. A slot may return a shopping
+  list (base item, level range, stat suffixes, examples): relay it. Never quote or guess an Auction House
+  price; there is no price data.
 - `profession_plan`: the next recipes that still give skill-ups per profession (optional
   `profession`), with reagents held and missing.
 - `talent_plan`: where the next talent points go against the curated build (optional `spec`,

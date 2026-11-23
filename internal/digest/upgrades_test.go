@@ -134,8 +134,13 @@ func TestUpgradeEntriesArePlainAndDependable(t *testing.T) {
 	if c := slots["Chest"]; c.PathKind != "craft" || c.Replaces != "fills an empty slot" || !strings.HasPrefix(c.How, "Make it with your Blacksmithing") {
 		t.Errorf("chest: %+v", c)
 	}
-	if w := slots["Wrists"]; w.PathKind != "auction" || w.How != "Usually on the Auction House (it's Bind on Equip)" {
+	w := slots["Wrists"]
+	if w.PathKind != "auction" || w.Text != "Wrists: any green mail bracers, level 8–10 — cheap on the Auction House" ||
+		!strings.Contains(w.How, "Set the level range to 8 to 10") || !strings.Contains(strings.Join(w.Asks, "|"), "What should I search for on the Auction House?") {
 		t.Errorf("wrists: %+v", w)
+	}
+	if m := regexp.MustCompile(`(?i)\bgold\b|\bsilver\b|\bprice|\d+[gsc]\b`).FindString(w.Text + w.How + w.Prompt + strings.Join(w.Details, " ")); m != "" {
+		t.Errorf("wrists shows a price: %q", m)
 	}
 	if got := cloak.Asks; len(got) == 0 || got[0] != "How do I get Traveler's Shawl?" && got[1] != "How do I get Traveler's Shawl?" {
 		t.Errorf("asks: %v", got)

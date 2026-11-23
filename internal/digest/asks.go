@@ -106,6 +106,11 @@ func upgradeAsks(item string) []string {
 		fmt.Sprintf("How do I get %s?", item), fmt.Sprintf("Is %s worth getting now?", item))
 }
 
+// shoppingAsks are the questions of a slot's Auction House shopping list.
+func shoppingAsks() []string {
+	return asksOf("What should I search for on the Auction House?", "What should I search for on the Auction House?", "Is this worth buying on the Auction House?")
+}
+
 func materialAsks(item string) []string {
 	return asksOf("Should I keep this?", fmt.Sprintf("Should I keep %s?", item), fmt.Sprintf("What is %s used for?", item))
 }
