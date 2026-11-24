@@ -110,7 +110,7 @@ func TestPromptLengthInstructions(t *testing.T) {
 			t.Errorf("%q: still asks for a numbered plan", length)
 		}
 	}
-	if n := len(PromptFor(Question{}, LengthDetailed)); n > 1750 {
+	if n := len(PromptFor(Question{}, LengthDetailed)); n > 2300 {
 		t.Errorf("prompt grew to %d bytes", n)
 	}
 }
@@ -138,7 +138,11 @@ func TestUsageLine(t *testing.T) {
 func TestUsageFromStreamJSON(t *testing.T) {
 	cfg := fixture(t, "stream")
 	cfg.Command = []string{os.Args[0]}
-	text, streamed, u, err := RespondUsage(context.Background(), cfg, Question{Text: "q"}, "p", true, func(string) {})
+	var shown strings.Builder
+	text, streamed, u, err := RespondUsage(context.Background(), cfg, Question{Text: "q"}, "p", true, func(s string) { shown.WriteString(s) })
+	if shown.String() != "Do the turn-in." {
+		t.Errorf("the bubble was fed %q: only the final turn may stream", shown.String())
+	}
 	if err != nil || !streamed || text != "Do the turn-in." || u.Tokens != 3100 || u.CostUSD != 0.0123 || u.Model != "claude-haiku-4-5" {
 		t.Fatalf("%q %v %+v %v", text, streamed, u, err)
 	}

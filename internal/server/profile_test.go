@@ -59,12 +59,30 @@ func TestProfileFlow(t *testing.T) {
 	}
 
 	// The answer; a guide URL a client still sends is ignored.
-	text, isErr = call("set_character_profile", map[string]any{"character": "testpriest", "role": "Healer", "focus": "dungeons", "spec": "Test Discipline"})
+	text, isErr = call("set_character_profile", map[string]any{"character": "testpriest", "role": "Healer", "focus": "dungeons", "spec": "test priest"})
 	if isErr || json.Unmarshal([]byte(text), &out) != nil {
 		t.Fatalf("set = %s", text)
 	}
 	if out.NeedsProfile || out.Profile.Role != "healer" {
 		t.Errorf("set result: %+v", out)
+	}
+
+	// A spec is one of the class's trees: any case, a trailing class name and a unique prefix are
+	// accepted and saved as the tree's own name; anything else is refused with the valid names, and
+	// the answer ends with the tool's own "Saved:" line.
+	for _, in := range []string{"test priest", "Test Priest priest", "test p"} {
+		text, isErr = call("set_character_profile", map[string]any{"character": "testpriest", "spec": in})
+		if isErr || json.Unmarshal([]byte(text), &out) != nil || out.Profile.Spec != "Test Priest" ||
+			out.SavedNote != "Saved: Test Priest. Change it any time in Settings → Play Style." || !strings.HasSuffix(strings.TrimSpace(out.Text), out.SavedNote) {
+			t.Errorf("spec %q: %s", in, text)
+		}
+	}
+	text, isErr = call("set_character_profile", map[string]any{"character": "testpriest", "spec": "Shadow"})
+	if !isErr || !strings.HasPrefix(text, "Not saved:") || !strings.Contains(text, "Test Priest") {
+		t.Errorf("an unknown spec: %q, error %v", text, isErr)
+	}
+	if text, _ = call("get_character_profile", map[string]any{"character": "testpriest"}); !strings.Contains(text, `"spec":"Test Priest"`) {
+		t.Errorf("a refused spec changed the saved one: %s", text)
 	}
 
 	// It is remembered by a fresh session, and a partial update keeps the rest.

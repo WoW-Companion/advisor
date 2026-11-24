@@ -114,14 +114,29 @@ func (s *Server) historyFor(char, question string) string {
 // remember records the card after an answered ask. An answer whose tools touched nothing keeps the
 // earlier names, so a follow-up chain stays resolvable. The caller holds s.mu.
 func (s *Server) remember(char, question, answer string, touched []ask.Entity) *ContextView {
+	return s.rememberSubjects(char, question, answer, nil, touched)
+}
+
+// rememberSubjects is remember with the entities the answer text names, first mention first: they lead
+// the card, so the chip shows what the answer is about, then come the touched ones (newest first) and
+// the earlier card's names.
+func (s *Server) rememberSubjects(char, question, answer string, subjects, touched []ask.Entity) *ContextView {
 	var ents []ask.Entity
 	seen := map[string]bool{}
+	named := map[string]bool{} // the answer's subjects, by name: a touched entity of the same name adds nothing
 	add := func(e ask.Entity) {
+		if named[strings.ToLower(strings.TrimSpace(e.Name))] && !seen[fmt.Sprintf("%s|%d|%s", e.Kind, e.ID, strings.ToLower(e.Name))] {
+			return
+		}
 		k := fmt.Sprintf("%s|%d|%s", e.Kind, e.ID, strings.ToLower(e.Name))
 		if len(ents) < CardEntities && !seen[k] && strings.TrimSpace(e.Name) != "" {
 			seen[k] = true
 			ents = append(ents, e)
 		}
+	}
+	for _, e := range subjects {
+		add(e)
+		named[strings.ToLower(strings.TrimSpace(e.Name))] = true
 	}
 	for i := len(touched) - 1; i >= 0; i-- {
 		add(touched[i])

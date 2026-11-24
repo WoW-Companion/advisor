@@ -9,6 +9,7 @@ import (
 
 	"github.com/WoW-Companion/advisor/internal/character"
 	"github.com/WoW-Companion/advisor/internal/profile"
+	"github.com/WoW-Companion/advisor/internal/store"
 	"github.com/WoW-Companion/advisor/internal/talents"
 )
 
@@ -27,6 +28,7 @@ type ProfileOutput struct {
 	Profile      *character.Profile `json:"profile"`
 	NeedsProfile bool               `json:"needs_profile" jsonschema:"no play style is saved: ask the player first"`
 	Text         string             `json:"text" jsonschema:"plain-text rendering"`
+	SavedNote    string             `json:"saved_note,omitempty" jsonschema:"set only after a save: the line the player sees at the end of the answer"`
 }
 
 // TreeInput is the talent_tree argument.
@@ -65,8 +67,17 @@ func renderProfile(c character.Character) string {
 	return b.String()
 }
 
+// SavedNote is the line that ends an answer after set_character_profile succeeded.
+func SavedNote(spec string) string {
+	what := "your play style"
+	if spec != "" {
+		what = spec
+	}
+	return "Saved: " + what + ". Change it any time in Settings → Play Style."
+}
+
 func profileOutput(c character.Character) ProfileOutput {
-	return ProfileOutput{displayName(c), c.Profile, c.Profile == nil, renderProfile(c)}
+	return ProfileOutput{Character: displayName(c), Profile: c.Profile, NeedsProfile: c.Profile == nil, Text: renderProfile(c)}
 }
 
 func addProfileTools(s *mcp.Server, cfg Config) {
@@ -88,7 +99,7 @@ func addProfileTools(s *mcp.Server, cfg Config) {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "set_character_profile",
-		Description: "Save the character's play style after asking the player (role and focus are required the first time; omitted fields keep their saved value), " +
+		Description: "Save the character's play style after asking the player (role and focus are required the first time; omitted fields keep their saved value; spec must name one of the class's trees, such as Fury, and anything else is refused with the valid names), " +
 			"and optionally a talent plan built from the player's chosen guide: node names (exactly as talent_tree lists them) and target ranks only, never guide text. " +
 			"Nodes not in the captured tree are dropped and listed. Saved locally on the player's PC.",
 	}, func(_ context.Context, _ *mcp.CallToolRequest, in ProfileInput) (*mcp.CallToolResult, ProfileOutput, error) {
@@ -100,6 +111,16 @@ func addProfileTools(s *mcp.Server, cfg Config) {
 		if err != nil {
 			return toolError(err.Error()), ProfileOutput{}, nil
 		}
+		spec := in.Spec
+		if strings.TrimSpace(spec) != "" {
+			var ds store.DataStore
+			if cfg.Dataset != "" {
+				ds = store.NewDir(cfg.Dataset)
+			}
+			if spec, err = talents.NormalizeSpec(talents.Specs(ds, c), c.Class, spec); err != nil {
+				return toolError("Not saved: " + err.Error()), ProfileOutput{}, nil
+			}
+		}
 		saved, err := profile.Update(cfg.profilesPath(), c.Key, func(e *profile.Entry) error {
 			p := character.Profile{}
 			if e.Profile != nil {
@@ -108,7 +129,7 @@ func addProfileTools(s *mcp.Server, cfg Config) {
 			for _, v := range []struct {
 				to   *string
 				from string
-			}{{&p.Role, in.Role}, {&p.Focus, in.Focus}, {&p.Spec, in.Spec}, {&p.StatPref, in.StatPref}} {
+			}{{&p.Role, in.Role}, {&p.Focus, in.Focus}, {&p.Spec, spec}, {&p.StatPref, in.StatPref}} {
 				if strings.TrimSpace(v.from) != "" {
 					*v.to = v.from
 				}
@@ -124,7 +145,10 @@ func addProfileTools(s *mcp.Server, cfg Config) {
 			return toolError("Not saved: " + err.Error()), ProfileOutput{}, nil
 		}
 		c.Profile = saved.Profile
-		return nil, profileOutput(c), nil
+		out := profileOutput(c)
+		out.SavedNote = SavedNote(spec)
+		out.Text += out.SavedNote + "\n"
+		return nil, out, nil
 	})
 
 	mcp.AddTool(s, &mcp.Tool{

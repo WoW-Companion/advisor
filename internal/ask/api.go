@@ -124,7 +124,7 @@ func respondAPI(ctx context.Context, cfg Config, prompt string, onText func(stri
 			}
 		}}
 	text, u, err := loop.Run(ctx)
-	usage.Entities = trace.Entities()
+	usage.Entities, usage.Saved = trace.Entities(), trace.Saved()
 	usage.In, usage.Out, usage.Cached = u.In, u.Out, u.Cached
 	usage.Tokens = u.In + u.Out + u.Cached
 	if err != nil {

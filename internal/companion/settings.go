@@ -102,7 +102,7 @@ func (s *Server) setProfile(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	s.reload()
+	s.profileChanged(true)
 	// A question that was waiting for this play style is asked again, once.
 	s.mu.Lock()
 	again, waiting := s.pending[req.Character]

@@ -229,6 +229,44 @@
     return card;
   }
 
+  // specCard: the spec-only card for a character with a role and focus but no spec. One button per
+  // tree; a tap calls onSave({ role, focus, spec }) with the saved role and focus. setStyle marks the
+  // spec saved elsewhere (Settings, or the AI client), so an open card never shows a stale choice.
+  function specCard(doc, needs, onSave, style) {
+    const card = el(doc, 'div', 'style-card spec-card');
+    const row = el(doc, 'div', 'style-row');
+    row.append(el(doc, 'span', 'style-lbl', 'Spec'));
+    const btns = (needs.specs || []).map(sp => {
+      const b = el(doc, 'button', 'opt', sp);
+      b.type = 'button'; b.value = sp;
+      b.onclick = () => {
+        for (const x of btns) x.disabled = true;
+        onSave({ role: needs.role || (style && style.role) || '', focus: needs.focus || (style && style.focus) || '', spec: sp });
+      };
+      row.append(b);
+      return b;
+    });
+    card.append(row, el(doc, 'small', 'style-note', needs.note || SPEC_NOTE));
+    card.setStyle = st => {
+      const sp = (st && st.spec) || '';
+      for (const b of btns) { b.disabled = false; b.className = 'opt' + (b.value === sp ? ' on' : ''); }
+    };
+    card.setStyle(style);
+    return card;
+  }
+
+  const SPEC_NOTE = 'Saved for this character. Change it any time in Settings → Play Style.';
+
+  // workingLine: what the bubble says until the answer starts, in plain words and never the model's own
+  // text or a tool name.
+  function workingLine(question, ref) {
+    const q = String(question || '').toLowerCase();
+    if (ref === 'upgrades' || /\bgear\b/.test(q)) return 'Checking your gear…';
+    if (ref === 'talents' || /talent/.test(q)) return 'Looking at your talents…';
+    if (/what should i do next|what next|what('| i)?s next/.test(q)) return 'Planning your next steps…';
+    return 'Looking that up…';
+  }
+
   const NEEDS_LINE = 'Tell me how you like to play and I’ll answer:';
 
   // shortQuestion: what the chat shows for a question. A who-am-I preamble from an older addon never shows.
@@ -237,7 +275,7 @@
     const rest = t.replace(/^I(?:'|’)?m an? (?:level \d+ )?[^.?!]*\.\s+/i, '');
     return rest || t;
   }
-  const api = { entryList, fit, insertText, wirePaste, applyEditKey, wireEditKeys, EDIT_KEYS, onAskKey, needsCard, shortQuestion, NEEDS_LINE };
+  const api = { entryList, fit, insertText, wirePaste, applyEditKey, wireEditKeys, EDIT_KEYS, onAskKey, needsCard, specCard, workingLine, SPEC_NOTE, shortQuestion, NEEDS_LINE };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.WowcAsking = api;
 })(typeof window !== 'undefined' ? window : globalThis);

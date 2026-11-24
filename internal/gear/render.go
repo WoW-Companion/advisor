@@ -111,16 +111,38 @@ func Render(c character.Character, r Result) string {
 	}
 	sort.Strings(extra)
 	credit := false
+	soon := map[int][]string{} // the level an upgrade needs -> its lines
 	for _, slot := range append(order, extra...) {
 		cands := r.Slots[slot]
 		if len(cands) == 0 {
 			continue
 		}
+		var now []Candidate
+		for _, cd := range cands {
+			if cd.Soon {
+				soon[cd.Item.ReqLevel] = append(soon[cd.Item.ReqLevel], fmt.Sprintf("  %s: %s\n", slot, cd.Describe()))
+				credit = credit || cd.Vendor != nil
+			} else {
+				now = append(now, cd)
+			}
+		}
+		if len(now) == 0 {
+			continue
+		}
 		fmt.Fprintf(&b, "%s:\n", slot)
-		for i, cd := range cands {
+		for i, cd := range now {
 			fmt.Fprintf(&b, "  %d. %s\n", i+1, cd.Describe())
 			credit = credit || cd.Vendor != nil
 		}
+	}
+	// Upgrades the character's level can't use yet are never ranked as within reach: they follow the list.
+	var levels []int
+	for l := range soon {
+		levels = append(levels, l)
+	}
+	sort.Ints(levels)
+	for _, l := range levels {
+		fmt.Fprintf(&b, "Soon (level %d):\n%s", l, strings.Join(soon[l], ""))
 	}
 	if credit {
 		b.WriteString("Sources: " + vendors.Credit + ".\n")
