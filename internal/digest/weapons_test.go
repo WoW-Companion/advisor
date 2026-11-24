@@ -174,7 +174,6 @@ func TestUpgradeFieldsCarryEachFactOnce(t *testing.T) {
 }
 
 func TestCraftWording(t *testing.T) {
-	skill := regexp.MustCompile(`(?i)needs skill|you have \d|skill \d`)
 	chest := func(c character.Character) Line {
 		for _, s := range Build(c, pathsStore(t), synthOpt).Sections {
 			for _, l := range s.Lines {
@@ -187,17 +186,12 @@ func TestCraftWording(t *testing.T) {
 		return Line{}
 	}
 	learn := chest(pathsWarrior())
-	if learn.How != "Learn it from a Blacksmithing trainer, then make it; have 2/6 Copper Bar" {
+	if learn.How != "You can make it now (your Blacksmithing 45, needs 5)" || !strings.Contains(strings.Join(learn.Details, " "), "Learn it from a Blacksmithing trainer (if you haven't)") {
 		t.Errorf("learnable: %q", learn.How)
 	}
 	known := pathsWarrior()
 	known.KnownSpells = map[int64]bool{800: true}
-	if got := chest(known).How; got != "You can make this (Blacksmithing); have 2/6 Copper Bar" {
+	if got := chest(known).How; got != "You can make it now (your Blacksmithing 45, needs 5)" {
 		t.Errorf("known: %q", got)
-	}
-	for _, l := range []Line{learn, chest(known)} {
-		if skill.MatchString(l.How) || skill.MatchString(strings.Join(l.Details, " ")) {
-			t.Errorf("skill numbers shown: %+v", l)
-		}
 	}
 }

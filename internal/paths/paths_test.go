@@ -176,7 +176,7 @@ func TestEachPathKindFoundAndRanked(t *testing.T) {
 		want string
 	}{
 		{"quest", shawl, Quest, "Finish Lost Shawl for it (it's in your quest log, in Dunemark)"},
-		{"craft", vest, Craft, "Learn it from a Blacksmithing trainer, then make it; have 3/6 Copper Bar"},
+		{"craft", vest, Craft, "Learn it from a Blacksmithing trainer (if you haven't); have 3/6 Copper Bar"},
 		{"auction", bracers, Auction, "Common world drop. Usually cheap on the Auction House."},
 		{"dungeon", helm, Dungeon, "Drops often from Hogger Prime in Wolf Den"},
 		{"creature", blade, Creature, "Drops often from Rank Wolf in Dunemark"},
@@ -235,8 +235,8 @@ func TestCraftHaveNeedFromBagsAndBank(t *testing.T) {
 	// A character without the profession gets no craft path.
 	c := warrior()
 	c.Professions = c.Professions[:1]
-	if r := For(c, fixture(t), vest, Options{}); len(r.Paths) != 0 && r.Paths[0].Kind == Craft {
-		t.Errorf("craft without the profession: %q", kinds(r))
+	if r := For(c, fixture(t), vest, Options{}); r.Dependable() {
+		t.Errorf("craft without the profession counts as a way: %q", kinds(r))
 	}
 }
 

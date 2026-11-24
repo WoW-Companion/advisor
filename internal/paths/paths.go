@@ -28,6 +28,7 @@ const (
 	rankOtherQuest
 	rankDungeon
 	rankCraft
+	rankOtherCraft
 	rankCreature
 )
 
@@ -84,9 +85,14 @@ type Path struct {
 	Quest    string    `json:"quest,omitempty"`
 	QuestID  int       `json:"-"`
 	Choice   bool      `json:"choice_reward,omitempty"`
-	Boss     string    `json:"boss,omitempty"`     // a dungeon path: the boss that drops it
-	Dungeon  string    `json:"dungeon,omitempty"`  // a dungeon path: the dungeon
-	Creature string    `json:"creature,omitempty"` // a creature path: the first creature that carries it
+	// Skill is a craft path's check of the character's profession skill; Recipe says where the recipe
+	// is learned. Informational paths (a craft the character cannot make) never count as a way.
+	Skill         *SkillCheck   `json:"skill,omitempty"`
+	Recipe        *RecipeSource `json:"recipe_source,omitempty"`
+	Informational bool          `json:"informational,omitempty"`
+	Boss          string        `json:"boss,omitempty"`     // a dungeon path: the boss that drops it
+	Dungeon       string        `json:"dungeon,omitempty"`  // a dungeon path: the dungeon
+	Creature      string        `json:"creature,omitempty"` // a creature path: the first creature that carries it
 	// Offer is a vendor path's seller; Source tags facts taken from Everloot, and Credit is the
 	// attribution that goes with them.
 	Offer  *vendors.Offer `json:"offer,omitempty"`
@@ -109,14 +115,14 @@ type Result struct {
 
 // Best is the first path.
 func (r Result) Best() (Path, bool) {
-	if len(r.Paths) == 0 {
+	if len(r.Paths) == 0 || r.Paths[0].Informational {
 		return Path{}, false
 	}
 	return r.Paths[0], true
 }
 
 // Dependable reports whether the item has at least one path.
-func (r Result) Dependable() bool { return len(r.Paths) > 0 }
+func (r Result) Dependable() bool { _, ok := r.Best(); return ok }
 
 // Text renders the result as plain sentences.
 func (r Result) Text() string {
@@ -133,6 +139,9 @@ func (r Result) Text() string {
 	}
 	if !r.Dependable() {
 		fmt.Fprintf(&b, "%s: %s", r.Item, r.Reason)
+		for _, p := range r.Paths {
+			b.WriteString("\n" + p.Line)
+		}
 		return b.String()
 	}
 	fmt.Fprintf(&b, "How to get %s, best way first:\n", r.Item)
@@ -259,7 +268,7 @@ func For(c character.Character, ds store.DataStore, itemID int64, opt Options) R
 		res.Paths = append(res.Paths, p)
 	}
 	sort.SliceStable(res.Paths, func(i, j int) bool { return res.Paths[i].rank < res.Paths[j].rank })
-	if len(res.Paths) == 0 {
+	if !res.Dependable() {
 		res.Reason = f.why(crs)
 	}
 	return res
@@ -386,8 +395,9 @@ func firstText(row store.Row, keys ...string) string {
 	return ""
 }
 
-// craft is the "you can make it" path: a recipe of one of the character's professions at their
-// current skill, whose every missing reagent can be gathered, bought or has a way to be had.
+// craft is the crafting path, with the skill check against the character's own profession: they
+// can make it now, they are a little short (with a skill-up path), far short, or they lack the
+// profession (the last two only say so, and never count as a dependable way).
 func (f *finder) craft() (Path, bool) {
 	recs, err := f.ds.Filter("recipes", store.Range{Column: "creates_item_id", Min: f.itemID, Max: f.itemID})
 	if err != nil || len(recs) == 0 {
@@ -403,35 +413,120 @@ func (f *finder) craft() (Path, bool) {
 		if n := optInt(r["learn_skill"]); n != nil {
 			need = *n
 		}
-		have := 0
-		if skill.Rank != nil {
-			have = *skill.Rank
+		if skill.Rank == nil {
+			continue // the capture has no rank: nothing to compare
 		}
-		if have < need {
-			continue // not within the character's current skill
+		have := *skill.Rank
+		spell := i64(r["spell_id"])
+		sc := &SkillCheck{Profession: prof, Have: have, Need: need}
+		if len(f.c.KnownSpells) > 0 {
+			k := f.c.KnownSpells[spell]
+			sc.RecipeKnown = &k
 		}
-		reagents, ok := f.reagents(i64(r["spell_id"]))
-		if !ok {
-			continue
+		known := f.c.KnownSpells[spell]
+		src := RecipeSource{Kind: "known", Line: "you already know the recipe"}
+		if !known {
+			src = f.recipeSource(r, prof)
 		}
-		line := fmt.Sprintf("Learn it from a %s trainer, then make it", prof)
-		if f.c.KnownSpells[i64(r["spell_id"])] {
-			line = fmt.Sprintf("You can make this (%s)", prof)
+		reagents, rok := f.reagents(spell)
+		if have >= need {
+			if !rok {
+				continue
+			}
+			sc.Status = CanMake
+			line := fmt.Sprintf("You can make it now (your %s %d, needs %d). ", prof, have, need)
+			line += learnSentence(src, known, len(f.c.KnownSpells) > 0)
+			line += "; have " + matsLine(reagents)
+			rank := rankCraft
+			if missingOf(reagents) == 0 {
+				rank = rankReadyCraft
+			}
+			return Path{Kind: Craft, Line: line, Reagents: reagents, Skill: sc, Recipe: &src, rank: rank}, true
 		}
-		var mats []string
-		missing := 0
-		for _, g := range reagents {
-			mats = append(mats, fmt.Sprintf("%d/%d %s", min(g.Have, g.Need), g.Need, g.Name))
-			missing += g.Missing
+		sc.Gap = need - have
+		if sc.Gap > ShortMax {
+			sc.Status = Far
+			line := fmt.Sprintf("You're far short: your %s is %d and it needs %d (%d points to go). ", prof, have, need, sc.Gap)
+			line += f.otherWays(prof)
+			return Path{Kind: Craft, Line: line, Skill: sc, Recipe: &src, Informational: true, rank: rankOtherCraft}, true
 		}
-		line += "; have " + strings.Join(mats, ", ")
-		rank := rankCraft
-		if missing == 0 {
-			rank = rankReadyCraft
+		sc.Status = Short
+		sc.SkillUp = f.skillUpSteps(prof, have, need, spell)
+		line := fmt.Sprintf("You're at %d, it needs %d: %d points to go.", have, need, sc.Gap)
+		if len(sc.SkillUp) == 0 {
+			line += " The game data lists no recipe of yours that gives a skill-up now."
+		} else {
+			line += " Fastest way up (estimates):"
+			for i, s := range sc.SkillUp {
+				line += fmt.Sprintf(" %d) %s.", i+1, s.Line)
+			}
 		}
-		return Path{Kind: Craft, Line: line, Reagents: reagents, rank: rank}, true
+		line += " Then make it; " + learnSentence(src, known, len(f.c.KnownSpells) > 0)
+		if !f.tradeable() {
+			line += "."
+		} else {
+			line += ". Or buy it on the Auction House if it is listed."
+		}
+		return Path{Kind: Craft, Line: line, Reagents: reagents, Skill: sc, Recipe: &src, rank: rankCraft}, true
 	}
-	return Path{}, false
+	r := recs[0]
+	prof := str(r["skill_line_name"])
+	need := 0
+	if n := optInt(r["learn_skill"]); n != nil {
+		need = *n
+	}
+	if prof == "" {
+		return Path{}, false
+	}
+	sc := &SkillCheck{Profession: prof, Need: need, Gap: need, Status: NotProfession}
+	line := fmt.Sprintf("Made by %s (skill %d). You don't have %s: ", crafters(prof), need, prof)
+	line += f.otherWays(prof)
+	return Path{Kind: Craft, Line: line, Skill: sc, Informational: true, rank: rankOtherCraft}, true
+}
+
+// otherWays is the advice for a crafted item the character cannot make: the Auction House when the
+// item can be traded, and a crafter.
+func (f *finder) otherWays(prof string) string {
+	if f.tradeable() {
+		return "buy it on the Auction House (Bind on Equip) or ask a crafter."
+	}
+	return "ask a " + strings.TrimSuffix(crafters(prof), "s") + " to make it for you (it is bound when picked up, so not on the Auction House)."
+}
+
+// learnSentence says where the recipe comes from, in the right tense for what the capture knows.
+func learnSentence(src RecipeSource, known, listed bool) string {
+	if src.Kind == "known" {
+		return "You already know the recipe"
+	}
+	lead := "Learn it"
+	if listed {
+		lead += " first"
+	}
+	if src.Kind == "trainer" {
+		lead += " " + src.Line
+	} else {
+		lead += ": " + src.Line
+	}
+	if !listed {
+		lead += " (if you haven't)"
+	}
+	return lead
+}
+
+func matsLine(rs []Reagent) string {
+	var mats []string
+	for _, g := range rs {
+		mats = append(mats, fmt.Sprintf("%d/%d %s", min(g.Have, g.Need), g.Need, g.Name))
+	}
+	return strings.Join(mats, ", ")
+}
+
+func missingOf(rs []Reagent) int {
+	n := 0
+	for _, g := range rs {
+		n += g.Missing
+	}
+	return n
 }
 
 // profession finds the character's profession by recipe skill line name.

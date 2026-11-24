@@ -131,7 +131,7 @@ func TestUpgradeEntriesArePlainAndDependable(t *testing.T) {
 		cloak.How != "Finish Lost Shawl for it (it's in your quest log, in Dunemark)" {
 		t.Errorf("cloak: %+v", cloak)
 	}
-	if c := slots["Chest"]; c.PathKind != "craft" || c.Replaces != "" || c.How != "Learn it from a Blacksmithing trainer, then make it; have 2/6 Copper Bar" {
+	if c := slots["Chest"]; c.PathKind != "craft" || c.Replaces != "" || c.How != "You can make it now (your Blacksmithing 45, needs 5)" {
 		t.Errorf("chest: %+v", c)
 	}
 	w := slots["Wrists"]

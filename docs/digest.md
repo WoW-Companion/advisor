@@ -117,9 +117,8 @@ name (absent for an empty slot). `details` and `why` do not repeat them either: 
 <stat> you're short on", when that is true. `slot` always matches the item's inventory type ("One-hand", "Main hand",
 "Two-hand", "Off hand", "Shield", "Held in off hand"). Weapons follow what the character can use: an off-hand weapon
 only once Dual Wield is learned (from the dataset's class spell levels), a shield only for a better shield, and a
-two-hander over a one-hand and shield only for a two-hand or dual-wield damage play style. A craft's `how` reads
-"Learn it from a Blacksmithing trainer, then make it; have 2/4 Copper Bar", or "You can make this (Blacksmithing); ..."
-when the recipe is known; skill numbers are never shown.
+two-hander over a one-hand and shield only for a two-hand or dual-wield damage play style. A craft's `how` leads with the skill check, e.g. "You can make it now (your Blacksmithing 45, needs 5)"; the
+rest (where to learn the recipe, the materials) is in `details`.
 
 **A "why" line (schema 1.6).** Additive and optional. `next_quests`, `upgrades`, `dungeons` and `talents` entries
 may carry `why`: one short reason, at most 70 characters, plain words, no ids, never cut and never ending in "...".

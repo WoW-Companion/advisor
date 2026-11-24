@@ -30,8 +30,7 @@ Output uses names only, never an item, quest, recipe or NPC number.
    dropping the item "often" (over 15%) or "sometimes" (5% to 15%).
 6. **You can make it, missing materials.** Every missing reagent needs a way: gather it with the character's own
    gathering profession, buy it from a vendor, or buy it on the Auction House when it can be traded; otherwise the
-   craft is dropped. The capture does not say which recipes are known, so the line says the recipe needs skill N
-   and to learn it from a trainer if you haven't.
+   craft is dropped. See the skill check below.
 7. **Named creature.** One to three creatures carry it at 10% or more, each with `tier` verified or confirmed, in the
    character's level range (5 below to 3 above); never more than 5 creature sources in all.
 
@@ -55,3 +54,23 @@ Tiger (Strength + Agility), of the Monkey (Agility + Stamina), of the Eagle (Sta
 dataset holds an item with that suffix in its name, and, where that item's stats are known, the stats match; the
 repo's dataset notes record no random-property table, so nothing else can confirm one. A suffix that cannot be
 verified is left out.
+
+## Crafting: the skill check
+
+Every craft path carries a `skill` object (`profession`, `have`, `need`, `gap`, `status`) and a `recipe_source`,
+and its line leads with the check against the character's captured profession rank:
+
+- `can_make`: rank at or above the recipe's learn skill: "You can make it now (your Blacksmithing X, needs N)".
+- `short`: a gap of at most `ShortMax` (25) points: "You're at X, it needs N: Y points to go", then `skill_up`:
+  up to 3 recipes the character knows or can learn now that are orange or yellow at their rank, those whose
+  materials are held (bags and bank) first. Crafts are estimates (orange about 1 point per craft, yellow about 1
+  per 2) and each step lists the materials still missing.
+- `far`: a larger gap: one line, leading with the Auction House (only when the item can be traded) and a crafter.
+- `not_profession`: "Made by Blacksmiths (skill N). You don't have Blacksmithing", with the same other ways.
+
+`far` and `not_profession` paths are `informational`: they never count as a dependable way and are never
+the best path. When the capture lists known recipes (`KnownSpells`) it says "you already know the recipe" or
+"learn it first"; otherwise "learn it if you haven't". `recipe_source` names where to learn it: the recipe item's
+vendor (Everloot `vendor_sources`: vendor, zone, price), the creature or quest it drops from, else a profession
+trainer. The recipe item is `recipes.recipe_item_id` when the dataset has it, else the recipe item (item class 9)
+named "<Kind>: <recipe>"; a recipe item with no known source says so rather than "trainer".
