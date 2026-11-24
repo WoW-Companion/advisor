@@ -156,6 +156,14 @@ answers. Run PowerShell commands in a PowerShell window.
 - **Sign in once:** set your `GEMINI_API_KEY` environment variable, or run `gemini` once.
 - **Gotcha:** it does not work with a free or Google AI Pro/Ultra account any more; use Antigravity CLI.
 
+## Or use an AI provider with your own API key
+
+You can skip the command-line clients and let the app ask a provider directly: Anthropic (Claude), OpenAI,
+OpenRouter, or a model running on your own PC (Ollama or LM Studio). An API key is a private password
+from the provider, and the questions are billed to your account there. Ollama on your own PC is free.
+Claude.ai and ChatGPT subscriptions don't work this way; use Claude Code or Codex above for those. The
+steps are on the [AI providers and API keys](providers.md) page.
+
 ## Permissions and safety
 
 - It installs for your Windows user only. No admin rights.
@@ -163,7 +171,7 @@ answers. Run PowerShell commands in a PowerShell window.
 - It reads the file ForeverScribe saved. WoW writes that file when you `/reload`.
 - It writes only to the WoW Companion addon folder, and only if you choose to install the addon.
 - The AI client runs with only the advisor's read-only tools.
-- Network calls: GitHub, to check for and download releases, and your AI client's own service. Nothing else.
+- Network calls: GitHub, to check for and download releases, and your AI client's or provider's own service. Nothing else.
 
 ## If something's not right
 

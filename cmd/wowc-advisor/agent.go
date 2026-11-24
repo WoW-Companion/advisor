@@ -10,6 +10,8 @@ import (
 	"slices"
 	"time"
 
+	"github.com/modelcontextprotocol/go-sdk/mcp"
+
 	"github.com/WoW-Companion/advisor/internal/ask"
 	"github.com/WoW-Companion/advisor/internal/server"
 	"github.com/WoW-Companion/advisor/internal/svfind"
@@ -45,6 +47,7 @@ func askSetup(ctx context.Context, cfg *server.Config, f askFlags, stderr io.Wri
 		return ac, cleanup, err
 	}
 	ac = ask.Config{Command: ag.Command, Name: ag.Name, Source: ag.Source, Options: f.opts, Timeout: f.timeout, MaxPerRun: f.max}
+	ac.Server = func() *mcp.Server { return server.New(*cfg) }
 	if cfg.Dataset == "" {
 		cfg.Dataset = autoDataset(ctx, f.cache, cfg.SavedVariables, stderr)
 	}
