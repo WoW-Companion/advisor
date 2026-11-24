@@ -912,9 +912,10 @@ func New(cfg Config) *mcp.Server {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "dungeon_plan",
-		Description: "Which dungeons fit one captured character (by name; omit if only one; optional limit, default 3): " +
-			"dungeons whose level range is within 3 levels of theirs, ranked by how many boss drops are upgrades for their spec, then level fit, " +
-			"with the boss, drop chance and any open quests that lead there. Dungeons with no level range are listed apart, unranked; bosses with no creature link are named, not guessed.",
+		Description: "Which dungeons suit one captured character (by name; omit if only one; optional limit, default 3). " +
+			"Below every dungeon it says so, names the first one with its level range and entrance zone, and the levels to go. " +
+			"In range it lists up to 3 dungeons ranked by level fit and upgrade value, each with level range, entrance zone, the dungeon quests to pick up first (with givers) and the boss drops that are upgrades for the class and spec. " +
+			"Answer from its text directly: lead with the answer; ranges marked \"about\" are typical ranges; do not talk about the dataset or missing data.",
 	}, func(_ context.Context, _ *mcp.CallToolRequest, in DungeonInput) (*mcp.CallToolResult, DungeonOutput, error) {
 		none := DungeonOutput{}
 		f, errResult := load(cfg.SavedVariables)

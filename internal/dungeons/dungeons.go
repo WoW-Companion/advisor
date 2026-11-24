@@ -11,10 +11,12 @@ import (
 	"github.com/WoW-Companion/advisor/internal/brief"
 	"github.com/WoW-Companion/advisor/internal/character"
 	"github.com/WoW-Companion/advisor/internal/gear"
+	"github.com/WoW-Companion/advisor/internal/quests"
 	"github.com/WoW-Companion/advisor/internal/store"
 )
 
-// LevelWindow is how far a dungeon's level range may lie from the character's level.
+// LevelWindow is how far below the character a dungeon's range may top out and still fit. A
+// dungeon is open from its minimum level, so none fits a character under it.
 const LevelWindow = 3
 
 // Drop is one upgrade a boss drops. Chance is nil when the dataset has no kill count.
@@ -34,6 +36,13 @@ type Quest struct {
 	Title string
 }
 
+// Pickup is a dungeon quest worth taking before going in.
+type Pickup struct {
+	ID    int64
+	Title string
+	Giver string
+}
+
 // DungeonPick is one dungeon and what it offers the character.
 type DungeonPick struct {
 	MapID      int64
@@ -41,9 +50,17 @@ type DungeonPick struct {
 	MinLevel   *int
 	MaxLevel   *int
 	MaxPlayers *int
+	// EntranceZone is where the dungeon's entrance is; empty when not known.
+	EntranceZone string
+	// Curated is true when the level range is the advisor's typical range (level_source curated).
+	Curated bool
+	// Faction is "Horde" or "Alliance" when the dungeon is one side's; empty for both.
+	Faction string
+	// Pickups are the dungeon quests to take first, with their givers.
+	Pickups []Pickup
 	// LevelUnknown is true when the dataset holds no level range; such picks are unranked.
 	LevelUnknown bool
-	// Fit is how many levels the character is outside the range (0 inside it).
+	// Fit is how many levels the character is above the range (0 inside it).
 	Fit int
 	// Upgrades counts the distinct items among Drops.
 	Upgrades int
@@ -59,6 +76,11 @@ type Result struct {
 	Picks   []DungeonPick
 	Unknown []DungeonPick
 	Spec    string
+	// First is set when the character is below every dungeon's range: the lowest one, which they
+	// reach in LevelsToGo levels. Meanwhile is one useful thing to do in the meantime.
+	First      *DungeonPick
+	LevelsToGo int
+	Meanwhile  string
 	// ItemLevelOnly is true when upgrades were scored without stat weights.
 	ItemLevelOnly bool
 	Reason        string // why scoring fell back to item level, when it did
@@ -108,23 +130,34 @@ func Plan(c character.Character, ds store.DataStore) (Result, error) {
 	if err != nil {
 		return res, errors.New("instances table: " + err.Error())
 	}
+	var all []DungeonPick // every ranged dungeon the character's side may enter
 	for _, row := range rows {
 		if row["instance_type"] != "dungeon" {
 			continue
 		}
 		p := DungeonPick{MapID: i64(row["map_id"]), MinLevel: optInt(row["min_level"]), MaxLevel: optInt(row["max_level"]), MaxPlayers: optInt(row["max_players"])}
 		p.Name, _ = row["name"].(string)
+		p.EntranceZone, _ = row["entrance_zone_name"].(string)
+		src, _ := row["level_source"].(string)
+		p.Curated = src == "curated"
+		p.Faction, _ = row["faction"].(string)
+		if p.Faction == "" {
+			p.Faction = capitalFaction[strings.ToLower(p.EntranceZone)]
+		}
+		if p.Faction != "" && c.Faction != "" && !strings.EqualFold(p.Faction, c.Faction) {
+			continue
+		}
+		if p.MinLevel != nil && p.MaxLevel != nil {
+			all = append(all, p)
+		}
 		lo, hi := p.MinLevel, p.MaxLevel
 		if lo == nil || hi == nil {
 			p.LevelUnknown = true
 		} else {
-			if *hi < level-LevelWindow || *lo > level+LevelWindow {
+			if *hi < level-LevelWindow || *lo > level {
 				continue
 			}
-			switch {
-			case level < *lo:
-				p.Fit = *lo - level
-			case level > *hi:
+			if level > *hi {
 				p.Fit = level - *hi
 			}
 		}
@@ -145,8 +178,38 @@ func Plan(c character.Character, ds store.DataStore) (Result, error) {
 		}
 		return a.MapID < b.MapID
 	})
+	if len(res.Picks) == 0 {
+		sort.SliceStable(all, func(i, j int) bool {
+			if *all[i].MinLevel != *all[j].MinLevel {
+				return *all[i].MinLevel < *all[j].MinLevel
+			}
+			return all[i].MapID < all[j].MapID
+		})
+		if len(all) > 0 && level < *all[0].MinLevel {
+			first := all[0]
+			fill(&first, c, ds, cands)
+			res.First, res.LevelsToGo = &first, *first.MinLevel-level
+			res.Meanwhile = meanwhile(c)
+		}
+	}
 	sort.SliceStable(res.Unknown, func(i, j int) bool { return res.Unknown[i].MapID < res.Unknown[j].MapID })
 	return res, nil
+}
+
+// capitalFaction is the side a dungeon belongs to when the dataset says nothing but its entrance
+// zone is a capital.
+var capitalFaction = map[string]string{"orgrimmar": "Horde", "thunder bluff": "Horde", "undercity": "Horde",
+	"stormwind city": "Alliance", "ironforge": "Alliance", "darnassus": "Alliance"}
+
+// meanwhile names one open quest of the capture to work on while the character levels.
+func meanwhile(c character.Character) string {
+	for _, q := range c.Quests {
+		if q.Title == "" || q.Complete != nil && *q.Complete || q.Failed != nil && *q.Failed {
+			continue
+		}
+		return "finish your quest " + q.Title
+	}
+	return "keep questing"
 }
 
 // fill adds the boss drops that are upgrades, and the linked open quests, to a pick.
@@ -186,6 +249,52 @@ func fill(p *DungeonPick, c character.Character, ds store.DataStore, cands map[i
 		return p.Drops[i].ItemID < p.Drops[j].ItemID
 	})
 	p.Quests = openQuests(p, c, ds)
+	p.Pickups = pickups(p, c, ds)
+}
+
+// maxPickups is how many dungeon quests a pick lists.
+const maxPickups = 3
+
+// pickups are the dungeon's quests from instance_quests that the character can take now: not
+// already in the log, not above their level by more than the window, and not the other side's.
+func pickups(p *DungeonPick, c character.Character, ds store.DataStore) []Pickup {
+	rows, err := ds.Filter("instance_quests", store.Range{Column: "map_id", Min: p.MapID, Max: p.MapID})
+	if err != nil {
+		return nil
+	}
+	have := map[int64]bool{}
+	for _, q := range c.Quests {
+		have[int64(q.QuestID)] = true
+	}
+	var level int
+	if c.Level != nil {
+		level = *c.Level
+	}
+	var out []Pickup
+	seen := map[int64]bool{}
+	for _, r := range rows {
+		id := i64(r["quest_id"])
+		if id == 0 || have[id] || seen[id] {
+			continue
+		}
+		seen[id] = true
+		f := quests.FactsOf(ds, nil, id)
+		if f == nil || f.Name == "" {
+			continue
+		}
+		if f.Faction != "" && c.Faction != "" && !strings.EqualFold(f.Faction, c.Faction) && !strings.EqualFold(f.Faction, "both") {
+			continue
+		}
+		if f.Level > level+LevelWindow {
+			continue
+		}
+		out = append(out, Pickup{ID: id, Title: f.Name, Giver: quests.GiverName(ds, id)})
+	}
+	sort.SliceStable(out, func(i, j int) bool { return out[i].ID < out[j].ID })
+	if len(out) > maxPickups {
+		out = out[:maxPickups]
+	}
+	return out
 }
 
 // openQuests are the capture's unfinished quests the dataset ties to the dungeon: the quest's
