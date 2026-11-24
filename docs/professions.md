@@ -20,3 +20,27 @@ the plan says so.
 learnable within 50 skill points of the character's skill (learn skill at most skill + 50) and not
 yet grey. It feeds the digest's `keep_materials`; with no recipes in the dataset for the character's
 professions, the digest falls back to its name guess.
+
+## Skill-up paths
+
+`profession_plan` also computes a path (`professions.ComputePath`) from the character's skill to
+`target_skill`, by default the highest tier cap the character's level allows (tiers and level gates come
+from the curated `profession_notes`). It leads with the next step, then lists consecutive bands: per
+band the cheapest recipe that is orange or yellow there, with an alternative. At most 8 bands show
+per part; `part` asks for the next ones.
+
+**Cost.** Materials held in bags or bank are free (and used up as the path goes). A missing material costs
+its vendor price, or a little effort when gathered with a gathering profession the character has, fished
+with Fishing, or disenchanted from the character's own gear; otherwise the Auction House is assumed cheap.
+A recipe taught by a recipe item adds the cost of the item (vendor price, a drop, a quest); a trainer
+recipe adds the trainer's cost.
+
+**Prep.** Feeders and special cases from the notes, "fish in <zone> for <item>" from `fishing_catches`,
+gathering nodes at a level-appropriate skill, which of the character's items disenchant into a missing
+material, and for Enchanting the rod to make first. The trainer is the one in the character's zone, else
+the one teaching the most recipes.
+
+**Pairings.** `pairings=true` ranks the curated pairings by what the character already has, their class and
+play style. Any pair is fine, and the answer says so.
+
+`professions.NextSkillUp` gives the one-line "next skill-up: make N × X" for the digest's profession entries.

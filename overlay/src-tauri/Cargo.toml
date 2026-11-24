@@ -1,6 +1,6 @@
 [package]
 name = "wow-companion"
-version = "0.7.33"
+version = "0.7.34"
 description = "WoW Companion overlay: a small always-on-top window for the Go advisor"
 edition = "2021"
 publish = false
