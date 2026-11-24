@@ -14,7 +14,7 @@ import (
 	"strings"
 )
 
-const indexSchema = 2 // bump when the cached index's shape changes
+const indexSchema = 3 // bump when the cached index's shape changes
 
 // Spawn is a place, as percent of the area's map.
 type Spawn struct {
@@ -54,7 +54,8 @@ type Quest struct {
 	Creatures  []Ref // objectives that are kills or talks
 	Items      []int // item objectives (item ids)
 	Credits    []Credit
-	Restricted bool // a requirement this reader cannot check (skill, reputation, spell, event)
+	Objective  string // the objective text shown in the quest log (field 8)
+	Restricted bool   // a requirement this reader cannot check (skill, reputation, spell, event)
 }
 
 // Credit is a kill-credit objective: killing any of NPCs counts.
@@ -192,6 +193,7 @@ func buildQuest(id int, r rawRow) *Quest {
 	for t, list := range []any{slot(r["3"], 1), slot(r["3"], 2)} {
 		q.Finishers = append(q.Finishers, refs(list, t == 1)...)
 	}
+	q.Objective = objectiveText(r["8"])
 	q.PreGroup, q.PreSingle, q.Exclusive = ints(r["12"]), ints(r["13"]), ints(r["16"])
 	if o := r["10"]; o != nil {
 		for _, row := range asList(slot(o, 1)) {
@@ -230,6 +232,20 @@ func capIDs(ids []int) []int {
 		return ids[:maxSources]
 	}
 	return ids
+}
+
+// objectiveText reads field 8: a list of text lines (or a single string), joined by a space.
+func objectiveText(v any) string {
+	if s, ok := v.(string); ok {
+		return strings.TrimSpace(s)
+	}
+	var parts []string
+	for _, e := range asList(v) {
+		if t := strings.TrimSpace(text(e)); t != "" {
+			parts = append(parts, t)
+		}
+	}
+	return strings.Join(parts, " ")
 }
 
 func asList(v any) []any { a, _ := v.([]any); return a }

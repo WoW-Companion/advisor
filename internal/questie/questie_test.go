@@ -305,3 +305,17 @@ func TestParseItemAndCreditObjectives(t *testing.T) {
 		t.Fatalf("item %+v, npc %+v", it, ix.Npcs[200])
 	}
 }
+
+func TestParseObjectiveText(t *testing.T) {
+	rows := append(fixtureRows(), row{"Quest", 2, "8", []any{"Reclaim the keep", "from the raiders."}})
+	ix, st := OpenGame(install(t, header, rows))
+	if ix == nil {
+		t.Fatalf("not readable: %+v", st)
+	}
+	if got := ix.Quests[2].Objective; got != "Reclaim the keep from the raiders." {
+		t.Fatalf("objective %q", got)
+	}
+	if got := ix.Describe(ix.Quests[2].Starters); !strings.HasPrefix(got, "Elder Mira") {
+		t.Fatalf("describe %q", got)
+	}
+}

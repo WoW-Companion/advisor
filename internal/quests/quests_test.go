@@ -89,7 +89,7 @@ func TestRender(t *testing.T) {
 			t.Errorf("text lacks %q:\n%s", want, text)
 		}
 	}
-	if got := Render(Of(synth(t, false), 10), ""); !strings.Contains(got, "No quest line in the dataset holds quest 10") {
+	if got := Render(Of(synth(t, false), 10), ""); !strings.Contains(got, "No quest line or follow-up quest is listed for quest 10") {
 		t.Errorf("no lines = %q", got)
 	}
 }

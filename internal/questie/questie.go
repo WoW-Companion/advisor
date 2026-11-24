@@ -191,7 +191,7 @@ type rawRow map[string]any
 
 // wanted are the fields the reader keeps; every other line is skipped without decoding.
 var wanted = map[string]map[string]bool{
-	"Quest":  {"S": true, "2": true, "3": true, "10": true, "12": true, "13": true, "16": true},
+	"Quest":  {"S": true, "2": true, "3": true, "8": true, "10": true, "12": true, "13": true, "16": true},
 	"Npc":    {"S": true, "7": true},
 	"Object": {"S": true, "4": true},
 	"Item":   {"S": true, "2": true, "3": true},
