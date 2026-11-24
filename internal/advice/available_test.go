@@ -105,3 +105,35 @@ func TestAvailableQuestsUsesSavedLocation(t *testing.T) {
 		t.Errorf("available = %+v", got.Quests)
 	}
 }
+
+type availObs struct {
+	QuestID int64  `parquet:"quest_id"`
+	Title   string `parquet:"title"`
+	Level   int32  `parquet:"level"`
+	Giver   int64  `parquet:"giver_npc_id"`
+}
+
+type availNPC struct {
+	ID   int64  `parquet:"id"`
+	Name string `parquet:"name"`
+	Zone string `parquet:"zone_name"`
+}
+
+// A pick-up step whose giver the client tables lack takes it from quests_observed.
+func TestAvailableStepGiverFromObserved(t *testing.T) {
+	c, _ := availFixture(t)
+	z := "Testisle"
+	c.Quests = []character.Quest{{QuestID: 1, Title: "Logged Task", Zone: z}}
+	ds := store.New(store.ReaderSource{
+		"quests":          parq(t, []availRow{{2, "Gather Kelp", i32(9), &z, 0}}),
+		"quests_observed": parq(t, []availObs{{2, "Gather Kelp", 9, 70}}),
+		"npcs":            parq(t, []availNPC{{70, "Warden Ila", "Testisle"}}),
+	})
+	got := AvailableQuests(c, ds)
+	if len(got.Quests) != 1 || got.Quests[0].NPC != "Warden Ila" {
+		t.Fatalf("steps: %+v", got.Quests)
+	}
+	if c2, d2 := availFixture(t); len(AvailableQuests(c2, d2).Quests) == 0 || AvailableQuests(c2, d2).Quests[0].NPC != "" {
+		t.Error("a step with no known giver must stay without one")
+	}
+}

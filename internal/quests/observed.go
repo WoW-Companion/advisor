@@ -1,6 +1,8 @@
 package quests
 
 import (
+	"strings"
+
 	"github.com/WoW-Companion/advisor/internal/questie"
 	"github.com/WoW-Companion/advisor/internal/store"
 )
@@ -119,4 +121,16 @@ func FactsOf(ds store.DataStore, ix *questie.Index, id int64) *Facts {
 		out.Source = SourceDataset
 	}
 	return out
+}
+
+// GiverName is the bare name of the quest's giver: the client tables' first, else the NPC that
+// quests_observed (Everloot) saw give it; "" when neither knows. Callers fall back to Questie.
+func GiverName(ds store.DataStore, id int64) string {
+	if f := client(ds, id); f != nil && f.Giver != "" {
+		return strings.TrimSpace(strings.SplitN(f.Giver, " (", 2)[0])
+	}
+	if f := observed(ds, id); f != nil && f.Giver != "" {
+		return strings.TrimSpace(strings.SplitN(f.Giver, " (", 2)[0])
+	}
+	return ""
 }

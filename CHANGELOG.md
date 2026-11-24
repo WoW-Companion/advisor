@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.29
+
+- Crafting advice now checks your profession skill and, when you're close, tells you what to craft to get there. It says whether you can make an item now, how many points short you are (with up to three recipes to level on, how many crafts each needs and the materials you're missing), or, if you lack the profession or are far short, points to the Auction House (when the item can be traded) or a crafter. It also says where the recipe comes from: a vendor and price, a drop, a quest or a trainer. Quest pick-ups in your plan now name the giver players have seen when the game data lacks one.
+
 ## 0.7.28
 
 - Advice now names vendors who sell what you need, and knows more WoW Forever quest givers, from Everloot's player-reported data. Upgrade and crafting answers say "Buy from <vendor> in <zone> for <price>" (and "limited stock" when it is), and a cheap vendor offer is listed beside the Auction House ahead of farming. Quest answers fill in the level, giver, faction and category players have seen, marked "seen by players on Everloot (CC BY-SA)".
