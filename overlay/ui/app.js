@@ -234,6 +234,7 @@ $('size').onchange = ev => { cfg.size = ev.target.value; save(); showPanes(); };
 $('clear').onclick = () => {
   cfg.cleared = [...new Set([...cfg.cleared, ...[...log.children].map(e => e.id).filter(Boolean)])].slice(-500);
   chats.clear(who.value);
+  clearFollow(); newAnswer.hidden = true;
   save(); log.replaceChildren(); showPanes();
 };
 
@@ -501,7 +502,20 @@ function askEntry(question, ref) { if (!busy && conn) ask(question, ref); }
 
 // Follow the newest text unless the reader has scrolled up.
 let stick = true;
-log.onscroll = () => { stick = log.scrollHeight - log.scrollTop - log.clientHeight < 24; };
+const newAnswer = $('new-answer');
+log.onscroll = () => { stick = WowcFollow.onScroll(log, newAnswer); };
+newAnswer.onclick = () => { WowcFollow.pillClick(log, newAnswer); stick = true; };
+
+// The follow-up chip: what the next question will be understood against. The server holds the card
+// and drops it after 30 minutes; the chip is the player's view of it and its × clears it.
+let followCtx = null;
+const nowS = () => Math.floor(Date.now() / 1000);
+function showFollow() { WowcFollow.show(document, $('follow'), followCtx, who.value, nowS(), clearFollow); }
+function clearFollow() {
+  followCtx = null; showFollow();
+  if (conn) api('/api/context/clear', { method: 'POST' }).catch(() => { /* the card expires on its own */ });
+}
+setInterval(showFollow, 60000);
 function scrollDown(force) { if (force) stick = true; if (stick) log.scrollTop = log.scrollHeight; }
 
 function bubble(id, cls) {
@@ -534,7 +548,8 @@ function restoreChat() {
   }
   if (turns.length) log.appendChild(WowcLaunch.gapDivider(document, turns[turns.length - 1].at, Date.now()));
   if (state) render(state.history);
-  showPanes(); scrollDown(true);
+  followCtx = state && state.context || null; showFollow();
+  showPanes(); scrollDown(true); newAnswer.hidden = true;
 }
 function render(history) {
   for (const e of history) {
@@ -591,10 +606,13 @@ function follow(id, a) {
     const e = JSON.parse(ev.data);
     es.close();
     if (e.status === 'needs' && e.needs) { showNeeds(a, e.needs); stop(); return; }
-    a.textContent = e.answer; scrollDown();
+    a.textContent = e.answer;
     if (e.status === 'done' && a.wowc && e.answer) chats.add(a.wowc.char, { id: 't' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), q: a.wowc.q, a: e.answer, at: Math.floor(Date.now() / 1000) });
     if (e.status === 'error') a.classList.add('err');
     for (const t of [e.usage, e.notice]) if (t) { const s = document.createElement('small'); s.textContent = t; if (t === e.usage && e.usage_tip) s.title = e.usage_tip; a.appendChild(s); }
+    if (e.status === 'done') { followCtx = e.context || null; showFollow(); }
+    // Last, once the text, usage and notice lines and the chip are all in: the whole answer comes into view.
+    WowcFollow.answerDone(log, stick, requestAnimationFrame, newAnswer);
     stop();
   });
   es.onerror = () => { es.close(); if (busy) { a.textContent = got || 'The connection dropped.'; stop(); } };

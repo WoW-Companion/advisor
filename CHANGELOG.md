@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.30
+
+- Follow-up questions stay cheap: the companion remembers what you're talking about (the quest, NPC or item, and your last question) instead of replaying whole earlier answers, and shows it as "Following up on: …" above the ask box. Click the × or Clear to start fresh; it also lapses after 30 minutes or when you switch character. Finished answers now scroll fully into view, including the usage line; if you had scrolled up to read, a "↓ New answer" button appears instead of moving you.
+
 ## 0.7.29
 
 - Crafting advice now checks your profession skill and, when you're close, tells you what to craft to get there. It says whether you can make an item now, how many points short you are (with up to three recipes to level on, how many crafts each needs and the materials you're missing), or, if you lack the profession or are far short, points to the Auction House (when the item can be traded) or a crafter. It also says where the recipe comes from: a vendor and price, a drop, a quest or a trainer. Quest pick-ups in your plan now name the giver players have seen when the game data lacks one.

@@ -25,13 +25,14 @@ func Respond(ctx context.Context, cfg Config, q Question, prompt string, stream 
 
 // Usage is what the CLI reported for one ask. Tokens is zero when it reported nothing.
 type Usage struct {
-	Tokens  int     // input, output and cache tokens together
-	In      int     // fresh input: new input plus tokens written to the cache
-	Out     int     // output
-	Cached  int     // tokens read from the cache
-	CostUSD float64 // total_cost_usd, when reported
-	Model   string  // the model that ran: reported by Claude, else the one the command line selected
-	Notice  string  // a one-line notice for the player, e.g. a rejected flag that was dropped
+	Tokens   int      // input, output and cache tokens together
+	In       int      // fresh input: new input plus tokens written to the cache
+	Out      int      // output
+	Cached   int      // tokens read from the cache
+	CostUSD  float64  // total_cost_usd, when reported
+	Model    string   // the model that ran: reported by Claude, else the one the command line selected
+	Notice   string   // a one-line notice for the player, e.g. a rejected flag that was dropped
+	Entities []Entity // what the answer's tools touched, oldest first (empty when the client shows no tool trace)
 }
 
 // UsageTip is the tooltip of the usage line.
@@ -109,6 +110,7 @@ func respondOne(ctx context.Context, cfg Config, q Question, prompt string, stre
 	var acc strings.Builder
 	var result string
 	var failed bool
+	var trace Trace
 	lw := &lineWriter{max: maxStreamOutput, fn: func(line []byte) {
 		var ev struct {
 			Type  string `json:"type"`
@@ -119,6 +121,16 @@ func respondOne(ctx context.Context, cfg Config, q Question, prompt string, stre
 					Text string `json:"text"`
 				} `json:"delta"`
 			} `json:"event"`
+			Message struct {
+				Content []struct {
+					Type      string          `json:"type"`
+					ID        string          `json:"id"`
+					Name      string          `json:"name"`
+					ToolUseID string          `json:"tool_use_id"`
+					IsError   bool            `json:"is_error"`
+					Content   json.RawMessage `json:"content"`
+				} `json:"content"`
+			} `json:"message"`
 			Result     string  `json:"result"`
 			IsError    bool    `json:"is_error"`
 			Cost       float64 `json:"total_cost_usd"`
@@ -141,6 +153,15 @@ func respondOne(ctx context.Context, cfg Config, q Question, prompt string, stre
 			if acc.Len() < MaxOutput && ev.Event.Delta.Text != "" {
 				acc.WriteString(ev.Event.Delta.Text)
 				onText(ev.Event.Delta.Text)
+			}
+		case ev.Type == "assistant" || ev.Type == "user":
+			for _, c := range ev.Message.Content {
+				switch {
+				case c.Type == "tool_use":
+					trace.Use(c.ID, c.Name)
+				case c.Type == "tool_result" && !c.IsError:
+					trace.Result(c.ToolUseID, rawText(c.Content))
+				}
 			}
 		case ev.Type == "result":
 			result, failed = ev.Result, ev.IsError
@@ -165,6 +186,7 @@ func respondOne(ctx context.Context, cfg Config, q Question, prompt string, stre
 	if failed {
 		return "", false, usage, errors.New("the agent reported an error")
 	}
+	usage.Entities = trace.Entities()
 	text = strings.TrimSpace(result)
 	if text == "" {
 		text = strings.TrimSpace(acc.String())
@@ -209,4 +231,23 @@ func (w *lineWriter) flush() {
 		w.fn(w.buf)
 	}
 	w.buf = w.buf[:0]
+}
+
+// rawText is a tool result's content: a string, or a list of text parts.
+func rawText(raw json.RawMessage) string {
+	var s string
+	if json.Unmarshal(raw, &s) == nil {
+		return s
+	}
+	var parts []struct {
+		Text string `json:"text"`
+	}
+	if json.Unmarshal(raw, &parts) != nil {
+		return ""
+	}
+	var b strings.Builder
+	for _, p := range parts {
+		b.WriteString(p.Text)
+	}
+	return b.String()
 }
