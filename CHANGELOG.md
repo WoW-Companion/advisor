@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.28
+
+- Advice now names vendors who sell what you need, and knows more WoW Forever quest givers, from Everloot's player-reported data. Upgrade and crafting answers say "Buy from <vendor> in <zone> for <price>" (and "limited stock" when it is), and a cheap vendor offer is listed beside the Auction House ahead of farming. Quest answers fill in the level, giver, faction and category players have seen, marked "seen by players on Everloot (CC BY-SA)".
+
 ## 0.7.27
 
 - Use your own AI key (Claude, OpenAI, OpenRouter) or a free model on your PC (Ollama) — Settings → AI. Choose how the companion answers: an AI app on this PC, an AI account with a key, or a model on this PC. Paste a key once (it is saved privately and never shown again), pick Fast and cheap, Balanced or Best, and press Test to see that it works. Ollama and LM Studio are found automatically. Under Advanced you can pick a backup to use if the first one fails.

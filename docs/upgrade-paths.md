@@ -18,6 +18,12 @@ Output uses names only, never an item, quest, recipe or NPC number.
    source. "Common world drop. Usually cheap on the Auction House." There is no price data (Auction House
    prices from ForeverScribe are too thin to depend on), so no price is ever read, ranked on or shown; the server
    is assumed to keep these cheap.
+3b. **Vendor** (Everloot's `vendor_sources`, credited "Everloot (CC BY-SA)"). When a named vendor sells the item,
+   "Buy from <vendor> in <zone> for <price>", with "(limited stock)" when the offer is limited; the cheapest
+   offer is used. A price up to 1 gold per ten character levels (1g at levels 1-9, 2g at 10-19, ...) is cheap
+   and ranks beside the Auction House; a dearer one ranks below dungeon bosses and crafts but above farming a
+   creature. A craft reagent a vendor sells gets "buy from <vendor> ..." in its how-to-get. No vendor row, no
+   path. Auction prices are still never read. `upgrade_finder` shows the same vendor on each candidate.
 4. **Other quests**: in a plan or available now (not completed, not failed, no more than 2 levels above the
    character), not yet picked up.
 5. **Dungeon boss.** A boss (`instance_bosses`) of a dungeon whose level range is within 3 levels of the character,

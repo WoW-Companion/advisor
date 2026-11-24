@@ -14,6 +14,7 @@ import (
 	"github.com/WoW-Companion/advisor/internal/gear"
 	"github.com/WoW-Companion/advisor/internal/items"
 	"github.com/WoW-Companion/advisor/internal/store"
+	"github.com/WoW-Companion/advisor/internal/vendors"
 	"github.com/WoW-Companion/advisor/internal/wording"
 )
 
@@ -35,6 +36,7 @@ const (
 	Quest    = "quest"
 	Craft    = "craft"
 	Auction  = "auction"
+	Vendor   = "vendor"
 	Dungeon  = "dungeon"
 	Creature = "creature"
 )
@@ -62,14 +64,16 @@ type Options struct {
 
 // Reagent is one reagent of a craft, with what the character holds and how to get the rest.
 type Reagent struct {
-	Name    string `json:"name"`
-	Need    int    `json:"need"`
-	Have    int    `json:"have"`
-	InBags  int    `json:"in_bags"`
-	InBank  int    `json:"in_bank"`
-	Missing int    `json:"missing"`
-	How     string `json:"how,omitempty"` // how to get the missing part, in words
-	ItemID  int64  `json:"-"`
+	Name    string         `json:"name"`
+	Need    int            `json:"need"`
+	Have    int            `json:"have"`
+	InBags  int            `json:"in_bags"`
+	InBank  int            `json:"in_bank"`
+	Missing int            `json:"missing"`
+	How     string         `json:"how,omitempty"`    // how to get the missing part, in words
+	Offer   *vendors.Offer `json:"offer,omitempty"`  // a vendor that sells it, when the dataset has one
+	Source  string         `json:"source,omitempty"` // "everloot" when How names that vendor
+	ItemID  int64          `json:"-"`
 }
 
 // Path is one dependable way to get an item.
@@ -83,7 +87,12 @@ type Path struct {
 	Boss     string    `json:"boss,omitempty"`     // a dungeon path: the boss that drops it
 	Dungeon  string    `json:"dungeon,omitempty"`  // a dungeon path: the dungeon
 	Creature string    `json:"creature,omitempty"` // a creature path: the first creature that carries it
-	rank     int       // order among the ways: see the rank constants
+	// Offer is a vendor path's seller; Source tags facts taken from Everloot, and Credit is the
+	// attribution that goes with them.
+	Offer  *vendors.Offer `json:"offer,omitempty"`
+	Source string         `json:"source,omitempty"`
+	Credit string         `json:"credit,omitempty"`
+	rank   int            // order among the ways: see the rank constants
 }
 
 // Result is the ways to get one item, best first.
@@ -137,7 +146,25 @@ func (r Result) Text() string {
 			b.WriteString("\n")
 		}
 	}
+	if r.fromEverloot() {
+		b.WriteString("Sources: " + vendors.Credit + ".\n")
+	}
 	return strings.TrimRight(b.String(), "\n")
+}
+
+// fromEverloot is true when a path or reagent of the result carries an Everloot fact.
+func (r Result) fromEverloot() bool {
+	for _, p := range r.Paths {
+		if p.Source == vendors.Source {
+			return true
+		}
+		for _, g := range p.Reagents {
+			if g.Source == vendors.Source {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func i64(v any) int64 { n, _ := v.(int64); return n }
@@ -217,6 +244,9 @@ func For(c character.Character, ds store.DataStore, itemID int64, opt Options) R
 		res.Paths = append(res.Paths, p)
 	}
 	if p, ok := f.craft(); ok {
+		res.Paths = append(res.Paths, p)
+	}
+	if p, ok := f.vendor(); ok {
 		res.Paths = append(res.Paths, p)
 	}
 	if p, ok := f.auction(crs); ok {
@@ -446,6 +476,16 @@ func (f *finder) reagents(spell int64) ([]Reagent, bool) {
 		}
 		if g.Missing > 0 {
 			g.How = f.getReagent(id, it)
+			if o, ok := vendors.Best(f.ds, id); ok {
+				buy := strings.ToLower(o.Line()[:1]) + o.Line()[1:]
+				switch {
+				case strings.HasPrefix(g.How, "gather"):
+					g.How += ", or " + buy // the character's own skill stays first
+				default:
+					g.How = buy
+				}
+				g.Offer, g.Source = &o, vendors.Source
+			}
 			if g.How == "" {
 				return nil, false
 			}
@@ -569,6 +609,21 @@ func (f *finder) auction(crs []creature) (Path, bool) {
 		return Path{Kind: Auction, Line: "Bind on Equip, so it can be bought. Usually on the Auction House.", rank: rankAuction}, true
 	}
 	return Path{}, false
+}
+
+// vendor is the vendor path: a vendor in the dataset's vendor_sources sells the item. A cheap offer
+// (see vendors.Offer.Cheap) stands beside the Auction House, above quests not yet picked up, dungeons
+// and farming; a dearer one still ranks above farming a creature but below a dungeon or a craft.
+func (f *finder) vendor() (Path, bool) {
+	o, ok := vendors.Best(f.ds, f.itemID)
+	if !ok {
+		return Path{}, false
+	}
+	rank := rankCraft
+	if o.Cheap(f.level) {
+		rank = rankAuction
+	}
+	return Path{Kind: Vendor, Line: o.Line() + ".", Offer: &o, Source: vendors.Source, Credit: vendors.Credit, rank: rank}, true
 }
 
 // creatures lists the creatures that carry the item, one per creature, best chance first.

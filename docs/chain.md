@@ -13,4 +13,9 @@ a dataset without quest names takes ids only.
 - If the dataset has no `quest_lines` table, or no line holds the quest, the tool says so.
 - `whats_next` uses the same lookup: see `advice.md`.
 
+- Quest facts (level, giver with zone, turn-in, faction, category) fall back in this order, each field from the
+  first source that has it: the dataset's client `quests` table, then `quests_observed` (Everloot, CC BY-SA;
+  the giver's name and zone come from `npcs`), then the player's Questie. A fact set that used Everloot is
+  marked `source: "everloot"` with `credit: "Everloot (CC BY-SA)"`, and reads "Seen by players on Everloot".
+
 Operator check: run `quest_chain` and `whats_next` against a real ForeverScribe capture and a built dataset.
