@@ -21,6 +21,7 @@ type Trace struct {
 	mu    sync.Mutex
 	tools map[string]string // tool_use id -> tool name
 	ents  []Entity
+	saved string // the last "Saved: ..." line a successful set_character_profile returned
 }
 
 // Use records a tool call (stream-json "tool_use") so its result can be matched to the tool.
@@ -44,9 +45,46 @@ func (t *Trace) Result(id, text string) {
 // Add records the text a named tool returned.
 func (t *Trace) Add(tool, text string) {
 	es := EntitiesIn(tool, text)
+	note := ""
+	if strings.Contains(tool, "set_character_profile") {
+		note = SavedNote(text)
+	}
 	t.mu.Lock()
 	t.ents = append(t.ents, es...)
+	if note != "" {
+		t.saved = note
+	}
 	t.mu.Unlock()
+}
+
+// Saved is the line a successful set_character_profile call returned in this ask ("" when none did).
+func (t *Trace) Saved() string {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return t.saved
+}
+
+// SavedNote is the saved_note field of a set_character_profile result, "" when it is not there.
+func SavedNote(text string) string {
+	i := strings.Index(text, "{")
+	if i < 0 {
+		return ""
+	}
+	var v struct {
+		Note string `json:"saved_note"`
+	}
+	if json.Unmarshal([]byte(text[i:]), &v) != nil {
+		return ""
+	}
+	return v.Note
+}
+
+// WithSaved ends the answer with the saved note, once; the note comes from the tool, not the model.
+func WithSaved(answer, note string) string {
+	if note == "" || strings.Contains(answer, note) {
+		return answer
+	}
+	return strings.TrimRight(answer, " \n") + "\n\n" + note
 }
 
 // Entities is what was seen, oldest first.

@@ -32,6 +32,7 @@ type Usage struct {
 	CostUSD  float64  // total_cost_usd, when reported
 	Model    string   // the model that ran: reported by Claude, else the one the command line selected
 	Notice   string   // a one-line notice for the player, e.g. a rejected flag that was dropped
+	Saved    string   // the line a successful set_character_profile returned, for the end of the answer
 	Entities []Entity // what the answer's tools touched, oldest first (empty when the client shows no tool trace)
 }
 
@@ -111,14 +112,19 @@ func respondOne(ctx context.Context, cfg Config, q Question, prompt string, stre
 	var result string
 	var failed bool
 	var trace Trace
+	// The text of the assistant message being streamed is held until it ends: a message that stops to
+	// call a tool is the model thinking aloud and is dropped; only the last message is the answer.
+	var held []string
+	var stop string
 	lw := &lineWriter{max: maxStreamOutput, fn: func(line []byte) {
 		var ev struct {
 			Type  string `json:"type"`
 			Event struct {
 				Type  string `json:"type"`
 				Delta struct {
-					Type string `json:"type"`
-					Text string `json:"text"`
+					Type       string `json:"type"`
+					Text       string `json:"text"`
+					StopReason string `json:"stop_reason"`
 				} `json:"delta"`
 			} `json:"event"`
 			Message struct {
@@ -149,15 +155,31 @@ func respondOne(ctx context.Context, cfg Config, q Question, prompt string, stre
 			return
 		}
 		switch {
+		case ev.Type == "stream_event" && ev.Event.Type == "message_start":
+			held, stop = nil, ""
+		case ev.Type == "stream_event" && ev.Event.Type == "message_delta":
+			stop = ev.Event.Delta.StopReason
 		case ev.Type == "stream_event" && ev.Event.Type == "content_block_delta" && ev.Event.Delta.Type == "text_delta":
-			if acc.Len() < MaxOutput && ev.Event.Delta.Text != "" {
-				acc.WriteString(ev.Event.Delta.Text)
-				onText(ev.Event.Delta.Text)
+			if ev.Event.Delta.Text != "" {
+				held = append(held, ev.Event.Delta.Text)
 			}
+		case ev.Type == "stream_event" && ev.Event.Type == "message_stop":
+			if stop != "tool_use" {
+				for _, t := range held {
+					if acc.Len() < MaxOutput {
+						acc.WriteString(t)
+						if onText != nil {
+							onText(t)
+						}
+					}
+				}
+			}
+			held, stop = nil, ""
 		case ev.Type == "assistant" || ev.Type == "user":
 			for _, c := range ev.Message.Content {
 				switch {
 				case c.Type == "tool_use":
+					held = nil
 					trace.Use(c.ID, c.Name)
 				case c.Type == "tool_result" && !c.IsError:
 					trace.Result(c.ToolUseID, rawText(c.Content))
@@ -186,7 +208,7 @@ func respondOne(ctx context.Context, cfg Config, q Question, prompt string, stre
 	if failed {
 		return "", false, usage, errors.New("the agent reported an error")
 	}
-	usage.Entities = trace.Entities()
+	usage.Entities, usage.Saved = trace.Entities(), trace.Saved()
 	text = strings.TrimSpace(result)
 	if text == "" {
 		text = strings.TrimSpace(acc.String())

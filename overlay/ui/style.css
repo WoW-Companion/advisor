@@ -198,6 +198,7 @@ a:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; border-ra
 .style-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
 .style-lbl { width: 56px; color: var(--muted); font-size: 11px; }
 .style-card .opt { padding: 1px 8px; font-size: 11px; cursor: pointer; }
+.style-card .style-note { opacity: .7; font-size: 10px; }
 .style-card .opt.on { border-color: var(--gold); color: var(--gold); background: rgba(217, 176, 90, .16); }
 .style-save { justify-self: start; cursor: pointer; }
 #text { line-height: 18px; overflow-y: hidden; box-sizing: border-box; }

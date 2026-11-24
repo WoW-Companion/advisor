@@ -103,6 +103,7 @@ async function connect(c) {
   events = sse('/api/events');
   const es = events;
   events.addEventListener('game', ev => { state = JSON.parse(ev.data); setChars(); showBadge(); });
+  events.addEventListener('profile', ev => { state = JSON.parse(ev.data); setChars(); showStyle(); }); // a play style changed (the AI client saved it)
   events.addEventListener('reask', onReask);
   events.onerror = () => {
     // The stream drops when the sidecar dies or is restarted; only a drop of the current stream
@@ -382,7 +383,7 @@ function showStyle() {
   const sel = $('style-spec'), specs = (c && c.specs) || [];
   sel.replaceChildren(Object.assign(document.createElement('option'), { value: '', textContent: 'Not sure yet' }));
   for (const sp of specs) sel.append(Object.assign(document.createElement('option'), { value: sp, textContent: sp }));
-  sel.value = specs.includes(st.spec) ? st.spec : ''; // the sidecar already migrated an old typed spec
+  sel.value = specs.find(sp => sp.toLowerCase() === String(st.spec || '').toLowerCase()) || ''; // the sidecar already normalised an old typed spec
   $('style-pref').value = st.stat_pref || 'balanced';
 }
 // saveStyle stores a play style for one character; the settings section and the inline card both use it.
@@ -584,7 +585,7 @@ function ask(question, ref) {
   busy = true; send.disabled = true;
   scrollDown(true);
   put(null, 'q', question);
-  const a = put(null, 'a live', '…');
+  const a = put(null, 'a live', WowcAsking.workingLine(question, ref));
   a.wowc = { q: question, char: who.value };
   const body = { character: who.value, text: question };
   if (ref) body.ref = ref;
@@ -621,9 +622,10 @@ function follow(id, a) {
 // original question again, which arrives as a "reask" event into a new bubble.
 function showNeeds(a, needs) {
   const c = state && state.characters.find(c => c.key === needs.character);
-  a.textContent = WowcAsking.NEEDS_LINE;
+  const spec = needs.needs === 'spec';
+  a.textContent = spec ? 'Which spec are you playing?' : WowcAsking.NEEDS_LINE;
   a.classList.remove('live');
-  const card = WowcAsking.needsCard(document, needs, async style => {
+  const card = (spec ? WowcAsking.specCard : WowcAsking.needsCard)(document, needs, async style => {
     reaskBubble = a;
     if (!(await saveStyle(needs.character, style))) { reaskBubble = null; a.append(Object.assign(document.createElement('small'), { textContent: 'Could not save that. Try again.' })); }
   }, c && c.style);
@@ -634,7 +636,7 @@ function showNeeds(a, needs) {
 let reaskBubble = null;
 function onReask(ev) {
   const { id } = JSON.parse(ev.data);
-  const a = put(null, 'a live', '…');
+  const a = put(null, 'a live', WowcAsking.workingLine(reaskBubble && reaskBubble.wowc && reaskBubble.wowc.q, ''));
   if (reaskBubble) a.wowc = reaskBubble.wowc;
   if (reaskBubble) { reaskBubble.querySelector('.style-card')?.remove(); reaskBubble = null; }
   follow(id, a);

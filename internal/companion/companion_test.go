@@ -19,6 +19,7 @@ import (
 	"github.com/WoW-Companion/advisor/internal/ask"
 	"github.com/WoW-Companion/advisor/internal/character"
 	"github.com/WoW-Companion/advisor/internal/digest"
+	"github.com/WoW-Companion/advisor/internal/profile"
 	"github.com/WoW-Companion/advisor/internal/release"
 )
 
@@ -30,10 +31,14 @@ func TestMain(m *testing.M) {
 		os.Setenv("WOWC_PROFILES", os.DevNull+"/none") // the player's own store is never read
 		os.Exit(m.Run())
 	case "stream":
+		fmt.Println(`{"type":"stream_event","event":{"type":"message_start"}}`)
 		for _, c := range []string{"Hel", "lo ", "there"} {
 			fmt.Printf(`{"type":"stream_event","event":{"type":"content_block_delta","delta":{"type":"text_delta","text":%q}}}`+"\n", c)
 			time.Sleep(150 * time.Millisecond)
 		}
+		fmt.Println(`{"type":"stream_event","event":{"type":"message_delta","delta":{"stop_reason":"end_turn"}}}`)
+		fmt.Println(`{"type":"stream_event","event":{"type":"message_stop"}}`)
+		time.Sleep(300 * time.Millisecond) // the answer streams when its message ends, before the agent does
 		os.WriteFile(os.Getenv("FAKE_MARK"), nil, 0o644)
 		fmt.Println(`{"type":"result","is_error":false,"result":"Hello there"}`)
 	case "text":
@@ -602,5 +607,37 @@ func TestPlayStyleNeededThenReask(t *testing.T) {
 	}
 	if n := len(e.srv.pending); n != 0 {
 		t.Errorf("pending = %d", n)
+	}
+}
+
+// A play style saved behind the sidecar's back (the AI client's own advisor process) reaches the page:
+// a "profile" event carries the characters with the saved style, so Settings and open cards update.
+func TestProfileChangedFromAnotherProcessRefreshesThePage(t *testing.T) {
+	e := start(t, "text", false)
+	path := filepath.Join(e.dir, "profiles.json")
+	t.Setenv("WOWC_PROFILES", path)
+	live := events(e.do(t, "GET", "/api/events", "", nil).Body)
+	time.Sleep(100 * time.Millisecond) // the watcher has taken its first stamp
+	if _, err := profile.Update(path, "R:New", func(en *profile.Entry) error {
+		en.Profile = &character.Profile{Role: "damage", Focus: "leveling", Spec: "Fury"}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	for {
+		ev := next(t, live)
+		if ev.name != "profile" {
+			continue
+		}
+		var st State
+		if err := json.Unmarshal([]byte(ev.data), &st); err != nil {
+			t.Fatal(err)
+		}
+		for _, c := range st.Characters {
+			if c.Key == "R:New" && (c.Style == nil || c.Style.Role != "damage" || c.Style.Focus != "leveling") {
+				t.Errorf("the event shows %+v", c.Style)
+			}
+		}
+		return
 	}
 }

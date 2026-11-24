@@ -51,8 +51,34 @@ func TestPlayStyleSavedMeansNoChoices(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
+	// Role and focus are saved but no spec: only the spec choice is offered, one button per tree.
+	n, ok := PlayStyleNeeded(cfg, q)
+	if !ok || n.Needs != NeedsSpec || len(n.Specs) == 0 || len(n.Roles) != 0 || len(n.Activities) != 0 || n.Note != SpecNote {
+		t.Errorf("spec-only card = %+v, %v", n, ok)
+	}
+	if _, err := profile.Update(path, key, func(e *profile.Entry) error {
+		e.Profile.Spec = n.Specs[0]
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
 	if _, ok := PlayStyleNeeded(cfg, q); ok {
-		t.Error("choices offered after the play style was saved")
+		t.Error("choices offered after the spec was saved")
+	}
+	if _, ok := PlayStyleNeeded(cfg, Question{Character: key, Text: "Where is the next quest?"}); ok {
+		t.Error("a quest question asked for a spec")
+	}
+}
+
+func TestOrderSpecsFollowsTheRole(t *testing.T) {
+	specs := []string{"Arms", "Fury", "Protection"}
+	for role, want := range map[string]string{"tank": "Protection Arms Fury", "damage": "Arms Fury Protection", "balanced": "Arms Fury Protection"} {
+		if got := strings.Join(OrderSpecs(specs, role), " "); got != want {
+			t.Errorf("%s: %q, want %q", role, got, want)
+		}
+	}
+	if got := strings.Join(OrderSpecs([]string{"Discipline", "Holy", "Shadow"}, "healer"), " "); got != "Discipline Holy Shadow" {
+		t.Errorf("healer: %q", got)
 	}
 }
 

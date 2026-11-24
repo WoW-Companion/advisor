@@ -2,6 +2,7 @@ package ask
 
 import (
 	"regexp"
+	"sort"
 	"strings"
 
 	"github.com/WoW-Companion/advisor/internal/character"
@@ -12,6 +13,13 @@ import (
 // NeedsPlayStyle is the Needs value of a question that cannot be answered before the character has a
 // play style.
 const NeedsPlayStyle = "play_style"
+
+// NeedsSpec is the Needs value of a talent question for a character that has a role and focus but no
+// spec: the card has one button per talent tree and nothing else.
+const NeedsSpec = "spec"
+
+// SpecNote is the line under the spec buttons.
+const SpecNote = "Saved for this character. Change it any time in Settings → Play Style."
 
 // Option is one button: the value saved and the words shown.
 type Option struct {
@@ -31,6 +39,9 @@ type Needs struct {
 	Roles      []Option `json:"roles"`
 	Activities []Option `json:"activities"`
 	Specs      []string `json:"specs,omitempty"` // the class's trees, optional
+	Note       string   `json:"note,omitempty"`  // NeedsSpec: the line under the buttons
+	Role       string   `json:"role,omitempty"`  // NeedsSpec: the saved role and focus the choice is saved with
+	Focus      string   `json:"focus,omitempty"`
 }
 
 var activityLabels = map[string]string{"leveling": "Leveling", "dungeons": "Dungeons", "pvp": "PvP", "mixed": "Mixed"}
@@ -68,8 +79,11 @@ func PlayStyleNeeded(cfg Config, q Question) (Needs, bool) {
 		return Needs{}, false
 	}
 	cc, ok := load(cfg, q.Character)
-	if !ok || cc.c.Profile != nil {
+	if !ok {
 		return Needs{}, false
+	}
+	if p := cc.c.Profile; p != nil {
+		return specNeeded(cc, q, p)
 	}
 	n := NeedsFor(cc.c, q)
 	if specs := talents.Specs(cc.ds, cc.c); len(specs) > 0 {
@@ -94,4 +108,47 @@ func NeedsFor(c character.Character, q Question) Needs {
 		}
 	}
 	return n
+}
+
+// specNeeded is the spec-only card: a talent question, a saved role and focus, no spec that names one of
+// the class's trees. No AI call is made for it.
+func specNeeded(cc loaded, q Question, p *character.Profile) (Needs, bool) {
+	if !(TalentQuestion(q.Text) || q.Ref == "talents") {
+		return Needs{}, false
+	}
+	specs := talents.Specs(cc.ds, cc.c)
+	if len(specs) == 0 || talents.MatchSpec(specs, p.Spec) != "" {
+		return Needs{}, false
+	}
+	return Needs{Needs: NeedsSpec, Character: q.Character, Question: q.Text, Ref: q.Ref, Specs: OrderSpecs(specs, p.Role),
+		Note: SpecNote, Role: p.Role, Focus: p.Focus}, true
+}
+
+var tankTrees = map[string]bool{"protection": true, "feral combat": true, "feral": true, "blood": true}
+var healTrees = map[string]bool{"holy": true, "restoration": true, "discipline": true}
+
+// OrderSpecs puts the trees that fit the role first: tank trees for a tank, healing trees for a healer,
+// the rest for damage. Every tree is still offered; the order is otherwise kept.
+func OrderSpecs(specs []string, role string) []string {
+	rank := func(s string) int {
+		l := strings.ToLower(s)
+		switch role {
+		case "tank":
+			if tankTrees[l] {
+				return 0
+			}
+		case "healer":
+			if healTrees[l] {
+				return 0
+			}
+		default:
+			if !tankTrees[l] && !healTrees[l] {
+				return 0
+			}
+		}
+		return 1
+	}
+	out := append([]string(nil), specs...)
+	sort.SliceStable(out, func(i, j int) bool { return rank(out[i]) < rank(out[j]) })
+	return out
 }
