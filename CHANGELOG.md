@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.34
+
+- Ask how to level any profession: a step-by-step path from your skill, with what to gather, fish or buy first. Each step says what to make and how many, which materials you already hold, where to get the rest, how to learn the recipe and which trainer to visit; asking "which professions should I pick?" suggests pairings for your class and play style.
+
 ## 0.7.33
 
 - With Questie installed, dungeon advice knows each dungeon's entrance, what lives inside, what drops for you and which quests to bring. It reads your own Questie files on your PC and says so; without Questie nothing changes.

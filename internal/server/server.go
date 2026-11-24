@@ -351,14 +351,19 @@ var noUpgrades = UpgradeOutput{Slots: map[string][]gear.Candidate{}}
 
 // PlanInput is the profession_plan argument.
 type PlanInput struct {
-	Character  string `json:"character,omitempty" jsonschema:"character name; omit when only one was captured"`
-	Profession string `json:"profession,omitempty" jsonschema:"one profession (for example Tailoring); omit for all the character's professions"`
+	Character   string `json:"character,omitempty" jsonschema:"character name; omit when only one was captured"`
+	Profession  string `json:"profession,omitempty" jsonschema:"one profession (for example Tailoring); omit for all the character's professions"`
+	TargetSkill int    `json:"target_skill,omitempty" jsonschema:"skill to plan up to; default is the highest tier cap the character's level allows"`
+	Part        int    `json:"part,omitempty" jsonschema:"which part of a long path to show (1 is the default; each part holds about 8 bands)"`
+	Pairings    bool   `json:"pairings,omitempty" jsonschema:"true for 'which professions should I pick?': pairing advice instead of a path"`
 }
 
 // PlanOutput is the profession_plan result.
 type PlanOutput struct {
 	Character string                 `json:"character"`
 	Plans     []professions.Leveling `json:"plans"`
+	Paths     []professions.Path     `json:"paths,omitempty" jsonschema:"computed skill-up paths, one per profession"`
+	Pairings  []professions.Advice   `json:"pairings,omitempty"`
 	Text      string                 `json:"text" jsonschema:"plain-text rendering"`
 }
 
@@ -842,9 +847,10 @@ func New(cfg Config) *mcp.Server {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "profession_plan",
-		Description: "Leveling plan per profession for one captured character (by name; omit if only one; optional profession): " +
-			"the next 3-5 recipes that still give skill-ups at their skill, orange before yellow, with each reagent, how many the bags and bank hold and what is missing. " +
-			"Missing thresholds, reagents or a missing bank capture are said to be unknown.",
+		Description: "Skill-up path per profession for one captured character (by name; omit if only one; optional profession, target_skill and part): " +
+			"leads with the next step, then skill bands (about 8 per part) with the recipe to make, how many, the materials held and missing and where to get them (vendor price, fishing zone, gathering, disenchanting), " +
+			"how a recipe is learned (trainer, or recipe item and its source), the next tier's level gate, the trainer to visit and feeders. " +
+			"Set pairings=true to answer 'which professions should I pick?' with common pairings for the character's class and play style.",
 	}, func(_ context.Context, _ *mcp.CallToolRequest, in PlanInput) (*mcp.CallToolResult, PlanOutput, error) {
 		none := PlanOutput{Plans: []professions.Leveling{}}
 		f, errResult := load(cfg.SavedVariables)
@@ -860,12 +866,25 @@ func New(cfg Config) *mcp.Server {
 		}
 		ds := store.NewDir(cfg.Dataset)
 		plans := []professions.Leveling{}
+		if in.Pairings {
+			adv := professions.Pairings(c, ds)
+			name := c.Name
+			if name == "" {
+				name = c.Key
+			}
+			return nil, PlanOutput{Character: name, Plans: plans, Pairings: adv, Text: professions.RenderPairings(adv)}, nil
+		}
 		want := strings.TrimSpace(in.Profession)
 		var have []string
+		var paths []professions.Path
+		var texts []string
 		for _, p := range c.Professions {
 			have = append(have, p.Name)
 			if want == "" || strings.EqualFold(p.Name, want) {
 				plans = append(plans, professions.Plan(c, ds, p.Name))
+				pa := professions.ComputePath(c, ds, p.Name, in.TargetSkill, in.Part)
+				paths = append(paths, pa)
+				texts = append(texts, professions.RenderPath(pa))
 			}
 		}
 		if want != "" && len(plans) == 0 {
@@ -875,7 +894,11 @@ func New(cfg Config) *mcp.Server {
 		if name == "" {
 			name = c.Key
 		}
-		return nil, PlanOutput{name, plans, professions.Render(plans)}, nil
+		text := strings.Join(texts, "\n")
+		if len(plans) == 0 {
+			text = professions.Render(plans)
+		}
+		return nil, PlanOutput{Character: name, Plans: plans, Paths: paths, Text: text}, nil
 	})
 
 	mcp.AddTool(s, &mcp.Tool{
