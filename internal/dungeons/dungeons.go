@@ -11,6 +11,7 @@ import (
 	"github.com/WoW-Companion/advisor/internal/brief"
 	"github.com/WoW-Companion/advisor/internal/character"
 	"github.com/WoW-Companion/advisor/internal/gear"
+	"github.com/WoW-Companion/advisor/internal/questie"
 	"github.com/WoW-Companion/advisor/internal/quests"
 	"github.com/WoW-Companion/advisor/internal/store"
 )
@@ -28,6 +29,8 @@ type Drop struct {
 	Delta  float64
 	Empty  bool     // the slot is empty
 	Chance *float64 // percent of loot windows
+	// Questie is true when the drop comes from the player's QuestieDB, not the dataset.
+	Questie bool
 }
 
 // Quest is an open quest of the capture linked to a dungeon.
@@ -38,9 +41,17 @@ type Quest struct {
 
 // Pickup is a dungeon quest worth taking before going in.
 type Pickup struct {
-	ID    int64
-	Title string
-	Giver string
+	ID      int64
+	Title   string
+	Giver   string
+	Questie bool // from the player's QuestieDB
+}
+
+// Inhabitant is a creature inside a dungeon, from the player's QuestieDB.
+type Inhabitant struct {
+	Name  string
+	Elite bool
+	Boss  bool
 }
 
 // DungeonPick is one dungeon and what it offers the character.
@@ -52,6 +63,13 @@ type DungeonPick struct {
 	MaxPlayers *int
 	// EntranceZone is where the dungeon's entrance is; empty when not known.
 	EntranceZone string
+	// EntranceX and EntranceY are the entrance in map percent of EntranceZone; EntranceFromQuestie
+	// is true when Questie supplied the zone or the coordinates.
+	EntranceX, EntranceY float64
+	HasEntranceXY        bool
+	EntranceFromQuestie  bool
+	// Inside are the creatures that live in the dungeon, bosses first, when Questie knows them.
+	Inside []Inhabitant
 	// Curated is true when the level range is the advisor's typical range (level_source curated).
 	Curated bool
 	// Faction is "Horde" or "Alliance" when the dungeon is one side's; empty for both.
@@ -100,6 +118,13 @@ func optInt(v any) *int {
 // Plan finds the dungeons whose level range comes within LevelWindow of the character's level,
 // ranked by upgrade count then level fit, with the unranked level-unknown ones after.
 func Plan(c character.Character, ds store.DataStore) (Result, error) {
+	return PlanWith(c, ds, nil)
+}
+
+// PlanWith is Plan with the player's QuestieDB index, when they have one: it fills what the
+// dataset lacks (the entrance, the creatures inside, their drops and the dungeon quests). The
+// dataset always wins where both have an answer.
+func PlanWith(c character.Character, ds store.DataStore, qx *questie.Index) (Result, error) {
 	var res Result
 	if ds == nil {
 		return res, errors.New("no dataset configured")
@@ -161,7 +186,7 @@ func Plan(c character.Character, ds store.DataStore) (Result, error) {
 				p.Fit = level - *hi
 			}
 		}
-		fill(&p, c, ds, cands)
+		fill(&p, c, ds, cands, qx)
 		if p.LevelUnknown {
 			res.Unknown = append(res.Unknown, p)
 		} else {
@@ -187,7 +212,7 @@ func Plan(c character.Character, ds store.DataStore) (Result, error) {
 		})
 		if len(all) > 0 && level < *all[0].MinLevel {
 			first := all[0]
-			fill(&first, c, ds, cands)
+			fill(&first, c, ds, cands, qx)
 			res.First, res.LevelsToGo = &first, *first.MinLevel-level
 			res.Meanwhile = meanwhile(c)
 		}
@@ -213,7 +238,7 @@ func meanwhile(c character.Character) string {
 }
 
 // fill adds the boss drops that are upgrades, and the linked open quests, to a pick.
-func fill(p *DungeonPick, c character.Character, ds store.DataStore, cands map[int64]gear.Candidate) {
+func fill(p *DungeonPick, c character.Character, ds store.DataStore, cands map[int64]gear.Candidate, qx *questie.Index) {
 	bosses, _ := ds.Filter("instance_bosses", store.Range{Column: "map_id", Min: p.MapID, Max: p.MapID})
 	seen := map[[2]int64]bool{}
 	items := map[int64]bool{}
@@ -241,6 +266,13 @@ func fill(p *DungeonPick, c character.Character, ds store.DataStore, cands map[i
 			items[id] = true
 		}
 	}
+	p.Pickups = pickups(p, c, ds)
+	if d := qx.FindDungeon(int(p.MapID), p.Name); d != nil {
+		in := qx.Inside(d)
+		p.fromQuestie(in)
+		p.questieDrops(qx, d, cands, items)
+		p.questiePickups(qx, in, c)
+	}
 	p.Upgrades = len(items)
 	sort.SliceStable(p.Drops, func(i, j int) bool {
 		if p.Drops[i].Delta != p.Drops[j].Delta {
@@ -249,7 +281,6 @@ func fill(p *DungeonPick, c character.Character, ds store.DataStore, cands map[i
 		return p.Drops[i].ItemID < p.Drops[j].ItemID
 	})
 	p.Quests = openQuests(p, c, ds)
-	p.Pickups = pickups(p, c, ds)
 }
 
 // maxPickups is how many dungeon quests a pick lists.
@@ -320,4 +351,63 @@ func openQuests(p *DungeonPick, c character.Character, ds store.DataStore) []Que
 		}
 	}
 	return out
+}
+
+// fromQuestie fills the entrance (the dataset's zone wins) and the creatures inside.
+func (p *DungeonPick) fromQuestie(in questie.Inside) {
+	if p.EntranceZone == "" && in.Zone != "" {
+		p.EntranceZone, p.EntranceFromQuestie = in.Zone, true
+	}
+	if in.Entrance && strings.EqualFold(p.EntranceZone, in.Zone) {
+		p.EntranceX, p.EntranceY, p.HasEntranceXY, p.EntranceFromQuestie = in.X, in.Y, true, true
+	}
+	for _, cr := range in.Creatures {
+		p.Inside = append(p.Inside, Inhabitant{Name: cr.Name, Elite: cr.Elite, Boss: cr.Boss})
+	}
+}
+
+// questieDrops adds Questie's drops of the dungeon's creatures that score as upgrades and that the
+// dataset did not already list for this dungeon.
+func (p *DungeonPick) questieDrops(qx *questie.Index, d *questie.Dungeon, cands map[int64]gear.Candidate, items map[int64]bool) {
+	for _, cid := range d.Creatures {
+		name := qx.Npcs[cid].Name
+		for _, it := range qx.DropsOf(cid) {
+			id := int64(it)
+			cd, ok := cands[id]
+			if !ok || items[id] {
+				continue
+			}
+			items[id] = true
+			p.Drops = append(p.Drops, Drop{Boss: name, ItemID: id, Item: cd.Item.Name, Slot: cd.Slot, Delta: cd.Delta, Empty: cd.Empty, Questie: true})
+		}
+	}
+}
+
+// questiePickups adds dungeon quests from Questie after the dataset's, up to maxPickups: not in the
+// log, not too high a level, and open to the character's side and class when they are known.
+func (p *DungeonPick) questiePickups(qx *questie.Index, in questie.Inside, c character.Character) {
+	have := map[int64]bool{}
+	titles := map[string]bool{}
+	for _, q := range c.Quests {
+		have[int64(q.QuestID)] = true
+	}
+	for _, q := range p.Pickups {
+		titles[strings.ToLower(q.Title)] = true
+	}
+	level := 0
+	if c.Level != nil {
+		level = *c.Level
+	}
+	for _, q := range in.Quests {
+		if len(p.Pickups) >= maxPickups {
+			return
+		}
+		if have[int64(q.ID)] || titles[strings.ToLower(q.Name)] || q.Restricted || q.Parent != 0 || len(q.Starters) == 0 {
+			continue
+		}
+		if level > 0 && (q.Level > level+LevelWindow || q.MinLevel > level) {
+			continue
+		}
+		p.Pickups = append(p.Pickups, Pickup{ID: int64(q.ID), Title: q.Name, Giver: qx.Describe(q.Starters), Questie: true})
+	}
 }

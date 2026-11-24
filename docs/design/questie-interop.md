@@ -51,3 +51,34 @@ in it), `quest_chain` builds the chain from the index, marked `source: "questie"
 The dataset wins whenever it has a line. A quest name the dataset lacks is matched against Questie's
 names. With no follow-up in either source the answer says "No follow-up quest is listed for it in the
 game data you have."
+
+## Dungeon facts (`dungeon_plan`)
+
+`dungeon_plan` adds what the player's own QuestieDB knows about a dungeon, marked "from your Questie
+database". The dataset always wins where it has an answer; Questie fills the gaps:
+
+- **Entrance.** The dataset's entrance zone first; else the parent zone's name. The coordinates are
+  shown only when Questie's parent zone is the zone being shown.
+- **Inside.** Creatures with a spawn in the dungeon's areas, bosses (rank 3) first, then elites
+  (rank 1 and 2); the first 60 are kept.
+- **Drops.** Items whose `npcDrops` (item field 2) name one of those creatures, scored with the same
+  upgrade scoring as the dataset's drops; an item the dataset already lists for the dungeon is not
+  repeated.
+- **Quests.** Quests whose zone (quest `S` field 17) is a dungeon area, whose kill, credit or item
+  objectives are creatures or drops inside; added after the dataset's quests, up to the same limit,
+  skipping quests in the log, too high, restricted or without a giver.
+
+Files and fields read, all as text or the same baked rows, never run:
+
+- `support/Forever/Zones/dungeons.lua`: one row per dungeon, keyed by area id: name (string), the
+  alternative area ids (a list of whole numbers), the parent zone's area id (a plain number) and the
+  entrance (`{x, y}`, or `{zone, x, y}`). A row naming its own area id has two plain numbers: area,
+  then parent zone. The first table literal in the file is read; a row with no name is skipped.
+- `support/Forever/Zones/instanceIdToAreaId.lua`: `[instance] = area` lines, linking the dataset's map
+  id to the dungeon.
+- NPC `S` fields 5 (level) and 6 (rank) and 7 (spawns by area); item field 2 (`npcDrops`); quest `S`
+  field 17 (zone) and objective field 10.
+
+A missing or unrecognised file leaves the dungeon answer as the dataset gave it, with the reason kept
+on the index (`DungeonReason`). The facts are cached with the rest of the parsed index, in the
+player's local cache only.

@@ -14,7 +14,7 @@ import (
 	"strings"
 )
 
-const indexSchema = 3 // bump when the cached index's shape changes
+const indexSchema = 4 // bump when the cached index's shape changes
 
 // Spawn is a place, as percent of the area's map.
 type Spawn struct {
@@ -25,6 +25,8 @@ type Spawn struct {
 type Entity struct {
 	Name   string
 	Sub    string // the NPC's subname, such as a title
+	Level  int
+	Rank   int // 0 normal, 1 elite, 2 rare elite, 3 boss, 4 rare
 	Spawns []Spawn
 }
 
@@ -38,6 +40,7 @@ type Quest struct {
 	ID         int
 	Name       string
 	Level      int
+	Zone       int // the area or zone the quest belongs to (field 17), 0 when it has none
 	MinLevel   int
 	MaxLevel   int // 0: none
 	Races      uint64
@@ -85,6 +88,11 @@ type Index struct {
 	Objects map[int]Entity
 	Items   map[int]Item
 	Areas   map[int]Area
+	// Dungeons are the dungeons from Zones/dungeons.lua with their creatures and quests;
+	// DungeonReason says why there are none. Drops maps a dungeon creature to the items it drops.
+	Dungeons      []Dungeon
+	DungeonReason string
+	Drops         map[int][]int
 }
 
 func num(v any) int {
@@ -177,7 +185,7 @@ const maxSpawns = 64
 
 func buildQuest(id int, r rawRow) *Quest {
 	s := r.scalars()
-	q := &Quest{ID: id, Name: text(s[int64(1)]), MinLevel: num(s[int64(4)]), Level: num(s[int64(5)]),
+	q := &Quest{ID: id, Name: text(s[int64(1)]), MinLevel: num(s[int64(4)]), Level: num(s[int64(5)]), Zone: num(s[int64(17)]),
 		Races: mask(s[int64(6)]), Classes: mask(s[int64(7)]), Next: num(s[int64(22)])}
 	q.Parent, q.Until, q.Disabled = num(s[int64(25)]), num(s[int64(33)]), num(s[int64(36)])
 	q.MaxLevel = num(s[int64(32)])
@@ -252,7 +260,7 @@ func asList(v any) []any { a, _ := v.([]any); return a }
 
 func buildEntity(r rawRow, spawnField string) Entity {
 	s := r.scalars()
-	return Entity{Name: text(s[int64(1)]), Sub: text(s[int64(14)]), Spawns: spawns(r[spawnField])}
+	return Entity{Name: text(s[int64(1)]), Sub: text(s[int64(14)]), Level: num(s[int64(5)]), Rank: num(s[int64(6)]), Spawns: spawns(r[spawnField])}
 }
 
 var areaLine = regexp.MustCompile(`^\s*\[(\d+)\]\s*=\s*(\d+),?\s*(?:--\s*(.*?))?\s*$`)
@@ -402,6 +410,7 @@ func Parse(st Status) (*Index, error) {
 	}
 	zones := filepath.Join(filepath.Dir(st.TOC), "support", "Forever", "Zones", "areaIdToUiMapId.lua")
 	ix.Areas = parseAreas(zones)
+	ix.linkDungeons(filepath.Dir(zones), npcs, itemRows)
 	return ix, nil
 }
 

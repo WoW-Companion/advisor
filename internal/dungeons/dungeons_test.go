@@ -8,6 +8,7 @@ import (
 	"github.com/parquet-go/parquet-go"
 
 	"github.com/WoW-Companion/advisor/internal/character"
+	"github.com/WoW-Companion/advisor/internal/questie"
 	"github.com/WoW-Companion/advisor/internal/store"
 )
 
@@ -329,5 +330,79 @@ func TestPlainWording(t *testing.T) {
 				t.Errorf("%s level %d text has %q:\n%s", c.Name, *c.Level, f, text)
 			}
 		}
+	}
+}
+
+// questieIndex is a synthetic QuestieDB: Shadowfang Keep (the dataset has no entrance zone for it)
+// with a boss that drops the Mind Hood, and Deadmines, whose entrance zone the dataset already has.
+func questieIndex() *questie.Index {
+	return &questie.Index{
+		Areas: map[int]questie.Area{901: {Zone: "Silverpine Test"}, 902: {Zone: "Elsewhere"}},
+		Npcs: map[int]questie.Entity{
+			500: {Name: "Chief Fang", Rank: 3}, 501: {Name: "Fang Guard", Rank: 1}, 502: {Name: "Fang Bat"},
+			510: {Name: "Mine Boss", Rank: 3},
+		},
+		Drops:  map[int][]int{500: {1}, 510: {1, 3}},
+		Quests: map[int]*questie.Quest{70: {ID: 70, Name: "Fang Errand", Level: 25, Starters: []questie.Ref{{ID: 600}}}},
+		Dungeons: []questie.Dungeon{
+			{Area: 910, Name: "Shadowfang Keep", Parent: 901, X: 52.6, Y: 49, Entrance: true, Creatures: []int{500, 501, 502}, Quests: []int{70}},
+			{Area: 911, Name: "Deadmines", Parent: 902, X: 1, Y: 2, Entrance: true, Creatures: []int{510}},
+		},
+	}
+}
+
+func TestPlanWithQuestie(t *testing.T) {
+	c := priest(24)
+	r, err := PlanWith(c, synth(t), questieIndex())
+	if err != nil {
+		t.Fatal(err)
+	}
+	var sk, dm *DungeonPick
+	for i := range r.Picks {
+		switch r.Picks[i].Name {
+		case "Shadowfang Keep":
+			sk = &r.Picks[i]
+		case "Deadmines":
+			dm = &r.Picks[i]
+		}
+	}
+	if sk == nil {
+		t.Fatalf("no Shadowfang pick: %s", names(r.Picks))
+	}
+	if sk.EntranceZone != "Silverpine Test" || !sk.HasEntranceXY || sk.EntranceX != 52.6 || sk.EntranceY != 49 || !sk.EntranceFromQuestie {
+		t.Errorf("entrance %+v", sk)
+	}
+	if len(sk.Inside) != 3 || !sk.Inside[0].Boss || !sk.Inside[1].Elite {
+		t.Errorf("inside %+v", sk.Inside)
+	}
+	if len(sk.Drops) != 1 || sk.Drops[0].Item != "Mind Hood" || sk.Drops[0].Boss != "Chief Fang" || !sk.Drops[0].Questie || sk.Upgrades != 1 {
+		t.Errorf("drops %+v", sk.Drops)
+	}
+	if len(sk.Pickups) != 1 || sk.Pickups[0].Title != "Fang Errand" || !sk.Pickups[0].Questie {
+		t.Errorf("pickups %+v", sk.Pickups)
+	}
+	text := Render(c, r, 5)
+	for _, want := range []string{"entrance in Silverpine Test (52.6, 49.0)", "Inside (from your Questie database): bosses Chief Fang", "(from your Questie database)", "Fang Errand"} {
+		if !strings.Contains(text, want) {
+			t.Errorf("render missing %q in:\n%s", want, text)
+		}
+	}
+	// The dataset wins: Deadmines keeps its own zone, no coordinates from another zone, and its
+	// Mind Hood stays the dataset's drop from Boss A.
+	if dm == nil || dm.EntranceZone != "Westfall" || dm.HasEntranceXY || dm.EntranceFromQuestie {
+		t.Fatalf("deadmines %+v", dm)
+	}
+	for _, d := range dm.Drops {
+		if d.Item == "Mind Hood" && (d.Questie || d.Boss != "Boss A") {
+			t.Errorf("questie replaced a dataset drop: %+v", d)
+		}
+	}
+}
+
+func TestPlanWithoutQuestieMatchesPlan(t *testing.T) {
+	a, _ := Plan(priest(25), synth(t))
+	b, _ := PlanWith(priest(25), synth(t), nil)
+	if Render(priest(25), a, 5) != Render(priest(25), b, 5) {
+		t.Error("nil Questie changed the plan")
 	}
 }
