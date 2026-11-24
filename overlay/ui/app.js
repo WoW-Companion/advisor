@@ -236,7 +236,7 @@ $('panel').onmouseenter = () => { clearTimeout(leaveTimer); hovering = true; pai
 $('panel').onmouseleave = () => { clearTimeout(leaveTimer); leaveTimer = setTimeout(() => { hovering = false; paint(); }, HOVER_LEAVE_MS); };
 $('auto-digest').onchange = ev => { cfg.autoDigest = ev.target.checked; save(); pushDigest(); };
 $('solid-hover').onchange = ev => { cfg.solidHover = ev.target.checked; save(); paint(); };
-$('opacity').oninput = ev => setOpacity(+ev.target.value);
+$('opacity').oninput = ev => { setOpacity(+ev.target.value); };
 
 // A shortcut box turns a key press into the plugin's "Ctrl+Shift+W" form.
 function combo(ev) {
@@ -602,7 +602,7 @@ function onReask(ev) {
 }
 const fitBox = () => WowcAsking.fit(text, 18, 6);
 $('form').onsubmit = ev => { ev.preventDefault(); const q = text.value.trim(); if (q && !busy && conn) { text.value = ''; fitBox(); ask(q); } };
-text.onkeydown = ev => WowcAsking.onAskKey(ev, () => $('form').requestSubmit());
+text.addEventListener('keydown', ev => { WowcAsking.onAskKey(ev, () => $('form').requestSubmit()); });
 text.oninput = fitBox;
 const pasting = WowcAsking.wirePaste(text, () => invoke('read_clipboard'), fitBox);
 $('paste').onclick = () => pasting.paste();

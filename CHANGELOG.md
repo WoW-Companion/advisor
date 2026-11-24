@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.7.23
+
+- You can type and edit in the ask box again: typing, Backspace, Delete, the arrow keys, Home, End, Ctrl+A and Ctrl+V all work. Enter sends and Shift+Enter adds a line.
+- The Keyboard test now also tells you when a key was cancelled after it arrived ("cancelled later").
+
 ## 0.7.22
 
 - Typing and editing keys work in the ask box again. The overlay no longer makes any native focus call when you click the box, so it takes keys exactly like the Keyboard test field.

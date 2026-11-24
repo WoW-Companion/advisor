@@ -2,6 +2,7 @@ package ui
 
 import (
 	"os/exec"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -53,5 +54,23 @@ func TestAskFocusAndShortcutKeys(t *testing.T) {
 	}
 	if !strings.Contains(html, "Press a key combo · Backspace resets.") {
 		t.Error("index.html lacks the shortcut hint")
+	}
+}
+
+// An on... property handler that returns false cancels the key, so app.js must not assign one that can.
+func TestNoCancellingKeyHandlers(t *testing.T) {
+	app := read(t, "app.js")
+	if strings.Contains(app, "onkeydown = ev => WowcAsking.onAskKey") {
+		t.Error("app.js assigns onAskKey's result to onkeydown, which cancels every key")
+	}
+	if !strings.Contains(app, "text.addEventListener('keydown', ev => { WowcAsking.onAskKey(") {
+		t.Error("the ask box key handler must be an addEventListener with a block body")
+	}
+	// Any on<event> property assigned an expression-bodied arrow whose value is a handler's result.
+	re := regexp.MustCompile(`\.on(keydown|keyup|keypress|beforeinput|paste|input)\s*=\s*(\([^)]*\)|\w+)\s*=>\s*[^{\s]`)
+	for _, f := range []string{"app.js", "asking.js", "launch.js", "version.js"} {
+		if m := re.FindString(read(t, f)); m != "" {
+			t.Errorf("%s: %q returns its expression's value; use a block body", f, m)
+		}
 	}
 }
