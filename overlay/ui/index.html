@@ -58,8 +58,10 @@
     </details>
     <details class="grp" data-group="ai">
       <summary>AI</summary>
-      <label class="row"><span class="lbl">AI client</span><span class="ctl">
-        <select id="agent">
+      <label class="row"><span class="lbl">How should the companion answer?</span><span class="ctl"><select id="ai-mode" aria-label="How should the companion answer?"></select></span></label>
+      <div id="ai-cli" class="sub">
+        <label class="row"><span class="lbl">AI client</span><span class="ctl">
+          <select id="agent">
           <option value="auto">Auto</option>
           <option value="claude">Claude Code</option>
           <option value="codex">Codex</option>
@@ -69,12 +71,36 @@
         </select>
         <button id="agent-rescan" type="button" title="Look for installed AI clients again">Re-scan</button>
       </span></label>
-      <label class="row" id="agent-cmd-row" hidden><span class="lbl">Command</span><span class="ctl"><input id="agent-cmd" placeholder="my-agent --flag"></span></label>
-      <label class="row"><span class="lbl">Model</span><span class="ctl">
-        <select id="model" aria-label="Model"></select>
-        <select id="reasoning" aria-label="Reasoning level"></select>
+        <label class="row" id="agent-cmd-row" hidden><span class="lbl">Command</span><span class="ctl"><input id="agent-cmd" placeholder="my-agent --flag"></span></label>
+        <label class="row"><span class="lbl">Model</span><span class="ctl">
+          <select id="model" aria-label="Model"></select>
+          <select id="reasoning" aria-label="Reasoning level"></select>
       </span></label>
-      <label class="row" id="model-custom-row" hidden><span class="lbl">Model name</span><span class="ctl"><input id="model-custom" placeholder="a model name"></span></label>
+        <label class="row" id="model-custom-row" hidden><span class="lbl">Model name</span><span class="ctl"><input id="model-custom" placeholder="a model name"></span></label>
+      </div>
+      <div id="ai-api" class="sub" hidden>
+        <label class="row"><span class="lbl">Provider</span><span class="ctl"><select id="ai-provider" aria-label="Provider"></select></span></label>
+        <label class="row" id="ai-base-row" hidden><span class="lbl">Server address</span><span class="ctl"><input id="ai-base" placeholder="https://…/v1" autocomplete="off"></span></label>
+        <div id="ai-local" class="sub" hidden>
+          <small id="ai-local-status" role="status"></small>
+          <small><a id="ai-local-link" href="#" hidden></a> <button id="ai-rescan" type="button" class="mini" title="Look again">Look again</button></small>
+        </div>
+        <div id="ai-key-row" class="sub" hidden>
+          <div id="ai-key-box" class="row"><span class="lbl">API key</span><span class="ctl"><input id="ai-key" type="password" autocomplete="off" spellcheck="false" placeholder="paste your key"><button id="ai-key-save" type="button" class="mini">Save</button><button id="ai-key-cancel" type="button" class="mini" hidden>Cancel</button></span></div>
+          <div id="ai-key-saved" class="row" hidden><span class="lbl" id="ai-key-status" role="status"></span><span class="ctl"><button id="ai-key-replace" type="button" class="mini">Replace</button><button id="ai-key-remove" type="button" class="mini">Remove</button></span></div>
+          <small><a id="ai-key-link" href="#">Get a key from the provider</a></small>
+        </div>
+        <label class="row"><span class="lbl">Model</span><span class="ctl"><select id="ai-model" aria-label="Model"></select></span></label>
+        <small id="ai-model-name" class="modelname"></small>
+        <label class="row" id="ai-model-other-row" hidden><span class="lbl">Model id</span><span class="ctl"><input id="ai-model-other" placeholder="a model id" autocomplete="off"></span></label>
+        <small id="ai-note"></small>
+        <div id="ai-cost" class="sub"><small id="ai-cost-line"></small><small id="ai-sub-line"></small></div>
+        <div class="row"><span class="lbl"><button id="ai-test" type="button">Test</button></span><span class="ctl"><small id="ai-test-out" role="status"></small></span></div>
+        <details id="ai-advanced" class="adv">
+          <summary>Advanced</summary>
+          <label class="row"><span class="lbl">If this fails, use</span><span class="ctl"><select id="ai-backup" aria-label="Backup"></select></span></label>
+        </details>
+      </div>
       <label class="row"><span class="lbl">Answer length</span><span class="ctl">
         <select id="length"><option value="brief">Brief</option><option value="standard">Standard</option><option value="detailed">Detailed</option></select>
       </span></label>
@@ -142,6 +168,7 @@
 <script src="keydiag.js"></script>
 <script src="asking.js"></script>
 <script src="launch.js"></script>
+<script src="aiset.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

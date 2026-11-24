@@ -81,6 +81,13 @@ button:disabled { opacity: .5; cursor: default; }
 .settings input[type=checkbox] { accent-color: var(--gold); margin: 0; }
 .settings .key { width: auto; text-shadow: inherit; background: linear-gradient(rgba(255, 255, 255, .06), rgba(255, 255, 255, .06)), rgba(var(--slate), .65); border: 1px solid rgba(217, 176, 90, .3); border-radius: 6px; padding: 2px 8px; text-align: center; }
 .settings small { color: var(--muted); }
+.settings .sub { display: grid; gap: 8px; } .settings .sub[hidden] { display: none; }
+.settings .sub > .row { margin: 0; }
+.settings div.row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 8px; align-items: center; }
+.settings .mini { padding: 2px 8px; font-size: 12px; flex: none; }
+.settings .modelname { margin-top: -4px; font-size: 10px; text-align: right; }
+.settings .adv summary { font: inherit; letter-spacing: 0; text-transform: none; color: var(--muted); }
+.settings .ai-ok { color: #8fd18f; } .settings .ai-bad { color: #e8a0a0; }
 .settings .version { flex: none; margin-top: auto; padding-top: 6px; font-size: 11px; }
 .settings .version a { color: inherit; text-decoration: underline; cursor: pointer; }
 

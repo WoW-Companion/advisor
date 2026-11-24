@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.27
+
+- Use your own AI key (Claude, OpenAI, OpenRouter) or a free model on your PC (Ollama) — Settings → AI. Choose how the companion answers: an AI app on this PC, an AI account with a key, or a model on this PC. Paste a key once (it is saved privately and never shown again), pick Fast and cheap, Balanced or Best, and press Test to see that it works. Ollama and LM Studio are found automatically. Under Advanced you can pick a backup to use if the first one fails.
+
 ## 0.7.26
 
 - You can now ask through an AI provider with your own API key, not only through a command-line AI client. Anthropic (Claude), OpenAI and OpenRouter work with a key you save; Ollama and LM Studio run on your own PC and need no key, and any other OpenAI-compatible server works with its address. The AI uses the same advisor tools and the same answer settings as before, and the usage line shows tokens including cached ones. If a model can't use tools, the app says so instead of guessing.
