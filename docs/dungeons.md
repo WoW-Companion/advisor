@@ -4,14 +4,23 @@
 that are upgrades for their spec, and the open quests that lead there.
 
 - **Dungeons** come from the dataset's `instances` table (`instance_type` dungeon; raids are not
-  planned). A dungeon fits when its level range comes within 3 levels of the character's level.
-- **Level unknown**: a dungeon with no level range is listed apart, unranked, with its drops. It is
-  never guessed into the ranking.
+  planned). A dungeon fits from its minimum level up to 3 levels past its maximum. Its entrance
+  zone is `entrance_zone_name`; `level_source` `curated` ranges are worded "about levels A-B".
+- **Too low**: when the character is under every dungeon's minimum, the answer is "Too low for
+  dungeons yet", the first dungeon (lowest minimum) with its range and entrance, the levels to go
+  and one thing to do meanwhile (an open quest of the capture).
+- **Faction**: a dungeon's `faction` column, else its entrance capital (Orgrimmar, Stormwind...),
+  hides it from the other side.
+- **Dungeon quests**: `instance_quests` rows for the map, minus quests already in the log, the
+  other side's, and any more than 3 levels above the character; at most 3, with their givers.
+- **Level unknown**: a dungeon with no level range is named apart, unranked.
+- **Wording**: the text never narrates data gaps or sources; one short clause ("Drops not known
+  yet") only where a gap changes the advice.
 - **Upgrades** are the items `gear.Upgrades` scores as better than what the character wears, by the
   rules in `gear.md`. A boss's drops come from `instance_bosses` (creature id) joined to
   `loot_sources`; each drop lists the boss, the slot, the gain and the drop chance, or says the
   chance is unknown.
-- **Unlinked bosses** (an encounter the dataset cannot tie to one creature) are named; their drops
+- **Unlinked bosses** (an encounter the dataset cannot tie to one creature) are named as "Drops not known yet"; their drops
   are unknown, not guessed.
 - **Quests**: unfinished quests of the capture are listed under a dungeon when the dataset's
   `quests` row has the dungeon's map as its point-of-interest map or the dungeon's name as its zone

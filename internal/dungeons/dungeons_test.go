@@ -40,6 +40,14 @@ type instRow struct {
 	MaxPlayers *int16 `parquet:"max_players,optional"`
 	MinLevel   *int16 `parquet:"min_level,optional"`
 	MaxLevel   *int16 `parquet:"max_level,optional"`
+	Source     string `parquet:"level_source"`
+	Zone       string `parquet:"entrance_zone_name"`
+}
+
+type iqRow struct {
+	MapID   int32  `parquet:"map_id"`
+	QuestID int64  `parquet:"quest_id"`
+	Reason  string `parquet:"reason"`
 }
 
 type bossRow struct {
@@ -52,6 +60,10 @@ type questRow struct {
 	ID       int64   `parquet:"id"`
 	MapID    *int32  `parquet:"map_id,optional"`
 	ZoneName *string `parquet:"zone_name,optional"`
+	Name     string  `parquet:"name"`
+	Level    int32   `parquet:"level"`
+	Giver    string  `parquet:"giver_name"`
+	Faction  string  `parquet:"faction"`
 }
 
 func table[T any](t *testing.T, rows []T) store.SizedReaderAt {
@@ -99,18 +111,22 @@ func synth(t *testing.T) store.DataStore {
 			{2, "creature", 102, 100, 30}, {1, "object", 100, 0, 0},
 		}),
 		"instances": table(t, []instRow{
-			{1, "Deadmines", "dungeon", i16(5), i16(15), i16(21)},
-			{2, "Wailing Caverns", "dungeon", i16(5), i16(17), i16(23)},
-			{3, "Shadowfang Keep", "dungeon", nil, i16(24), i16(30)},
-			{4, "Mystery Hold", "dungeon", nil, nil, nil},
-			{5, "Far Keep", "dungeon", nil, i16(40), i16(45)},
-			{6, "Big Raid", "raid", nil, i16(18), i16(20)},
+			{1, "Deadmines", "dungeon", i16(5), i16(15), i16(21), "client", "Westfall"},
+			{2, "Wailing Caverns", "dungeon", i16(5), i16(17), i16(23), "curated", "The Barrens"},
+			{3, "Shadowfang Keep", "dungeon", nil, i16(24), i16(30), "curated", ""},
+			{4, "Mystery Hold", "dungeon", nil, nil, nil, "", ""},
+			{5, "Far Keep", "dungeon", nil, i16(40), i16(45), "curated", ""},
+			{6, "Big Raid", "raid", nil, i16(18), i16(20), "curated", ""},
+			{7, "Ember Chasm", "dungeon", i16(5), i16(5), i16(10), "curated", "Orgrimmar"},
+			{8, "Stone Stockade", "dungeon", i16(5), i16(30), i16(34), "curated", "Stormwind City"},
 		}),
+		"instance_quests": table(t, []iqRow{{2, 950, "category"}, {2, 951, "category"}, {2, 952, "category"}, {7, 953, "category"}}),
 		"instance_bosses": table(t, []bossRow{
 			{1, "Boss A", i32(100)}, {1, "Boss B", i32(101)}, {1, "Lost Boss", nil},
 			{2, "Boss C", i32(102)}, {4, "Boss D", i32(103)},
 		}),
-		"quests": table(t, []questRow{{900, i32(1), nil}, {901, nil, &[]string{"wailing caverns"}[0]}, {902, i32(9), nil}}),
+		"quests": table(t, []questRow{{900, i32(1), nil, "", 0, "", ""}, {901, nil, &[]string{"wailing caverns"}[0], "", 0, "", ""}, {902, i32(9), nil, "", 0, "", ""},
+			{950, nil, nil, "Wailing Errand", 18, "Nalpak", ""}, {951, nil, nil, "Horde Errand", 14, "Grol", "Horde"}, {952, nil, nil, "Far Errand", 40, "Gone", ""}, {953, nil, nil, "Ember Errand", 5, "Rask", "Horde"}}),
 	})
 }
 
@@ -174,8 +190,8 @@ func TestPlanPriest(t *testing.T) {
 		t.Errorf("unknown = %+v", r.Unknown)
 	}
 	text := Render(c, r, 1)
-	for _, want := range []string{"1. Deadmines (level 15-21, 5 players): 2 upgrade(s)", "Mind Hood (head, +5.0) from Boss A, drops 20.0% of kills",
-		"boss drops not linked in this dataset: Lost Boss", "open quest: Quest  (900)", "1 more dungeon(s) fit.", "Level unknown (unranked", "Mystery Hold (level unknown)", "drop chance unknown"} {
+	for _, want := range []string{"1. Deadmines (levels 15\u201321; entrance in Westfall; 5 players)", "Mind Hood (head, +5.0) from Boss A, drops 20% of kills",
+		"Drops not known yet: Lost Boss", "In your log: Quest \n", "1 more dungeon(s) fit.", "Level not known yet: Mystery Hold"} {
 		if !strings.Contains(text, want) {
 			t.Errorf("render missing %q in:\n%s", want, text)
 		}
@@ -203,12 +219,12 @@ func TestPlanRogueRanking(t *testing.T) {
 	}
 	// Level 22: Deadmines (the two rings) and Wailing (cap and ring) tie on 2 upgrades; Wailing
 	// covers 22, Deadmines is 1 below, so level fit puts Wailing first despite its higher map id.
-	// Shadowfang, 2 above with none, is last.
+	// Shadowfang opens at 24, so it is not offered yet.
 	r, err = Plan(rogue(22), synth(t))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := names(r.Picks); got != "Wailing Caverns,Deadmines,Shadowfang Keep" || r.Picks[1].Fit != 1 || r.Picks[2].Fit != 2 {
+	if got := names(r.Picks); got != "Wailing Caverns,Deadmines" || r.Picks[1].Fit != 1 {
 		t.Errorf("level 22 picks = %s %+v", got, r.Picks)
 	}
 }
@@ -226,7 +242,92 @@ func TestPlanErrors(t *testing.T) {
 		t.Errorf("no instances table: err = %v", err)
 	}
 	r, err := Plan(priest(60), synth(t))
-	if err != nil || len(r.Picks) != 0 || !strings.Contains(Render(priest(60), r, 3), "No dungeon in the dataset") {
+	if err != nil || len(r.Picks) != 0 || !strings.Contains(Render(priest(60), r, 3), "No dungeon suits") {
 		t.Errorf("level 60: %+v, %v", r, err)
+	}
+}
+
+func warrior(level int, faction string) character.Character {
+	return character.Character{Name: "Testwar", Class: "WARRIOR", Faction: faction, Level: ip(level), Equipment: worn()}
+}
+
+func TestBelowEveryDungeon(t *testing.T) {
+	c := warrior(3, "Horde")
+	c.Quests = []character.Quest{qst(1, "Durotar", false)}
+	r, err := Plan(c, synth(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.First == nil || r.First.Name != "Ember Chasm" || r.LevelsToGo != 2 || len(r.Picks) != 0 {
+		t.Fatalf("result %+v", r)
+	}
+	text := Render(c, r, 3)
+	for _, want := range []string{"Too low for dungeons yet. The first one is Ember Chasm (about levels 5\u201310), in Orgrimmar: 2 more level(s) to go.", "Meanwhile: finish your quest Quest Durotar", "Ember Errand (from Rask)"} {
+		if !strings.Contains(text, want) {
+			t.Errorf("missing %q in:\n%s", want, text)
+		}
+	}
+}
+
+func TestInRangePickupsAndDrops(t *testing.T) {
+	c := priest(20)
+	c.Faction = "Horde"
+	r, err := Plan(c, synth(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var wc DungeonPick
+	for _, p := range r.Picks {
+		if p.Name == "Wailing Caverns" {
+			wc = p
+		}
+	}
+	// 950 is open to anyone and in reach; 951 is Horde; 952 is far above the character.
+	if len(wc.Pickups) != 2 || wc.Pickups[0].Title != "Wailing Errand" || wc.Pickups[0].Giver != "Nalpak" || wc.Pickups[1].ID != 951 {
+		t.Fatalf("pickups %+v", wc.Pickups)
+	}
+	text := Render(c, r, 3)
+	for _, want := range []string{"Wailing Caverns (about levels 17\u201323; entrance in The Barrens", "Wailing Errand (from Nalpak)", "Ring of Mind (finger1, +2.0) from Boss C"} {
+		if !strings.Contains(text, want) {
+			t.Errorf("missing %q in:\n%s", want, text)
+		}
+	}
+	if strings.Contains(text, "Far Errand") || strings.Contains(text, "Too low") {
+		t.Errorf("unexpected text:\n%s", text)
+	}
+}
+
+func TestFactionFiltering(t *testing.T) {
+	r, err := Plan(warrior(10, "Alliance"), synth(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.First == nil || r.First.Name != "Deadmines" {
+		t.Errorf("alliance first = %+v", r.First)
+	}
+	r, err = Plan(warrior(10, "Horde"), synth(t))
+	if err != nil || names(r.Picks) != "Ember Chasm" || r.First != nil {
+		t.Errorf("horde picks = %s (%v)", names(r.Picks), err)
+	}
+	// Plan keeps the Alliance dungeon out of a Horde plan and the reverse, by entrance capital.
+	r, _ = Plan(warrior(32, "Horde"), synth(t))
+	if names(r.Picks) != "Shadowfang Keep" {
+		t.Errorf("horde 32 picks = %s", names(r.Picks))
+	}
+}
+
+func TestPlainWording(t *testing.T) {
+	forbidden := []string{"data doesn't", "dataset", "general game knowledge", "missing from", "not authoritative", "advisor default", "not linked"}
+	for _, c := range []character.Character{warrior(3, "Horde"), warrior(10, "Horde"), priest(20), rogue(25), priest(60)} {
+		r, err := Plan(c, synth(t))
+		if err != nil {
+			t.Fatal(err)
+		}
+		text := strings.ToLower(Render(c, r, 3))
+		for _, f := range forbidden {
+			if strings.Contains(text, f) {
+				t.Errorf("%s level %d text has %q:\n%s", c.Name, *c.Level, f, text)
+			}
+		}
 	}
 }

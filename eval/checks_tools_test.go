@@ -346,7 +346,7 @@ func talentStaysInClass(e *env) error {
 
 func dungeonPlan(e *env) (dungeons.Result, error) { return dungeons.Plan(e.c, e.ds) }
 
-// A pick is a dungeon whose level range lies within 3 levels of the character, with its distance;
+// A pick is a dungeon the character has reached (its minimum is at or below their level) and whose range tops out no more than 3 levels below them;
 // a dungeon with no range is never ranked, only listed as level unknown.
 func dungeonLevelWindow(e *env) error {
 	res, err := dungeonPlan(e)
@@ -361,13 +361,13 @@ func dungeonLevelWindow(e *env) error {
 	for _, d := range dungeonSpecs {
 		id := int64(b*100 + d.k)
 		lo, hi := b+d.lo, b+d.hi
-		in := d.known && d.typ == "dungeon" && hi >= lvl-3 && lo <= lvl+3
+		in := d.known && d.typ == "dungeon" && hi >= lvl-3 && lo <= lvl
 		p, ok := got[id]
 		if ok != in {
 			return fmt.Errorf("%s (levels %d-%d, %s) for a level %d character: in picks %v, want %v", dungeonName(b, d), lo, hi, d.typ, lvl, ok, in)
 		}
 		if ok {
-			fit := max(lo-lvl, lvl-hi, 0)
+			fit := max(lvl-hi, 0)
 			if p.Fit != fit || p.LevelUnknown {
 				return fmt.Errorf("%s: fit %d (level unknown %v), want %d", p.Name, p.Fit, p.LevelUnknown, fit)
 			}
@@ -396,8 +396,8 @@ func dungeonUnknownLevelFlag(e *env) error {
 			return fmt.Errorf("%s is listed as unknown but carries level %v-%v, flag %v", p.Name, p.MinLevel, p.MaxLevel, p.LevelUnknown)
 		}
 	}
-	if text := dungeons.Render(e.c, res, 0); want > 0 && !strings.Contains(text, "level unknown") {
-		return fmt.Errorf("the text never says \"level unknown\":\n%s", text)
+	if text := dungeons.Render(e.c, res, 0); want > 0 && res.First == nil && !strings.Contains(text, "Level not known yet") {
+		return fmt.Errorf("the text never says \"Level not known yet\":\n%s", text)
 	}
 	return nil
 }
