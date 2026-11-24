@@ -13,6 +13,7 @@ import (
 	"github.com/WoW-Companion/advisor/internal/character"
 	"github.com/WoW-Companion/advisor/internal/gear"
 	"github.com/WoW-Companion/advisor/internal/items"
+	"github.com/WoW-Companion/advisor/internal/questie"
 	"github.com/WoW-Companion/advisor/internal/store"
 	"github.com/WoW-Companion/advisor/internal/vendors"
 	"github.com/WoW-Companion/advisor/internal/wording"
@@ -61,6 +62,8 @@ const (
 type Options struct {
 	// PlanQuests are the quest ids the plan has as steps.
 	PlanQuests map[int]bool
+	// Questie is the player's QuestieDB, which places a trainer or vendor the dataset has no place for; nil without it.
+	Questie *questie.Index
 }
 
 // Reagent is one reagent of a craft, with what the character holds and how to get the rest.
@@ -413,6 +416,10 @@ func (f *finder) craft() (Path, bool) {
 		if n := optInt(r["learn_skill"]); n != nil {
 			need = *n
 		}
+		gateUnknown := need <= 1 && str(r["learned_from"]) == "trainer"
+		if gateUnknown {
+			need = 0 // a client minimum of 1 on a trainer recipe is no gate: the trainer shows what you can learn
+		}
 		if skill.Rank == nil {
 			continue // the capture has no rank: nothing to compare
 		}
@@ -435,6 +442,9 @@ func (f *finder) craft() (Path, bool) {
 			}
 			sc.Status = CanMake
 			line := fmt.Sprintf("You can make it now (your %s %d, needs %d). ", prof, have, need)
+			if gateUnknown {
+				line = "You can make it now. "
+			}
 			line += learnSentence(src, known, len(f.c.KnownSpells) > 0)
 			line += "; have " + matsLine(reagents)
 			rank := rankCraft
@@ -480,6 +490,10 @@ func (f *finder) craft() (Path, bool) {
 	}
 	sc := &SkillCheck{Profession: prof, Need: need, Gap: need, Status: NotProfession}
 	line := fmt.Sprintf("Made by %s (skill %d). You don't have %s: ", crafters(prof), need, prof)
+	if need <= 1 && str(r["learned_from"]) == "trainer" {
+		sc.Need, sc.Gap = 0, 0
+		line = fmt.Sprintf("Made by %s. You don't have %s: ", crafters(prof), prof)
+	}
 	line += f.otherWays(prof)
 	return Path{Kind: Craft, Line: line, Skill: sc, Informational: true, rank: rankOtherCraft}, true
 }

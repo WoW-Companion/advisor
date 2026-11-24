@@ -266,3 +266,29 @@ func (ix *Index) FindByName(name string) []int {
 	sort.Ints(part)
 	return part
 }
+
+// NpcPlace is where the NPC stands: its spawn nearest the character on the character's map, else
+// its first spawn anywhere. ok is false when Questie holds no such NPC or no spawn for it.
+func (ix *Index) NpcPlace(id int, at Where) (Place, bool) {
+	if ix == nil {
+		return Place{}, false
+	}
+	e, ok := ix.Npcs[id]
+	if !ok || len(e.Spawns) == 0 {
+		return Place{}, false
+	}
+	if p, ok := ix.nearest([]Ref{{ID: id}}, at); ok {
+		return p, true
+	}
+	p := ix.place(e, e.Spawns[0], at)
+	p.ID = id
+	return p, true
+}
+
+// NpcFaction is the NPC's "friendly to" field: "A", "H" or "AH"; empty when unknown.
+func (ix *Index) NpcFaction(id int) string {
+	if ix == nil {
+		return ""
+	}
+	return ix.Npcs[id].Faction
+}
