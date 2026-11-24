@@ -607,9 +607,7 @@ text.oninput = fitBox;
 const pasting = WowcAsking.wirePaste(text, () => invoke('read_clipboard'), fitBox);
 $('paste').onclick = () => pasting.paste();
 fitBox();
-// A click activates the window only if the ask box does not already hold focus, and then focuses the
-// web view (never the bare host window, which can take keyboard focus away from the box).
-text.addEventListener('pointerdown', () => { if (document.activeElement !== text) invoke('focus_window').catch(() => {}); });
+// No native focus call on click: the ask box takes focus like the Keyboard test field does.
 // Safety net: an editing key the web view drops is applied by the page itself (see asking.js).
 WowcAsking.wireEditKeys(text, fitBox);
 // Keyboard test (Settings → Updates): the page's last key events plus Rust's view of the window.
@@ -621,6 +619,9 @@ WowcAsking.wireEditKeys(text, fitBox);
   WowcKeyDiag.attach(field, kl, 'test');
   field.addEventListener('keydown', () => { invoke('key_native_state').then(s => { native = s; show(kl.lines); }).catch(() => {}); }, true);
   WowcKeyDiag.attach(text, kl, 'ask');
+  text.addEventListener('keydown', () => { invoke('key_native_state').then(s => { native = s; show(kl.lines); }).catch(() => {}); }, true);
+  text.addEventListener('focus', () => kl.add('ask: focus'));
+  text.addEventListener('blur', () => kl.add('ask: blur'));
 }
 setInterval(() => showBadge(), 30000);
 

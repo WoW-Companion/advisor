@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.7.22
+
+- Typing and editing keys work in the ask box again. The overlay no longer makes any native focus call when you click the box, so it takes keys exactly like the Keyboard test field.
+- The Keyboard test now also shows the app's focus line after a key in the ask box, and logs `ask: focus` and `ask: blur`.
+
 ## 0.7.21
 
 - Backspace, Delete, the arrow keys, Home and End now work in the overlay's ask box. The overlay no longer pulls keyboard focus away from the box when you click it, and if a key still gets lost, the box applies it itself.
