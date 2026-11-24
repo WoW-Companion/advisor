@@ -80,22 +80,25 @@
     { id: 'gear', icon: '↑', label: 'Gear' },
     { id: 'refresh', icon: '⟳', label: 'Refresh' },
   ];
+  // Fixed, broad questions in plain player words: a drill-down belongs on a card, never on a button.
+  // A ref only steers the tools; it never narrows the question.
+  const QUICK_ASK = {
+    next: 'What should I do next, and why?',
+    talents: 'Which talent should I take next for my play style, and why?',
+    gear: 'Look at my gear and suggest the best upgrades within reach right now: quest rewards, things I can make, vendor buys and cheap Auction House finds. Start with the biggest gain.',
+  };
   function quickAction(id, c) {
     const entries = (c && c.entries) || [];
-    const first = (pred, fallbackQ, fallbackRef) => {
-      const e = entries.find(pred);
-      return e && e.asks && e.asks.length ? { act: 'ask', question: e.asks[0], ref: e.ref || '' } : { act: 'ask', question: fallbackQ, ref: fallbackRef };
-    };
     switch (id) {
-      case 'next': { // the plan's top entry, so the answer is about what is in front of the player
+      case 'next': { // the plan's top entry stays as the ref, so tools look at what is in front of the player
         const top = entries.find(e => e.group === 'next' && e.ref);
-        return { act: 'ask', question: 'What should I do next?', ref: top ? top.ref : '' };
+        return { act: 'ask', question: QUICK_ASK.next, ref: top ? top.ref : '' };
       }
       case 'talents':
         if (!(c && c.style && c.style.role && c.style.focus)) return { act: 'play_style' };
-        return first(e => e.group === 'talents' || e.kind === 'talent', 'Where should my talent points go?', 'talents');
+        return { act: 'ask', question: QUICK_ASK.talents, ref: 'talents' };
       case 'gear':
-        return first(e => e.group === 'upgrades', 'What gear should I upgrade next?', '');
+        return { act: 'ask', question: QUICK_ASK.gear, ref: 'upgrades' };
       case 'refresh':
         return { act: 'refresh' };
     }
