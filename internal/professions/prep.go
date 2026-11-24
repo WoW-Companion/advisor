@@ -6,6 +6,8 @@ import (
 	"strings"
 
 	"github.com/WoW-Companion/advisor/internal/character"
+	"github.com/WoW-Companion/advisor/internal/gather"
+	"github.com/WoW-Companion/advisor/internal/questie"
 	"github.com/WoW-Companion/advisor/internal/store"
 )
 
@@ -162,6 +164,10 @@ func (p *planner) prep(pa *Path, bands []Band) {
 		if !missing[name] {
 			continue
 		}
+		if line, ok := p.gatherLine(id, name); ok {
+			add(line)
+			continue
+		}
 		if rows := rowsBy(p.ds, "fishing_catches", "item_id", id); len(rows) > 0 {
 			sort.SliceStable(rows, func(i, j int) bool { return asFloat(rows[i]["rate"]) > asFloat(rows[j]["rate"]) })
 			var zs []string
@@ -229,4 +235,33 @@ func (p *planner) rod(pa *Path, add func(string)) {
 		}
 	}
 	add(fmt.Sprintf("Make a rod first: %s (learn at %d).", best.Name, *best.LearnSkill))
+}
+
+// gatherLine is the "gather here" line from the player's QuestieDB: the zones whose herb or ore
+// nodes or fishing schools yield the item, the character's own zone first, with a coordinate. ok is
+// false without Questie, or when no node yields it or the character lacks the skill to use it.
+func (p *planner) gatherLine(id int64, name string) (string, bool) {
+	if p.gather == nil {
+		return "", false
+	}
+	at := questie.Where{}
+	if pos := p.c.LastKnownPosition(); pos != nil {
+		at = questie.Where{MapID: pos.MapID, Zone: pos.Zone, X: pos.X, Y: pos.Y}
+	}
+	kind, zones := p.gather.ItemZones(id, at)
+	if len(zones) == 0 {
+		return "", false
+	}
+	skill, how := "Mining", "Mine"
+	switch kind {
+	case gather.Herb:
+		skill, how = "Herbalism", "Pick"
+	case gather.Fish:
+		skill, how = "Fishing", "Fish"
+	}
+	line := fmt.Sprintf("%s %s: %s (%s)", how, name, gather.Line(zones), gather.FromQuestie)
+	if !p.has(skill) {
+		line += "; needs " + skill
+	}
+	return line + ".", true
 }

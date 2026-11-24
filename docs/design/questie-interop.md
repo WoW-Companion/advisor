@@ -82,3 +82,28 @@ Files and fields read, all as text or the same baked rows, never run:
 A missing or unrecognised file leaves the dungeon answer as the dataset gave it, with the reason kept
 on the index (`DungeonReason`). The facts are cached with the rest of the parsed index, in the
 player's local cache only.
+
+## Gathering nodes and fishing schools (`where_to_gather`, `profession_plan`)
+
+The index also keeps objects that yield items, with these fields (all read as the same baked rows,
+never run):
+
+- Object `S` field 1 (name) and field 4 (spawns by area, with coordinates).
+- Item `S` field 1 (name) and field 10 (required level, 0 when absent), and item field 3
+  (`objectDrops`: the object ids that contain it). An object's yields are the items whose
+  `objectDrops` name it (at most 24 kept); an object with no yield or no spawn is dropped.
+
+Classification (`internal/gather`), first match wins, containers (chest, crate, barrel, ...) skipped:
+
+1. the dataset's `gathering_nodes` names the object: its profession (Herbalism, Mining, Fishing);
+2. the name says vein or deposit: **ore**; school, wreckage, floating debris or oil spill: **fishing school**;
+3. it yields an item that a Mining recipe uses as a reagent: **ore**;
+4. it yields an item that an Alchemy or Inscription recipe uses and no Mining recipe does: **herb**.
+
+Anything else is not gathered. Several object ids of one name (ore veins) are separate nodes that
+yield the same item; their spawns add up by zone. Zones are named from `areaIdToUiMapId.lua`; a spawn
+whose area has no name is skipped.
+
+A database with no object rows, or none that yield an item, gives no nodes and a reason in the index
+(`NodesReason`); the answer then says no place is known. Nothing is guessed. The parsed nodes sit in
+the same local cache as the rest of the index (schema 6) and nothing from Questie is shipped.

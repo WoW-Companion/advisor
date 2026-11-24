@@ -6,6 +6,8 @@ import (
 	"strings"
 
 	"github.com/WoW-Companion/advisor/internal/character"
+	"github.com/WoW-Companion/advisor/internal/gather"
+	"github.com/WoW-Companion/advisor/internal/questie"
 	"github.com/WoW-Companion/advisor/internal/store"
 )
 
@@ -98,6 +100,8 @@ type planner struct {
 	srcs   map[int64]source
 	// materials still to fetch over the whole path, for the prep lines
 	short map[int64]bool
+	// gather names the zones of herb and ore nodes and fishing schools from the player's QuestieDB; nil without one.
+	gather *gather.Gatherer
 	// fresh marks a synthetic character: no recipe is known, and each one says how it is learnt.
 	fresh bool
 }
@@ -325,7 +329,17 @@ func (p *planner) price(r Recipe, from string, skill, target int, left map[int64
 // ComputePath is the whole skill-up path for one profession from the character's skill to target
 // (the tier cap its level allows when target is 0), as parts of at most MaxBands bands; part is 1-based.
 func ComputePath(c character.Character, ds store.DataStore, profession string, target, part int) Path {
-	return computePath(c, ds, profession, target, part, false, nil)
+	return ComputePathWith(c, ds, nil, profession, target, part)
+}
+
+// ComputePathWith is ComputePath with the player's QuestieDB (nil without one), whose herb and ore
+// nodes and fishing schools name where to gather the materials still missing.
+func ComputePathWith(c character.Character, ds store.DataStore, qx *questie.Index, profession string, target, part int) Path {
+	var gz *gather.Gatherer
+	if qx != nil {
+		gz = gather.New(qx, ds)
+	}
+	return computePath(c, ds, profession, target, part, false, func(p *planner) { p.gather = gz })
 }
 
 // computePath is ComputePath; whole returns every band in one part, and setup may adjust the planner

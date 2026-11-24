@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.38
+
+- With Questie installed, the companion knows where to mine, pick herbs and find fishing schools. Ask "where can I mine copper?" and you get the zones with the most copper veins, your own zone first, with a coordinate or two; ask "where should I fish at my level?" and you get the zones whose schools suit your Fishing skill. Profession plans use the same zones in their "gather here" lines for the ore, herbs and fish you still need. Places read from your Questie database are marked as coming from it.
+
 ## 0.7.37
 
 - Crafting answers name the nearest trainer or vendor for your faction, with the place to find them. Ask "who trains that?" and you get the closest trainer for your faction in your zone first, then your continent, with the zone and coordinates; a place your Questie database knows is marked as coming from it. Recipes sold by a vendor or dropped name that source the same way. Recipes the trainer simply teaches no longer claim "needs skill 1": you're told the trainer will show whether you can learn it yet.

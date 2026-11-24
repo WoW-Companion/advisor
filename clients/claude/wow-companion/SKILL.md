@@ -51,6 +51,10 @@ All character tools take an optional `character` name (omit it when only one was
 - `where_to_learn`: who trains, sells or teaches a recipe (`recipe`, or the item it makes): the
   nearest trainer or vendor for the character's faction with zone and coordinates, and the real skill
   gate. Use it for "who trains that?" and "where do I learn X?".
+- `where_to_gather`: where to mine, pick herbs or fish: `item` (Copper Ore, Peacebloom) names the zones
+  with the most nodes or schools that yield it, your own zone first, with coordinates; `kind` (mine,
+  herb or fish) alone names the zones that suit your skill. Use it for "where can I mine copper?" and
+  "where should I fish at my level?".
 - `talent_plan`: where the next talent points go against the curated build (optional `spec`,
   `limit`).
 - `get_character_profile` / `set_character_profile`: the character's saved play style (role, focus,

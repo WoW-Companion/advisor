@@ -14,7 +14,7 @@ import (
 	"strings"
 )
 
-const indexSchema = 5 // bump when the cached index's shape changes
+const indexSchema = 6 // bump when the cached index's shape changes
 
 // Spawn is a place, as percent of the area's map.
 type Spawn struct {
@@ -91,6 +91,10 @@ type Index struct {
 	Areas   map[int]Area
 	// Dungeons are the dungeons from Zones/dungeons.lua with their creatures and quests;
 	// DungeonReason says why there are none. Drops maps a dungeon creature to the items it drops.
+	// Nodes are the objects that yield items (herbs, ore, fish, chests), with spawns; NodesReason
+	// says why there are none.
+	Nodes         map[int]Node
+	NodesReason   string
 	Dungeons      []Dungeon
 	DungeonReason string
 	Drops         map[int][]int
@@ -412,6 +416,7 @@ func Parse(st Status) (*Index, error) {
 	zones := filepath.Join(filepath.Dir(st.TOC), "support", "Forever", "Zones", "areaIdToUiMapId.lua")
 	ix.Areas = parseAreas(zones)
 	ix.linkDungeons(filepath.Dir(zones), npcs, itemRows)
+	ix.linkNodes(objects, itemRows)
 	return ix, nil
 }
 

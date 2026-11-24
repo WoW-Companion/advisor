@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/WoW-Companion/advisor/internal/character"
+	"github.com/WoW-Companion/advisor/internal/questie"
 	"github.com/WoW-Companion/advisor/internal/store"
 )
 
@@ -249,4 +250,21 @@ func TestPairings(t *testing.T) {
 	}
 	noGaps(t, text)
 	noGaps(t, RenderPairings(nil))
+}
+
+func TestPathNamesQuestieSchoolsToGather(t *testing.T) {
+	ds := pathData(t)
+	qx := &questie.Index{
+		Areas: map[int]questie.Area{9: {UIMap: 1, Zone: "Testvale"}},
+		Nodes: map[int]questie.Node{5: {ID: 5, Name: "School of Testfish", Kind: questie.KindFish,
+			Spawns: []questie.Spawn{{Area: 9, X: 41.2, Y: 52.8}},
+			Yields: []questie.Yield{{Item: 1, Name: "Raw Brilliant Smallfish"}}}},
+	}
+	text := RenderPath(ComputePathWith(cook(1, 8), ds, qx, "Cooking", 0, 1))
+	if !strings.Contains(text, "Fish Raw Brilliant Smallfish: Testvale: School of Testfish (41, 53) (from your Questie database)") {
+		t.Errorf("no Questie school line:\n%s", text)
+	}
+	if strings.Contains(text, "Fish in Elwynn Forest") {
+		t.Errorf("dataset line should give way:\n%s", text)
+	}
 }
