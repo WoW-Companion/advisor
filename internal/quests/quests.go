@@ -29,6 +29,13 @@ type Chain struct {
 	Steps    []Step `json:"steps"`
 	// NextQuestID is the quest after this one, 0 on the last step.
 	NextQuestID int64 `json:"next_quest_id,omitempty"`
+	// Source is "dataset" or, for a chain built from the player's QuestieDB, "questie".
+	Source string `json:"source,omitempty"`
+	// Quest, Before and After are set only for a Questie chain: the quest itself, the quests it
+	// follows and the quests it leads to.
+	Quest  *Facts  `json:"quest,omitempty"`
+	Before []Facts `json:"before,omitempty"`
+	After  []Facts `json:"after,omitempty"`
 }
 
 // Total is the number of steps in the line.
@@ -107,7 +114,10 @@ func Render(c Chain, name string) string {
 		label = name + " (" + label + ")"
 	}
 	if !c.Found {
-		return "No quest line in the dataset holds " + label + " (the dataset may have no quest lines for it).\n"
+		return "No quest line or follow-up quest is listed for " + label + " in the game data you have.\n"
+	}
+	if c.Source == SourceQuestie {
+		return renderQuestie(c, name)
 	}
 	var b strings.Builder
 	b.WriteString(label + " is step " + strconv.Itoa(c.Position) + " of " + strconv.Itoa(c.Total()) + " in " + c.Line + " (line " + strconv.FormatInt(c.LineID, 10) + ")")

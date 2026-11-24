@@ -1005,7 +1005,9 @@ func New(cfg Config) *mcp.Server {
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "quest_chain",
 		Description: "Where a quest sits in its quest line (quest id or name): the line's name, every step in order and the quest's position, from the dataset. " +
-			"Says so when the dataset has no quest lines or none holds the quest. Reads no character.",
+			"When the dataset has no line for the quest (WoW Forever's own quests, ids in the 90000s) it falls back to the player's QuestieDB: " +
+			"what the quest follows, what it leads to, and its level, giver, turn-in and objective, marked source \"questie\". " +
+			"Says so when neither holds a follow-up. Reads no character.",
 	}, func(_ context.Context, _ *mcp.CallToolRequest, in ChainInput) (*mcp.CallToolResult, ChainOutput, error) {
 		none := ChainOutput{Chain: quests.Chain{Steps: []quests.Step{}}}
 		if cfg.Dataset == "" {
@@ -1015,14 +1017,15 @@ func New(cfg Config) *mcp.Server {
 			return toolError("Give a quest id or name."), none, nil
 		}
 		ds := store.NewDir(cfg.Dataset)
-		id, name, cands := quests.Resolve(ds, in.Quest)
+		qx := questie.ForSavedVariables(cfg.SavedVariables)
+		id, name, cands := quests.ResolveWith(ds, qx, in.Quest)
 		if len(cands) > 0 {
 			return toolError("'" + in.Quest + "' matches several quests: " + strings.Join(cands, ", ") + ". Use the id."), none, nil
 		}
 		if id == 0 {
 			return toolError("No quest matches '" + in.Quest + "'."), none, nil
 		}
-		c := quests.Of(ds, id)
+		c := quests.OfWith(ds, qx, id)
 		return nil, ChainOutput{name, c, quests.Render(c, name)}, nil
 	})
 

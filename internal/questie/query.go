@@ -218,3 +218,51 @@ func (ix *Index) Locate(questID int, complete bool, at Where) (p Place, objectiv
 	p, ok = ix.nearest(q.Finishers, at)
 	return p, false, ok
 }
+
+// Describe names the NPCs or objects in refs with the zone of each one's first known spawn, such as
+// "Elder Mira (Tidepool Cove)". It needs no character position.
+func (ix *Index) Describe(refs []Ref) string {
+	var out []string
+	for _, r := range refs {
+		e, ok := ix.entity(r)
+		if !ok || e.Name == "" {
+			continue
+		}
+		s := e.Name
+		if len(e.Spawns) > 0 {
+			a := ix.Areas[e.Spawns[0].Area]
+			if loc := cmp.Or(a.Sub, a.Zone); loc != "" {
+				s += " (" + loc + ")"
+			}
+		}
+		out = append(out, s)
+		if len(out) == 3 {
+			break
+		}
+	}
+	return strings.Join(out, " or ")
+}
+
+// FindByName returns the ids of quests named name: the exact (case-insensitive) matches, else those
+// whose name contains it. Ids are ascending.
+func (ix *Index) FindByName(name string) []int {
+	name = strings.ToLower(strings.TrimSpace(name))
+	var exact, part []int
+	if name == "" {
+		return nil
+	}
+	for id, q := range ix.Quests {
+		n := strings.ToLower(q.Name)
+		switch {
+		case n == name:
+			exact = append(exact, id)
+		case strings.Contains(n, name):
+			part = append(part, id)
+		}
+	}
+	if len(exact) > 0 {
+		part = exact
+	}
+	sort.Ints(part)
+	return part
+}

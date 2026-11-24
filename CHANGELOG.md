@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.25
+
+- The AI can now follow WoW Forever's own quest lines using your Questie database. Ask "What does The Skybreaker Bulwark lead to?" and it lists the quests that come before and after it, with who gives and takes in each one and what to do, instead of saying the quest has no data. When no follow-up is listed anywhere, it now says so plainly.
+
 ## 0.7.24
 
 - Plan steps no longer double up verbs like "Collect Obtain". If the quest's own objective already starts with a verb (Obtain, Listen, Investigate and many more), the step uses it as written.
