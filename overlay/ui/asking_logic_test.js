@@ -46,9 +46,12 @@ assert.strictEqual(h(0), '28px'); assert.strictEqual(box.style.overflowY, 'hidde
 // Enter sends; Shift+Enter is left to make a new line.
 let submitted = 0, prevented = 0;
 const key = (k, shift) => A.onAskKey({ key: k, shiftKey: shift, preventDefault() { prevented++; } }, () => submitted++);
-assert(key('Enter', false) && submitted === 1 && prevented === 1);
-assert(!key('Enter', true) && submitted === 1 && prevented === 1);
-assert(!key('a', false));
+key('Enter', false); assert(submitted === 1 && prevented === 1);
+key('Enter', true); assert(submitted === 1 && prevented === 1);
+// Any other key: no cancel, and nothing returned (a returned false from an on... handler cancels the key).
+for (const k of ['a', 'Backspace', 'Delete', 'ArrowLeft', 'Home', 'End']) assert.strictEqual(key(k, false), undefined);
+assert.strictEqual(key('Enter', true), undefined);
+assert(submitted === 1 && prevented === 1);
 
 // The play-style card: one click per row, Save after both, then the original question is re-asked by
 // the advisor; the card follows a style saved elsewhere.

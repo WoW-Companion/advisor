@@ -38,10 +38,17 @@
   // name prefixes each line ('test:' or 'ask:'), so the two fields can be told apart. After an editing
   // key, watchChange logs "no change" when the value and caret did not move by the next frame.
   const EDITING = ['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'];
-  function attach(target, l, name, raf) {
+  function attach(target, l, name, raf, defer) {
     const tag = name ? name + ': ' : '';
     raf = raf || (fn => (typeof requestAnimationFrame === 'function' ? requestAnimationFrame(fn) : setTimeout(fn, 16)));
-    const rec = ev => { const d = describe(ev); if (d) l.add(tag + d); };
+    defer = defer || (fn => setTimeout(fn, 0));
+    // A cancel after the capture listener ran (an on... handler returning false, say) is only seen later:
+    // check each keydown once its dispatch is over and log "cancelled later" when it was not PREVENTED before.
+    const rec = ev => {
+      const d = describe(ev);
+      if (d) l.add(tag + d);
+      if (ev.type === 'keydown' && !ev.defaultPrevented) defer(() => { if (ev.defaultPrevented) l.add(tag + 'cancelled later key=' + ev.key); });
+    };
     for (const t of ['keydown', 'beforeinput', 'paste']) target.addEventListener(t, rec, true);
     target.addEventListener('keydown', ev => {
       if (EDITING.indexOf(ev.key) < 0 || ev.ctrlKey || ev.altKey || ev.metaKey) return;

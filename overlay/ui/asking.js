@@ -174,10 +174,10 @@
     });
   }
 
-  // onAskKey: Enter sends, Shift+Enter leaves the newline alone.
+  // onAskKey: Enter sends, Shift+Enter leaves the newline alone. Returns nothing: an on... property handler
+  // that returns false cancels the key, so attach this with addEventListener and never return its result.
   function onAskKey(ev, submit) {
-    if (ev.key === 'Enter' && !ev.shiftKey && !ev.isComposing) { ev.preventDefault(); submit(); return true; }
-    return false;
+    if (ev.key === 'Enter' && !ev.shiftKey && !ev.isComposing) { ev.preventDefault(); submit(); }
   }
 
   // needsCard: the inline play-style card. One click per row, an optional spec, then Save, which calls

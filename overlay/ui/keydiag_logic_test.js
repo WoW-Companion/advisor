@@ -40,4 +40,20 @@ assert.ok(l.lines.some(x => x.startsWith('test: keydown key=Delete')));
   fire('keydown', { type: 'keydown', key: 'a', code: 'KeyA' });
   assert.strictEqual(frames.length, 0);
 }
+
+// A key cancelled after the capture listener saw it is logged as "cancelled later".
+{
+  const l3 = K.log();
+  const hs = {}, later = [];
+  K.attach({ addEventListener: (t, f) => { (hs[t] = hs[t] || []).push(f); } }, l3, 'ask', f => f(), f => later.push(f));
+  const ev = { type: 'keydown', key: 'x', code: 'KeyX', defaultPrevented: false };
+  hs.keydown.forEach(f => f(ev));
+  ev.defaultPrevented = true;
+  later.splice(0).forEach(f => f());
+  assert.deepStrictEqual(l3.lines, ['ask: keydown key=x code=KeyX', 'ask: cancelled later key=x']);
+  const ok = { type: 'keydown', key: 'y', code: 'KeyY', defaultPrevented: false };
+  hs.keydown.forEach(f => f(ok));
+  later.splice(0).forEach(f => f());
+  assert.strictEqual(l3.lines.length, 3);
+}
 console.log('keydiag ok');
