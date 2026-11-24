@@ -16,6 +16,13 @@ func TestObjectiveLabel(t *testing.T) {
 		{"Kill", "Kill Test Wolf: 2/5", "Kill Test Wolf (2/5)"},
 		{"", "Explore the Hollow", "Explore the Hollow"},
 		{"Collect", "8/8 Spare Gears", "Collect Spare Gears (8/8)"},
+		{"Collect", "Obtain Enchanted Gyrozephyr from Windsong Lake: 0/1", "Obtain Enchanted Gyrozephyr from Windsong Lake (0/1)"},
+		{"Collect", "Listen to what Riaani Nightwind has to say", "Listen to what Riaani Nightwind has to say"},
+		{"Kill", "Wolf slain: 0/8", "Kill Wolf (0/8)"},
+		{"Collect", "Linen: 3/8", "Collect Linen (3/8)"},
+		{"Collect", "OBTAIN Air Construct Core: 0/1", "OBTAIN Air Construct Core (0/1)"},
+		{"Collect", "Investigate the Camp", "Investigate the Camp"},
+		{"Collect", "Obtainable Herbs: 1/2", "Collect Obtainable Herbs (1/2)"},
 	} {
 		if got := objectiveLabel(tc.verb, tc.in); got != tc.want {
 			t.Errorf("objectiveLabel(%q, %q) = %q, want %q", tc.verb, tc.in, got, tc.want)

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.24
+
+- Plan steps no longer double up verbs like "Collect Obtain". If the quest's own objective already starts with a verb (Obtain, Listen, Investigate and many more), the step uses it as written.
+
 ## 0.7.23
 
 - You can type and edit in the ask box again: typing, Backspace, Delete, the arrow keys, Home, End, Ctrl+A and Ctrl+V all work. Enter sends and Shift+Enter adds a line.
