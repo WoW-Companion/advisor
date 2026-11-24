@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.31
+
+- The quick buttons ask broader questions: Gear now reviews all the upgrades within reach (a short ranked list of at most five, each with where to get it), Talents asks which point to take next and why, and What next? asks what to do next and why. Specific questions stay on the cards.
+
 ## 0.7.30
 
 - Follow-up questions stay cheap: the companion remembers what you're talking about (the quest, NPC or item, and your last question) instead of replaying whole earlier answers, and shows it as "Following up on: …" above the ask box. Click the × or Clear to start fresh; it also lapses after 30 minutes or when you switch character. Finished answers now scroll fully into view, including the usage line; if you had scrolled up to read, a "↓ New answer" button appears instead of moving you.

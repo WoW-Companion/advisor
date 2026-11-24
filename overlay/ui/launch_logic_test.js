@@ -60,10 +60,15 @@ const bar = L.quickBar(doc, id => ran.push(id));
 assert.deepStrictEqual(bar.find('quick-lbl').map(e => e.textContent), ['What next?', 'Talents', 'Gear', 'Refresh']);
 bar.children.forEach(b => b.onclick());
 assert.deepStrictEqual(ran, ['next', 'talents', 'gear', 'refresh']);
-assert.deepStrictEqual(L.quickAction('next', ch), { act: 'ask', question: 'What should I do next?', ref: 'quest:5' });
-assert.deepStrictEqual(L.quickAction('talents', ch), { act: 'ask', question: 'Where should my talent points go?', ref: 'talents' });
+assert.deepStrictEqual(L.quickAction('next', ch), { act: 'ask', question: 'What should I do next, and why?', ref: 'quest:5' });
+assert.deepStrictEqual(L.quickAction('talents', ch), { act: 'ask', question: 'Which talent should I take next for my play style, and why?', ref: 'talents' });
 assert.deepStrictEqual(L.quickAction('talents', { entries: [] }), { act: 'play_style' }, 'no stored style: the card');
-assert.deepStrictEqual(L.quickAction('gear', ch), { act: 'ask', question: 'Is the Axe an upgrade?', ref: 'item:9' });
+assert.deepStrictEqual(L.quickAction('gear', ch), { act: 'ask', question: 'Look at my gear and suggest the best upgrades within reach right now: quest rewards, things I can make, vendor buys and cheap Auction House finds. Start with the biggest gain.', ref: 'upgrades' });
+assert.deepStrictEqual(L.quickAction('gear', { entries: [] }), L.quickAction('gear', ch), 'Gear is the same whatever the entries');
+for (const id of ['next', 'talents', 'gear']) {
+  const a = L.quickAction(id, ch);
+  if (a.act === 'ask') for (const e of ch.entries) for (const k of e.asks || []) assert.notStrictEqual(a.question, k, 'a quick button never sends a card ask');
+}
 assert.deepStrictEqual(L.quickAction('refresh', ch), { act: 'refresh' });
 assert.strictEqual(L.quickAction('refresh', ch).question, undefined, 'Refresh makes no AI call');
 
