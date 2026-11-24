@@ -20,7 +20,7 @@ func TestKeyDiagLogicUnderNode(t *testing.T) {
 // The page loads the test, shows it under Updates, and asks Rust for the native line.
 func TestKeyDiagWiring(t *testing.T) {
 	app, html := read(t, "app.js"), read(t, "index.html")
-	for _, want := range []string{"WowcKeyDiag", "key_native_state", "focus_window"} {
+	for _, want := range []string{"WowcKeyDiag", "key_native_state", "ask: focus", "ask: blur"} {
 		if !strings.Contains(app, want) {
 			t.Errorf("app.js lacks %s", want)
 		}
@@ -36,7 +36,6 @@ func TestKeyDiagWiring(t *testing.T) {
 func TestAskFocusAndShortcutKeys(t *testing.T) {
 	app, html := read(t, "app.js"), read(t, "index.html")
 	for _, want := range []string{
-		"document.activeElement !== text",
 		"WowcAsking.wireEditKeys(text, fitBox)",
 		"WowcKeyDiag.attach(text, kl, 'ask')",
 		"ev.key === 'Tab'",
@@ -46,8 +45,11 @@ func TestAskFocusAndShortcutKeys(t *testing.T) {
 			t.Errorf("app.js lacks %s", want)
 		}
 	}
-	if strings.Contains(app, "text.addEventListener('pointerdown', () => { invoke('focus_window')") {
-		t.Error("the ask box must not call focus_window on every pointerdown")
+	asking := read(t, "asking.js")
+	for name, src := range map[string]string{"app.js": app, "asking.js": asking} {
+		if strings.Contains(src, "focus_window") {
+			t.Errorf("%s must not invoke focus_window: native focus calls break the ask box", name)
+		}
 	}
 	if !strings.Contains(html, "Press a key combo · Backspace resets.") {
 		t.Error("index.html lacks the shortcut hint")
