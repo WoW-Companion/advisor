@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.33
+
+- With Questie installed, dungeon advice knows each dungeon's entrance, what lives inside, what drops for you and which quests to bring. It reads your own Questie files on your PC and says so; without Questie nothing changes.
+
 ## 0.7.32
 
 - Dungeon advice is clearer: when you're ready, where they are, which quests to grab first, and what drops for you. Too low for any dungeon? It names the first one, about which levels it opens at, and where its entrance is. In range, it lists up to three dungeons with their entrance zones, the quests to pick up first (and who gives them), and the boss drops that are upgrades for your class and spec. Dungeons from the other faction are left out.

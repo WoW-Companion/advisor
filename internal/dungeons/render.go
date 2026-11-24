@@ -20,6 +20,9 @@ func (d Drop) String() string {
 		gain = "fills an empty slot"
 	}
 	s := fmt.Sprintf("%s (%s, %s) from %s", name, d.Slot, gain, d.Boss)
+	if d.Questie {
+		s += " (from your Questie database)"
+	}
 	if d.Chance != nil {
 		s += fmt.Sprintf(", drops %.0f%% of kills", *d.Chance)
 	}
@@ -41,7 +44,46 @@ func (p DungeonPick) where() string {
 	if p.EntranceZone == "" {
 		return ""
 	}
-	return ", in " + p.EntranceZone
+	return ", in " + p.EntranceZone + p.coords()
+}
+
+// coords is the entrance's map position, "(52.6, 49.0)", when known.
+func (p DungeonPick) coords() string {
+	if !p.HasEntranceXY {
+		return ""
+	}
+	return fmt.Sprintf(" (%.1f, %.1f)", p.EntranceX, p.EntranceY)
+}
+
+// inside words the creatures that live in the dungeon: the bosses by name, then a count of the rest.
+func (p DungeonPick) inside() string {
+	var bosses []string
+	elites, others := 0, 0
+	for _, c := range p.Inside {
+		switch {
+		case c.Boss:
+			bosses = append(bosses, c.Name)
+		case c.Elite:
+			elites++
+		default:
+			others++
+		}
+	}
+	if len(bosses) > 4 {
+		others += len(bosses) - 4
+		bosses = bosses[:4]
+	}
+	var parts []string
+	if len(bosses) > 0 {
+		parts = append(parts, "bosses "+strings.Join(bosses, ", "))
+	}
+	if elites > 0 {
+		parts = append(parts, fmt.Sprintf("%d elites", elites))
+	}
+	if others > 0 {
+		parts = append(parts, fmt.Sprintf("%d other creatures", others))
+	}
+	return strings.Join(parts, "; ")
 }
 
 func (p DungeonPick) describe(b *strings.Builder, n int) {
@@ -54,7 +96,7 @@ func (p DungeonPick) describe(b *strings.Builder, n int) {
 		meta = append(meta, l)
 	}
 	if p.EntranceZone != "" {
-		meta = append(meta, "entrance in "+p.EntranceZone)
+		meta = append(meta, "entrance in "+p.EntranceZone+p.coords())
 	}
 	if p.MaxPlayers != nil {
 		meta = append(meta, fmt.Sprintf("%d players", *p.MaxPlayers))
@@ -64,12 +106,18 @@ func (p DungeonPick) describe(b *strings.Builder, n int) {
 		fmt.Fprintf(b, " (%s)", strings.Join(meta, "; "))
 	}
 	b.WriteString("\n")
+	if in := p.inside(); in != "" {
+		b.WriteString("       Inside (from your Questie database): " + in + "\n")
+	}
 	if len(p.Pickups) > 0 {
 		b.WriteString("       Quests to grab first:\n")
 		for _, q := range p.Pickups {
 			line := "         " + q.Title
 			if q.Giver != "" {
 				line += " (from " + q.Giver + ")"
+			}
+			if q.Questie {
+				line += " [from your Questie database]"
 			}
 			b.WriteString(line + "\n")
 		}

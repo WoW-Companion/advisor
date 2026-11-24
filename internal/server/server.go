@@ -936,7 +936,7 @@ func New(cfg Config) *mcp.Server {
 				limit = 2
 			}
 		}
-		res, err := dungeons.Plan(c, store.NewDir(cfg.Dataset))
+		res, err := dungeons.PlanWith(c, store.NewDir(cfg.Dataset), questie.ForSavedVariables(cfg.SavedVariables))
 		if err != nil {
 			return toolError("Could not plan dungeons: " + err.Error()), none, nil
 		}
