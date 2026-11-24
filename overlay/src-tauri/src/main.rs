@@ -304,7 +304,7 @@ fn set_agent(app: AppHandle, agent: String) -> Result<(), String> {
 
 /// The official install pages of the AI clients and of ForeverScribe, the Getting Started guide, and
 /// this app's latest-release page; the page may open these and nothing else, and only from a click.
-const INSTALL_PAGES: [&str; 8] = [
+const INSTALL_PAGES: [&str; 13] = [
     "https://github.com/WoW-Companion/advisor/releases/latest",
     "https://github.com/WoW-Companion/advisor/releases",
     "https://github.com/MattMaximo/foreverscribe",
@@ -313,6 +313,11 @@ const INSTALL_PAGES: [&str; 8] = [
     "https://github.com/google-gemini/gemini-cli",
     "https://antigravity.google/docs/getting-started?tab=cli",
     "https://github.com/WoW-Companion/advisor/blob/main/docs/getting-started.md",
+    "https://platform.claude.com/settings/keys",
+    "https://platform.openai.com/api-keys",
+    "https://openrouter.ai/keys",
+    "https://ollama.com/download",
+    "https://lmstudio.ai/download",
 ];
 
 #[tauri::command]

@@ -157,6 +157,26 @@ $('agent').onchange = ev => {
 // The sidecar looks for AI clients when it starts, so looking again is a restart.
 $('agent-rescan').onclick = () => restart('Looking for AI clients…');
 $('agent-cmd').onchange = ev => { if (ev.target.value.trim()) chooseAgent(ev.target.value.trim()); };
+// Settings -> AI: the question, the key, the model and Test live in aiset.js; this hands it the page's pieces.
+const aiJson = async (path, body) => {
+  try {
+    const r = await api(path, body === undefined ? {} : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    return r.ok ? await r.json() : { ok: false, message: (await r.text()).trim() };
+  } catch (e) { return { ok: false, message: 'connection: ' + e }; }
+};
+const aiEls = {};
+for (const [k, id] of Object.entries({ mode: 'ai-mode', cliRows: 'ai-cli', apiRows: 'ai-api', provider: 'ai-provider', baseRow: 'ai-base-row', base: 'ai-base',
+  localRow: 'ai-local', localStatus: 'ai-local-status', localLink: 'ai-local-link', rescan: 'ai-rescan', keyRow: 'ai-key-row', keyBox: 'ai-key-box', keyInput: 'ai-key',
+  keySave: 'ai-key-save', keyCancel: 'ai-key-cancel', keySaved: 'ai-key-saved', keyStatus: 'ai-key-status', keyReplace: 'ai-key-replace', keyRemove: 'ai-key-remove',
+  keyLink: 'ai-key-link', model: 'ai-model', modelName: 'ai-model-name', modelOtherRow: 'ai-model-other-row', modelOther: 'ai-model-other', note: 'ai-note',
+  costRows: 'ai-cost', cost: 'ai-cost-line', subscription: 'ai-sub-line', test: 'ai-test', testOut: 'ai-test-out', advanced: 'ai-advanced', backup: 'ai-backup' })) aiEls[k] = $(id);
+const aiSettings = WowcAiSettings.create(aiEls, {
+  call: aiJson,
+  openPage: url => invoke('open_install_page', { url }).catch(e => notice(String(e))),
+  option: o => Object.assign(document.createElement('option'), o),
+  agent: () => (conn && conn.agent) || '',
+  onChange: () => {},
+});
 for (const a of document.querySelectorAll('a[data-page]')) {
   a.onclick = ev => { ev.preventDefault(); invoke('open_install_page', { url: a.dataset.page }).catch(e => notice(String(e))); };
 }
@@ -537,6 +557,7 @@ async function load() {
   state = await r.json();
   if (state.digest && state.digest.enabled !== (cfg.autoDigest !== false)) pushDigest(); // the saved choice wins over the sidecar's default
   pushSettings(); // the saved choices win over the sidecar's defaults
+  aiSettings.refresh();
   setChars();
   showBadge();
   showWhatsNew();
