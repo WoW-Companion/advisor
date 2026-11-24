@@ -1,59 +1,68 @@
 # WoW Companion
 
-WoW Companion gives you advice for the character you are playing: what to do next, the best quest
-route, and answers from your own AI. You see it in a small window beside the game and in a panel inside
-WoW.
+WoW Companion tells you what to do next in World of Warcraft. It plans your quests and draws the route on
+your map. You can also ask about your character in plain words.
 
-![The WoW Companion panel in the game](docs/images/panel.png)
+<!-- screenshot: map-plan.png — the world map with a numbered plan and the plan list open beside it -->
 
-**New here? Start with [Getting Started](docs/getting-started.md)**, one short page for Windows players. The
-full [quickstart](docs/quickstart.md) covers every path, from download to in-game advice.
+**Ready? → [Getting Started](docs/getting-started.md)**
 
 > WoW Companion is a fan project. It is not affiliated with or endorsed by Blizzard Entertainment. World of Warcraft and Warcraft are trademarks of Blizzard Entertainment, Inc.
+
+## What you get
+
+- **A plan of what to do next**, drawn on your map with numbered steps.
+- **Answers about your character**, in plain words. Type a question or click a suggestion.
+- **Better gear, and how to get it.** You see where an upgrade comes from and how to make it.
+- **Talents for how you like to play.** They come from a build that someone has worked out and checked.
 
 ## How it works
 
 Three small pieces work together. Think of it as a loop.
 
-- **ForeverScribe** (an addon) writes down what your character has: level, quests, bags and talents.
-  WoW only saves that to disk when you `/reload`, log out or quit.
-- **The WoW Companion app** (the overlay, a small window beside the game) reads that save within seconds,
-  works out your next steps and the best route, and lets you ask your AI about your character. It writes
-  the advice back into the game's addon folder.
-- **The WoW Companion addon** shows that advice in the game: the panel, the numbered route on your map and
-  the minimap button. Quest counts update live as you play.
+- **ForeverScribe** is an addon. It writes down what your character has. WoW saves that to disk when you
+  `/reload`, log out or quit.
+- **The WoW Companion app** is the small window that sits beside or over the game. It reads that save
+  within seconds. It works out your plan and answers your questions. It writes the plan back for the addon.
+- **The WoW Companion addon** is optional. It shows your plan in the game: on your map, on the minimap and
+  in its own panel.
 
-**The loop:** play, then `/reload` (WoW saves), then the app writes fresh advice within seconds, then
-`/reload` again to see it in the game. You can also ask a question in the game; the app answers it in its
-window right away.
+<!-- screenshot: overlay-beside-game.png — the whole screen, with the game and the app beside it -->
+
+**The loop:** play, then type `/reload`. The app updates your plan within seconds. Type `/reload` again to
+see it on your map.
+
+**Asking:** you ask in the app. Type a question, or click a suggestion. In the game, a question button
+copies a question for you. Paste it into the app's ask box.
 
 ```mermaid
 flowchart LR
     G[WoW game] -->|/reload saves| S[ForeverScribe save file]
     S --> A[WoW Companion app]
-    A --> F[Advice files]
+    A --> F[Plan files]
     F -->|/reload loads| D[WoW Companion addon in game]
-    G -.->|Ask| A
+    G -.->|copy and paste a question| A
 ```
 
-**Safety, said simply:** the addon only reads the game. The app never touches the game. Nothing is
+**Safety, said simply:** the addons only read the game. The app never touches the game. Nothing is
 automated. Your AI sees only what you ask it.
 
-## The pieces, in the order to set them up
+## Ask about your character
 
-- **ForeverScribe** ([MattMaximo/foreverscribe](https://github.com/MattMaximo/foreverscribe)), required: the
-  addon that captures your characters into SavedVariables.
-- **Overlay** ([overlay/](overlay/README.md)): a small Windows app (download `WoW-Companion-Setup-<version>-x64.exe`
-  from the [latest release](https://github.com/WoW-Companion/advisor/releases/latest)) that bundles the advisor, sits over the
-  game (Windowed (Fullscreen) only), finds your AI client and chats about the character you are playing.
-  Recommended. It also answers questions you queue in game.
-- **WoW Companion addon** ([WoW-Companion/addon](https://github.com/WoW-Companion/addon)), optional: in-game
-  extras (the panel, tracker, tooltips and right-click "Ask about this" copies the question to paste into the overlay).
-- **Advisor** (this repo, `wowc-advisor`): the brain. An MCP server and command line that read your
-  ForeverScribe capture and a game dataset, answer with ranked advice, and write the digest.
-  `wowc-advisor companion` is a browser chat beside the game.
+<!-- screenshot: overlay-answer.png — a question asked in the app and its answer -->
 
-Setup for each, step by step, is the [quickstart](docs/quickstart.md).
+Type a question in the app, such as "What should I do next?". Or click one of the suggestions.
+
+## What you need to set up
+
+- **ForeverScribe** ([MattMaximo/foreverscribe](https://github.com/MattMaximo/foreverscribe)) is required.
+- **The WoW Companion app** is the main thing. Download `WoW-Companion-Setup-<version>-x64.exe` from the
+  [latest release](https://github.com/WoW-Companion/advisor/releases/latest). It works over the game in
+  Windowed (Fullscreen) mode.
+- **The WoW Companion addon** ([WoW-Companion/addon](https://github.com/WoW-Companion/addon)) is optional.
+  It adds the in-game extras.
+
+Every step is in [Getting Started](docs/getting-started.md). The [quickstart](docs/quickstart.md) goes deeper.
 
 ## For developers
 
