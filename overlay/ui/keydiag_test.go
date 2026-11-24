@@ -31,3 +31,25 @@ func TestKeyDiagWiring(t *testing.T) {
 		}
 	}
 }
+
+// The ask box no longer steals focus, has the editing-key safety net, and shortcut boxes reset on Backspace.
+func TestAskFocusAndShortcutKeys(t *testing.T) {
+	app, html := read(t, "app.js"), read(t, "index.html")
+	for _, want := range []string{
+		"document.activeElement !== text",
+		"WowcAsking.wireEditKeys(text, fitBox)",
+		"WowcKeyDiag.attach(text, kl, 'ask')",
+		"ev.key === 'Tab'",
+		"DEFAULTS[field]",
+	} {
+		if !strings.Contains(app, want) {
+			t.Errorf("app.js lacks %s", want)
+		}
+	}
+	if strings.Contains(app, "text.addEventListener('pointerdown', () => { invoke('focus_window')") {
+		t.Error("the ask box must not call focus_window on every pointerdown")
+	}
+	if !strings.Contains(html, "Press a key combo · Backspace resets.") {
+		t.Error("index.html lacks the shortcut hint")
+	}
+}

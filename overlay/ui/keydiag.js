@@ -35,8 +35,19 @@
   }
 
   // attach: listens on the target (capture, so a handler that stops propagation is still seen).
-  function attach(target, l) {
-    for (const t of ['keydown', 'beforeinput', 'paste']) target.addEventListener(t, ev => l.record(ev), true);
+  // name prefixes each line ('test:' or 'ask:'), so the two fields can be told apart. After an editing
+  // key, watchChange logs "no change" when the value and caret did not move by the next frame.
+  const EDITING = ['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'];
+  function attach(target, l, name, raf) {
+    const tag = name ? name + ': ' : '';
+    raf = raf || (fn => (typeof requestAnimationFrame === 'function' ? requestAnimationFrame(fn) : setTimeout(fn, 16)));
+    const rec = ev => { const d = describe(ev); if (d) l.add(tag + d); };
+    for (const t of ['keydown', 'beforeinput', 'paste']) target.addEventListener(t, rec, true);
+    target.addEventListener('keydown', ev => {
+      if (EDITING.indexOf(ev.key) < 0 || ev.ctrlKey || ev.altKey || ev.metaKey) return;
+      const was = [target.value, target.selectionStart, target.selectionEnd].join('|');
+      raf(() => { if ([target.value, target.selectionStart, target.selectionEnd].join('|') === was) l.add(tag + 'no change after ' + ev.key); });
+    }, true);
   }
 
   const api = { MAX, describe, log, attach };

@@ -93,6 +93,87 @@
     return { paste: () => { box.focus && box.focus(); return fromNative(); } };
   }
 
+  const EDIT_KEYS = ['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'];
+
+  // applyEditKey: what an editing or caret key does to { value, start, end, dir } (dir 'backward' when
+  // the moving end of the selection is its start). Pure; returns the new { value, start, end, dir }.
+  function applyEditKey(st, key, shift) {
+    const v = String(st.value || '');
+    const s = Math.min(st.start, st.end), e = Math.max(st.start, st.end);
+    const back = st.dir === 'backward';
+    const anchor = back ? e : s, focus = back ? s : e;
+    const same = { value: v, start: s, end: e, dir: st.dir || 'none' };
+    if (key === 'Backspace' || key === 'Delete') {
+      let a = s, b = e;
+      if (s === e) {
+        if (key === 'Backspace') a = Math.max(0, s - 1); else b = Math.min(v.length, e + 1);
+      }
+      if (a === b) return same;
+      return { value: v.slice(0, a) + v.slice(b), start: a, end: a, dir: 'none' };
+    }
+    const lineStart = i => v.lastIndexOf('\n', i - 1) + 1;
+    const lineEnd = i => { const n = v.indexOf('\n', i); return n < 0 ? v.length : n; };
+    let to;
+    if (!shift && s !== e && (key === 'ArrowLeft' || key === 'ArrowRight')) {
+      to = key === 'ArrowLeft' ? s : e; // a plain arrow collapses the selection to its edge
+      return { value: v, start: to, end: to, dir: 'none' };
+    }
+    switch (key) {
+      case 'ArrowLeft': to = Math.max(0, focus - 1); break;
+      case 'ArrowRight': to = Math.min(v.length, focus + 1); break;
+      case 'Home': to = lineStart(focus); break;
+      case 'End': to = lineEnd(focus); break;
+      case 'ArrowUp': {
+        const ls = lineStart(focus), col = focus - ls;
+        if (ls === 0) { to = 0; break; }
+        const ps = lineStart(ls - 1);
+        to = Math.min(ps + col, ls - 1);
+        break;
+      }
+      case 'ArrowDown': {
+        const le = lineEnd(focus), col = focus - lineStart(focus);
+        if (le >= v.length) { to = v.length; break; }
+        const ns = le + 1;
+        to = Math.min(ns + col, lineEnd(ns));
+        break;
+      }
+      default: return same;
+    }
+    if (!shift) return { value: v, start: to, end: to, dir: 'none' };
+    const a = Math.min(anchor, to), b = Math.max(anchor, to);
+    return { value: v, start: a, end: b, dir: to < anchor ? 'backward' : 'forward' };
+  }
+
+  // wireEditKeys: the ask box's safety net. If the web view drops an editing key (Backspace, Delete,
+  // the arrows, Home, End; no Ctrl/Alt/Meta), the key is applied here one frame later, but only when
+  // the box did not change and no beforeinput came for it, so a native edit is never applied twice.
+  // after() is the box's input handling (it refits); onApplied(key) is told when a key was applied here.
+  function wireEditKeys(box, after, raf, onApplied) {
+    raf = raf || (fn => requestAnimationFrame(fn));
+    let snap = null;
+    const read = () => ({ value: String(box.value || ''), start: box.selectionStart == null ? 0 : box.selectionStart, end: box.selectionEnd == null ? 0 : box.selectionEnd, dir: box.selectionDirection || 'none' });
+    box.addEventListener('beforeinput', () => { if (snap) snap.native = true; }, true);
+    box.addEventListener('keydown', ev => {
+      if (ev.ctrlKey || ev.altKey || ev.metaKey || ev.isComposing || ev.defaultPrevented || EDIT_KEYS.indexOf(ev.key) < 0) return;
+      const mine = snap = { ...read(), native: false, key: ev.key, shift: !!ev.shiftKey };
+      raf(() => {
+        if (snap !== mine) return; // a newer key took over
+        snap = null;
+        const now = read();
+        if (mine.native || now.value !== mine.value || now.start !== mine.start || now.end !== mine.end) return; // the web view did it
+        const r = applyEditKey(mine, mine.key, mine.shift);
+        if (r.value === mine.value && r.start === mine.start && r.end === mine.end) return; // nothing to do at an edge
+        const changed = r.value !== mine.value;
+        if (changed) box.value = r.value;
+        if (box.setSelectionRange) box.setSelectionRange(r.start, r.end, r.dir); else { box.selectionStart = r.start; box.selectionEnd = r.end; }
+        if (changed) {
+          if (typeof Event === 'function' && box.dispatchEvent) box.dispatchEvent(new Event('input', { bubbles: true })); else after();
+        }
+        if (onApplied) onApplied(mine.key);
+      });
+    });
+  }
+
   // onAskKey: Enter sends, Shift+Enter leaves the newline alone.
   function onAskKey(ev, submit) {
     if (ev.key === 'Enter' && !ev.shiftKey && !ev.isComposing) { ev.preventDefault(); submit(); return true; }
@@ -156,7 +237,7 @@
     const rest = t.replace(/^I(?:'|’)?m an? (?:level \d+ )?[^.?!]*\.\s+/i, '');
     return rest || t;
   }
-  const api = { entryList, fit, insertText, wirePaste, onAskKey, needsCard, shortQuestion, NEEDS_LINE };
+  const api = { entryList, fit, insertText, wirePaste, applyEditKey, wireEditKeys, EDIT_KEYS, onAskKey, needsCard, shortQuestion, NEEDS_LINE };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.WowcAsking = api;
 })(typeof window !== 'undefined' ? window : globalThis);

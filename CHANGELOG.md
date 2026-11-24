@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.21
+
+- Backspace, Delete, the arrow keys, Home and End now work in the overlay's ask box. The overlay no longer pulls keyboard focus away from the box when you click it, and if a key still gets lost, the box applies it itself.
+- In Settings → Shortcuts, Backspace or Delete clears a shortcut box back to its default. Tab moves on, and Escape leaves the box unchanged.
+- The Keyboard test now also watches the ask box: its lines start with `test:` or `ask:`, and say "no change" when an editing key did nothing.
+
 ## 0.7.20
 
 - The overlay's ask box now takes the arrow keys, Backspace, Delete, Ctrl+V and the menu's Paste. The overlay now takes keyboard focus as soon as you click the box, turning click-through off puts the window back exactly as it was, and a shortcut you set for show/hide or click-through can no longer be an editing key or a bare Ctrl+V or Ctrl+C.
