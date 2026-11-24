@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.7.26
+
+- You can now ask through an AI provider with your own API key, not only through a command-line AI client. Anthropic (Claude), OpenAI and OpenRouter work with a key you save; Ollama and LM Studio run on your own PC and need no key, and any other OpenAI-compatible server works with its address. The AI uses the same advisor tools and the same answer settings as before, and the usage line shows tokens including cached ones. If a model can't use tools, the app says so instead of guessing.
+- Keys are stored in Windows Credential Manager (a private file in your data folder on macOS and Linux), never in a settings file or a log.
+- You can list several AI clients in order; if the first can't start, the next one answers. Setups that only use a command-line client work exactly as before.
+- New page: [AI providers and API keys](docs/providers.md).
+
 ## 0.7.25
 
 - The AI can now follow WoW Forever's own quest lines using your Questie database. Ask "What does The Skybreaker Bulwark lead to?" and it lists the quests that come before and after it, with who gives and takes in each one and what to do, instead of saying the quest has no data. When no follow-up is listed anywhere, it now says so plainly.

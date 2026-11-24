@@ -69,7 +69,31 @@ func tokenCount(n int) string {
 }
 
 // RespondUsage is Respond that also returns the token usage Claude's stream-json result reports.
+//
+// With cfg.Fallback set, a client that cannot start (no key, not reachable, key refused, no such
+// program) hands over to the next one, and the usage notice says so.
 func RespondUsage(ctx context.Context, cfg Config, q Question, prompt string, stream bool, onText func(string)) (text string, streamed bool, usage Usage, err error) {
+	chain := cfg.Fallback
+	cfg.Fallback = nil
+	text, streamed, usage, err = respondOne(ctx, cfg, q, prompt, stream, onText)
+	for _, next := range chain {
+		if err == nil || !startFailure(err) {
+			break
+		}
+		first := err.Error()
+		next.Fallback = nil
+		text, streamed, usage, err = respondOne(ctx, next, q, prompt, stream, onText)
+		if err == nil && usage.Notice == "" {
+			usage.Notice = "The first AI client didn't start (" + first + "), so another one answered."
+		}
+	}
+	return
+}
+
+func respondOne(ctx context.Context, cfg Config, q Question, prompt string, stream bool, onText func(string)) (text string, streamed bool, usage Usage, err error) {
+	if cfg.API != nil {
+		return respondAPI(ctx, cfg, prompt, onText)
+	}
 	usage.Model = ModelUsed(cfg.Command, cfg.Options)
 	cfg.Notice = func(n string) { usage.Notice = n }
 	if !stream {

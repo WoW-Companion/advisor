@@ -46,7 +46,7 @@ func (s *Server) askCfg() ask.Config {
 	c := s.cfg.Ask
 	c.Options = s.opts
 	c.Dataset = s.datasetDir()
-	return c
+	return c.WithClients(s.providerSettings(), s.keyStore(), s.cfg.HTTP)
 }
 
 // setSettings takes {"length","model","custom_model","reasoning","usage"}; unknown values fall back to the defaults.

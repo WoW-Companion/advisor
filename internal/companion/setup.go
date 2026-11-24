@@ -125,6 +125,11 @@ func (s *Server) setupWriteData(w http.ResponseWriter, r *http.Request) {
 
 // setupTestAI is POST /api/setup/test-ai: one tiny prompt through the configured agent.
 func (s *Server) setupTestAI(w http.ResponseWriter, r *http.Request) {
+	if ac := s.askCfg(); ac.API != nil {
+		ok, msg := s.pingAPI(r.Context(), ac.API)
+		writeJSON(w, map[string]any{"ok": ok, "message": msg})
+		return
+	}
 	ok, msg := gamesetup.TestAI(r.Context(), s.cfg.Ask.Command)
 	writeJSON(w, map[string]any{"ok": ok, "message": msg})
 }

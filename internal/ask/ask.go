@@ -16,6 +16,10 @@ import (
 	"strings"
 	"time"
 	"unicode/utf8"
+
+	"github.com/modelcontextprotocol/go-sdk/mcp"
+
+	"github.com/WoW-Companion/advisor/internal/provider"
 )
 
 // Schema is the Answers.lua format version this package writes.
@@ -86,13 +90,16 @@ type Question struct {
 
 // Config is one pass's settings.
 type Config struct {
-	SavedVariables string       // the addon's WoWCompanion.lua
-	Command        []string     // the agent argv, see Presets; empty when no agent is set up (the companion only)
-	Name, Source   string       // the agent's short name and where it came from (see Agent); may be empty
-	Dataset        string       // dataset directory for the pre-fetched next steps (empty: none)
-	MCPConfig      string       // path of the MCP config file handed to the agent; may be empty
-	Options        Options      // answer length, model tier and reasoning, see Options
-	Notice         func(string) // told a one-line notice, e.g. that the CLI rejected a flag (may be nil)
+	SavedVariables string             // the addon's WoWCompanion.lua
+	Command        []string           // the agent argv, see Presets; empty when no agent is set up (the companion only)
+	Name, Source   string             // the agent's short name and where it came from (see Agent); may be empty
+	Dataset        string             // dataset directory for the pre-fetched next steps (empty: none)
+	MCPConfig      string             // path of the MCP config file handed to the agent; may be empty
+	Options        Options            // answer length, model tier and reasoning, see Options
+	API            *API               // set: ask this model provider API instead of running Command
+	Server         func() *mcp.Server // builds the advisor's tools for an API client (nil: none)
+	Fallback       []Config           // tried in order when this client cannot start (see RespondUsage)
+	Notice         func(string)       // told a one-line notice, e.g. that the CLI rejected a flag (may be nil)
 	Timeout        time.Duration
 	MaxPerRun      int
 	Now            func() time.Time
@@ -107,6 +114,10 @@ func (c Config) now() time.Time {
 
 // runAgent runs the agent for q. The error is short and fit to show the player.
 func runAgent(ctx context.Context, cfg Config, q Question) (string, error) {
+	if cfg.API != nil || len(cfg.Fallback) > 0 {
+		text, _, _, err := RespondUsage(ctx, cfg, q, cfg.Prompt(q), false, nil)
+		return text, err
+	}
 	var out bytes.Buffer
 	if err := execAgent(ctx, cfg, q, cfg.Prompt(q), nil, &capped{w: &out, left: MaxOutput}); err != nil {
 		return "", err
@@ -147,7 +158,7 @@ func rejectedFlag(err error) bool {
 // execOnce runs the agent once; wrote is true when it wrote any output.
 func execOnce(ctx context.Context, cfg Config, q Question, prompt string, extra []string, stdout io.Writer) (wrote bool, _ error) {
 	if len(cfg.Command) == 0 {
-		return false, errors.New("no agent command is configured")
+		return false, &provider.StartError{Msg: "no agent command is configured"}
 	}
 	timeout := cfg.Timeout
 	if timeout <= 0 {
@@ -158,7 +169,7 @@ func execOnce(ctx context.Context, cfg Config, q Question, prompt string, extra 
 	argv := append(WithModel(Argv(cfg.Command, prompt, cfg.MCPConfig), cfg.Command, cfg.Options), extra...)
 	cmd, err := Launch(ctx, argv, "WOWC_QUESTION="+q.Text, "WOWC_CHARACTER="+q.Character, "WOWC_MCP_CONFIG="+cfg.MCPConfig)
 	if err != nil {
-		return false, err
+		return false, &provider.StartError{Msg: err.Error()}
 	}
 	cmd.WaitDelay = time.Second
 	if ClientName(cfg.Command) == "agy" && cfg.MCPConfig != "" {
@@ -179,7 +190,7 @@ func execOnce(ctx context.Context, cfg Config, q Question, prompt string, extra 
 		if errors.As(err, &ee) {
 			return out.n > 0, exitError(ee, out.n > 0, errOut.String())
 		}
-		return false, startError(cmd.Path, err)
+		return false, &provider.StartError{Msg: startError(cmd.Path, err).Error()}
 	}
 	return out.n > 0, nil
 }

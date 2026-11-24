@@ -10,6 +10,7 @@ require (
 
 require (
 	github.com/andybalholm/brotli v1.3.0 // indirect
+	github.com/danieljoos/wincred v1.2.3 // indirect
 	github.com/google/jsonschema-go v0.4.3 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/parquet-go/bitpack v1.0.3 // indirect

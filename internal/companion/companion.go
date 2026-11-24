@@ -27,6 +27,7 @@ import (
 	"github.com/WoW-Companion/advisor/internal/dataset"
 	"github.com/WoW-Companion/advisor/internal/digest"
 	"github.com/WoW-Companion/advisor/internal/profile"
+	"github.com/WoW-Companion/advisor/internal/provider"
 	"github.com/WoW-Companion/advisor/internal/questie"
 	"github.com/WoW-Companion/advisor/internal/release"
 	"github.com/WoW-Companion/advisor/internal/route"
@@ -75,6 +76,8 @@ type Config struct {
 	Update        func(context.Context) (release.Result, error) // looks up the latest release for /api/update; nil answers no notice
 	Profiles      string                                        // the play-style store (empty: profile.Path())
 	Now           func() time.Time                              // the clock for ask ages (nil: time.Now)
+	Providers     string                                        // the saved client list (empty: provider.SettingsPath())
+	Keys          provider.KeyStore                             // where API keys are kept (nil: the platform's default)
 }
 
 // Digest statuses.
@@ -233,6 +236,7 @@ type Server struct {
 	ctx   context.Context
 
 	mu       sync.Mutex
+	pmu      sync.Mutex // guards the saved client list file
 	chars    []CharInfo
 	captured int64
 	loadErr  string
@@ -307,6 +311,13 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/setup/write-data", s.setupWriteData)
 	mux.HandleFunc("POST /api/setup/test-ai", s.setupTestAI)
 	mux.HandleFunc("POST /api/setup/download-dataset", s.setupDownloadData)
+	mux.HandleFunc("GET /api/providers", s.providersList)
+	mux.HandleFunc("POST /api/providers/active", s.setActiveProvider)
+	mux.HandleFunc("POST /api/providers/clients", s.setClients)
+	mux.HandleFunc("POST /api/providers/key", s.setKey)
+	mux.HandleFunc("POST /api/providers/key/delete", s.deleteKey)
+	mux.HandleFunc("GET /api/providers/models", s.providerModels)
+	mux.HandleFunc("POST /api/providers/test", s.testProvider)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if msg := s.reject(r); msg != "" {
 			http.Error(w, msg, http.StatusForbidden)
@@ -587,7 +598,7 @@ func (s *Server) ask(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, fmt.Sprintf("question longer than %d characters", MaxQuestion), http.StatusRequestEntityTooLarge)
 		return
 	}
-	if len(s.cfg.Ask.Command) == 0 {
+	if !s.askCfg().Usable() {
 		http.Error(w, ErrNoAgent, http.StatusConflict)
 		return
 	}
