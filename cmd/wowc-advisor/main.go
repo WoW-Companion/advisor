@@ -50,6 +50,7 @@ const usage = `usage: wowc-advisor serve [--stdio | --http] [--host ADDR] [--por
        wowc-advisor config path | config set agent PRESET|COMMAND|auto
        wowc-advisor setup CLIENT [--write] [--savedvariables FILE] [--binary FILE] [--os OS]   (CLIENT: claude-desktop, claude-code, codex, agy, gemini)
        wowc-advisor doctor [--savedvariables FILE] [--cache DIR] [--check]
+       wowc-advisor profession-plan --profession NAME [--from N] [--to N] [--level L] [--faction horde|alliance] [--gather PROFESSION] [--dataset DIR|URL] [--json]
        wowc-advisor version`
 
 func run(ctx context.Context, args []string, stderr io.Writer) error {
@@ -72,6 +73,8 @@ func run(ctx context.Context, args []string, stderr io.Writer) error {
 		return doctorCmd(args[1:], os.Stdout, stderr)
 	case "config":
 		return configCmd(args[1:], os.Stdout)
+	case "profession-plan":
+		return professionPlanCmd(args[1:], os.Stdout, stderr)
 	case "companion":
 		return companionCmd(ctx, args[1:], os.Stdout, stderr)
 	}

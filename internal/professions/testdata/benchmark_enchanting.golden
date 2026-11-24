@@ -1,0 +1,20 @@
+Profession plan: Enchanting 1→120, level 20, empty bags and bank.
+Skill-up model: an orange craft gives 1 skill point, a yellow craft about 0.5 (from the midpoint of the yellow range), a grey craft none. Each band picks the recipe with the lowest cost per point; ties go to fewer crafts, then the lower spell id. Nothing is held: every material is bought or gathered.
+
+Gates:
+- Apprentice: skill 1-75, character level 5, trainer Ench Eli in Darkshire; trainer recipes on this path: 1 for 0c
+- Journeyman: skill 75-150, character level 10, trainer Ench Eli in Darkshire; trainer recipes on this path: 1 for 7s
+
+Bands:
+1. Skill 1→80: 99 × Enchant Bracer (59 orange, 40 yellow; expected skill-ups 79); learn: trainer
+   Materials: 99 × Strange Dust
+   Alternative: Runed Rod
+2. Skill 80→120: 60 × Enchant Shield (20 orange, 40 yellow; expected skill-ups 40); learn: trainer, 7s
+   Materials: 120 × Strange Dust, 60 × Lesser Magic Essence
+
+Material totals:
+- 219 × Strange Dust: disenchanting uncommon weapon, item level 10-20
+- 60 × Lesser Magic Essence: disenchanting uncommon armor, item level 10-30
+
+Efficiency: 279 materials in all, 2 distinct, vendor cost 0c, 0 rare; score 279 (lower is better).
+score = total materials + vendor silver + 250 per rare material (no vendor, no gathering, fishing or disenchant source, no drop of 5% or more).

@@ -1,8 +1,12 @@
 # Changelog
 
-## 0.7.36
+## 0.7.37
 
 - Crafting answers name the nearest trainer or vendor for your faction, with the place to find them. Ask "who trains that?" and you get the closest trainer for your faction in your zone first, then your continent, with the zone and coordinates; a place your Questie database knows is marked as coming from it. Recipes sold by a vendor or dropped name that source the same way. Recipes the trainer simply teaches no longer claim "needs skill 1": you're told the trainer will show whether you can learn it yet.
+
+## 0.7.36
+
+- For developers: `wowc-advisor profession-plan --profession NAME` prints a whole skill-up path (default 1 to the level's cap) for a fresh character with empty bags, with the recipe and crafts per band, material totals and vendor cost, recipe items to find, trainer costs per tier and an efficiency score; `--json` for tools. It needs only a dataset directory or URL, no game install.
 
 ## 0.7.35
 
