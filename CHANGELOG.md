@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.36
+
+- For developers: `wowc-advisor profession-plan --profession NAME` prints a whole skill-up path (default 1 to the level's cap) for a fresh character with empty bags, with the recipe and crafts per band, material totals and vendor cost, recipe items to find, trainer costs per tier and an efficiency score; `--json` for tools. It needs only a dataset directory or URL, no game install.
+
 ## 0.7.35
 
 - Follow-ups remember what the answer was about; choosing a spec is one tap and shows in Settings; answers no longer flash working notes or talk about their sources. The "Following up on" chip now names the quest, item or person the answer led with, not a side note. Ask about talents with no spec saved and you get one button per spec, with no AI call; a spec you pick, or one your AI client saves while chatting, appears in Settings → Play Style straight away. While an answer is on its way you see a plain line like "Checking your gear…" instead of the AI's working notes. Answers lead with the point and no longer mention data or sources, and gear you can't use until a higher level is listed after the main list under "Soon".

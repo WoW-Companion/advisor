@@ -44,6 +44,21 @@ func craftsFor(r Recipe, have, target int) (crafts, reaches int) {
 	return crafts, reaches
 }
 
+// splitCrafts is the crafts of a band that are orange (one skill-up each) and yellow (one in two),
+// by the same rule as craftsFor.
+func splitCrafts(r Recipe, have, reaches int) (orange, yellow int) {
+	if r.YellowSkill == nil {
+		return 0, 0
+	}
+	if o := min(reaches, *r.YellowSkill) - have; o > 0 {
+		orange = o
+	}
+	if y := reaches - max(have, *r.YellowSkill); y > 0 {
+		yellow = 2 * y
+	}
+	return
+}
+
 // SkillUp is the fastest path from the character's skill in a profession to target: up to
 // SkillUpMax recipes they know or can learn now that are orange or yellow at their skill, those
 // whose materials they already hold (bags and bank) first, then known ones, then orange before

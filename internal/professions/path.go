@@ -24,6 +24,7 @@ const (
 
 // Need is one material of a band: what it takes, what is held, and where the rest comes from.
 type Need struct {
+	ID      int64
 	Item    string
 	Total   int
 	Have    int
@@ -38,6 +39,24 @@ type Option struct {
 	Difficulty string
 	Learn      string // how to learn it first; empty when known or no learning is needed
 	Needs      []Need
+
+	// Detail for the benchmark: the recipe's spell, crafts that are orange and yellow at the band's
+	// start and the way it is learnt.
+	Spell        int64
+	OrangeCrafts int
+	YellowCrafts int
+	LearnInfo    learnInfo
+}
+
+// learnInfo says how a recipe is learnt: Via is "known", "trainer" or "item"; Copper is the price
+// (0 when unknown or free); ItemID is the recipe item, with Source its kind ("vendor", "quest", "drop", "auction").
+type learnInfo struct {
+	Via    string
+	Copper int64
+	ItemID int64
+	Item   string
+	Source string
+	Where  string
 }
 
 // Band is one stretch of skill, from From to To, with the recipe to make and an alternative.
@@ -79,6 +98,8 @@ type planner struct {
 	srcs   map[int64]source
 	// materials still to fetch over the whole path, for the prep lines
 	short map[int64]bool
+	// fresh marks a synthetic character: no recipe is known, and each one says how it is learnt.
+	fresh bool
 }
 
 func (p *planner) name(id int64) string {
@@ -155,10 +176,16 @@ func (p *planner) sourceOf(id int64) source {
 
 // learnOf says what learning a recipe costs and how: nothing when it is known.
 func (p *planner) learnCost(r Recipe, from string, skill int) (effort int, text string, ok bool) {
+	effort, text, _, ok = p.learnDetail(r, from, skill)
+	return
+}
+
+func (p *planner) learnDetail(r Recipe, from string, skill int) (effort int, text string, info learnInfo, ok bool) {
 	if p.known[r.SpellID] || p.learnt[r.SpellID] {
-		return 0, "", true
+		return 0, "", learnInfo{Via: "known"}, true
 	}
 	var byTrainer, byItem *source
+	var tInfo, iInfo learnInfo
 	if from != "item" {
 		t := source{0, "trainer"}
 		if rows := rowsBy(p.ds, "trainer_spells", "spell_id", r.SpellID); len(rows) > 0 {
@@ -170,8 +197,10 @@ func (p *planner) learnCost(r Recipe, from string, skill int) (effort int, text 
 			}
 			if cost > 0 {
 				t = source{int(cost), "trainer, " + Money(cost)}
+				tInfo.Copper = cost
 			}
 		}
+		tInfo.Via = "trainer"
 		byTrainer = &t
 	}
 	if from == "item" || from == "both" {
@@ -181,9 +210,11 @@ func (p *planner) learnCost(r Recipe, from string, skill int) (effort int, text 
 			}
 			id := asI64(ri["item_id"])
 			s := source{effortAH, p.name(id) + " from the Auction House"}
+			info := learnInfo{Via: "item", ItemID: id, Item: p.name(id), Source: "auction", Where: "the Auction House"}
 			for _, v := range rowsBy(p.ds, "vendor_sources", "item_id", id) {
 				if price := asI64(v["price_copper"]); int(price) < s.effort || s.effort == effortAH {
 					s = source{int(price), p.name(id) + " from a vendor, " + Money(price)}
+					info.Copper, info.Source, info.Where = price, "vendor", "a vendor"
 				}
 			}
 			if s.effort == effortAH {
@@ -191,6 +222,7 @@ func (p *planner) learnCost(r Recipe, from string, skill int) (effort int, text 
 					switch k := strings.ToLower(asText(l["source_kind"])); {
 					case strings.Contains(k, "quest"):
 						s = source{effortQuest, p.name(id) + " from a quest"}
+						info.Source, info.Where = "quest", "a quest"
 					case strings.Contains(k, "creature") || strings.Contains(k, "object"):
 						who := ""
 						if n, err := p.ds.Get("npcs", asI64(l["source_id"])); err == nil {
@@ -198,9 +230,12 @@ func (p *planner) learnCost(r Recipe, from string, skill int) (effort int, text 
 						}
 						if who != "" {
 							s = source{effortDrop, p.name(id) + " dropped by " + who}
+							info.Where = who
 						} else {
 							s = source{effortDrop, p.name(id) + " from a drop"}
+							info.Where = "a drop"
 						}
+						info.Source = "drop"
 					}
 					if s.effort != effortAH {
 						break
@@ -210,16 +245,17 @@ func (p *planner) learnCost(r Recipe, from string, skill int) (effort int, text 
 			if byItem == nil || s.effort < byItem.effort {
 				c := s
 				byItem = &c
+				iInfo = info
 			}
 		}
 	}
 	switch {
 	case byTrainer != nil && (byItem == nil || byTrainer.effort <= byItem.effort):
-		return byTrainer.effort, byTrainer.text, true
+		return byTrainer.effort, byTrainer.text, tInfo, true
 	case byItem != nil:
-		return byItem.effort, byItem.text, true
+		return byItem.effort, byItem.text, iInfo, true
 	}
-	return 0, "", false
+	return 0, "", learnInfo{}, false
 }
 
 type scored struct {
@@ -245,7 +281,7 @@ func (p *planner) price(r Recipe, from string, skill, target int, left map[int64
 	if crafts == 0 {
 		return scored{}, false
 	}
-	le, ltext, ok := p.learnCost(r, from, skill)
+	le, ltext, linfo, ok := p.learnDetail(r, from, skill)
 	if !ok {
 		return scored{}, false
 	}
@@ -258,10 +294,12 @@ func (p *planner) price(r Recipe, from string, skill, target int, left map[int64
 	}
 	s := scored{opt: Option{Recipe: name, Crafts: crafts, Difficulty: d, Learn: ltext}, reach: reach, crafts: crafts,
 		spell: r.SpellID, effort: le, use: map[int64]int{}}
+	s.opt.Spell, s.opt.LearnInfo = r.SpellID, linfo
+	s.opt.OrangeCrafts, s.opt.YellowCrafts = splitCrafts(r, skill, reach)
 	if !p.known[r.SpellID] {
 		s.learned = r.SpellID
 	}
-	if len(p.known) == 0 && ltext == "trainer" || strings.HasPrefix(ltext, "trainer, ") && len(p.known) == 0 {
+	if !p.fresh && len(p.known) == 0 && ltext == "trainer" || strings.HasPrefix(ltext, "trainer, ") && !p.fresh && len(p.known) == 0 {
 		s.opt.Learn = "" // the capture does not list known recipes, so a trainer recipe may already be known
 	}
 	for _, row := range reagentsOf(p.ds, r.SpellID) {
@@ -273,7 +311,7 @@ func (p *planner) price(r Recipe, from string, skill, target int, left map[int64
 		total := per * crafts
 		free := min(total, left[id]-s.use[id])
 		s.use[id] += free
-		n := Need{Item: p.name(id), Total: total, Have: free, Missing: total - free}
+		n := Need{ID: id, Item: p.name(id), Total: total, Have: free, Missing: total - free}
 		if n.Missing > 0 {
 			src := p.sourceOf(id)
 			n.From = src.text
@@ -287,6 +325,12 @@ func (p *planner) price(r Recipe, from string, skill, target int, left map[int64
 // ComputePath is the whole skill-up path for one profession from the character's skill to target
 // (the tier cap its level allows when target is 0), as parts of at most MaxBands bands; part is 1-based.
 func ComputePath(c character.Character, ds store.DataStore, profession string, target, part int) Path {
+	return computePath(c, ds, profession, target, part, false, nil)
+}
+
+// computePath is ComputePath; whole returns every band in one part, and setup may adjust the planner
+// before it plans.
+func computePath(c character.Character, ds store.DataStore, profession string, target, part int, whole bool, setup func(*planner)) Path {
 	sk, ok := skillOf(c, profession)
 	pa := Path{Profession: profession, Part: max(part, 1)}
 	if ok {
@@ -298,6 +342,9 @@ func ComputePath(c character.Character, ds store.DataStore, profession string, t
 	}
 	p := &planner{c: c, ds: ds, notes: LoadNotes(ds), prof: sk.Name, skill: *sk.Rank, stock: map[int64]int{}, known: c.KnownSpells,
 		learnt: map[int64]bool{}, names: map[int64]string{}, srcs: map[int64]source{}, short: map[int64]bool{}}
+	if setup != nil {
+		setup(p)
+	}
 	bags, bank := held(c)
 	for id, n := range bags {
 		p.stock[id] += n
@@ -334,7 +381,7 @@ func ComputePath(c character.Character, ds store.DataStore, profession string, t
 	}
 	var bands []Band
 	skill := p.skill
-	for len(bands) < 60 && skill < target {
+	for len(bands) < 400 && skill < target {
 		var all []scored
 		for _, r := range recipes {
 			if s, ok := p.price(r, r.LearnedFrom, skill, target, p.stock); ok {
@@ -383,6 +430,9 @@ func ComputePath(c character.Character, ds store.DataStore, profession string, t
 		pa.Part = start/MaxBands + 1
 	}
 	end := min(len(bands), start+MaxBands)
+	if whole {
+		start, end, pa.Part = 0, len(bands), 1
+	}
 	pa.Bands, pa.More = bands[start:end], end < len(bands)
 	p.prep(&pa, bands)
 	return pa

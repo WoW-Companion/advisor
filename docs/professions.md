@@ -44,3 +44,19 @@ the one teaching the most recipes.
 play style. Any pair is fine, and the answer says so.
 
 `professions.NextSkillUp` gives the one-line "next skill-up: make N × X" for the digest's profession entries.
+
+## Benchmark command
+
+`wowc-advisor profession-plan --profession <name> [--from N] [--to N] [--level L] [--faction horde|alliance]
+[--gather <profession>] [--dataset <dir or URL>] [--json]` runs the same planner for a synthetic fresh
+character (level 60 by default, skill `--from` 1, empty bags and bank, no gathering profession unless
+`--gather` is given). It needs no game install and no capture; `--dataset` is a directory or the base URL of a
+published dataset (default `$WOWC_DATASET`).
+
+The output lists every band (skill range, recipe, crafts, orange and yellow crafts, expected skill-ups, the
+materials), then totals: each material with its count and where it comes from (a vendor with the copper cost,
+gathering, fishing, disenchanting with the item class, quality and level range, a drop of 5% or more, or
+"rare"), recipe items to buy or find, the tier gates with the trainer's cost for the recipes the path learns,
+and an efficiency score. Model: an orange craft is 1 skill point, a yellow one 0.5; ties between recipes go
+to fewer crafts, then the lower spell id, so the same dataset always gives the same output. Fishing has no
+recipes: its bands are catches (one per skill point) with the catch list by zone.
