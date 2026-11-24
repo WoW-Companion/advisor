@@ -1,6 +1,6 @@
 # Quickstart: from download to in-game advice
 
-One path for a new Windows player, top to bottom. If you want the short version, read [Getting Started](getting-started.md); to see how the pieces fit together, read [How it works](getting-started.md#how-it-works). Each step is one action and says what success looks
+This is the long, detailed guide. **New to this? Read [Getting Started](getting-started.md) first.** It is shorter and made for players. The full path is below, top to bottom. Each step is one action and says what success looks
 like. `<you>` is your Windows user name and `<account>` your WoW account folder; use your own.
 
 ## 1. Install ForeverScribe (required)
@@ -13,6 +13,8 @@ Success: after your first `/reload` or logout, ForeverScribe has written
 `WTF\Account\<account>\SavedVariables\ForeverScribe.lua`. That file is all the overlay needs.
 
 ## 2. Get WoW Companion (the overlay, recommended)
+
+The overlay is the WoW Companion app: the small window beside the game.
 
 **Recommended: the overlay app.** It bundles the advisor, so there is nothing else to install.
 
@@ -95,8 +97,8 @@ live in the app's own storage, not a file you edit; see the FAQ.
 
 ## 5. Optional: the WoW Companion addon (see it in the game)
 
-The addon shows the advice inside WoW (screenshots in [what you'll see](getting-started.md#steps)). It is only for in-game extras: the panel (your next quests, upgrades and materials), the tracker,
-tooltips, and the right-click **Ask about this** on a panel line. You do not need it to use the overlay.
+The addon shows your plan inside WoW: a round button on the world map, a plan tab at the lower right of the map, and the minimap. Screenshots are in [what you'll see](getting-started.md#in-the-game-what-youll-see). It is only for in-game extras: the panel (your next quests, upgrades and materials), the tracker,
+tooltips, the plan on your map, and question buttons that copy a question. You do not need it to use the overlay.
 
 Action: add the WoW Companion folders (`WoWCompanion`, `WoWCompanion_Digest`) to the same
 `_forever_\Interface\AddOns` folder as ForeverScribe. There is no player-friendly download for them yet:
@@ -106,8 +108,8 @@ game completely and start it again.
 
 Success: in game, `/wowc status` prints the addon version.
 
-Questions are asked in the overlay. In game, right-click **Ask about this** (or use a question chip in the panel) to copy the
-question, then paste it into the overlay. A leftover `WoWCompanion_Answers` folder from an older setup is no longer used; you
+Questions are asked in the overlay. In game, use a question chip in the panel to copy the
+question, then paste it into the overlay's ask box (Ctrl+V, or the paste button). A leftover `WoWCompanion_Answers` folder from an older setup is no longer used; you
 can delete it.
 
 ### Put the digest in the game panel
@@ -139,7 +141,7 @@ Pick the way that suits you:
   the game; no `/reload` needed. The age chip tells you how fresh the data is.
 - **The browser companion**, `wowc-advisor companion --agent claude`, is the same chat in a browser tab
   (see below). Use it without the overlay.
-- **Asking from game** (addon installed): right-click **Ask about this** to copy the question, then paste it into the
+- **Asking from game** (addon installed): click a question chip to copy the question, then paste it into the
   overlay. `claude`, `codex`, `agy` and `gemini` (legacy) are the agent presets; see [ask.md](ask.md).
 
 The advisor's tools are pre-allowed for these runs and read-only (apart from `update_digest`, which writes
