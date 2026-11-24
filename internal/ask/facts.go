@@ -257,7 +257,7 @@ func PathStepsRule(kind string) string {
 	const shape = " Call upgrade_paths with the item id for the facts. Give one answer line, then at most 3 steps as short bullets; do not repeat the card's one line."
 	switch kind {
 	case "craft":
-		return "The player asks how to make this item. Steps, in order: where the trainer is if the recipe is not known yet; the materials with the counts they have and still need, and where to get each missing one (mining nodes, a vendor or the Auction House); where to craft it (a forge and anvil for blacksmithing)." + shape
+		return "The player asks how to make this item. Steps, in order: where the trainer is if the recipe is not known yet (the nearest one for the player's faction, with zone and coordinates, from where_to_learn); the materials with the counts they have and still need, and where to get each missing one (mining nodes, a vendor or the Auction House); where to craft it (a forge and anvil for blacksmithing)." + shape
 	case "quest":
 		return "The player asks how to get this item from its quest. Steps: where to pick up the quest, what it asks, where to hand it in and choose the reward." + shape
 	case "auction":

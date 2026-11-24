@@ -44,3 +44,9 @@ the one teaching the most recipes.
 play style. Any pair is fine, and the answer says so.
 
 `professions.NextSkillUp` gives the one-line "next skill-up: make N × X" for the digest's profession entries.
+
+## Where to learn a recipe
+
+`where_to_learn` answers "who trains that?". For a trainer recipe it lists up to three trainers of the profession (those that teach the recipe when the dataset says so), for the character's faction or neutral, nearest first: the character's zone, then their continent, then the rest. Coordinates come from the dataset's trainers row, else from the player's QuestieDB spawns (marked "from your Questie database"). A recipe taught by an item lists the vendor, drop or quest that gives the item.
+
+The skill gate is the trainer's required skill when the dataset has it. Where the only value is the client minimum of 1 for a trainer recipe, no number is stated: the trainer shows whether you can learn it yet. Called with no recipe, the tool counts those recipes per profession.

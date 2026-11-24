@@ -48,6 +48,9 @@ All character tools take an optional `character` name (omit it when only one was
   ranking and Auction House suffixes follow the same priorities.
 - `profession_plan`: the next recipes that still give skill-ups per profession (optional
   `profession`), with reagents held and missing.
+- `where_to_learn`: who trains, sells or teaches a recipe (`recipe`, or the item it makes): the
+  nearest trainer or vendor for the character's faction with zone and coordinates, and the real skill
+  gate. Use it for "who trains that?" and "where do I learn X?".
 - `talent_plan`: where the next talent points go against the curated build (optional `spec`,
   `limit`).
 - `get_character_profile` / `set_character_profile`: the character's saved play style (role, focus,

@@ -28,6 +28,7 @@ import (
 	"github.com/WoW-Companion/advisor/internal/gear"
 	"github.com/WoW-Companion/advisor/internal/inventory"
 	"github.com/WoW-Companion/advisor/internal/items"
+	"github.com/WoW-Companion/advisor/internal/learn"
 	"github.com/WoW-Companion/advisor/internal/lua"
 	"github.com/WoW-Companion/advisor/internal/names"
 	"github.com/WoW-Companion/advisor/internal/paths"
@@ -365,6 +366,18 @@ type PlanOutput struct {
 	Paths     []professions.Path     `json:"paths,omitempty" jsonschema:"computed skill-up paths, one per profession"`
 	Pairings  []professions.Advice   `json:"pairings,omitempty"`
 	Text      string                 `json:"text" jsonschema:"plain-text rendering"`
+}
+
+// LearnInput is the where_to_learn argument.
+type LearnInput struct {
+	Character string `json:"character,omitempty" jsonschema:"character name; omit when only one was captured"`
+	Recipe    string `json:"recipe,omitempty" jsonschema:"the recipe, or the item it makes (for example Runed Copper Gauntlets); omit to count the trainer recipes that state no skill number, per profession"`
+}
+
+// LearnOutput is the where_to_learn result.
+type LearnOutput struct {
+	learn.Result
+	Counts map[string]int `json:"trainer_recipes_without_a_skill_number,omitempty"`
 }
 
 // TalentInput is the talent_plan argument.
@@ -797,7 +810,8 @@ func New(cfg Config) *mcp.Server {
 		if names, _ := brief.TopGroups(c.Talents); len(names) == 1 {
 			group = names[0]
 		}
-		popt := paths.Options{PlanQuests: digest.PlanQuests(advice.WhatsNextWith(c, ds, questie.ForSavedVariables(cfg.SavedVariables)))}
+		qx := questie.ForSavedVariables(cfg.SavedVariables)
+		popt := paths.Options{PlanQuests: digest.PlanQuests(advice.WhatsNextWith(c, ds, qx)), Questie: qx}
 		out := PathsOutput{Character: name, Results: []paths.Result{}}
 		var text []string
 		if strings.TrimSpace(in.Item) != "" {
@@ -899,6 +913,35 @@ func New(cfg Config) *mcp.Server {
 			text = professions.Render(plans)
 		}
 		return nil, PlanOutput{Character: name, Plans: plans, Paths: paths, Text: text}, nil
+	})
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "where_to_learn",
+		Description: "Answers 'who trains / teaches that?' and 'where do I learn this recipe?' for one captured character (by name; omit if only one): " +
+			"the nearest trainer, vendor, drop or quest for the character's faction and zone, with zone and coordinates (up to 3, nearest first; a place read from the player's QuestieDB is marked), " +
+			"and the recipe's real skill gate. Lead with the first line of text. When no number is given for the gate, the trainer shows whether the character can learn it yet.",
+	}, func(_ context.Context, _ *mcp.CallToolRequest, in LearnInput) (*mcp.CallToolResult, LearnOutput, error) {
+		f, errResult := load(cfg.SavedVariables)
+		if errResult != nil {
+			return errResult, LearnOutput{}, nil
+		}
+		c, err := chosen(cfg, f, in.Character)
+		if err != nil {
+			return toolError(err.Error()), LearnOutput{}, nil
+		}
+		if cfg.Dataset == "" {
+			return toolError("No dataset configured (set WOWC_DATASET)."), LearnOutput{}, nil
+		}
+		ds := store.NewDir(cfg.Dataset)
+		if strings.TrimSpace(in.Recipe) == "" {
+			m := learn.GateCounts(ds)
+			return nil, LearnOutput{Result: learn.Result{Ways: []learn.Way{}, Text: learn.CountsText(m)}, Counts: m}, nil
+		}
+		res, err := learn.Find(c, ds, questie.ForSavedVariables(cfg.SavedVariables), in.Recipe)
+		if err != nil {
+			return toolError(err.Error()), LearnOutput{}, nil
+		}
+		return nil, LearnOutput{Result: res}, nil
 	})
 
 	mcp.AddTool(s, &mcp.Tool{
