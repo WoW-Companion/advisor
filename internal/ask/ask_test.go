@@ -35,7 +35,13 @@ func TestMain(m *testing.M) {
 		fmt.Println("ok")
 	case "stream": // a Claude stream-json fixture: one text delta, then the result with usage
 		fmt.Println(`{"type":"system","subtype":"init"}`)
-		fmt.Println(`{"type":"stream_event","event":{"type":"content_block_delta","delta":{"type":"text_delta","text":"Do the turn-in."}}}`)
+		// The first message is the model thinking aloud before a tool call; only the last one is the answer.
+		for _, m := range []struct{ text, stop string }{{"Sources are unknown here.", "tool_use"}, {"Do the turn-in.", "end_turn"}} {
+			fmt.Println(`{"type":"stream_event","event":{"type":"message_start"}}`)
+			fmt.Printf(`{"type":"stream_event","event":{"type":"content_block_delta","delta":{"type":"text_delta","text":%q}}}`+"\n", m.text)
+			fmt.Printf(`{"type":"stream_event","event":{"type":"message_delta","delta":{"stop_reason":%q}}}`+"\n", m.stop)
+			fmt.Println(`{"type":"stream_event","event":{"type":"message_stop"}}`)
+		}
 		fmt.Println(`{"type":"result","is_error":false,"result":"Do the turn-in.","total_cost_usd":0.0123,"modelUsage":{"claude-haiku-4-5":{"inputTokens":50,"outputTokens":300},"claude-sonnet-4-5":{"inputTokens":10,"outputTokens":5}},"usage":{"input_tokens":100,"output_tokens":300,"cache_creation_input_tokens":2000,"cache_read_input_tokens":700}}`)
 	case "fail":
 		fmt.Fprintln(os.Stderr, "boom")

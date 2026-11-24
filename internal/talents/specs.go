@@ -1,6 +1,7 @@
 package talents
 
 import (
+	"fmt"
 	"sort"
 	"strings"
 
@@ -82,4 +83,33 @@ func MatchSpec(specs []string, free string) string {
 		}
 	}
 	return ""
+}
+
+// NormalizeSpec is the spec in specs that free text names: an exact name in any case, the name followed
+// by the class ("Fury warrior"), or a prefix that only one spec starts with ("fur"). The error lists
+// the valid names. With no specs to check against, the trimmed text is kept.
+func NormalizeSpec(specs []string, class, free string) (string, error) {
+	free = strings.Join(strings.Fields(free), " ")
+	if free == "" || len(specs) == 0 {
+		return free, nil
+	}
+	low := strings.ToLower(free)
+	if c := strings.ToLower(strings.TrimSpace(class)); c != "" {
+		low = strings.TrimSpace(strings.TrimSuffix(low, " "+c))
+	}
+	for _, s := range specs {
+		if strings.ToLower(s) == low {
+			return s, nil
+		}
+	}
+	var hit []string
+	for _, s := range specs {
+		if strings.HasPrefix(strings.ToLower(s), low) {
+			hit = append(hit, s)
+		}
+	}
+	if len(hit) == 1 && low != "" {
+		return hit[0], nil
+	}
+	return "", fmt.Errorf("%q is not one of this class's specs: %s", free, strings.Join(specs, ", "))
 }

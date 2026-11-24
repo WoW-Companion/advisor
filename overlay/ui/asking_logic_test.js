@@ -175,3 +175,29 @@ console.log('ok');
   b = mkBox('abc', 2); run(b, { key: 'x' }); assert.strictEqual(b.value, 'abc');
   console.log('edit keys ok');
 }
+
+// The spec-only card: one button per tree, a tap saves with the saved role and focus, a note under it,
+// and setStyle marks a spec saved elsewhere.
+{
+  const saved = [];
+  const sc = A.specCard(doc, { needs: 'spec', specs: ['Protection', 'Arms', 'Fury'], role: 'tank', focus: 'leveling', note: A.SPEC_NOTE }, st => saved.push(st));
+  const btns = sc.find('opt');
+  assert.deepStrictEqual(btns.map(b => b.textContent), ['Protection', 'Arms', 'Fury']);
+  assert.strictEqual(sc.find('style-note')[0].textContent, 'Saved for this character. Change it any time in Settings → Play Style.');
+  assert.strictEqual(sc.find('style-save').length, 0, 'no role, focus or Save button');
+  sc.setStyle({ spec: 'Fury' });
+  assert(btns[2].className.includes('on') && !btns[0].className.includes('on'));
+  btns[1].onclick();
+  assert.deepStrictEqual(saved, [{ role: 'tank', focus: 'leveling', spec: 'Arms' }]);
+  console.log('spec card ok');
+}
+
+// The working line is plain words: never the model's text or a tool name.
+{
+  assert.strictEqual(A.workingLine('Look at my gear and suggest upgrades', 'upgrades'), 'Checking your gear…');
+  assert.strictEqual(A.workingLine('Which talent should I take next', 'talents'), 'Looking at your talents…');
+  assert.strictEqual(A.workingLine('What should I do next, and why?', 'quest:9'), 'Planning your next steps…');
+  assert.strictEqual(A.workingLine('Who trains that?', ''), 'Looking that up…');
+  assert.strictEqual(A.workingLine(undefined, ''), 'Looking that up…');
+  console.log('working line ok');
+}

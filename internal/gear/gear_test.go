@@ -454,3 +454,24 @@ func TestUpgradeRankingFollowsPlayStyle(t *testing.T) {
 		t.Error("preference")
 	}
 }
+
+// Upgrades above the character's level follow the main list under "Soon (level N)"; they are never
+// numbered among what is within reach.
+func TestRenderSplitsSoonUpgrades(t *testing.T) {
+	lvl := 10
+	c := character.Character{Key: "R:Tester", Name: "Tester", Class: "Warrior", Level: &lvl}
+	now := Candidate{Item: Item{ID: 1, Name: "Ready Helm", ItemLevel: 9, ReqLevel: 9}, Delta: 2, Basis: "item level"}
+	soon := Candidate{Item: Item{ID: 2, Name: "Later Helm", ItemLevel: 14, ReqLevel: 12}, Delta: 6, Basis: "item level", Soon: true}
+	soon2 := Candidate{Item: Item{ID: 3, Name: "Later Belt", ItemLevel: 13, ReqLevel: 11}, Delta: 4, Basis: "item level", Soon: true}
+	out := Render(c, Result{Spec: "melee", Slots: map[string][]Candidate{"head": {soon, now}, "waist": {soon2}}})
+	i, j, k := strings.Index(out, "1. Ready Helm"), strings.Index(out, "Soon (level 11):"), strings.Index(out, "Soon (level 12):")
+	if i < 0 || j < i || k < j {
+		t.Errorf("order wrong:\n%s", out)
+	}
+	if strings.Contains(out, "1. Later") || strings.Contains(out, "2. Later") || strings.Contains(out, "waist:\n") {
+		t.Errorf("a soon upgrade is ranked among those within reach:\n%s", out)
+	}
+	if !strings.Contains(out, "head: Later Helm") || !strings.Contains(out, "waist: Later Belt") {
+		t.Errorf("soon lines lack their slot:\n%s", out)
+	}
+}

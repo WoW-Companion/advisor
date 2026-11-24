@@ -233,26 +233,27 @@ type Server struct {
 	port  string
 	ctx   context.Context
 
-	mu       sync.Mutex
-	pmu      sync.Mutex // guards the saved client list file
-	chars    []CharInfo
-	captured int64
-	loadErr  string
-	web      []Entry
-	card     *card            // the follow-up context, see context.go
-	clockFn  func() time.Time // a test's clock; nil is time.Now
-	turns    map[string]*turn
-	busy     map[string]bool       // client address -> an answer is in flight
-	pending  map[string]askRequest // character -> the question waiting for a play style
-	seq      int
-	subs     map[chan event]bool
-	digest   DigestState
-	opts     ask.Options
-	usageOn  bool
-	setup    setupCache
-	data     dataState
-	planKeys map[string]map[string]bool // character -> every step of its current plan, for "N new steps"
-	refresh  sync.Mutex
+	mu        sync.Mutex
+	pmu       sync.Mutex // guards the saved client list file
+	chars     []CharInfo
+	captured  int64
+	loadErr   string
+	web       []Entry
+	card      *card            // the follow-up context, see context.go
+	clockFn   func() time.Time // a test's clock; nil is time.Now
+	turns     map[string]*turn
+	busy      map[string]bool       // client address -> an answer is in flight
+	pending   map[string]askRequest // character -> the question waiting for a play style
+	seq       int
+	subs      map[chan event]bool
+	digest    DigestState
+	opts      ask.Options
+	usageOn   bool
+	setup     setupCache
+	data      dataState
+	planKeys  map[string]map[string]bool // character -> every step of its current plan, for "N new steps"
+	refresh   sync.Mutex
+	profStamp string // the profile store's stamp when the characters were last read
 }
 
 // New returns a companion; it does not listen. Serve does that.
@@ -465,7 +466,7 @@ func (s *Server) reload() {
 		ci.Specs = talents.Specs(ds, c)
 		if c.Profile != nil && len(ci.Specs) > 0 {
 			p := *c.Profile
-			p.Spec = talents.MatchSpec(ci.Specs, p.Spec)
+			p.Spec, _ = talents.NormalizeSpec(ci.Specs, c.Class, p.Spec)
 			ci.Style = &p
 		}
 		if ds != nil {
@@ -513,9 +514,28 @@ func (s *Server) publish(name string, v any) {
 	}
 }
 
+// profileChanged re-reads the characters and tells every page when the play style store changed under
+// us (the advisor's tool saved it, in this process or in an AI client's own), or when force is set (the
+// overlay saved it). The page shows the saved spec at once, in Settings and in any open card.
+func (s *Server) profileChanged(force bool) {
+	cur := ask.Stamp(s.profilesPath())
+	s.mu.Lock()
+	same := cur == s.profStamp
+	s.profStamp = cur
+	s.mu.Unlock()
+	if same && !force {
+		return
+	}
+	s.reload()
+	s.publish("profile", s.snapshot())
+}
+
 // watch polls ForeverScribe.lua for new game data. Questions are asked in the overlay only.
 func (s *Server) watch(ctx context.Context) {
 	last := ask.Stamp(s.cfg.ForeverScribe)
+	s.mu.Lock()
+	s.profStamp = ask.Stamp(s.profilesPath())
+	s.mu.Unlock()
 	var due time.Time // when the pending digest write falls due; zero when none
 	// Write at once, not on the first save: an upgraded addon lists Plan.lua before any save happens.
 	s.writeDigest()
@@ -526,6 +546,7 @@ func (s *Server) watch(ctx context.Context) {
 			s.publish("game", s.snapshot())
 			due = time.Now().Add(s.cfg.Debounce) // each further change pushes it back
 		}
+		s.profileChanged(false)
 		if !due.IsZero() && !time.Now().Before(due) {
 			due = time.Time{}
 			s.writeDigest()
@@ -654,7 +675,7 @@ func (s *Server) answer(id, client string, t *turn, req askRequest, history stri
 	text, streamed, usage, err := ask.RespondUsage(s.ctx, ac, q, ac.Prompt(q), s.cfg.Stream, func(chunk string) {
 		t.emit("chunk", map[string]string{"text": chunk}, false)
 	})
-	e.Answer, e.Streamed, e.Status = text, streamed, "done"
+	e.Answer, e.Streamed, e.Status = ask.WithSaved(text, usage.Saved), streamed, "done"
 	if s.settings().Usage {
 		e.Usage = usage.Line()
 		if usage.Cached > 0 {
@@ -665,6 +686,10 @@ func (s *Server) answer(id, client string, t *turn, req askRequest, history stri
 	if err != nil {
 		e.Answer, e.Status = err.Error(), "error"
 	}
+	var subjects []ask.Entity
+	if err == nil {
+		subjects = ask.AnswerEntities(ac, req.Character, e.Answer, usage.Entities)
+	}
 	s.mu.Lock()
 	s.web = append(s.web, e)
 	if len(s.web) > maxEntries {
@@ -672,7 +697,7 @@ func (s *Server) answer(id, client string, t *turn, req askRequest, history stri
 	}
 	delete(s.busy, client)
 	if e.Status == "done" {
-		e.Context = s.remember(req.Character, req.Text, e.Answer, usage.Entities)
+		e.Context = s.rememberSubjects(req.Character, req.Text, e.Answer, subjects, usage.Entities)
 	}
 	s.mu.Unlock()
 	t.emit("done", e, true)

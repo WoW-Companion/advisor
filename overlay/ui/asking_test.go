@@ -22,7 +22,7 @@ func TestAskingLogicUnderNode(t *testing.T) {
 // style, and nothing the player reads tells them to /reload.
 func TestAskingWiring(t *testing.T) {
 	app, html := read(t, "app.js"), read(t, "index.html")
-	for _, want := range []string{"WowcAsking.entryList", "body.ref = ref", "WowcAsking.fit", "WowcAsking.onAskKey", "'reask'", "saveStyle", "setStyle"} {
+	for _, want := range []string{"WowcAsking.entryList", "body.ref = ref", "WowcAsking.fit", "WowcAsking.onAskKey", "'reask'", "saveStyle", "setStyle", "WowcAsking.workingLine", "WowcAsking.specCard", "addEventListener('profile'"} {
 		if !strings.Contains(app, want) {
 			t.Errorf("app.js lacks %s", want)
 		}

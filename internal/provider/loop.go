@@ -61,19 +61,23 @@ func (l Loop) Run(ctx context.Context) (string, Usage, error) {
 		}
 	}
 	msgs := []Message{{Role: "user", Text: l.Prompt}}
-	var streamed strings.Builder
 	for turn := 0; turn < l.MaxTurns; turn++ {
+		// A turn's text is held until the turn ends: only the turn that calls no tool is the answer,
+		// and the model's words before or between tool calls are never shown.
+		var held []string
 		rep, err := l.Adapter.Chat(ctx, Request{Model: l.Model, System: l.System, Messages: msgs, Tools: defs, Stream: l.Stream}, func(t string) {
-			streamed.WriteString(t)
-			if l.OnText != nil {
-				l.OnText(t)
-			}
+			held = append(held, t)
 		})
 		total = total.Add(rep.Usage)
 		if err != nil {
 			return "", total, l.explain(ctx, err)
 		}
 		if len(rep.Calls) == 0 {
+			if l.OnText != nil {
+				for _, t := range held {
+					l.OnText(t)
+				}
+			}
 			if strings.TrimSpace(rep.Text) == "" {
 				return "", total, errors.New("the model gave no answer")
 			}

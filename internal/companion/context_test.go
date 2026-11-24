@@ -118,3 +118,22 @@ func TestPromptHasNoRawHistory(t *testing.T) {
 		t.Errorf("raw history in %q", got)
 	}
 }
+
+// The chip names what the answer is about: the answer's subjects lead the card, whatever the tools
+// touched last (a heads-up quest touched by the tool is behind the subject), and earlier names stay behind.
+func TestCardLeadsWithTheAnswersSubject(t *testing.T) {
+	s, _ := cardServer()
+	s.remember("c", "earlier", "a", []ask.Entity{{Kind: "item", ID: 7, Name: "Old Subject"}})
+	touched := []ask.Entity{{Kind: "quest", ID: 94003, Name: "The Skybreaker Bulwark"}, {Kind: "quest", ID: 94004, Name: "Unnerving Silence"}}
+	subjects := []ask.Entity{{Kind: "quest", ID: 94003, Name: "The Skybreaker Bulwark"}, {Kind: "npc", Name: "Seena Skybreaker"}}
+	v := s.rememberSubjects("c", "What should I do next, and why?", "Pick up The Skybreaker Bulwark from Seena Skybreaker.", subjects, touched)
+	want := "The Skybreaker Bulwark|Seena Skybreaker|Unnerving Silence|Old Subject"
+	if got := strings.Join(v.Names, "|"); got != want {
+		t.Errorf("names %q, want %q", got, want)
+	}
+	// Without touches (the AI client's own tool process), the subject still comes first.
+	v = s.rememberSubjects("c", "Where can I get Runed Copper Gauntlets?", "Runed Copper Gauntlets.", []ask.Entity{{Kind: "recipe", ID: 4, Name: "Runed Copper Gauntlets"}}, nil)
+	if v == nil || v.Names[0] != "Runed Copper Gauntlets" {
+		t.Errorf("gauntlets card: %+v", v)
+	}
+}

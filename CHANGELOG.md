@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.35
+
+- Follow-ups remember what the answer was about; choosing a spec is one tap and shows in Settings; answers no longer flash working notes or talk about their sources. The "Following up on" chip now names the quest, item or person the answer led with, not a side note. Ask about talents with no spec saved and you get one button per spec, with no AI call; a spec you pick, or one your AI client saves while chatting, appears in Settings → Play Style straight away. While an answer is on its way you see a plain line like "Checking your gear…" instead of the AI's working notes. Answers lead with the point and no longer mention data or sources, and gear you can't use until a higher level is listed after the main list under "Soon".
+
 ## 0.7.34
 
 - Ask how to level any profession: a step-by-step path from your skill, with what to gather, fish or buy first. Each step says what to make and how many, which materials you already hold, where to get the rest, how to learn the recipe and which trainer to visit; asking "which professions should I pick?" suggests pairings for your class and play style.

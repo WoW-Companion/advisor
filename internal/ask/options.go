@@ -78,7 +78,13 @@ func contains(l []string, s string) bool {
 // after it, and the plan left alone. The length setting is an upper bound on top of them.
 const ShortAnswerRules = "Answer the question asked in your first sentence. Then add at most 3 short bullets (lines starting with \"- \"), only what matters for that question. " +
 	"Never restate or re-list the plan, and add no unrelated steps. One optional last line starting \"Heads-up:\" is allowed for something urgent and nearby (such as a quest ready to turn in on the way). " +
-	"The plan in the facts is shared context: if your answer would change what it says, say so in one plain sentence (for example \"Your plan has her later, after Unwelcome Spirits\") rather than contradicting it silently."
+	"The plan in the facts is shared context: if your answer would change what it says, say so in one plain sentence (for example \"Your plan has her later, after Unwelcome Spirits\") rather than contradicting it silently." + WordingRules
+
+// WordingRules are the one wording rule for every answer, on both the CLI and the API path.
+const WordingRules = " Wording: lead with the answer. Never mention the advisor, data, \"general game knowledge\", tools, sources or what is missing; " +
+	"when a fact is unknown, give the best practical step plainly (\"Any Blacksmithing trainer can teach it.\"). " +
+	"A requirement already met by far is an ability (\"You can make these now.\"), never \"you have 35, it needs 1\". " +
+	"Never say something was saved unless the save tool succeeded in this answer."
 
 // lengthRule is the instruction each length adds to the prompt, and the most characters an answer
 // of that length is kept to.
