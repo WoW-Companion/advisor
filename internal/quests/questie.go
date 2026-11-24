@@ -12,6 +12,13 @@ import (
 // SourceQuestie marks a chain or fact read from the player's own QuestieDB.
 const SourceQuestie = "questie"
 
+// SourceEverloot marks a fact read from the dataset's quests_observed table: what players saw in
+// game and reported to Everloot (CC BY-SA 4.0).
+const SourceEverloot = "everloot"
+
+// Credit is the attribution line shown wherever Everloot facts appear.
+const Credit = "Everloot (CC BY-SA)"
+
 // SourceDataset marks a chain read from the dataset's quest lines.
 const SourceDataset = "dataset"
 
@@ -26,7 +33,10 @@ type Facts struct {
 	Objective  string `json:"objective,omitempty"`
 	Classes    string `json:"classes,omitempty" jsonschema:"classes it is limited to; empty when open to all"`
 	Races      string `json:"races,omitempty" jsonschema:"races it is limited to; empty when open to all"`
-	Source     string `json:"source" jsonschema:"questie"`
+	Category   string `json:"category,omitempty"`
+	Faction    string `json:"faction,omitempty"`
+	Source     string `json:"source" jsonschema:"questie or everloot (seen by players on Everloot)"`
+	Credit     string `json:"credit,omitempty" jsonschema:"set to the Everloot credit when any fact comes from Everloot"`
 	Followers  []int  `json:"-"`
 	Precursors []int  `json:"-"`
 }
@@ -79,10 +89,18 @@ func OfWith(ds store.DataStore, ix *questie.Index, questID int64) Chain {
 		q = ix.Quests[int(questID)]
 	}
 	if q == nil {
+		f := FactsOf(ds, nil, questID)
+		if f == nil || f.Source != SourceEverloot {
+			return c
+		}
+		c.Found, c.Source, c.Quest = true, SourceEverloot, f
 		return c
 	}
 	c.Found, c.Source = true, SourceQuestie
-	c.Quest = QuestieFacts(ix, questID)
+	c.Quest = FactsOf(ds, ix, questID)
+	if c.Quest != nil && c.Quest.Source == SourceEverloot {
+		c.Source = SourceEverloot
+	}
 	seen := map[int]bool{}
 	for _, id := range append(append([]int{}, q.PreSingle...), q.PreGroup...) {
 		if !seen[id] {
@@ -172,7 +190,17 @@ func (f Facts) detail() string {
 func renderQuestie(c Chain, name string) string {
 	var b strings.Builder
 	if f := c.Quest; f != nil {
-		b.WriteString("From your Questie database: " + f.label())
+		if f.Source == SourceEverloot {
+			b.WriteString("Seen by players on Everloot (CC BY-SA): " + f.label())
+			if f.Faction != "" {
+				b.WriteString(", " + f.Faction)
+			}
+			if f.Category != "" {
+				b.WriteString(", " + f.Category)
+			}
+		} else {
+			b.WriteString("From your Questie database: " + f.label())
+		}
 		if f.MinLevel > 0 {
 			b.WriteString(", needs level " + strconv.Itoa(f.MinLevel))
 		}
@@ -183,6 +211,10 @@ func renderQuestie(c Chain, name string) string {
 			b.WriteString(", " + f.Races + " only")
 		}
 		b.WriteString(f.detail() + ".\n")
+	}
+	if c.Source == SourceEverloot && len(c.Before) == 0 && len(c.After) == 0 {
+		b.WriteString("No follow-up quest is listed for it in the game data you have.\n")
+		return b.String()
 	}
 	if len(c.Before) > 0 {
 		b.WriteString("Comes after:\n")

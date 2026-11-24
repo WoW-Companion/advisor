@@ -18,6 +18,7 @@ import (
 	"github.com/WoW-Companion/advisor/internal/character"
 	"github.com/WoW-Companion/advisor/internal/stats"
 	"github.com/WoW-Companion/advisor/internal/store"
+	"github.com/WoW-Companion/advisor/internal/vendors"
 )
 
 // EquipWindow is how many levels above the character an item may require (known or estimated).
@@ -169,6 +170,8 @@ type Candidate struct {
 	Empty   bool    // the slot is empty
 	Soon    bool    // the item's ReqLevel is above the character's level (within EquipWindow)
 	Sources []Source
+	// Vendor is the cheapest vendor that sells the item, from Everloot's vendor offers; nil when none.
+	Vendor *vendors.Offer `json:"vendor,omitempty"`
 }
 
 // Options narrows a search. The zero value searches every slot and keeps every candidate.
@@ -312,6 +315,9 @@ func Find(c character.Character, ds store.DataStore, group string, opt Options) 
 		for i := range cands {
 			if !opt.NoSources {
 				cands[i].Sources = sources(ds, cands[i].Item.ID, level)
+				if o, ok := vendors.Best(ds, cands[i].Item.ID); ok {
+					cands[i].Vendor = &o
+				}
 			}
 			if cands[i].Basis == BasisStats {
 				res.ItemLevelOnly = false

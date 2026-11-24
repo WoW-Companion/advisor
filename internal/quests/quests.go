@@ -116,7 +116,7 @@ func Render(c Chain, name string) string {
 	if !c.Found {
 		return "No quest line or follow-up quest is listed for " + label + " in the game data you have.\n"
 	}
-	if c.Source == SourceQuestie {
+	if c.Source == SourceQuestie || c.Source == SourceEverloot {
 		return renderQuestie(c, name)
 	}
 	var b strings.Builder

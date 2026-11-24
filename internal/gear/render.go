@@ -7,6 +7,7 @@ import (
 
 	"github.com/WoW-Companion/advisor/internal/brief"
 	"github.com/WoW-Companion/advisor/internal/character"
+	"github.com/WoW-Companion/advisor/internal/vendors"
 )
 
 func (s Source) String() string {
@@ -70,6 +71,9 @@ func (c Candidate) Describe() string {
 		}
 		src = "from " + strings.Join(parts, "; ")
 	}
+	if c.Vendor != nil {
+		src += "; " + c.Vendor.Line() + " (seen by players on Everloot)"
+	}
 	return fmt.Sprintf("%s (ilvl %d, %s; %s, by %s): %s", name, c.Item.ItemLevel, c.LevelText(), gain, c.Basis, src)
 }
 
@@ -106,6 +110,7 @@ func Render(c character.Character, r Result) string {
 		}
 	}
 	sort.Strings(extra)
+	credit := false
 	for _, slot := range append(order, extra...) {
 		cands := r.Slots[slot]
 		if len(cands) == 0 {
@@ -114,7 +119,11 @@ func Render(c character.Character, r Result) string {
 		fmt.Fprintf(&b, "%s:\n", slot)
 		for i, cd := range cands {
 			fmt.Fprintf(&b, "  %d. %s\n", i+1, cd.Describe())
+			credit = credit || cd.Vendor != nil
 		}
+	}
+	if credit {
+		b.WriteString("Sources: " + vendors.Credit + ".\n")
 	}
 	return b.String()
 }

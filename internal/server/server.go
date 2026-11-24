@@ -760,6 +760,7 @@ func New(cfg Config) *mcp.Server {
 		Name: "upgrade_paths",
 		Description: "How the character can dependably get an item (give item) or the best gettable upgrades for a slot (give slot): ranked ways, " +
 			"quest in the log, craft with have/need counts from bags and bank, Auction House (common world drops and Bind on Equip gear, assumed cheap; never a price), other quests, dungeon boss, named creature. " +
+			"A path of kind vendor names who sells the item and its price (source \"everloot\": cite Everloot (CC BY-SA)). " +
 			"For a slot it can also return a shopping list: the base item, level range and stat suffixes to search for on the Auction House, with the in-game search steps; give those steps in plain words and never quote a price. " +
 			"Call it for any 'how do I get ...' or 'which upgrade first' question; never say a source is unknown without calling it. " +
 			"An item with no way is a random drop, not worth chasing, and the answer names the best gettable item for its slot instead.",
@@ -1006,7 +1007,7 @@ func New(cfg Config) *mcp.Server {
 		Name: "quest_chain",
 		Description: "Where a quest sits in its quest line (quest id or name): the line's name, every step in order and the quest's position, from the dataset. " +
 			"When the dataset has no line for the quest (WoW Forever's own quests, ids in the 90000s) it falls back to the player's QuestieDB: " +
-			"what the quest follows, what it leads to, and its level, giver, turn-in and objective, marked source \"questie\". " +
+			"what the quest follows, what it leads to, and its level, giver, turn-in and objective, marked source \"questie\"; facts players reported to Everloot (quests_observed, CC BY-SA) come before Questie and are marked source \"everloot\" — cite them as Everloot. " +
 			"Says so when neither holds a follow-up. Reads no character.",
 	}, func(_ context.Context, _ *mcp.CallToolRequest, in ChainInput) (*mcp.CallToolResult, ChainOutput, error) {
 		none := ChainOutput{Chain: quests.Chain{Steps: []quests.Step{}}}
