@@ -41,16 +41,11 @@ import (
 //go:embed page.html
 var page []byte
 
-// Limits. History is the context kept from earlier turns of the same character: at most
-// HistoryTurns turns and HistoryChars characters, oldest dropped first, each answer cut to
-// HistoryAnswerChars.
+// Limits. The context kept between asks is a small card, see context.go.
 const (
-	MaxBody            = 8 << 10
-	MaxQuestion        = 1000
-	HistoryTurns       = 4
-	HistoryChars       = 4000
-	HistoryAnswerChars = 600
-	maxEntries         = 200
+	MaxBody     = 8 << 10
+	MaxQuestion = 1000
+	maxEntries  = 200
 )
 
 // ErrNoAgent is what asking says when no AI client is set up.
@@ -113,6 +108,8 @@ type Entry struct {
 	// saved: the choices to show as buttons. No AI call was made. Saving the choice (POST /api/profile)
 	// asks the question again, once, and says so with a "reask" event.
 	Needs *ask.Needs `json:"needs,omitempty"`
+	// Context is the follow-up chip after this answer (only on the done event): nil when nothing is being followed.
+	Context *ContextView `json:"context,omitempty"`
 }
 
 // CharInfo is one captured character.
@@ -197,15 +194,16 @@ var AppOrigins = []string{"http://tauri.localhost", "https://tauri.localhost", "
 
 // State is what the page loads and what a "game" event carries.
 type State struct {
-	Characters []CharInfo  `json:"characters"`
-	Default    string      `json:"default"`
-	CapturedAt int64       `json:"captured_at"`
-	Error      string      `json:"error,omitempty"`
-	History    []Entry     `json:"history"`
-	Streaming  bool        `json:"streaming"`
-	Digest     DigestState `json:"digest"`
-	Settings   Settings    `json:"settings"`
-	DataNotice string      `json:"data_notice,omitempty"` // set once a dataset update has installed
+	Characters []CharInfo   `json:"characters"`
+	Default    string       `json:"default"`
+	CapturedAt int64        `json:"captured_at"`
+	Error      string       `json:"error,omitempty"`
+	History    []Entry      `json:"history"`
+	Streaming  bool         `json:"streaming"`
+	Digest     DigestState  `json:"digest"`
+	Settings   Settings     `json:"settings"`
+	DataNotice string       `json:"data_notice,omitempty"` // set once a dataset update has installed
+	Context    *ContextView `json:"context,omitempty"`     // the follow-up chip, while a card is active
 }
 
 type event struct{ name, data string }
@@ -241,6 +239,8 @@ type Server struct {
 	captured int64
 	loadErr  string
 	web      []Entry
+	card     *card            // the follow-up context, see context.go
+	clockFn  func() time.Time // a test's clock; nil is time.Now
 	turns    map[string]*turn
 	busy     map[string]bool       // client address -> an answer is in flight
 	pending  map[string]askRequest // character -> the question waiting for a play style
@@ -298,6 +298,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/state", s.state)
 	mux.HandleFunc("GET /api/events", s.events)
 	mux.HandleFunc("POST /api/ask", s.ask)
+	mux.HandleFunc("POST /api/context/clear", s.clearContext)
 	mux.HandleFunc("POST /api/auto-digest", s.autoDigest)
 	mux.HandleFunc("POST /api/settings", s.setSettings)
 	mux.HandleFunc("POST /api/profile", s.setProfile)
@@ -438,6 +439,7 @@ func (s *Server) snapshot() State {
 		}
 	}
 	st.History = append([]Entry{}, s.web...)
+	st.Context = s.contextView()
 	return st
 }
 
@@ -626,40 +628,10 @@ func (s *Server) startAsk(client string, req askRequest) (id string, ok bool) {
 	t := &turn{wake: make(chan struct{})}
 	s.turns[id] = t
 	delete(s.turns, fmt.Sprintf("t%d", s.seq-50)) // finished streams are not kept for long
-	history := s.historyFor(req.Character)
+	history := s.historyFor(req.Character, req.Text)
 	s.mu.Unlock()
 	go s.answer(id, client, t, req, history)
 	return id, true
-}
-
-// historyFor is the earlier web turns of one character as a block of prompt text, within the caps.
-// The caller holds s.mu.
-func (s *Server) historyFor(char string) string {
-	var parts []string
-	for i := len(s.web) - 1; i >= 0 && len(parts) < HistoryTurns; i-- {
-		e := s.web[i]
-		if e.Character != char || e.Status != "done" {
-			continue
-		}
-		a := []rune(e.Answer)
-		if len(a) > HistoryAnswerChars {
-			a = append(a[:HistoryAnswerChars], '.', '.', '.')
-		}
-		parts = append([]string{"Q: " + e.Question + "\nA: " + string(a)}, parts...)
-	}
-	for total := 0; len(parts) > 0; parts = parts[1:] {
-		total = 0
-		for _, p := range parts {
-			total += utf8.RuneCountInString(p)
-		}
-		if total <= HistoryChars {
-			break
-		}
-	}
-	if len(parts) == 0 {
-		return ""
-	}
-	return "Earlier in this conversation, for context only:\n" + strings.Join(parts, "\n") + "\n\nCurrent question: "
 }
 
 func (s *Server) answer(id, client string, t *turn, req askRequest, history string) {
@@ -699,6 +671,9 @@ func (s *Server) answer(id, client string, t *turn, req askRequest, history stri
 		s.web = s.web[len(s.web)-maxEntries:]
 	}
 	delete(s.busy, client)
+	if e.Status == "done" {
+		e.Context = s.remember(req.Character, req.Text, e.Answer, usage.Entities)
+	}
 	s.mu.Unlock()
 	t.emit("done", e, true)
 }

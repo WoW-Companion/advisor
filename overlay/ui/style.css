@@ -64,7 +64,7 @@ button:disabled { opacity: .5; cursor: default; }
 .settings-head b { font: 600 13px Cinzel, serif; letter-spacing: .08em; color: var(--gold); }
 .settings-head button { padding: 3px 14px; }
 /* While the page is open the chat, Next list and ask box stay mounted underneath, only out of sight. */
-.panel.settings-open > :is(.bar, #next, #suggs, #log, #quick-slot, #form, #setup) { display: none; }
+.panel.settings-open > :is(.bar, #next, #suggs, #log, #new-answer, #quick-slot, #follow, #form, #setup) { display: none; }
 #settings-btn[aria-pressed=true] { color: var(--gold); border-color: var(--gold); background: linear-gradient(rgba(217, 176, 90, .28), rgba(217, 176, 90, .28)), rgba(var(--slate), .65); box-shadow: inset 0 0 0 1px rgba(217, 176, 90, .5); }
 #settings-btn:focus-visible, #settings-done:focus-visible { outline: 2px solid var(--gold); outline-offset: 1px; }
 #settings-btn:active:not(:disabled) { background: rgba(217, 176, 90, .34); }
@@ -127,6 +127,12 @@ button:disabled { opacity: .5; cursor: default; }
 .msg.live::after { content: ""; display: inline-block; width: 6px; height: 12px; margin-left: 2px; vertical-align: -1px; background: var(--gold); animation: blink 1s steps(2) infinite; }
 .toast { position: fixed; right: 10px; bottom: 10px; padding: 6px 10px; border: 1px solid var(--gold); border-radius: 4px; background: rgba(20, 16, 10, .95); color: var(--gold); font-size: 12px; z-index: 50; }
 
+#new-answer { align-self: center; margin: -26px 0 4px; position: relative; font-size: 11px; padding: 2px 10px; border-radius: 12px; border: 1px solid var(--gold); background: rgba(0, 0, 0, .75); color: var(--gold); cursor: pointer; }
+#new-answer[hidden], #follow[hidden] { display: none; }
+#follow { padding: 2px 12px 0; display: flex; min-width: 0; }
+.chip.follow { display: inline-flex; align-items: center; gap: 4px; max-width: 100%; min-width: 0; white-space: nowrap; }
+.chip.follow .follow-text { overflow: hidden; text-overflow: ellipsis; }
+.chip.follow .follow-x { flex: none; border: 0; background: none; color: inherit; cursor: pointer; padding: 0 2px; font: inherit; line-height: 1; }
 #form { display: flex; gap: 6px; padding: 6px 12px 8px; border-top: 1px solid rgba(217, 176, 90, .2); }
 #ask-wrap { flex: 1 1 auto; position: relative; display: flex; }
 #text { flex: 1 1 auto; resize: none; height: 28px; padding: 4px 26px 4px 8px; }

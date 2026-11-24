@@ -2,7 +2,6 @@ package companion
 
 import (
 	"bufio"
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -316,48 +315,6 @@ func TestInGameQuestionIsIgnored(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(e.dir, "Answers.lua")); err == nil {
 		t.Error("Answers.lua was written")
-	}
-}
-
-func TestHistoryFor(t *testing.T) {
-	long := strings.Repeat("a", 5000)
-	mk := func(n int, ans string) []Entry {
-		var es []Entry
-		for i := 0; i < n; i++ {
-			es = append(es, Entry{Character: "c", Question: fmt.Sprintf("q%d\n", i) + strings.Repeat("z", min(len(ans)/2, 450)), Answer: ans, Status: "done"})
-		}
-		return es
-	}
-	for _, tc := range []struct {
-		name       string
-		web        []Entry
-		wantQs     []string
-		wantEmpty  bool
-		maxRunes   int
-		notContain string
-	}{
-		{"none", nil, nil, true, 0, ""},
-		{"other character and failures skipped", append(mk(1, "x"), Entry{Character: "d", Question: "other", Status: "done"}, Entry{Character: "c", Question: "bad", Status: "error"}), []string{"q0"}, false, 0, "other"},
-		{"turn cap keeps the newest", mk(10, "x"), []string{"q6", "q7", "q8", "q9"}, false, 0, "q5"},
-		{"answers cut", mk(1, long), []string{"q0"}, false, 1300, ""},
-		{"size cap drops the oldest", mk(6, strings.Repeat("b", 590)), []string{"q5"}, false, HistoryChars + 200, "q0"},
-	} {
-		s := &Server{web: tc.web}
-		got := s.historyFor("c")
-		if (got == "") != tc.wantEmpty {
-			t.Errorf("%s: history %q", tc.name, got)
-		}
-		for _, q := range tc.wantQs {
-			if !bytes.Contains([]byte(got), []byte("Q: "+q)) {
-				t.Errorf("%s: missing %s", tc.name, q)
-			}
-		}
-		if tc.notContain != "" && strings.Contains(got, tc.notContain) {
-			t.Errorf("%s: contains %s", tc.name, tc.notContain)
-		}
-		if tc.maxRunes > 0 && len([]rune(got)) > tc.maxRunes {
-			t.Errorf("%s: %d runes", tc.name, len([]rune(got)))
-		}
 	}
 }
 

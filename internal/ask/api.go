@@ -112,6 +112,8 @@ func respondAPI(ctx context.Context, cfg Config, prompt string, onText func(stri
 	}
 	defer closeTools()
 	sys, user := splitPrompt(prompt)
+	var trace Trace
+	tools = tracedTools{tools, &trace}
 	n := 0
 	loop := provider.Loop{Adapter: a.Adapter, Model: a.Model, System: sys, Prompt: user, Tools: tools,
 		MaxTurns: MaxTurns, Timeout: cfg.Timeout, MaxResult: a.MaxResult, Stream: onText != nil,
@@ -122,6 +124,7 @@ func respondAPI(ctx context.Context, cfg Config, prompt string, onText func(stri
 			}
 		}}
 	text, u, err := loop.Run(ctx)
+	usage.Entities = trace.Entities()
 	usage.In, usage.Out, usage.Cached = u.In, u.Out, u.Cached
 	usage.Tokens = u.In + u.Out + u.Cached
 	if err != nil {
@@ -210,3 +213,17 @@ func (c Config) WithClients(st provider.Settings, keys provider.KeyStore, hc *ht
 
 // Usable reports whether the config can ask anything: an agent command or an API client.
 func (c Config) Usable() bool { return len(c.Command) > 0 || c.API != nil }
+
+// tracedTools passes calls through and records what each result names.
+type tracedTools struct {
+	provider.Tools
+	t *Trace
+}
+
+func (t tracedTools) Call(ctx context.Context, name string, args json.RawMessage) (string, bool, error) {
+	text, isErr, err := t.Tools.Call(ctx, name, args)
+	if err == nil && !isErr {
+		t.t.Add(name, text)
+	}
+	return text, isErr, err
+}
