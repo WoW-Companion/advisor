@@ -156,7 +156,7 @@ answers. Run PowerShell commands in a PowerShell window.
 - **Sign in once:** set your `GEMINI_API_KEY` environment variable, or run `gemini` once.
 - **Gotcha:** it does not work with a free or Google AI Pro/Ultra account any more; use Antigravity CLI.
 
-### Or use an AI provider with your own API key
+## Or use an AI provider with your own API key
 
 You can skip the command-line clients and let the app ask a provider directly: Anthropic (Claude), OpenAI,
 OpenRouter, or a model running on your own PC (Ollama or LM Studio). An API key is a private password
