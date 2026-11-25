@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.81
+
+- Quests that are ready to turn in where you stand now come first on the route, nearest first, before pick-ups.
+- A ready turn-in in a town you can fly to gets a "Fly to <town>: turn in ..." step, one per town.
+- Travel steps name the place ("Shadowfang Keep (Silverpine Forest)"), never a map number.
+
 ## 0.7.80
 
 - Gear upgrades now weigh how much of each stat an item has, not only which stats.
