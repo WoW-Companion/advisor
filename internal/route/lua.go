@@ -103,13 +103,21 @@ func Render(p Plan, limit int) string {
 			fmt.Fprintf(&b, "...and %d more stops\n", len(p.Steps)-limit)
 			break
 		}
-		fmt.Fprintf(&b, "%d. %s (%.1f, %.1f)%s\n", s.N, s.Label, s.X, s.Y, lockedNote(s))
+		fmt.Fprintf(&b, "%d. %s%s%s\n", s.N, s.Label, coordNote(s), lockedNote(s))
 	}
 	if len(p.Later) > 0 {
 		fmt.Fprintf(&b, "%d stops are later (too high a level, off this map or past the 20-stop cap).\n", len(p.Later))
 	}
 	appendFind(&b, p)
 	return strings.TrimRight(b.String(), "\n")
+}
+
+// coordNote is the stop's coordinates, or nothing for a stop whose position is not known.
+func coordNote(s Stop) string {
+	if s.ZoneOnly {
+		return ""
+	}
+	return fmt.Sprintf(" (%.1f, %.1f)", s.X, s.Y)
 }
 
 // lockedNote is the suffix of a locked step: it cannot be picked up until an earlier turn-in.

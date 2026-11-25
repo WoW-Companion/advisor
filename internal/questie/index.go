@@ -14,7 +14,7 @@ import (
 	"strings"
 )
 
-const indexSchema = 7 // bump when the cached index's shape changes
+const indexSchema = 8 // bump when the cached index's shape changes
 
 // Spawn is a place, as percent of the area's map.
 type Spawn struct {
@@ -59,8 +59,15 @@ type Quest struct {
 	Creatures  []Ref // objectives that are kills or talks
 	Items      []int // item objectives (item ids)
 	Credits    []Credit
-	Objective  string // the objective text shown in the quest log (field 8)
-	Restricted bool   // a requirement this reader cannot check (skill, reputation, spell, event)
+	Triggers   []Trigger // area objectives ("reach this place"): text and the places Questie marks
+	Objective  string    // the objective text shown in the quest log (field 8)
+	Restricted bool      // a requirement this reader cannot check (skill, reputation, spell, event)
+}
+
+// Trigger is an area objective: Questie marks Spawns on the map for it, and no NPC or object stands there.
+type Trigger struct {
+	Text   string
+	Spawns []Spawn
 }
 
 // Credit is a kill-credit objective: killing any of NPCs counts.
@@ -208,6 +215,11 @@ func buildQuest(id int, r rawRow) *Quest {
 		q.Finishers = append(q.Finishers, refs(list, t == 1)...)
 	}
 	q.Objective = objectiveText(r["8"])
+	if t := r["11"]; t != nil {
+		if sp := spawns(slot(t, 2)); len(sp) > 0 {
+			q.Triggers = append(q.Triggers, Trigger{Text: strings.TrimSpace(text(slot(t, 1))), Spawns: sp})
+		}
+	}
 	q.PreGroup, q.PreSingle, q.Exclusive = ints(r["12"]), ints(r["13"]), ints(r["16"])
 	if o := r["10"]; o != nil {
 		for _, row := range asList(slot(o, 1)) {

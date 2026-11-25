@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.78
+
+- The route, the panel's Next quests and the answers now share one order.
+- A class quest's objectives come early on the route, after anything at your current spot.
+- Every quest in your log gets its open objectives as steps; where neither the data nor your Questie database has a position, the step names the zone only.
+- Positions your Questie database holds for "reach this place" objectives are used, and marked "from your Questie database".
 ## 0.7.77
 
 - Recorded recipes count as known; a plan you lack says "Needs the Plans", not "you can make it".

@@ -457,17 +457,18 @@ func TestCompletedQuestGoesStraightToTurnIn(t *testing.T) {
 
 func TestLoggedUnfinishedQuestWithUnknownObjective(t *testing.T) {
 	p := Build(objChar(), objIsle())
-	if find(p, KindTurnIn, 23) != nil {
-		t.Errorf("turn-in routed for unfinished quest 23: %+v", p.Steps)
-	}
+	// With no position anywhere, each open objective is still a step, by its zone alone.
 	n := 0
-	for _, f := range p.Find {
-		if f.QuestID == 23 {
+	for _, s := range p.Steps {
+		if s.Kind == KindObjective && s.QuestID == 23 && s.ZoneOnly && s.Place == "Testisle" && s.X == 0 && s.Y == 0 {
 			n++
 		}
 	}
 	if n != 2 {
-		t.Errorf("want both objectives of quest 23 under Find, got %+v", p.Find)
+		t.Errorf("want both objectives of quest 23 as zone-only steps, got %+v", p.Steps)
+	}
+	if i, j := stepIndex(p, KindTurnIn, 23), stepIndex(p, KindObjective, 23); i < 0 || j < 0 || j > i {
+		t.Errorf("quest 23's objectives must come before its turn-in: %+v", p.Steps)
 	}
 }
 
