@@ -6,6 +6,12 @@
 - Pick-ups and turn-ins at a place you are already at come first on the route.
 - The plan file now says, for each NPC stop, what you can do there and what each quest still needs.
 
+## 0.7.75
+
+- Training advice follows what your class trainer really sells and the spells you know.
+- Spells a class quest teaches are named as quest rewards, not as things to buy.
+- Without a trainer visit, the list says "usually" and "if you don't have it yet".
+
 ## 0.7.74
 
 - The plan file now says what each quest needs once accepted, so the panel can move on live.

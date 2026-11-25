@@ -198,7 +198,8 @@ func TestSeenOfferMatchedByNameAndRankReplacesCost(t *testing.T) {
 	c.Seen = &character.Observed{Trainers: []character.SeenTrainer{{Name: "Trainer Tam", Faction: "Alliance", T: 1,
 		Offers: []character.SeenOffer{
 			{Name: "Rend", Rank: "Rank 2", State: "available", Cost: 4200, Level: 10},
-			{Name: "Shield Bash", Rank: "Rank 1", State: "unavailable", Cost: 9500, Level: 14},
+			{Name: "Shield Bash", Rank: "Rank 1", State: "unavailable", Cost: 9500, Level: 12},
+			{Name: "Heroic Strike", Rank: "Rank 2", State: "available", Cost: 100, Level: 14},
 			{Name: "Taunt", State: "used"},
 		}}}}
 	by := map[string]Spell{}
@@ -208,10 +209,96 @@ func TestSeenOfferMatchedByNameAndRankReplacesCost(t *testing.T) {
 	if r := by["Rend (Rank 2)"]; r.Cost != 4200 || !r.Seen || r.NeedLevel != 10 {
 		t.Errorf("rend %+v", r)
 	}
-	if s := by["Shield Bash (Rank 1)"]; !s.Blocked || s.NeedLevel != 14 {
+	if s := by["Shield Bash (Rank 1)"]; !s.Blocked || s.NeedLevel != 12 {
 		t.Errorf("bash %+v", s)
+	}
+	if _, ok := by["Heroic Strike (Rank 2)"]; ok {
+		t.Error("an offer above the character's level was listed")
 	}
 	if _, ok := by["Taunt"]; ok {
 		t.Error("a spell the trainer lists as used is known")
+	}
+}
+
+type questRow struct {
+	SpellID   int32  `parquet:"spell_id"`
+	QuestName string `parquet:"quest_name"`
+}
+
+// dsQuest is ds plus a stance spell (level 10, learned by quest) and a quest_rewards table naming it.
+func dsQuest(t *testing.T) store.DataStore {
+	src := store.ReaderSource{"class_spells": tbl(t, []spellRow{
+		{1, 6546, "Rend", i32(2), 10, true, nil},
+		{1, 355, "Taunt", nil, 12, true, nil},
+		{1, 71, "Guard Stance", nil, 10, true, nil},
+		{1, 200, "Surge", nil, 10, true, nil},
+	}), "quest_rewards": tbl(t, []questRow{{71, "The Test Quest"}})}
+	return store.New(src)
+}
+
+func withTrainer(c character.Character) character.Character {
+	c.Seen = &character.Observed{Trainers: []character.SeenTrainer{{NPC: 9, Name: "Trainer Tam", Faction: "Alliance", T: 1,
+		Offers: []character.SeenOffer{
+			{Name: "Surge", State: "available", Cost: 700, Level: 10},
+			{Name: "Rend", Rank: "Rank 2", State: "available", Cost: 700, Level: 10},
+			{Name: "Taunt", State: "unavailable", Cost: 900, Level: 12},
+		}}}}
+	return c
+}
+
+func TestTrainerCaptureLimitsTheList(t *testing.T) {
+	got := Spells(withTrainer(warrior(10, nil)), dsQuest(t), 10, 10)
+	if names(got) != "Rend (Rank 2),Surge" {
+		t.Errorf("list = %s", names(got))
+	}
+	for _, s := range got {
+		if s.Usually || !s.Seen {
+			t.Errorf("trainer spell marked as a guess: %+v", s)
+		}
+	}
+	txt := TrainerSells(withTrainer(warrior(10, nil)), dsQuest(t))
+	if !strings.Contains(txt, "sells exactly") || !strings.Contains(txt, "Taunt at level 12") || strings.Contains(txt, "Guard") {
+		t.Errorf("sells = %q", txt)
+	}
+}
+
+func TestQuestRewardSpellIsLabelledAndNotTrainable(t *testing.T) {
+	c := warrior(10, nil)
+	if n := names(Spells(c, dsQuest(t), 10, 10)); strings.Contains(n, "Guard") {
+		t.Errorf("quest spell called trainable: %s", n)
+	}
+	q := QuestSpells(c, dsQuest(t), 10, 10)
+	if len(q) != 1 || q[0].Line() != "Guard Stance: from the class quest The Test Quest" {
+		t.Errorf("quest spells = %+v", q)
+	}
+	c.KnownSpells = map[int64]bool{71: true}
+	if len(QuestSpells(c, dsQuest(t), 10, 10)) != 0 {
+		t.Error("a known quest spell was listed")
+	}
+}
+
+func TestKnownSpellsAreSubtractedFromTrainerList(t *testing.T) {
+	c := withTrainer(warrior(10, nil))
+	c.KnownSpells = map[int64]bool{200: true}
+	if n := names(Spells(c, dsQuest(t), 10, 10)); n != "Rend (Rank 2)" {
+		t.Errorf("list = %s", n)
+	}
+}
+
+func TestEmptySpellsHedgesAndNoTrainerSaysUsually(t *testing.T) {
+	c := warrior(10, nil)
+	got := Spells(c, dsQuest(t), 10, 10)
+	if names(got) != "Rend (Rank 2),Surge" || !got[0].Usually {
+		t.Fatalf("fallback = %+v", got)
+	}
+	text, _, _ := Facts(c, dsQuest(t), nil, 10, 10)
+	for _, want := range []string{"usually trains", "if you don't have it yet", "Guard Stance", "The Test Quest"} {
+		if !strings.Contains(text, want) {
+			t.Errorf("facts lack %q:\n%s", want, text)
+		}
+	}
+	c.KnownSpells = map[int64]bool{1: true}
+	if text, _, _ := Facts(c, dsQuest(t), nil, 10, 10); strings.Contains(text, "if you don't have it yet") {
+		t.Errorf("hedged with known spells:\n%s", text)
 	}
 }

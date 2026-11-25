@@ -86,6 +86,12 @@ func trainingLine(c character.Character, ds store.DataStore, opt Options) (Line,
 	for _, s := range l.Spells {
 		names = append(names, spellLabel(s))
 	}
+	switch {
+	case sp[0].Usually:
+		when += " (usually)"
+	case !known:
+		when += " (if you don't have them yet)"
+	}
 	l.Text = clip(when + ": " + strings.Join(names, ", "))
 	if known { // the player has untrained spells now: the NEXT bar says it is time to visit the trainer
 		l.Text = clip("New spells to train: " + strings.Join(names[:min(2, len(names))], ", "))
@@ -105,7 +111,7 @@ func trainingLine(c character.Character, ds store.DataStore, opt Options) (Line,
 			l.Text = clip(l.Text + " at " + place.City)
 		}
 	}
-	l.Details = trainingDetails(l, from, c, sp)
+	l.Details = trainingDetails(l, from, c, ds, sp)
 	l.Asks, l.Ref = trainingAsks(l.Spells), trainingRef(level)
 	l.Why = trainingWhy(l.Spells)
 	return l, true
@@ -147,9 +153,10 @@ func (l *Line) trainer(c character.Character) {
 	}
 }
 
-func trainingDetails(l Line, from int, c character.Character, sp []levelup.Spell) []string {
+func trainingDetails(l Line, from int, c character.Character, ds store.DataStore, sp []levelup.Spell) []string {
 	var d []string
 	var fresh, up []string
+	usually := len(sp) > 0 && sp[0].Usually
 	for _, s := range l.Spells {
 		if s.New {
 			fresh = append(fresh, spellLabel(s))
@@ -158,10 +165,20 @@ func trainingDetails(l Line, from int, c character.Character, sp []levelup.Spell
 		}
 	}
 	if len(fresh) > 0 {
-		d = append(d, "New: "+strings.Join(fresh, ", "))
+		lead := "New: "
+		if c.KnownSpells == nil { // the capture lists no known spells: nothing is definitely new
+			lead = "New, if you don't have them yet: "
+		}
+		if usually {
+			lead = "Usually trained: "
+		}
+		d = append(d, lead+strings.Join(fresh, ", "))
 	}
 	if len(up) > 0 {
 		d = append(d, "Upgrades: "+strings.Join(up, ", "))
+	}
+	for _, q := range levelup.QuestSpells(c, ds, from, l.Level) {
+		d = append(d, q.Line())
 	}
 	if l.trainAt != "" {
 		d = append(d, l.trainAt)
