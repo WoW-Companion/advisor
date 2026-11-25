@@ -7,8 +7,8 @@ that they can equip, and that beat what they wear. The code is in `internal/gear
 
 The `items` table has: `item_level`, `required_level`, `quality`, `class_id` (armor 4, weapon 2),
 `subclass_id`, `slot` (inventory type), `allowable_class_mask`, `bonding`, `stat_types` (the stat
-type ids an item carries) and `stats_status` (`known`, `none`, `unknown`). **It has no stat
-values**, only which stats an item has. `loot_sources` has the source kind (creature, object,
+type ids an item carries), `stats` (the amount of each stat, read as `internal/stats.ItemStats`; an older
+dataset without it has the types only) and `stats_status` (`known`, `none`, `unknown`). `loot_sources` has the source kind (creature, object,
 quest reward), the source id, kills, drops and rate. The `npcs` table has a creature's name and
 level range. There is no object table and no zone on any of them, so object sources show as
 "object <id>" and every source says "zone unknown".
@@ -53,8 +53,12 @@ level range. There is no object table and no zone on any of them, so object sour
 ## Score and ranking
 
 With the spec's weights and known stat types on both the item and the item it replaces:
-`score = item_level × (0.5 + 0.5 × mean weight of the item's stat types) + quality`.
-Otherwise `score = item_level + quality`, and the answer says it is ranked by item level only and
+`score = item_level × (0.5 + 0.5 × fit) + quality`, where fit is the weight of each stat the item has,
+averaged by how much of it the item has (an item that is mostly the stat the build wants fits better than one
+with a token amount of it). With no amounts in the dataset, fit is the plain mean weight of the item's stat types.
+The weights are the play style's (`stats.Prof.ItemWeights`): its five primary stats, plus Spell Power at the weight
+of Intellect for a caster or healer and Attack Power at four-fifths of the better of Strength and Agility for a
+melee, ranged or feral build. Otherwise `score = item_level + quality`, and the answer says it is ranked by item level only and
 why (no stats in the dataset, spec unknown, or no weights for the spec). The comparison for a slot
 always uses one basis for both items. A slot's candidates are the items whose score is higher than the
 equipped item's (an empty slot takes any item), best gain first. An equipped item the dataset does

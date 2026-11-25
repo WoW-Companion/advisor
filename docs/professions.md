@@ -139,6 +139,17 @@ priority of every class and spec and its suffixes against the dataset's `random_
 listed in the table (`BENCH_REPORT=<file>`), since a guide's route is one good route and the planner picks its own by
 cost. `BENCH_DATASET=<dir>` names a dataset; without it the latest release is downloaded.
 
+`make offline-benchmark` runs the same kind of comparison with no network, on a fixed sample: real dataset rows in
+`testdata/advice_snapshot` (eight professions up to skill 75, and the items the stat cases use; rebuild it from a
+built dataset with `scripts/advice-snapshot.sh <dataset dir>`, which needs duckdb). Each profession is planned
+from skill 1 and every band is set beside the raw dataset rows (how the recipe is learnt, what learning it costs, the
+materials and their counts, the orange crafts, each rank's trainer cost); `internal/professions/offline_benchmark_test.go`
+also states ten recipes' thresholds, learn skills and reagents as literals, checks what `Plan` lists to make next,
+and sets the planner's craft counts and the Forever guides' reagents side by side. The stat half
+(`internal/gear/offline_benchmark_test.go`) checks the item stat amounts the advisor reads, the best chest upgrade
+for several classes, the order two items take by their amounts, and the totals of worn gear. The tests also run
+in `make verify`; `BENCH_REPORT=<file>` receives the tables.
+
 The run ends with one summary line, `advice-benchmark: N checks, S same, D differ (professions 90/39, costs 50/8,
 tailoring-guide 6/13, stats 99/0)`: every table row counts as same ("match") or differ, by area. Each area prints
 `advice-benchmark-count <area> same=N differ=M`, and `internal/benchsummary` adds them up. The share of
