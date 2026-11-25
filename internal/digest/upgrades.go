@@ -10,6 +10,7 @@ import (
 	"github.com/WoW-Companion/advisor/internal/character"
 	"github.com/WoW-Companion/advisor/internal/gear"
 	"github.com/WoW-Companion/advisor/internal/paths"
+	"github.com/WoW-Companion/advisor/internal/questie"
 	"github.com/WoW-Companion/advisor/internal/stats"
 	"github.com/WoW-Companion/advisor/internal/store"
 	"github.com/WoW-Companion/advisor/internal/wording"
@@ -54,7 +55,7 @@ func lowerGain(g string) string { return strings.ToLower(strings.TrimSuffix(g, "
 // upgradeLines is one entry per slot: the best candidate that has a dependable way to be got, in
 // plain words. An item with no way is never listed. The second result is a note when the search could
 // not run.
-func upgradeLines(c character.Character, ds store.DataStore, planQuests map[int]bool, short string) (lines, notes []Line, link upgradeLinks) {
+func upgradeLines(c character.Character, ds store.DataStore, planQuests map[int]bool, qx *questie.Index, short string) (lines, notes []Line, link upgradeLinks) {
 	link = upgradeLinks{questWhy: map[int]string{}, craftFor: map[int64]string{}}
 	if ds == nil {
 		return nil, nil, link // captureNotes says so
@@ -82,7 +83,7 @@ func upgradeLines(c character.Character, ds store.DataStore, planQuests map[int]
 		}
 		return a < b
 	})
-	opt := paths.Options{PlanQuests: planQuests}
+	opt := paths.Options{PlanQuests: planQuests, Questie: qx}
 	taken := map[int64]bool{}
 	for _, slot := range slots {
 		var (

@@ -31,9 +31,7 @@ func Render(p Result) string {
 	for i, pt := range p.Next {
 		fmt.Fprintf(&b, "%d. %s (rank %d) [%s]: %s\n", i+1, pt.Name, pt.Rank, pt.Band, pt.Rationale)
 	}
-	if p.Remaining > len(p.Next) {
-		fmt.Fprintf(&b, "%d more point(s) in the build after these.\n", p.Remaining-len(p.Next))
-	}
+	b.WriteString("Speak of the next pick and the one or two after it; never of unspent or remaining point totals or the level band.\n")
 	if len(p.OffBuild) > 0 {
 		b.WriteString("Off-build points (a choice, not an error):\n")
 		for _, o := range p.OffBuild {

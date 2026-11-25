@@ -1,6 +1,10 @@
 package ask
 
 import (
+	"path/filepath"
+
+	"github.com/WoW-Companion/advisor/internal/character"
+	"github.com/WoW-Companion/advisor/internal/profile"
 	"strings"
 	"testing"
 )
@@ -73,6 +77,52 @@ func TestWordingRulesAreInEveryPrompt(t *testing.T) {
 			if strings.Contains(p, old) {
 				t.Errorf("%s: prompt still says %q", length, old)
 			}
+		}
+	}
+}
+
+// A talent answer, and a spec just chosen, are subjects: the chip follows them.
+func TestChipFollowsTalentAndSpecAnswers(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "profiles.json")
+	t.Setenv(profile.Env, path)
+	key := priestKey(t)
+	if _, err := profile.Update(path, key, func(e *profile.Entry) error {
+		e.Profile = &character.Profile{Role: "healer", Focus: "dungeons", Spec: "Test Priest"}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	known := KnownEntities(Config{SavedVariables: priestCapture}, key)
+	for _, tc := range []struct{ answer, want string }{
+		{"Take Test Inner Focus (rank 5): it saves mana.", "Test Inner Focus"},
+		{"Saved: Test Priest. Change it any time in Settings.", "Test Priest"},
+	} {
+		got := Subjects(tc.answer, known)
+		if len(got) == 0 || got[0].Name != tc.want {
+			t.Errorf("%q: subjects %q, want %q first", tc.answer, nameList(got), tc.want)
+		}
+	}
+}
+
+// Only a What next? answer may end with a heads-up.
+func TestHeadsUpOnlyInWhatNext(t *testing.T) {
+	const allowed = "One optional last line starting"
+	for _, tc := range []struct {
+		text, ref string
+		want      bool
+	}{
+		{"What should I do next, and why?", "quest:12", true},
+		{"What next?", "", true},
+		{"Which talent should I take next for my play style, and why?", "talents", false},
+		{"Look at my gear and suggest the best upgrades within reach right now.", "upgrades", false},
+		{"Where do I find copper?", "", false},
+	} {
+		p := PromptFor(Question{Character: "C", Text: tc.text, Ref: tc.ref}, LengthStandard)
+		if got := strings.Contains(p, allowed); got != tc.want {
+			t.Errorf("%q: heads-up allowed = %v", tc.text, got)
+		}
+		if !strings.Contains(p, "Never end with a") && !tc.want {
+			t.Errorf("%q: no ban on a heads-up", tc.text)
 		}
 	}
 }

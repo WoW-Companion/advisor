@@ -46,6 +46,9 @@ func (s *Server) askCfg() ask.Config {
 	c := s.cfg.Ask
 	c.Options = s.opts
 	c.Dataset = s.datasetDir()
+	if c.SavedVariables == "" {
+		c.SavedVariables = s.cfg.ForeverScribe // the capture the facts, needs and subjects are read from
+	}
 	return c.WithClients(s.providerSettings(), s.keyStore(), s.cfg.HTTP)
 }
 

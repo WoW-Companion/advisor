@@ -223,17 +223,17 @@ func TestSourcesAndRender(t *testing.T) {
 	}
 	text := Render(c, res)
 	for _, want := range []string{
-		"Ranked by item level weighted by Holy stat types; advisor defaults, not authoritative",
-		"Cloth Hood (ilvl 20, at level 14; empty slot, by stats): from Near Wolf, level 10-12, zone unknown, drops 5.0% of kills; Far Boss, level 40-42, zone unknown, drops 25.0% of kills",
-		"Spirit Hood (ilvl 24, at level 14; empty slot, by stats): from object 900, zone unknown, drop chance unknown",
-		"Plain Robe (ilvl 15, requires level 8; empty slot, by stats): source unknown",
+		"Ranked by the gain over what is worn, weighted by Holy stat types and listed by the level needed to wear it; advisor defaults, not authoritative",
+		"Cloth Hood (at level 14; empty slot, by stats): from Near Wolf, level 10-12, zone unknown, drops 5.0% of kills; Far Boss, level 40-42, zone unknown, drops 25.0% of kills",
+		"Spirit Hood (at level 14; empty slot, by stats): from object 900, zone unknown, drop chance unknown",
+		"Plain Robe (requires level 8; empty slot, by stats): source unknown",
 	} {
 		if !strings.Contains(text, want) {
 			t.Errorf("render lacks %q:\n%s", want, text)
 		}
 	}
 	res, _ = Find(c, synth(t, "unknown"), "Test Holy", Options{Slot: "head"})
-	if text := Render(c, res); !strings.Contains(text, "Ranked by item level only (quality breaks ties): the dataset has no stats for these items.") {
+	if text := Render(c, res); !strings.Contains(text, "Ranked by the level needed to wear it only (quality breaks ties): the dataset has no stats for these items.") {
 		t.Errorf("item level only not stated:\n%s", text)
 	}
 }
@@ -473,5 +473,36 @@ func TestRenderSplitsSoonUpgrades(t *testing.T) {
 	}
 	if !strings.Contains(out, "head: Later Helm") || !strings.Contains(out, "waist: Later Belt") {
 		t.Errorf("soon lines lack their slot:\n%s", out)
+	}
+}
+
+// Rings are described by the level needed to wear them, never by item level, and a ring above the
+// character's level goes under "Soon (level N)", not among those within reach.
+func TestRingsGoByRequiredLevelNotItemLevel(t *testing.T) {
+	lvl := 10
+	c := character.Character{Key: "R:Tester", Name: "Tester", Class: "Warrior", Level: &lvl}
+	now := Candidate{Item: Item{ID: 1, Name: "Band of Now", ItemLevel: 20, ReqLevel: 9}, Delta: 5, Basis: "item level"}
+	later := Candidate{Item: Item{ID: 2, Name: "Band of Later", ItemLevel: 22, ReqLevel: 12}, Delta: 7, Basis: "item level", Soon: true}
+	out := Render(c, Result{Spec: "melee", Slots: map[string][]Candidate{"finger1": {later, now}}})
+	if strings.Contains(strings.ToLower(out), "item level") || strings.Contains(out, "ilvl") {
+		t.Errorf("item level in the wording:\n%s", out)
+	}
+	i, j := strings.Index(out, "1. Band of Now"), strings.Index(out, "Soon (level 12):")
+	if i < 0 || j < i || !strings.Contains(out, "requires level 9") || strings.Index(out, "Band of Later") < j {
+		t.Errorf("rings not split by required level:\n%s", out)
+	}
+}
+
+// A shield is no upgrade for a two-hand or dual-wield damage build.
+func TestShieldLeftOutForADamageBuild(t *testing.T) {
+	shield := Item{ID: 9, Name: "Test Shield", Slot: invShield}
+	lvl := 10
+	dmg := character.Character{Class: "WARRIOR", Level: &lvl, Profile: &character.Profile{Role: "damage", Focus: "leveling", Spec: "Fury"}}
+	if lo := loadoutOf(dmg, nil, "Fury"); lo.allows("offhand", shield) {
+		t.Error("a Fury warrior is offered a shield")
+	}
+	tank := character.Character{Class: "WARRIOR", Level: &lvl, Profile: &character.Profile{Role: "tank", Focus: "dungeons", Spec: "Protection"}}
+	if lo := loadoutOf(tank, nil, "Protection"); !lo.allows("offhand", shield) {
+		t.Error("a Protection warrior is refused a shield")
 	}
 }

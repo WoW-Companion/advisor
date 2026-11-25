@@ -3,6 +3,7 @@ package gear
 import (
 	"strings"
 
+	"github.com/WoW-Companion/advisor/internal/brief"
 	"github.com/WoW-Companion/advisor/internal/character"
 	"github.com/WoW-Companion/advisor/internal/store"
 )
@@ -115,6 +116,9 @@ func (lo loadout) allows(slot string, it Item) bool {
 		}
 		return lo.free || lo.main == nil || lo.main.Slot != invTwoHand
 	case "offhand":
+		if lo.free && it.Slot == invShield {
+			return false // a two-hand or dual-wield damage build has no use for a shield
+		}
 		if lo.main != nil && lo.main.Slot == invTwoHand {
 			return false // a two-hander leaves no off hand
 		}
@@ -127,4 +131,20 @@ func (lo loadout) allows(slot string, it Item) bool {
 		return it.Slot != invShield // a weapon or held item keeps the style
 	}
 	return true
+}
+
+// Fits reports whether the item suits the character's build at all: a shield never does for a
+// two-hand or dual-wield damage build. An item that does not fit is left out of the advice entirely.
+func Fits(c character.Character, ds store.DataStore, itemID int64) bool {
+	row, err := ds.Get("items", itemID)
+	if err != nil {
+		return true
+	}
+	group := ""
+	if names, _ := brief.TopGroups(c.Talents); len(names) == 1 {
+		group = names[0]
+	}
+	lo := loadoutOf(c, ds, group)
+	it := itemOf(row)
+	return it.Slot != invShield || lo.allows("offhand", it)
 }

@@ -60,3 +60,33 @@ func TestPlayStyleRow(t *testing.T) {
 		t.Errorf("stored %+v", e.Profile)
 	}
 }
+
+// The exact sequence from a play-test: Fury saved, then Spec set back to "Not sure yet" through the
+// request the Settings panel sends, then the Talents button's question. The sidecar's ask config names
+// the capture on its own (the command line gives it only to the companion), so the question gets the
+// spec-only card, never an AI call.
+func TestNotSureYetThenTalentsShowsSpecButtons(t *testing.T) {
+	capture := "../../testdata/foreverscribe/tree_priest.lua"
+	path := filepath.Join(t.TempDir(), "profiles.json")
+	t.Setenv(profile.Env, path)
+	s := New(Config{ForeverScribe: capture, Profiles: path, Ask: ask.Config{Command: []string{"claude"}}}) // as the command line builds it: no Ask.SavedVariables
+	s.chars = []CharInfo{{Key: "Testpriest", Name: "Testpriest"}}
+	save := func(body string) {
+		t.Helper()
+		w := httptest.NewRecorder()
+		s.setProfile(w, httptest.NewRequest("POST", "/api/profile", strings.NewReader(body)))
+		if w.Code != 200 {
+			t.Fatalf("save %s = %d %s", body, w.Code, w.Body)
+		}
+	}
+	q := ask.Question{Character: "Testpriest", Text: "Which talent should I take next for my play style, and why?", Ref: "talents"}
+	save(`{"character":"Testpriest","role":"healer","focus":"dungeons","spec":"Test Priest","stat_pref":""}`)
+	if _, ok := ask.PlayStyleNeeded(s.askCfg(), q); ok {
+		t.Fatal("buttons offered with a spec saved")
+	}
+	save(`{"character":"Testpriest","role":"healer","focus":"dungeons","spec":"","stat_pref":""}`)
+	n, ok := ask.PlayStyleNeeded(s.askCfg(), q)
+	if !ok || n.Needs != ask.NeedsSpec || len(n.Specs) == 0 || n.Role != "healer" || n.Focus != "dungeons" {
+		t.Errorf("after Not sure yet: %+v, %v", n, ok)
+	}
+}

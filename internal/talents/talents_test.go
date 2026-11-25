@@ -153,7 +153,7 @@ func TestRender(t *testing.T) {
 	ds := synth(t)
 	p := Plan(withSpent(priest(24, 1, tl(1, "Shadow Focus", 5), tl(2, "Improved Mind Blast", 5), tl(6, "Renew", 1)), 1, 10), ds, Options{Limit: 1})
 	out := Render(p)
-	for _, want := range []string{"PRIEST Shadow Magic, level band 20-29 (spec taken", "Unspent points: 1", "1. Mind Flay (rank 1) [20-29]: why 3", "more point(s)", "Renew: rank 1, build gives 0", "advisor defaults"} {
+	for _, want := range []string{"PRIEST Shadow Magic, level band 20-29 (spec taken", "Unspent points: 1", "1. Mind Flay (rank 1) [20-29]: why 3", "the one or two after it", "Renew: rank 1, build gives 0", "advisor defaults"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("render lacks %q:\n%s", want, out)
 		}

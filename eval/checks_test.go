@@ -506,7 +506,7 @@ func statesBasis(e *env) error {
 	}
 	text := gear.Render(e.c, res)
 	if res.ItemLevelOnly {
-		if res.Reason == "" || !strings.Contains(text, "item level only") || !strings.Contains(text, res.Reason) {
+		if res.Reason == "" || !strings.Contains(text, "level needed to wear it only") || !strings.Contains(text, res.Reason) {
 			return fmt.Errorf("item-level ranking is not explained in %q", lines(text)[1])
 		}
 	} else if !strings.Contains(text, "stat types") {
@@ -514,7 +514,11 @@ func statesBasis(e *env) error {
 	}
 	for slot, cands := range res.Slots {
 		for _, c := range cands {
-			if !strings.Contains(c.Describe(), "by "+c.Basis) {
+			basis := c.Basis
+			if basis != gear.BasisStats {
+				basis = "required level"
+			}
+			if !strings.Contains(c.Describe(), "by "+basis) {
 				return fmt.Errorf("%s: %q does not state its basis %q", slot, c.Item.Name, c.Basis)
 			}
 		}

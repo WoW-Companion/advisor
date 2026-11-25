@@ -307,7 +307,7 @@ func Build(c character.Character, ds store.DataStore, opt Options) Digest {
 		group = names[0]
 	}
 	sc := stats.Check(c, ds, group)
-	ups, note, link := upgradeLines(c, ds, PlanQuests(steps), shortStat(sc))
+	ups, note, link := upgradeLines(c, ds, PlanQuests(steps), opt.Questie, shortStat(sc))
 	notes = append(notes, note...)
 	for i := range quests {
 		if w, ok := link.questWhy[quests[i].Quest]; ok && quests[i].Quest != 0 {

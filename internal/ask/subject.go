@@ -8,6 +8,7 @@ import (
 
 	"github.com/WoW-Companion/advisor/internal/names"
 	"github.com/WoW-Companion/advisor/internal/store"
+	"github.com/WoW-Companion/advisor/internal/talents"
 )
 
 // Subjects are the known entities whose names appear in the answer text, in the order they first
@@ -89,6 +90,28 @@ func KnownEntities(cfg Config, char string) []Entity {
 	}
 	if c.Location != nil && c.Location.Zone != "" {
 		out = append(out, Entity{Kind: "zone", Name: c.Location.Zone})
+	}
+	// Talks about talents are about the talent and the spec: the spec the player chose or the class's
+	// specs, the talents the plan names next and the talents already taken.
+	if p := c.Profile; p != nil && p.Spec != "" {
+		out = append(out, Entity{Kind: "spec", Name: p.Spec})
+	}
+	for _, sp := range talents.Specs(cc.ds, c) {
+		out = append(out, Entity{Kind: "spec", Name: sp})
+	}
+	if cc.ds != nil {
+		for _, pt := range talents.Plan(c, cc.ds, talents.Options{}).Next {
+			out = append(out, Entity{Kind: "talent", ID: pt.NodeID, Name: pt.Name})
+		}
+	}
+	if c.Talents != nil {
+		for _, t := range c.Talents.Trees {
+			for _, tl := range t.Talents {
+				if tl.Rank > 0 {
+					out = append(out, Entity{Kind: "talent", Name: tl.Name})
+				}
+			}
+		}
 	}
 	if cc.ds != nil {
 		for _, sec := range cc.digest().Sections {

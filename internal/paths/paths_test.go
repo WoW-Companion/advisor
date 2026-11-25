@@ -9,6 +9,7 @@ import (
 	"github.com/parquet-go/parquet-go"
 
 	"github.com/WoW-Companion/advisor/internal/character"
+	"github.com/WoW-Companion/advisor/internal/questie"
 	"github.com/WoW-Companion/advisor/internal/store"
 )
 
@@ -277,5 +278,37 @@ func TestInSlotSkipsItemsWithoutAWay(t *testing.T) {
 	got, err = InSlot(warrior(), fixture(t), "", "back", Options{}, 3)
 	if err != nil || len(got) != 1 || got[0].Result.Item != "Traveler's Shawl" {
 		t.Errorf("back: %v %v", got, err)
+	}
+}
+
+// A reward of a quest the player has not picked up is a way to get the item, and the answer names the
+// quest, taking its name from QuestieDB when the dataset has no row for it.
+func TestQuestRewardNamesItsQuestFromQuestie(t *testing.T) {
+	const shield, mace = 40, 41
+	ds := store.New(store.ReaderSource{
+		"items": tbl(t, []itemRow{
+			item(shield, "Oak Bulwark", 14, 9, 3, 6, 14, 0),
+			item(mace, "Oak Skybreaker Mace", 14, 9, 3, 4, 13, 0),
+		}),
+		"loot_sources": tbl(t, []lootRow{{shield, "quest", 777, 0, 0, nil}, {mace, "quest", 777, 0, 0, nil}}),
+	})
+	qx := &questie.Index{Quests: map[int]*questie.Quest{777: {ID: 777, Name: "The Oak Skybreaker Quest"}}}
+	lvl := 10
+	fury := character.Character{Name: "T", Class: "WARRIOR", Level: &lvl, Profile: &character.Profile{Role: "damage", Focus: "leveling", Spec: "Fury"}}
+	r := For(fury, ds, mace, Options{Questie: qx})
+	if len(r.Paths) == 0 || r.Paths[0].Kind != Quest || !strings.Contains(r.Paths[0].Line, "The Oak Skybreaker Quest") {
+		t.Errorf("a quest reward is named with its quest: %+v", r)
+	}
+	if r := For(fury, ds, mace, Options{}); r.Dependable() {
+		t.Errorf("without a name for the quest nothing is claimed: %+v", r)
+	}
+	// A shield is no use to a Fury warrior: it is left out entirely, not marked "not worth chasing".
+	if r := For(fury, ds, shield, Options{Questie: qx}); !r.Unfit || len(r.Paths) != 0 || r.Dependable() {
+		t.Errorf("a shield for a Fury warrior: %+v", r)
+	}
+	prot := fury
+	prot.Profile = &character.Profile{Role: "tank", Focus: "dungeons", Spec: "Protection"}
+	if r := For(prot, ds, shield, Options{Questie: qx}); r.Unfit || !r.Dependable() {
+		t.Errorf("a shield for a Protection warrior: %+v", r)
 	}
 }
