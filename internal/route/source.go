@@ -1,6 +1,7 @@
 package route
 
 import (
+	"cmp"
 	"fmt"
 	"math"
 	"sort"
@@ -191,7 +192,7 @@ func (s *questieSource) quests(c character.Character, at *questie.Where) []*ques
 			return name
 		}
 		covered := map[string]bool{}
-		add := func(verb, name string, refs []questie.Ref) {
+		addPts := func(verb, name string, pts []pt, fromArea bool) {
 			if name == "" || isDone(name) {
 				return
 			}
@@ -204,9 +205,9 @@ func (s *questieSource) quests(c character.Character, at *questie.Where) []*ques
 			mk := func() *spot {
 				return &spot{kind: KindObjective, quests: []int{q.ID}, names: []string{q.Name}, label: objectiveLabel(verb, textOf(name))}
 			}
-			if p, ok := best(s.points(refs), ax, ay); ok {
+			if p, ok := best(pts, ax, ay); ok {
 				sp := mk()
-				sp.m, sp.x, sp.y, sp.place = p.m, p.x, p.y, p.area
+				sp.m, sp.x, sp.y, sp.place, sp.areaObj = p.m, p.x, p.y, p.area, fromArea
 				found = append(found, sp)
 				return
 			}
@@ -214,6 +215,7 @@ func (s *questieSource) quests(c character.Character, at *questie.Where) []*ques
 			sp.unplaced, sp.label = true, sp.label+" (location unknown)"
 			unplaced = append(unplaced, sp)
 		}
+		add := func(verb, name string, refs []questie.Ref) { addPts(verb, name, s.points(refs), false) }
 		for _, r := range q.Creatures {
 			if e, ok := s.entity(r); ok {
 				add(creatureVerb(e), e.Name, []questie.Ref{r})
@@ -239,6 +241,16 @@ func (s *questieSource) quests(c character.Character, at *questie.Where) []*ques
 				refs = append(refs, questie.Ref{ID: n})
 			}
 			add("", c.Name, refs)
+		}
+		// An area objective ("reach the shrine") is a place Questie marks with no NPC or object on it.
+		for _, tr := range q.Triggers {
+			var pts []pt
+			for _, sp := range tr.Spawns {
+				if a, ok := s.qx.Areas[sp.Area]; ok && a.UIMap != 0 {
+					pts = append(pts, pt{m: a.UIMap, x: sp.X, y: sp.Y, n: 1, name: tr.Text, area: cmp.Or(a.Sub, a.Zone)})
+				}
+			}
+			addPts("", tr.Text, pts, true)
 		}
 		// An unfinished objective the quest's data does not explain has no place to go.
 		for _, o := range open {
@@ -275,12 +287,17 @@ func (s *questieSource) quests(c character.Character, at *questie.Where) []*ques
 			}
 		}
 		q.turnin = spotFrom(KindTurnIn, qq, qq.Finishers, x, y, haveXY)
-		if !complete && (len(open) > 0 || lq.Observed) {
+		// A quest in the log always has its open objectives as steps, even when the capture lists none.
+		if !complete && (len(open) > 0 || lq.Observed || len(lq.Objectives) == 0) {
 			ax, ay := x, y
 			if q.turnin != nil && !haveXY {
 				ax, ay = q.turnin.x, q.turnin.y
 			}
 			q.objs, q.unplaced = objectives(qq, done, open, ax, ay)
+			if len(q.objs) == 0 && len(q.unplaced) == 0 && len(lq.Objectives) == 0 && qq.Objective != "" {
+				q.unplaced = []*spot{{kind: KindObjective, unplaced: true, quests: []int{qq.ID}, names: []string{qq.Name}, label: objectiveLabel("", qq.Objective) + " (location unknown)"}}
+			}
+			q.objs, q.unplaced = s.zoneOnly(qq, q, q.objs, q.unplaced)
 		}
 		// A turn-in is for a quest that is done. When the capture does not say so and no objective step
 		// explains what is left, the quest is listed under Find and its turn-in withheld.
@@ -375,6 +392,39 @@ func (s *questieSource) quests(c character.Character, at *questie.Where) []*ques
 		return out
 	}
 	return out
+}
+
+// zoneOnly turns the unplaced objectives of a quest in the log into steps that name only the zone:
+// neither the dataset nor the player's Questie database gives a position, and none is guessed. Such a
+// step is ordered by the quest's own turn-in (or the zone's map) and shows no coordinates.
+func (s *questieSource) zoneOnly(qq *questie.Quest, q *quest, objs, unplaced []*spot) ([]*spot, []*spot) {
+	if len(unplaced) == 0 {
+		return objs, unplaced
+	}
+	m, zone := 0, ""
+	if a, ok := s.qx.Areas[qq.Zone]; ok && a.UIMap != 0 {
+		m, zone = a.UIMap, a.Zone
+	}
+	if q.turnin != nil {
+		m = q.turnin.m
+		zone = cmp.Or(zone, s.mapName(m))
+	}
+	if m == 0 {
+		return objs, unplaced // no zone known either: it stays under Find
+	}
+	zone = cmp.Or(zone, s.mapName(m))
+	for _, u := range unplaced {
+		sp := *u
+		sp.unplaced, sp.zoneOnly, sp.m, sp.place = false, true, m, zone
+		sp.label = strings.TrimSuffix(u.label, " (location unknown)") + " (somewhere in " + zone + ")"
+		if q.turnin != nil {
+			sp.x, sp.y = q.turnin.x, q.turnin.y // for ordering only; never shown
+		} else {
+			sp.x, sp.y = 50, 50
+		}
+		objs = append(objs, &sp)
+	}
+	return objs, nil
 }
 
 func (s *questieSource) followUps(use []*quest, cur int, opt Options) []*quest {

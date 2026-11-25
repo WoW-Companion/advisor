@@ -281,6 +281,10 @@ func (in In) loop(picked map[int]bool, anchor bool) (secs float64, steps []Step,
 		var t float64
 		var prev *route.Point = start
 		for _, st := range s {
+			if st.ZoneOnly { // no position is known: no walk is counted to it or from it
+				t += StopSecs(st)
+				continue
+			}
 			p := at(st)
 			if prev != nil {
 				t += in.WalkSecs(*prev, p)
@@ -322,12 +326,14 @@ func (in In) loop(picked map[int]bool, anchor bool) (secs float64, steps []Step,
 	}
 	var prev *route.Point = start
 	for _, st := range seq {
-		p := at(st)
 		d := StopSecs(st)
-		if prev != nil {
-			d += in.WalkSecs(*prev, p)
+		if !st.ZoneOnly {
+			p := at(st)
+			if prev != nil {
+				d += in.WalkSecs(*prev, p)
+			}
+			prev = &p
 		}
-		prev = &p
 		steps = append(steps, Step{Label: stepLabel(st), Kind: st.Kind, Quest: st.Quest, Minutes: d / 60})
 	}
 	return secs, steps, end

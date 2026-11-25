@@ -24,6 +24,9 @@ const (
 	pinRadius   = 0.05
 )
 
+// FromQuestie marks a position that came from the player's own Questie database rather than the dataset.
+const FromQuestie = "from your Questie database"
+
 // Stop kinds.
 const (
 	KindPickup    = "pickup"
@@ -46,6 +49,12 @@ type Stop struct {
 	Y        float64 `json:"y"`
 	Done     bool    `json:"done"`
 	Place    string  `json:"place,omitempty"` // the subzone or zone the stop is in, in words (Plan.lua 1.3)
+	// Priority is set on a class quest's stops: they are worth doing first, so they come early.
+	Priority bool `json:"priority,omitempty"`
+	// ZoneOnly is a stop with no known position: X and Y are 0 and only Place is known.
+	ZoneOnly bool `json:"zone_only,omitempty"`
+	// Source names where a position came from when it is not the usual NPC or object spawn.
+	Source string `json:"source,omitempty"`
 
 	// Chain-aware plan (Plan.lua 1.1). A locked step is a follow-up the plan's turn-ins unlock.
 	Locked     bool   `json:"locked,omitempty"`
@@ -157,6 +166,8 @@ type spot struct {
 	names    []string
 	label    string // the NPC or mob
 	must     bool   // part of a class quest: always on the route, never cut to "later"
+	areaObj  bool   // placed by an area objective of the player's Questie database, not an NPC or object
+	zoneOnly bool   // no position anywhere: the zone is all that is known, so no coordinates are shown
 	unplaced bool   // an objective with no known location: never routed, listed under Find
 	npc      int    // the NPC's id, on a pick-up or turn-in; 0 when unknown
 	place    string // where it is in words: the subzone, else the zone; empty when unknown
@@ -349,6 +360,7 @@ func planWith(c character.Character, src source, opt Options) Plan {
 	order := Solve(prob, naive)
 	order = adjacent(prob, nodes, order)
 	order = groupByPlace(prob, nodes, order)
+	order = prioritize(prob, nodes, order)
 	p.Naive = round1(prob.Length(naive))
 	// The cap counts ordinary stops; a follow-up stays when everything it needs does.
 	reg := 0
@@ -485,7 +497,13 @@ func mustSet(nodes []*spot, preds [][]int) map[int]bool {
 }
 
 func stopOf(n int, s *spot) Stop {
-	st := Stop{N: n, Kind: s.kind, Map: s.m, X: round1(s.x), Y: round1(s.y), Place: s.place}
+	st := Stop{N: n, Kind: s.kind, Map: s.m, X: round1(s.x), Y: round1(s.y), Place: s.place, Priority: s.must}
+	if s.zoneOnly {
+		st.X, st.Y, st.ZoneOnly = 0, 0, true
+	}
+	if s.areaObj {
+		st.Source = FromQuestie
+	}
 	if s.locked {
 		st.Locked, st.Depth, st.Chain, st.Observed = true, s.depth, s.chain, s.observed
 		st.UnlockedBy = append([]int(nil), s.unlockedBy...)
@@ -510,6 +528,9 @@ func stopOf(n int, s *spot) Stop {
 		st.Label = with("Pick up ", " from ")
 	case KindObjective:
 		st.Label = s.label // already an action: "Kill <mob> (0/1)", the quest not repeated
+		if s.areaObj {
+			st.Label += " (" + FromQuestie + ")"
+		}
 	case KindTurnIn:
 		st.Label = with("Turn in ", " to ")
 	}
@@ -706,4 +727,81 @@ func groupByPlace(p *Problem, nodes []*spot, order []int) []int {
 		}
 	}
 	return order
+}
+
+// prioritize puts the objectives of class quests (and what they need first) early: after whatever can
+// be done at the player's current spot, before the rest. Every precedence is kept; the rest keep their order.
+func prioritize(p *Problem, nodes []*spot, order []int) []int {
+	pri := map[int]bool{}
+	var add func(i int)
+	add = func(i int) {
+		if pri[i] {
+			return
+		}
+		pri[i] = true
+		for _, q := range p.Nodes[i].Pred {
+			add(q)
+		}
+	}
+	found := false
+	for i, n := range nodes {
+		if n.must && n.kind == KindObjective && !n.locked {
+			add(i)
+			found = true
+		}
+	}
+	if !found {
+		return order
+	}
+	// What can be done at the player's current spot goes first, in its order.
+	inHead := map[int]bool{}
+	var out, rest []int
+	if p.Start != nil {
+		for _, i := range order {
+			n := nodes[i]
+			ok := math.Hypot(p.Start[0]-n.x, p.Start[1]-n.y) <= GroupRadius && !n.zoneOnly
+			for _, q := range p.Nodes[i].Pred {
+				ok = ok && inHead[q]
+			}
+			if ok {
+				inHead[i] = true
+				out = append(out, i)
+			}
+		}
+	}
+	for _, i := range order {
+		switch {
+		case inHead[i]:
+		case pri[i]:
+			out = append(out, i)
+		default:
+			rest = append(rest, i)
+		}
+	}
+	// A priority stop's own precedence may sit in the head or the rest; the closure kept them in pri.
+	out = append(out, rest...)
+	if !p.Feasible(out) {
+		return order
+	}
+	return out
+}
+
+// QuestOrder is the quest ids in route order: each quest where its first stop is. The panel's Next
+// quests and the answers' facts follow it, so the route, the panel and the AI agree.
+func QuestOrder(p Plan) []int {
+	var out []int
+	seen := map[int]bool{}
+	for _, s := range p.Steps {
+		for _, id := range s.QuestIDs {
+			if !seen[id] {
+				seen[id] = true
+				out = append(out, id)
+			}
+		}
+		if len(s.QuestIDs) == 0 && s.QuestID != 0 && !seen[s.QuestID] {
+			seen[s.QuestID] = true
+			out = append(out, s.QuestID)
+		}
+	}
+	return out
 }

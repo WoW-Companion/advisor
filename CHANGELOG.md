@@ -1,10 +1,17 @@
 # Changelog
 
-## 0.7.78
+## 0.7.79
 
 - A turn-in is planned only for a quest that is done; objectives come first.
 - Every step's first line is an action; the level fit goes below it.
 - Quests now say "ready to turn in" or how many objectives are done.
+
+## 0.7.78
+
+- The route, the panel's Next quests and the answers now share one order.
+- A class quest's objectives come early on the route, after anything at your current spot.
+- Every quest in your log gets its open objectives as steps; with no known position, the zone only.
+- Places your Questie database marks for objectives are used, and say so.
 
 ## 0.7.77
 

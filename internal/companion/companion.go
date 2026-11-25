@@ -489,7 +489,7 @@ func (s *Server) reload() {
 			if qx != nil {
 				plan = route.BuildWith(c, qx, route.OptionsFor(s.cfg.Ask.SavedVariables, ds))
 			}
-			d := digest.Build(c, ds, digest.Options{Now: time.Now(), Client: f.ClientOf(c), Questie: qx, Unlocks: route.UnlockNotes(plan)})
+			d := digest.Build(c, ds, digest.Options{Now: time.Now(), Client: f.ClientOf(c), Questie: qx, Unlocks: route.UnlockNotes(plan), Order: route.QuestOrder(plan)})
 			ci.NextLines = nextFrom(d)
 			ci.Entries = entriesOf(d)
 			ci.Next = nextTexts(ci.NextLines)
