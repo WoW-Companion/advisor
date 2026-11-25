@@ -304,7 +304,24 @@
     }
     return out;
   }
-  const api = { sourceLine, entryList, fit, insertText, wirePaste, applyEditKey, wireEditKeys, EDIT_KEYS, onAskKey, needsCard, specCard, workingLine, SPEC_NOTE, shortQuestion, NEEDS_LINE };
+  // Time chips under a What next? answer: tapping one asks for a session plan of that length.
+  const TIMES = [15, 30, 60];
+  const NEXT_Q = /what should i do next|what next|what('| i)?s next/i;
+  function timeQuestion(min) { return min === 60 ? "I've got an hour to play. What should I do?" : "I've got " + min + " minutes to play. What should I do?"; }
+  function timeChips(doc, q, onPick) {
+    if (!NEXT_Q.test(String(q || ''))) return null;
+    const row = doc.createElement('div');
+    row.className = 'time-chips';
+    for (const m of TIMES) {
+      const b = doc.createElement('button');
+      b.className = 'chip chip-ask time-chip'; b.type = 'button';
+      b.textContent = m === 60 ? '1 hour' : m + ' min';
+      b.onclick = () => onPick(timeQuestion(m));
+      row.append(b);
+    }
+    return row;
+  }
+  const api = { timeChips, timeQuestion, sourceLine, entryList, fit, insertText, wirePaste, applyEditKey, wireEditKeys, EDIT_KEYS, onAskKey, needsCard, specCard, workingLine, SPEC_NOTE, shortQuestion, NEEDS_LINE };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.WowcAsking = api;
 })(typeof window !== 'undefined' ? window : globalThis);

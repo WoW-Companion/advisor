@@ -630,6 +630,7 @@ function follow(id, a) {
     if (e.status === 'error') a.classList.add('err');
     for (const t of [e.usage, e.notice]) if (t) { const s = document.createElement('small'); s.textContent = t; if (t === e.usage && e.usage_tip) s.title = e.usage_tip; a.appendChild(s); }
     for (const el of WowcAsking.sourceLine(document, e, () => { if (!busy && conn && a.wowc) ask(a.wowc.q, '', true); })) a.appendChild(el);
+    if (e.status === 'done' && a.wowc) { const tc = WowcAsking.timeChips(document, a.wowc.q, q => { if (!busy && conn) ask(q, ''); }); if (tc) a.appendChild(tc); }
     if (e.status === 'done') { followCtx = e.context || null; showFollow(); }
     // Last, once the text, usage and notice lines and the chip are all in: the whole answer comes into view.
     WowcFollow.answerDone(log, stick, requestAnimationFrame, newAnswer);

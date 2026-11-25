@@ -231,3 +231,12 @@ console.log('ok');
   const evil = A.sourceLine(doc, { footer: 'a · Icy Veins', source_url: 'https://evil.example/wow-forever/x' }, () => {});
   assert.strictEqual(evil[0].children.length, 0, 'a link only to Icy Veins');
 }
+
+// Time chips: under a What next? answer only, one per session length, each asking a plain question.
+{
+  const row = A.timeChips(doc, 'What should I do next, and why?', q => sent.push(q));
+  assert.deepStrictEqual(row.children.map(b => b.textContent), ['15 min', '30 min', '1 hour']);
+  row.children[1].onclick();
+  assert.strictEqual(sent[sent.length - 1], "I've got 30 minutes to play. What should I do?");
+  assert.strictEqual(A.timeChips(doc, 'Is the Axe an upgrade?', () => {}), null);
+}

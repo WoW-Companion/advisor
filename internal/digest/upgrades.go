@@ -251,3 +251,10 @@ func oneLineHow(s string) string {
 	}
 	return wholeCut(s, MaxHow)
 }
+
+// UpgradeQuests are the quests whose reward is a gear upgrade for the character, by quest id, each
+// with the plain reason; empty when the dataset is missing or there is none.
+func UpgradeQuests(c character.Character, ds store.DataStore, qx *questie.Index) map[int]string {
+	_, _, link := upgradeLines(c, ds, nil, qx, "")
+	return link.questWhy
+}
