@@ -120,7 +120,7 @@ async function connect(c) {
 }
 
 listen('sidecar-up', ev => connect(ev.payload));
-listen('sidecar-down', ev => { conn = null; showAgent(); versionLine.onDisconnect(); if (events) events.close(); clearTimeout(restartTimer); setPhase('stopped', 'The advisor stopped.' + (ev.payload ? ' ' + ev.payload : '')); });
+listen('sidecar-down', ev => { conn = null; showAgent(); versionLine.onDisconnect(); if (events) events.close(); clearTimeout(restartTimer); setPhase('stopped', String(ev.payload || '').startsWith('The planner stopped') ? ev.payload : 'The advisor stopped.' + (ev.payload ? ' ' + ev.payload : '')); });
 listen('notice', ev => notice(ev.payload));
 listen('mode', ev => { cfg.mode = ev.payload; save(); showMode(); });
 listen('clickthrough', ev => { $('ct').hidden = !ev.payload; showCt(); });
@@ -964,6 +964,29 @@ async function showUpdatedNote(running) {
   x.onclick = () => { bar.hidden = true; };
   bar.append(x, body);
 }
+
+// --- why the app closed ---------------------------------------------------------------------
+// The page tells the shell it is alive (a silent page is reloaded), shows "closed unexpectedly" once
+// after a start that follows an unexpected end, and offers the logs and a diagnostics zip.
+setInterval(() => invoke('page_alive').catch(() => {}), 20000);
+invoke('page_alive').catch(() => {});
+$('open-logs').onclick = () => invoke('open_logs').catch(e => notice(String(e)));
+$('copy-diag').onclick = async () => {
+  const out = $('diag-out');
+  out.textContent = 'Saving\u2026';
+  try { out.textContent = 'Saved to ' + await invoke('copy_diagnostics'); } catch (e) { out.textContent = 'Could not save: ' + e; }
+};
+(async () => {
+  const text = await invoke('take_unexpected').catch(() => null);
+  if (!text) return;
+  const bar = $('crash-note');
+  bar.hidden = false;
+  const logs = Object.assign(document.createElement('button'), { type: 'button', textContent: 'Open logs' });
+  logs.onclick = () => invoke('open_logs').catch(e => notice(String(e)));
+  const x = Object.assign(document.createElement('button'), { type: 'button', textContent: 'Dismiss' });
+  x.onclick = () => { bar.hidden = true; };
+  bar.replaceChildren(Object.assign(document.createElement('span'), { className: 'upd-text', textContent: text }), logs, x);
+})();
 
 $('check-updates').checked = cfg.checkUpdates;
 $('check-updates').onchange = ev => { cfg.checkUpdates = ev.target.checked; save(); $('check-now').disabled = !cfg.checkUpdates; if (!cfg.checkUpdates) { versionLine.clearNotice(); renderUpdates(); } else versionLine.check(); };
