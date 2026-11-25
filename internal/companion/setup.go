@@ -22,6 +22,7 @@ type setupCache struct {
 	at  time.Time
 	rel *gamesetup.AddonRelease
 	err string
+	fb  *gamesetup.AddonRelease // the release offered in place of a pulled one
 }
 
 func (s *Server) latestAddon(ctx context.Context, force bool) (*gamesetup.AddonRelease, string) {
@@ -48,7 +49,45 @@ func (s *Server) setupOptions(game string, force bool, ctx context.Context) game
 		game = s.cfg.GameDir
 	}
 	rel, e := s.latestAddon(ctx, force)
-	return gamesetup.Options{GameDir: game, SavedVariables: s.cfg.ForeverScribe, Latest: rel, LatestErr: e}
+	o := gamesetup.Options{GameDir: game, SavedVariables: s.cfg.ForeverScribe, Latest: rel, LatestErr: e}
+	if s.cfg.Updates != nil {
+		if _, pulls, err := s.cfg.Updates(ctx, false); err == nil {
+			o.Pulled = pulls.Addon
+		}
+	}
+	if len(o.Pulled) > 0 {
+		o.Fallback = s.fallbackAddon(ctx, o)
+	}
+	return o
+}
+
+// fallbackAddon looks up the addon release to offer in place of the newest one when that, or the
+// installed one, has been pulled. nil when the newest release is itself the offer.
+func (s *Server) fallbackAddon(ctx context.Context, o gamesetup.Options) *gamesetup.AddonRelease {
+	game, _ := gamesetup.Resolve(o)
+	have, _ := gamesetup.InstalledAddonVersion(game)
+	if game == "" || have == "unknown" {
+		have = ""
+	}
+	plan, rel := o.Offer(have)
+	if plan.Version == "" || rel != nil {
+		return nil
+	}
+	c := &s.setup
+	c.mu.Lock()
+	if c.fb != nil && c.fb.Version == plan.Version {
+		defer c.mu.Unlock()
+		return c.fb
+	}
+	c.mu.Unlock()
+	fb, err := gamesetup.LatestAddon(ctx, s.cfg.HTTP, gamesetup.AddonTagURL(plan.Version))
+	if err != nil {
+		return nil
+	}
+	c.mu.Lock()
+	c.fb = fb
+	c.mu.Unlock()
+	return fb
 }
 
 func (s *Server) setupItems(game string, force bool, ctx context.Context) []gamesetup.Item {
@@ -85,11 +124,21 @@ func (s *Server) setupInstall(w http.ResponseWriter, r *http.Request) {
 	case o.Latest == nil:
 		res["error"] = "Could not look up the latest addon release: " + o.LatestErr
 	default:
-		if err := gamesetup.InstallAddon(r.Context(), s.cfg.HTTP, game, o.Latest); err != nil {
+		have, _ := gamesetup.InstalledAddonVersion(game)
+		if _, ok := gamesetup.InstalledAddonVersion(game); !ok {
+			have = ""
+		}
+		_, rel := o.Offer(have)
+		if rel == nil {
+			res["error"] = "There is no safe addon version to install right now: the newest one has a known problem."
+			break
+		}
+		note, err := gamesetup.InstallAddonNote(r.Context(), s.cfg.HTTP, game, rel)
+		if err != nil {
 			res["error"] = err.Error()
 		} else {
 			res["ok"] = true
-			res["message"] = "Installed " + o.Latest.Version + ". Restart the game fully if this was the first install."
+			res["message"] = "Installed " + rel.Version + ". " + note
 		}
 	}
 	res["items"] = s.setupItems(req.Game, false, r.Context())

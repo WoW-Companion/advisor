@@ -6,7 +6,7 @@ const win = window.__TAURI__.window.getCurrentWindow();
 
 const $ = id => document.getElementById(id);
 const log = $('log'), who = $('who'), badge = $('badge'), text = $('text'), send = $('send');
-const DEFAULTS = { opacity: 92, solidHover: false, mode: 'overlay', keyVis: 'Ctrl+Shift+W', keyCt: 'Ctrl+Shift+T', nextOpen: null, settingsOpen: false, chatOpen: true, size: 'M', checkUpdates: true, updateNow: false, skipped: [], later: {}, cleared: [], who: '', setupSeen: false, setupHidden: [], gameDir: '', length: 'standard', byClient: {}, usage: true, groups: { ai: true }, quickBar: true, dismissedSugg: {} };
+const DEFAULTS = { schema: 1, opacity: 92, solidHover: false, mode: 'overlay', keyVis: 'Ctrl+Shift+W', keyCt: 'Ctrl+Shift+T', nextOpen: null, settingsOpen: false, chatOpen: true, size: 'M', checkUpdates: true, updateNow: false, skipped: [], later: {}, cleared: [], who: '', setupSeen: false, setupHidden: [], gameDir: '', length: 'standard', byClient: {}, usage: true, groups: { ai: true }, quickBar: true, dismissedSugg: {} };
 // nextOpen null means automatic: open until the chat has a message, then collapsed. A click makes it a choice.
 const cfg = { ...DEFAULTS, ...JSON.parse(localStorage.getItem('wowc') || '{}') };
 cfg.settingsOpen = false; // the settings open from the gear for this session only; a launch starts calm

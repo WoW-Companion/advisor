@@ -9,6 +9,9 @@ import (
 	"strings"
 )
 
+// SettingsSchema is the current layout version of providers.json.
+const SettingsSchema = 1
+
 // Client kinds in the ordered client list.
 const (
 	ClientAPI = "api"
@@ -28,6 +31,8 @@ type ClientRef struct {
 // Settings is the saved client list: tried in order, the first is the active one. Empty means the
 // CLI-only setup the advisor always had (the agent from ask.json or detection).
 type Settings struct {
+	// Schema is the layout version of providers.json. Changes are additive only (see docs/releasing.md).
+	Schema  int         `json:"schema,omitempty"`
 	Clients []ClientRef `json:"clients"`
 }
 
@@ -66,6 +71,7 @@ func Save(path string, s Settings) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return err
 	}
+	s.Schema = max(s.Schema, SettingsSchema)
 	b, _ := json.MarshalIndent(s, "", "  ")
 	tmp := path + ".tmp"
 	if err := os.WriteFile(tmp, b, 0o600); err != nil {

@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schema/desktop-schema.json",
+  "identifier": "recovery",
+  "description": "The small recovery window (update check, go back, safe screen). Everything goes through the app's own commands.",
+  "windows": ["recovery"],
+  "permissions": ["core:default"]
+}

@@ -45,6 +45,9 @@ type Pulls struct {
 	Pulled      []Pull            `json:"pulled"`
 	AddonPulled []json.RawMessage `json:"addon_pulled"`
 	Notice      json.RawMessage   `json:"notice"`
+	// Addon is addon_pulled read leniently: an entry that is not a usable object is dropped, never
+	// an error. It has the same shape as a pulled app version.
+	Addon []Pull `json:"-"`
 }
 
 // ParsePulls reads the pull file. A file that cannot be parsed pulls nothing: a broken file must
@@ -62,6 +65,15 @@ func ParsePulls(b []byte) Pulls {
 		}
 	}
 	p.Pulled = keep
+	for _, raw := range p.AddonPulled {
+		var x Pull
+		if json.Unmarshal(raw, &x) == nil {
+			if x.Version = bare(x.Version); x.Version != "" {
+				x.BackTo = bare(x.BackTo)
+				p.Addon = append(p.Addon, x)
+			}
+		}
+	}
 	return p
 }
 

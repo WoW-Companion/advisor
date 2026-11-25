@@ -2,10 +2,13 @@
 // sidecar. It holds no game logic; it never reads or touches the game process.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod guard;
+mod recover;
 mod update;
 
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Mutex;
+use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 use tauri::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem};
@@ -51,6 +54,57 @@ struct Sidecar {
     child: Mutex<Option<CommandChild>>,
     error: Mutex<String>,
     generation: AtomicU64,
+    /// The last generation whose health check was reported to the crash check, so each start counts once.
+    reported: AtomicU64,
+}
+
+/// The crash-check record (`guard.rs`) and where it lives.
+#[derive(Default)]
+struct Guard {
+    state: Mutex<guard::GuardState>,
+}
+
+fn now_secs() -> u64 {
+    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0)
+}
+
+fn guard_path(app: &AppHandle) -> Option<std::path::PathBuf> {
+    app.path().app_data_dir().ok().map(|d| d.join("launch-guard.json"))
+}
+
+/// Changes the crash-check record and saves it. A failure to save is logged, never fatal.
+fn update_guard(app: &AppHandle, f: impl FnOnce(&guard::GuardState) -> guard::GuardState) {
+    let g = app.state::<Guard>();
+    let mut st = g.state.lock().unwrap();
+    let next = f(&st);
+    if let Some(p) = guard_path(app) {
+        if let Err(e) = guard::save(&p, &next) {
+            recover::log(app, &format!("could not save the launch record: {e}"));
+        }
+    }
+    *st = next;
+}
+
+/// "Keep trying" on the safe screen: this version is not checked again, and the app starts as usual.
+fn keep_trying(app: &AppHandle) {
+    update_guard(app, guard::on_keep_trying);
+    recover::log(app, "keep trying chosen: the safe screen will not show again for this version");
+    if let Some(w) = main_window(app) {
+        let _ = w.show();
+    }
+    start_sidecar(app);
+}
+
+/// Tells the crash check whether the sidecar said hello in time. Once per start.
+fn report_health(app: &AppHandle, generation: u64, ok: bool) {
+    let sc = app.state::<Sidecar>();
+    if sc.reported.swap(generation, Ordering::SeqCst) == generation {
+        return;
+    }
+    update_guard(app, |s| guard::on_health(s, ok, now_secs()));
+    if !ok {
+        recover::log(app, "the sidecar did not start in time or ended before it said hello");
+    }
 }
 
 /// Window mode and the tray items that mirror it.
@@ -218,6 +272,7 @@ fn stop_sidecar(app: &AppHandle) {
 }
 
 fn sidecar_down(app: &AppHandle, error: String) {
+    recover::log(app, &format!("sidecar down: {error}"));
     *app.state::<Sidecar>().error.lock().unwrap() = error.clone();
     let _ = app.emit("sidecar-down", error);
 }
@@ -236,13 +291,29 @@ fn start_sidecar(app: &AppHandle) {
                 a => c.args(["--agent", a]),
             }
         }
-        Err(e) => return sidecar_down(app, e.to_string()),
+        Err(e) => {
+            report_health(app, mine, false);
+            return sidecar_down(app, e.to_string());
+        }
     };
     let (mut rx, child) = match cmd.spawn() {
         Ok(p) => p,
-        Err(e) => return sidecar_down(app, e.to_string()),
+        Err(e) => {
+            report_health(app, mine, false);
+            return sidecar_down(app, e.to_string());
+        }
     };
     *sc.child.lock().unwrap() = Some(child);
+    recover::log(app, "sidecar started");
+    // If it has not said hello within a minute, that start counts as a failed health check.
+    let watch = app.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(Duration::from_secs(guard::HEALTH_SECS));
+        let sc = watch.state::<Sidecar>();
+        if sc.generation.load(Ordering::SeqCst) == mine && sc.conn.lock().unwrap().is_none() {
+            report_health(&watch, mine, false);
+        }
+    });
     let app = app.clone();
     tauri::async_runtime::spawn(async move {
         let mut last_err = String::new();
@@ -250,6 +321,7 @@ fn start_sidecar(app: &AppHandle) {
             match ev {
                 CommandEvent::Stdout(line) => {
                     if let Ok(c) = serde_json::from_slice::<Conn>(&line) {
+                        report_health(&app, mine, true);
                         set_tooltip(&app, &c.version);
                         *app.state::<Sidecar>().conn.lock().unwrap() = Some(c.clone());
                         let _ = app.emit("sidecar-up", c);
@@ -268,6 +340,8 @@ fn start_sidecar(app: &AppHandle) {
         }
         let sc = app.state::<Sidecar>();
         if sc.generation.load(Ordering::SeqCst) == mine {
+            // Ended before it ever said hello: a failed health check (a no-op once it was reported).
+            report_health(&app, mine, false);
             *sc.conn.lock().unwrap() = None;
             sidecar_down(&app, last_err);
         }
@@ -340,9 +414,12 @@ async fn install_update(window: tauri::Window, app: AppHandle, version: String, 
         return Err("not allowed".into());
     }
     let a = app.clone();
-    let installer = tauri::async_runtime::spawn_blocking(move || update::prepare(&a, &version, &settings_json))
+    let v = version.clone();
+    let installer = tauri::async_runtime::spawn_blocking(move || update::prepare(&a, &v, &settings_json))
         .await
         .map_err(|e| e.to_string())??;
+    // Going back also puts back the settings that version last ran with (when a backup exists).
+    recover::restore_for_go_back(&app, &version);
     update::run_and_exit(&app, &installer)
 }
 
@@ -416,7 +493,13 @@ fn build_tray(app: &tauri::App) -> tauri::Result<()> {
     let click_item = CheckMenuItem::with_id(app, "click", "Click-through", true, false, None::<&str>)?;
     let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
     let sep = PredefinedMenuItem::separator(app)?;
-    let menu = Menu::with_items(app, &[&toggle, &overlay_item, &click_item, &sep, &quit])?;
+    let sep2 = PredefinedMenuItem::separator(app)?;
+    let tray_st = recover::tray_state(update::previous_version(app.handle()).as_deref(), false);
+    let check_item = MenuItem::with_id(app, "check", "Check for updates", tray_st.check_enabled, None::<&str>)?;
+    let back_item = MenuItem::with_id(app, "goback", &tray_st.go_back_text, tray_st.go_back_enabled, None::<&str>)?;
+    let logs_item = MenuItem::with_id(app, "logs", "Open logs folder", tray_st.logs_enabled, None::<&str>)?;
+    let menu = Menu::with_items(app, &[&toggle, &overlay_item, &click_item, &sep, &check_item, &back_item, &logs_item, &sep2, &quit])?;
+    app.manage(recover::TrayItems { check: check_item, go_back: back_item, logs: logs_item });
     app.manage(Ui {
         overlay: AtomicBool::new(true),
         click_through: AtomicBool::new(false),
@@ -433,6 +516,9 @@ fn build_tray(app: &tauri::App) -> tauri::Result<()> {
                 "toggle" => toggle_visible(app),
                 "overlay" => apply_mode(app, ui.overlay_item.is_checked().unwrap_or(true)),
                 "click" => apply_click_through(app, ui.click_item.is_checked().unwrap_or(false)),
+                "check" => recover::tray_check(app),
+                "goback" => recover::tray_go_back(app),
+                "logs" => recover::tray_logs(app),
                 "quit" => app.exit(0),
                 _ => {}
             }
@@ -586,6 +672,8 @@ fn main() {
                 .build(),
         )
         .manage(Sidecar::default())
+        .manage(Guard::default())
+        .manage(recover::Recovery::default())
         .invoke_handler(tauri::generate_handler![
             get_status,
             restart_sidecar,
@@ -600,11 +688,32 @@ fn main() {
             quit,
             set_shortcuts,
             read_clipboard,
-            key_native_state
+            key_native_state,
+            recover::recovery_state,
+            recover::recovery_do
         ])
         .setup(|app| {
             build_tray(app)?;
-            start_sidecar(app.handle());
+            let h = app.handle().clone();
+            // The crash check: what the last run left, and whether this start is the one that shows the
+            // safe screen instead of starting the sidecar.
+            let old = guard_path(&h).map(|p| guard::load(&p)).unwrap_or_default();
+            let (st, decision) = guard::on_start(&old, env!("CARGO_PKG_VERSION"), update::previous_version(&h).as_deref(), now_secs());
+            let previous = update::previous_version(&h); // the cached installer "Go back" would run
+            *h.state::<Guard>().state.lock().unwrap() = st.clone();
+            if let Some(p) = guard_path(&h) {
+                let _ = guard::save(&p, &st);
+            }
+            recover::log(&h, &format!("start {} (upgraded from {:?}) -> {:?}", env!("CARGO_PKG_VERSION"), st.previous, decision));
+            match decision {
+                guard::Decision::SafeScreen => {
+                    if let Some(w) = main_window(&h) {
+                        let _ = w.hide();
+                    }
+                    recover::show_safe(&h, previous.as_deref());
+                }
+                guard::Decision::Normal => start_sidecar(&h),
+            }
             Ok(())
         })
         .build(tauri::generate_context!())
@@ -612,6 +721,7 @@ fn main() {
         .run(|app, ev| {
             if let RunEvent::Exit = ev {
                 stop_sidecar(app);
+                update_guard(app, guard::on_clean_exit);
             }
         });
 }

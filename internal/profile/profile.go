@@ -49,7 +49,13 @@ type Entry struct {
 	Profile *character.Profile `json:"profile,omitempty"`
 }
 
+// Schema is the version of the file's layout. Changes are additive only: a field is added, never
+// renamed, retyped or removed, so an older release reads a newer file by ignoring what it does not
+// know (see docs/releasing.md).
+const Schema = 1
+
 type file struct {
+	Schema     int              `json:"schema,omitempty"`
 	Characters map[string]Entry `json:"characters"`
 }
 
@@ -100,6 +106,7 @@ func Update(path, key string, fn func(*Entry) error) (Entry, error) {
 	} else {
 		f.Characters[key] = e
 	}
+	f.Schema = max(f.Schema, Schema)
 	out, _ := json.MarshalIndent(f, "", "  ")
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return Entry{}, err

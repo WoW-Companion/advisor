@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>WoW Companion</title>
+<!-- A page of its own: no part of the main UI, so it still works when that does not. -->
+<style>
+  body { margin: 0; padding: 22px 24px; background: #15171c; color: #e8e6e0; font: 14px/1.5 "Segoe UI", system-ui, sans-serif; }
+  h1 { font-size: 16px; margin: 0 0 10px; color: #f0c05a; }
+  p { margin: 0 0 18px; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; }
+  button { background: #2b2f38; color: #e8e6e0; border: 1px solid #454b59; border-radius: 6px; padding: 7px 12px; font: inherit; cursor: pointer; }
+  button:hover { background: #363b47; }
+  button.first { background: #8a6a1f; border-color: #b58a2a; }
+</style>
+</head>
+<body>
+<h1 id="title">WoW Companion</h1>
+<p id="text"></p>
+<div class="row" id="buttons"></div>
+<script src="recovery.js"></script>
+</body>
+</html>

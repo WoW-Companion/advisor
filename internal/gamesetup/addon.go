@@ -17,6 +17,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/WoW-Companion/advisor/internal/release"
 )
 
 // AddonLatestURL is the addon repo's latest-release endpoint.
@@ -139,24 +141,8 @@ func LatestAddon(ctx context.Context, c *http.Client, apiURL string) (*AddonRele
 // InstallAddon downloads the release zip and its SHA256SUMS, verifies the hash and extracts into
 // <game>/Interface/AddOns. Nothing is written when the checksum is missing or does not match.
 func InstallAddon(ctx context.Context, c *http.Client, game string, r *AddonRelease) error {
-	if r == nil || r.ZipURL == "" {
-		return errors.New("no release to install")
-	}
-	if r.SumsURL == "" {
-		return errors.New("the release has no SHA256SUMS; refusing an unverified install")
-	}
-	zipb, err := get(ctx, c, r.ZipURL, maxZip, "")
-	if err != nil {
-		return err
-	}
-	sums, err := get(ctx, c, r.SumsURL, maxSums, "")
-	if err != nil {
-		return err
-	}
-	if err := VerifySum(zipb, r.ZipName, sums); err != nil {
-		return err
-	}
-	return ExtractAddon(zipb, filepath.Join(game, "Interface", "AddOns"))
+	_, err := InstallAddonNote(ctx, c, game, r)
+	return err
 }
 
 // VerifySum checks data's SHA-256 against the line for name in a sha256sum-format file.
@@ -262,4 +248,125 @@ func writeEntry(f *zip.File, dest string) error {
 		os.Remove(tmp.Name())
 	}
 	return cerr
+}
+
+// AddonOffer is what the addon check may put in front of the player: nothing, an install or update
+// to Version, or (Reinstall) going back from an installed version that has been pulled.
+type AddonOffer struct {
+	Version   string // "" when nothing is offered
+	Reinstall bool   // the installed version is pulled and Version is the one to go back to
+	Reason    string // why the installed version was pulled (Reinstall, or no safe version to offer)
+	Pulled    bool   // the installed version is pulled (whether or not a safe one exists to go back to)
+}
+
+func pullFor(pulls []release.Pull, version string) (release.Pull, bool) {
+	v := strings.TrimPrefix(strings.TrimSpace(version), "v")
+	for _, p := range pulls {
+		if strings.TrimPrefix(strings.TrimSpace(p.Version), "v") == v {
+			return p, true
+		}
+	}
+	return release.Pull{}, false
+}
+
+// PlanAddon decides the addon offer. A pulled version is never offered: when the newest release is
+// pulled its back_to stands in (and so on, a few steps), and when the installed version is pulled
+// the offer is to reinstall the version it goes back to. have is the installed version, "" when the
+// addon is not installed.
+func PlanAddon(have, latest string, pulls []release.Pull) AddonOffer {
+	safe := latest
+	for i := 0; i < 4 && safe != ""; i++ {
+		p, bad := pullFor(pulls, safe)
+		if !bad {
+			break
+		}
+		safe = strings.TrimPrefix(p.BackTo, "v")
+	}
+	if _, bad := pullFor(pulls, safe); bad {
+		safe = ""
+	}
+	if have == "" {
+		return AddonOffer{Version: safe}
+	}
+	if p, bad := pullFor(pulls, have); bad {
+		target := strings.TrimPrefix(strings.TrimSpace(p.BackTo), "v")
+		if _, tb := pullFor(pulls, target); tb || target == "" {
+			target = ""
+			if safe != "" && safe != have {
+				target = safe // the newest release that is not pulled
+			}
+		}
+		return AddonOffer{Version: target, Reinstall: target != "", Reason: p.Reason, Pulled: true}
+	}
+	if safe != "" && Newer(safe, have) {
+		return AddonOffer{Version: safe}
+	}
+	return AddonOffer{}
+}
+
+// NewFiles lists the addon files in the zip that are not in the addons folder yet. The game reads an
+// addon's file list only when it starts, so a release that adds files needs a full restart, and one
+// that only changes files needs only /reload.
+func NewFiles(zipb []byte, addons string) ([]string, error) {
+	zr, err := zip.NewReader(bytes.NewReader(zipb), int64(len(zipb)))
+	if err != nil {
+		return nil, fmt.Errorf("not a valid zip: %w", err)
+	}
+	var out []string
+	for _, f := range zr.File {
+		if f.FileInfo().IsDir() {
+			continue
+		}
+		name, err := safeName(f.Name)
+		if err != nil {
+			return nil, err
+		}
+		if _, err := os.Stat(filepath.Join(addons, filepath.FromSlash(name))); err != nil {
+			out = append(out, name)
+		}
+	}
+	return out, nil
+}
+
+// ReloadNote is the sentence an addon update notice ends with.
+func ReloadNote(newFiles []string) string {
+	if len(newFiles) == 0 {
+		return "Type /reload in game to use it."
+	}
+	return "This version adds new files, so quit the game fully and start it again (a /reload is not enough)."
+}
+
+// InstallAddonNote is InstallAddon that also says whether the game needs /reload or a full restart.
+func InstallAddonNote(ctx context.Context, c *http.Client, game string, r *AddonRelease) (string, error) {
+	if r == nil || r.ZipURL == "" {
+		return "", errors.New("no release to install")
+	}
+	if r.SumsURL == "" {
+		return "", errors.New("the release has no SHA256SUMS; refusing an unverified install")
+	}
+	zipb, err := get(ctx, c, r.ZipURL, maxZip, "")
+	if err != nil {
+		return "", err
+	}
+	sums, err := get(ctx, c, r.SumsURL, maxSums, "")
+	if err != nil {
+		return "", err
+	}
+	if err := VerifySum(zipb, r.ZipName, sums); err != nil {
+		return "", err
+	}
+	addons := filepath.Join(game, "Interface", "AddOns")
+	fresh, err := NewFiles(zipb, addons)
+	if err != nil {
+		return "", err
+	}
+	if err := ExtractAddon(zipb, addons); err != nil {
+		return "", err
+	}
+	return ReloadNote(fresh), nil
+}
+
+// AddonTagURL is the release endpoint for one addon version.
+func AddonTagURL(version string) string {
+	return "https://api.github.com/repos/WoW-Companion/addon/releases/tags/v" + strings.TrimPrefix(version, "v")
 }

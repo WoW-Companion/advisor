@@ -77,16 +77,35 @@ func fixAddonCmd(ctx context.Context, stdout io.Writer, client *http.Client, gam
 		return fmt.Errorf("could not look up the latest addon release: %w", err)
 	}
 	have, installed := gamesetup.InstalledAddonVersion(game)
-	if installed && !gamesetup.Newer(rel.Version, have) {
+	if !installed {
+		have = ""
+	}
+	pulls := release.FetchPulls(ctx, client, release.PullsURL).Addon
+	plan := gamesetup.PlanAddon(have, rel.Version, pulls)
+	if plan.Version == "" {
+		if plan.Pulled {
+			fmt.Fprintf(stdout, "WoW Companion addon %s has a known problem%s and no safe version is available yet; nothing was changed.\n", have, reasonText(plan.Reason))
+			return nil
+		}
 		fmt.Fprintf(stdout, "WoW Companion addon %s is up to date in %s\n", have, game)
 		return nil
 	}
-	if err := gamesetup.InstallAddon(ctx, client, game, rel); err != nil {
+	if plan.Version != rel.Version {
+		if rel, err = gamesetup.LatestAddon(ctx, client, gamesetup.AddonTagURL(plan.Version)); err != nil {
+			return fmt.Errorf("could not look up addon version %s: %w", plan.Version, err)
+		}
+	}
+	note, err := gamesetup.InstallAddonNote(ctx, client, game, rel)
+	if err != nil {
 		return err
 	}
-	fmt.Fprintf(stdout, "Installed WoW Companion addon %s into %s\n", rel.Version, filepath.Join(game, "Interface", "AddOns"))
-	if !installed {
-		fmt.Fprintln(stdout, "Restart the game fully, since this was the first install.")
-	}
+	fmt.Fprintf(stdout, "Installed WoW Companion addon %s into %s\n%s\n", rel.Version, filepath.Join(game, "Interface", "AddOns"), note)
 	return nil
+}
+
+func reasonText(r string) string {
+	if r == "" {
+		return ""
+	}
+	return " (" + r + ")"
 }

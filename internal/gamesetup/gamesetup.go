@@ -18,6 +18,7 @@ import (
 	"github.com/WoW-Companion/advisor/internal/dataset"
 	"github.com/WoW-Companion/advisor/internal/digest"
 	"github.com/WoW-Companion/advisor/internal/questie"
+	"github.com/WoW-Companion/advisor/internal/release"
 	"github.com/WoW-Companion/advisor/internal/svfind"
 )
 
@@ -72,6 +73,29 @@ type Options struct {
 	SavedVariables string // the configured ForeverScribe.lua or WoWCompanion.lua; used when GameDir is empty
 	Latest         *AddonRelease
 	LatestErr      string
+	// Pulled are the addon versions the project pulled (updates/updates.json); Fallback is the release
+	// of the version to offer instead when the newest, or the installed one, is pulled.
+	Pulled   []release.Pull
+	Fallback *AddonRelease
+}
+
+// Offer is the addon release the player may install, and the plan behind it. The release is nil
+// when nothing is offered.
+func (o Options) Offer(have string) (AddonOffer, *AddonRelease) {
+	latest := ""
+	if o.Latest != nil {
+		latest = o.Latest.Version
+	}
+	plan := PlanAddon(have, latest, o.Pulled)
+	switch {
+	case plan.Version == "":
+		return plan, nil
+	case o.Latest != nil && plan.Version == o.Latest.Version:
+		return plan, o.Latest
+	case o.Fallback != nil && o.Fallback.Version == plan.Version:
+		return plan, o.Fallback
+	}
+	return plan, nil
 }
 
 var flavorMarkers = []string{"Interface", "WTF"}
@@ -258,17 +282,30 @@ func missingData(game string) []string {
 func addonItem(game string, o Options) Item {
 	it := Item{ID: IDAddon, Title: "WoW Companion addon"}
 	have, installed := InstalledAddonVersion(game)
+	if !installed {
+		have = ""
+	}
+	plan, rel := o.Offer(have)
 	latest := ""
-	if o.Latest != nil {
-		latest = o.Latest.Version
+	if rel != nil {
+		latest = rel.Version
+	}
+	_, installedPulled := pullFor(o.Pulled, have)
+	if !installed {
+		installedPulled = false
 	}
 	switch {
-	case installed && (latest == "" || !Newer(latest, have)) && len(missingData(game)) > 0:
+	case installed && installedPulled && latest != "":
+		it.Status, it.Detail = Warn, "Installed "+have+", which has a known problem"+reasonSuffix(plan.Reason)+". Version "+latest+" is safe to go back to."
+		it.Action, it.Label = ActUpdateAddon, "Reinstall "+latest
+	case installed && installedPulled:
+		it.Status, it.Detail = Warn, "Installed "+have+", which has a known problem"+reasonSuffix(plan.Reason)+". No safe version is available to go back to yet."
+	case installed && latest == "" && len(missingData(game)) > 0:
 		it.Status, it.Detail = Warn, "Installed, version "+have+", but "+strings.Join(missingData(game), " and ")+" missing: the game will warn at login."
 		it.Action, it.Label = ActWriteData, "Write now"
-	case installed && (latest == "" || !Newer(latest, have)):
+	case installed && latest == "":
 		it.Status, it.Detail = OK, "Installed, version "+have+"."
-		if latest == "" && o.LatestErr != "" {
+		if o.Latest == nil && o.LatestErr != "" {
 			it.Detail += " Could not check for updates: " + o.LatestErr
 		}
 	case installed:
@@ -277,11 +314,20 @@ func addonItem(game string, o Options) Item {
 	case latest != "":
 		it.Status, it.Detail = Warn, "Not installed. Latest is "+latest+". Restart the game fully after the first install."
 		it.Action, it.Label = ActInstallAddon, "Install"
+	case o.Latest != nil:
+		it.Status, it.Detail = Warn, "Not installed; the newest release has a known problem and no safe version is available yet."
 	default:
 		it.Status, it.Detail = Warn, "Not installed; could not look up the latest release: "+o.LatestErr
 		it.Action, it.Label = ActInstallAddon, "Install"
 	}
 	return it
+}
+
+func reasonSuffix(r string) string {
+	if r == "" {
+		return ""
+	}
+	return " (" + r + ")"
 }
 
 // Newer reports whether version a is newer than b, by dotted numbers; an unreadable b counts as older.
