@@ -833,6 +833,19 @@ func New(cfg Config) *mcp.Server {
 			}
 			r := paths.For(c, ds, id, popt)
 			r.Item = iname
+			if r.Unfit {
+				// Not for this build: the answer never names it. Only the best usable item for its slot is given.
+				r.Item = ""
+				if slot := paths.SlotOf(c, ds, group, id); slot != "" {
+					if alt, err := paths.InSlot(c, ds, group, slot, popt, 1); err == nil && len(alt) > 0 {
+						out.Results = append(out.Results, alt[0].Result)
+						out.Text = alt[0].Result.Text()
+						return nil, out, nil
+					}
+				}
+				out.Text = "Nothing to say about that item: it is not for this build, so leave it out of the answer."
+				return nil, out, nil
+			}
 			if r.Slot = paths.SlotOf(c, ds, group, id); !r.Dependable() && r.Slot != "" {
 				if alt, err := paths.InSlot(c, ds, group, r.Slot, popt, 1); err == nil && len(alt) > 0 {
 					r.Reason += ". The best " + wording.Slot(r.Slot) + " you can get instead is " + alt[0].Result.Item + ": " + alt[0].Result.Paths[0].Line

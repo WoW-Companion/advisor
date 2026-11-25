@@ -110,6 +110,9 @@ type Result struct {
 	Slot   string `json:"slot,omitempty"`
 	Paths  []Path `json:"paths"`
 	Reason string `json:"reason,omitempty"` // when there is no path: why, in words
+	// Unfit is true for an item the player's build cannot use well (a shield for a dual-wielder): it is
+	// left out of the answer entirely, never named as a thing to skip.
+	Unfit bool `json:"unfit,omitempty"`
 	// Shopping is the Auction House search for a slot, when the result stands for a slot's shopping
 	// list rather than one item.
 	Shopping *Shopping `json:"shopping,omitempty"`
@@ -245,6 +248,11 @@ func For(c character.Character, ds store.DataStore, itemID int64, opt Options) R
 		res.Reason = "this item can't be obtained in game"
 		return res
 	}
+	if !gear.Fits(c, ds, itemID) {
+		res.Unfit = true
+		res.Reason = "this item is not for the player's build: leave it out of the answer entirely and never mention it"
+		return res
+	}
 	f := &finder{c: c, ds: ds, opt: opt, itemID: itemID, item: row}
 	if c.Level != nil {
 		f.level = *c.Level
@@ -339,6 +347,11 @@ func (f *finder) quest() (Path, bool) {
 		}
 		if cd.rank == 2 && f.opt.PlanQuests[int(id)] {
 			cd.rank = 1
+		}
+		if cd.name == "" && f.opt.Questie != nil {
+			if q := f.opt.Questie.Quests[int(id)]; q != nil { // an available quest the dataset has no row for: QuestieDB names it
+				cd.name = q.Name
+			}
 		}
 		if cd.name == "" {
 			continue // never name a quest by its number

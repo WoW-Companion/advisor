@@ -74,7 +74,7 @@ func (c Candidate) Describe() string {
 	if c.Vendor != nil {
 		src += "; " + c.Vendor.Line() + " (seen by players on Everloot)"
 	}
-	return fmt.Sprintf("%s (ilvl %d, %s; %s, by %s): %s", name, c.Item.ItemLevel, c.LevelText(), gain, c.Basis, src)
+	return fmt.Sprintf("%s (%s; %s): %s", name, c.LevelText(), gain, src)
 }
 
 // Render is the plain-text answer. Slots are listed in the capture's slot order.
@@ -90,9 +90,9 @@ func Render(c character.Character, r Result) string {
 	}
 	b.WriteString(":\n")
 	if r.ItemLevelOnly {
-		fmt.Fprintf(&b, "Ranked by item level only (quality breaks ties): %s.\n", r.Reason)
+		fmt.Fprintf(&b, "Ranked by the gain over what is worn, listed by the level needed to wear it: %s.\n", r.Reason)
 	} else {
-		fmt.Fprintf(&b, "Ranked by item level weighted by %s stat types; advisor defaults, not authoritative (%s). The dataset has stat types but not their sizes.\n", r.Spec, r.Rationale)
+		fmt.Fprintf(&b, "Ranked by the gain over what is worn for %s, listed by the level needed to wear it; advisor defaults, not authoritative (%s).\n", r.Spec, r.Rationale)
 	}
 	if len(r.Slots) == 0 {
 		b.WriteString("No upgrades found for the items the dataset holds.\n")

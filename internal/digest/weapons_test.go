@@ -67,12 +67,12 @@ func TestWeaponAndOffHandChoices(t *testing.T) {
 		twoHand   bool
 	}{
 		{"level 10 with a shield, no play style", 10, 20, nil, false, true, false},
-		{"level 10, damage style, Dual Wield not learned", 10, 20, fury, false, true, true},
+		{"level 10, damage style, Dual Wield not learned", 10, 20, fury, false, false, true},
 		{"level 20 with a shield, no play style", 20, 20, nil, false, true, false},
 		{"level 20 tank", 20, 20, tank, false, true, false},
-		{"level 20 damage knows Dual Wield", 20, 20, fury, true, true, true},
-		{"level 20 damage, dataset says Dual Wield at 30", 20, 30, fury, false, true, true},
-		{"level 10, no class spell table", 10, 0, fury, false, true, true},
+		{"level 20 damage knows Dual Wield", 20, 20, fury, true, false, true},
+		{"level 20 damage, dataset says Dual Wield at 30", 20, 30, fury, false, false, true},
+		{"level 10, no class spell table", 10, 0, fury, false, false, true},
 	}
 	for _, tc := range cases {
 		res, err := gear.Find(weaponWarrior(tc.level, tc.p), weaponStore(t, tc.dw), "", gear.Options{NoSources: true})

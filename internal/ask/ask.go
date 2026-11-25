@@ -219,6 +219,9 @@ func Prompt(q Question) string { return PromptFor(q, LengthStandard) }
 // as it is sent with every ask.
 func PromptFor(q Question, length string) string {
 	r := lengthRule[Options{Length: length}.Normalize().Length]
+	if NextQuestion(q) {
+		r.text += HeadsUpRule
+	}
 	return fmt.Sprintf("You are the WoW Companion advisor. Character key: %s. Use the %s MCP tools for facts about this character or the game (brief=true on upgrade_finder and dungeon_plan); do not guess. For stat questions call stat_check. For how-do-I-get and which-upgrade-first questions call upgrade_paths; never say a source is unknown without it; a random drop is not worth chasing, so name the gettable item instead. For crafted items, lead with whether the character can make it now. For a broad gear question use upgrade_finder and upgrade_paths: at most 5 ranked upgrades (slot, item, gain, path: quest, craft, vendor or AH), then \"Ask about any of these for details\". "+
 		"Gear the character's level can't use yet goes after the main list under \"Soon (level N)\", never ranked as within reach. "+
 		"If a tool fails, answer from the rest and give the best practical step. Never tell the player to change permissions or settings. If the tools are refused or missing, answer exactly: %q "+
