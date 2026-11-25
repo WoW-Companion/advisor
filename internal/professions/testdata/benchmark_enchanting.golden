@@ -1,31 +1,28 @@
 Profession plan: Enchanting 1→120, level 20, empty bags and bank.
-Skill-up model: an orange craft gives 1 skill point, a yellow craft about 0.5 (from the midpoint of the yellow range), a grey craft none. Each band picks the recipe with the lowest cost per point; ties go to fewer crafts, then the lower spell id. Nothing is held: every material is bought or gathered.
+Skill-up model: an orange craft gives 1 skill point, a yellow craft 0.75, a green craft 0.25 (green starts halfway between the dataset's yellow and grey skill), a grey craft none. Each band picks the recipe with the lowest cost per point; ties go to fewer crafts, then the lower spell id. Nothing is held: every material is bought or gathered.
 
 Gates:
 - Apprentice: skill 1-75, character level 5, trainer Ench Eli in Darkshire; trainer recipes on this path: 1 for 0c
 - Journeyman: skill 75-150, character level 10, trainer Ench Eli in Darkshire; trainer recipes on this path: 1 for 7s
 
 Bands:
-1. Skill 1→75: 89 × Enchant Bracer (59 orange, 30 yellow; expected skill-ups 74); learn: probably from your trainer; check when you visit
-   Materials: 89 × Strange Dust
+1. Skill 1→75: 93 × Enchant Bracer (59 orange, 14 yellow, 20 green; expected skill-ups 74.5); learn: probably from your trainer; check when you visit
+   Materials: 93 × Strange Dust
    Alternative: Runed Rod
-2. Skill 75→80: 10 × Enchant Bracer (0 orange, 10 yellow; expected skill-ups 5)
+2. Skill 75→120: 79 × Enchant Shield (25 orange, 14 yellow, 40 green; expected skill-ups 45.5); learn: trainer, 7s
    First train Journeyman at the trainer (character level 10).
-   Materials: 10 × Strange Dust
-   Alternative: Enchant Shield
-3. Skill 80→120: 60 × Enchant Shield (20 orange, 40 yellow; expected skill-ups 40); learn: trainer, 7s
-   Materials: 120 × Strange Dust, 60 × Lesser Magic Essence
+   Materials: 158 × Strange Dust, 79 × Lesser Magic Essence
+   Alternative: Enchant Bracer
 
 Check (recipe, learn skill and where it comes from):
 1. 1→75 Enchant Bracer: learn skill 1; probably from your trainer; check when you visit
-2. 75→80 Enchant Bracer: learn skill 1
-3. 80→120 Enchant Shield: learn skill 60; learnt from trainer, 7s
+2. 75→120 Enchant Shield: learn skill 60; learnt from trainer, 7s
 
-Guide check: 1-75 Enchant Bracer (trainer, unconfirmed: ask your trainer); 75-80 Enchant Bracer (known); 80-120 Enchant Shield (trainer, confirmed).
+Guide check: 1-75 Enchant Bracer (trainer, unconfirmed: ask your trainer); 75-120 Enchant Shield (trainer, confirmed).
 
 Material totals:
-- 219 × Strange Dust: disenchanting uncommon weapon, item level 10-20
-- 60 × Lesser Magic Essence: disenchanting uncommon armor, item level 10-30
+- 251 × Strange Dust: disenchanting uncommon weapon, item level 10-20
+- 79 × Lesser Magic Essence: disenchanting uncommon armor, item level 10-30
 
-Efficiency: 279 materials in all, 2 distinct, vendor cost 0c, 0 rare (0 units), 0 gathered, 0 bought; score 279 (lower is better).
+Efficiency: 330 materials in all, 2 distinct, vendor cost 0c, 0 rare (0 units), 0 gathered, 0 bought; score 330 (lower is better).
 score = total materials + vendor silver + 250 per rare unit (no vendor, no gathering, fishing or disenchant source, no drop of 5% or more) + 4 per gathered unit (farming time) + 20 per unit bought at the Auction House (bars you could smelt yourself).

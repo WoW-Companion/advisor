@@ -251,3 +251,27 @@ func TestPreAddon096BaseIsCorrected(t *testing.T) {
 		t.Errorf("base = %v", tt.Base)
 	}
 }
+
+// A suffix is never offered when it carries a stat the profile leaves out of its priority: Spirit is
+// below the line for a Destruction Warlock, so "of the Owl" (Intellect + Spirit) is not on the list.
+func TestSuffixesSkipStatsTheBuildIgnores(t *testing.T) {
+	for _, tc := range []struct{ class, spec, role, banned string }{
+		{"WARLOCK", "Destruction", RoleDamage, "of the Owl"},
+		{"SHAMAN", "Elemental", RoleDamage, "of the Owl"},
+		{"HUNTER", "Marksmanship", RoleDamage, "of the Gorilla"},
+	} {
+		p, _ := Lookup(tc.class, tc.spec, tc.role)
+		for _, pref := range []string{PrefBalanced, PrefDamage, PrefSurvival} {
+			pr := Prof{Profile: p, Weights: Adjust(p.Weights, pref)}
+			got := pr.RankSuffixes()
+			if len(got) == 0 {
+				t.Errorf("%s %s %s: no suffix at all", tc.class, tc.spec, pref)
+			}
+			for _, s := range got {
+				if s.Name == tc.banned {
+					t.Errorf("%s %s %s: offers %s", tc.class, tc.spec, pref, s.Name)
+				}
+			}
+		}
+	}
+}

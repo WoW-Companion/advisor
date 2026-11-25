@@ -171,8 +171,12 @@ func TestGrindingStoneCountsSkillUps(t *testing.T) {
 	if m.SkillUps != 10 || m.Needs[0].Item != "Rough Stone" || m.Needs[0].Total != 10 {
 		t.Errorf("make %+v", m)
 	}
-	if m := p.expand(ch, 10, 55, 0); m.SkillUps != 5 {
-		t.Errorf("yellow crafts give %v skill-ups, want 5", m.SkillUps)
+	// the grinding stone is yellow from 45 and green from 52 (grey at 60)
+	if m := p.expand(ch, 10, 46, 0); m.SkillUps != 7.5 {
+		t.Errorf("yellow crafts give %v skill-ups, want 7.5", m.SkillUps)
+	}
+	if m := p.expand(ch, 10, 55, 0); m.SkillUps != 2.5 {
+		t.Errorf("green crafts give %v skill-ups, want 2.5", m.SkillUps)
 	}
 	if m := p.expand(ch, 10, 70, 0); m.SkillUps != 0 {
 		t.Errorf("grey crafts give %v skill-ups, want 0", m.SkillUps)

@@ -317,6 +317,9 @@ func (p *planner) fitsAt(r Recipe, skill, stop int) bool {
 // gapBand builds the band that says no recipe covers from..to, naming a pattern or quest recipe
 // to look for when there is one.
 func (p *planner) gapBand(recipes []Recipe, from, to, stop int) Band {
+	if g, ok := gatheringProfession(p.prof); ok {
+		return Band{From: from, To: to, Gap: p.gatherAdvice(g, from, to)}
+	}
 	text := fmt.Sprintf("No trainer or vendor recipe covers %d–%d", from, to)
 	var names []string
 	for _, o := range p.patternAlternatives(recipes, from, stop, "") {
@@ -379,6 +382,91 @@ func minedEffort(ds store.DataStore, id int64, name string) int {
 func isMiningSpell(ds store.DataStore, spell int64) bool {
 	for _, sp := range rowsBy(ds, "recipes", "spell_id", spell) {
 		if strings.EqualFold(asText(sp["skill_line_name"]), "Mining") {
+			return true
+		}
+	}
+	return false
+}
+
+// gatheringProfession says the profession levels by gathering, not crafting: its skill comes from nodes,
+// catches or skinned beasts, so a recipe gap there is not a missing pattern.
+func gatheringProfession(name string) (string, bool) {
+	for _, g := range []string{"Herbalism", "Mining", "Skinning", "Fishing"} {
+		if strings.EqualFold(name, g) {
+			return g, true
+		}
+	}
+	return "", false
+}
+
+// gatherAdvice is what to do for skill from..to in a gathering profession: the best nodes the dataset
+// knows that the skill opens, with where they are, or a plain statement that it knows none.
+func (p *planner) gatherAdvice(prof string, from, to int) string {
+	if prof == "Fishing" {
+		return "Fish in a zone of your level (about one skill-up a catch); the catch list names the zones."
+	}
+	if prof == "Skinning" {
+		return "Skin beasts of about your level (Skinning has no recipes, and the dataset lists no skinning sources yet)."
+	}
+	rows, _ := p.ds.Filter("gathering_nodes", store.Range{Column: "profession", Min: prof, Max: prof})
+	type node struct {
+		name  string
+		skill int
+		zones []string
+	}
+	byName := map[string]*node{}
+	for _, r := range rows {
+		if r["skill_required"] == nil {
+			continue
+		}
+		name := asText(r["name"])
+		n := byName[name]
+		if n == nil {
+			n = &node{name: name, skill: int(asI64(r["skill_required"]))}
+			byName[name] = n
+		}
+		if z := asText(r["zone_name"]); z != "" && len(n.zones) < 3 && !containsString(n.zones, z) {
+			n.zones = append(n.zones, z)
+		}
+	}
+	var open []*node
+	top := 0
+	for _, n := range byName {
+		top = max(top, n.skill)
+		if n.skill <= to {
+			open = append(open, n)
+		}
+	}
+	sort.Slice(open, func(i, j int) bool {
+		if open[i].skill != open[j].skill {
+			return open[i].skill > open[j].skill
+		}
+		return open[i].name < open[j].name
+	})
+	if len(open) > 3 {
+		open = open[:3]
+	}
+	if len(open) == 0 {
+		return fmt.Sprintf("%s levels by gathering, not crafting, and the dataset lists no node for this skill yet.", prof)
+	}
+	var parts []string
+	for _, n := range open {
+		t := fmt.Sprintf("%s (needs skill %d", n.name, n.skill)
+		if len(n.zones) > 0 {
+			t += "; " + strings.Join(n.zones, ", ")
+		}
+		parts = append(parts, t+")")
+	}
+	text := fmt.Sprintf("%s levels by gathering, not crafting. Gather %s.", prof, strings.Join(parts, "; "))
+	if top < to {
+		text += fmt.Sprintf(" The dataset lists no node above skill %d yet.", top)
+	}
+	return text
+}
+
+func containsString(l []string, s string) bool {
+	for _, x := range l {
+		if x == s {
 			return true
 		}
 	}

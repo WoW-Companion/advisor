@@ -226,12 +226,7 @@ func (p *planner) expand(ch *makeChoice, count, skill, depth int) *Make {
 	m := &Make{Recipe: name, Profession: ch.line, Verb: verb, Crafts: count, LearnSkill: ch.rec.LearnSkill,
 		Around: ch.rec.LearnSource == "estimate"}
 	if strings.EqualFold(ch.line, p.prof) {
-		switch difficulty(ch.rec, skill) {
-		case Orange:
-			m.SkillUps = float64(count)
-		case Yellow:
-			m.SkillUps = float64(count) / 2
-		}
+		m.SkillUps = float64(count) * chanceAt(ch.rec, skill)
 	}
 	for _, ru := range ch.reagents {
 		n := Need{ID: ru.id, Item: p.name(ru.id), Total: ru.per * count, Missing: ru.per * count}

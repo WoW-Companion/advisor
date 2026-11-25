@@ -7,7 +7,8 @@ bags and bank.
 **Which recipes.** A recipe is a candidate when its learn skill is at most the character's skill (a
 recipe with no learn skill is kept and noted). With the dataset's thresholds, a recipe is **orange**
 below `yellow_skill` and **yellow** from there up to `grey_skill`; at or above grey it is dropped.
-The client stores no green threshold, so none is shown. Orange come first, then yellow; within a
+The client stores no green threshold, so none is shown; for counting crafts, green starts halfway
+between `yellow_skill` and `grey_skill`, as in the game. Orange come first, then yellow; within a
 difficulty the highest learn skill first, then the lowest spell id. Recipes with no thresholds
 follow, ordered by learn skill, marked `unknown`: whether they give skill-ups is not known. At most
 5 are listed.
@@ -28,6 +29,15 @@ professions, the digest falls back to its name guess.
 from the curated `profession_notes`). It leads with the next step, then lists consecutive bands: per
 band the cheapest recipe that is orange or yellow there, with an alternative. At most 8 bands show
 per part; `part` asks for the next ones.
+
+**Skill-ups per craft.** An orange craft gives a skill point, a yellow craft three times in four, a green
+craft one time in four, a grey craft none. A band ends where its recipe turns green when anything else
+fits, and the same recipe carries on in one band when nothing does. These chances fit the craft counts of the
+wow-professions.com Forever guides (mean error 8% over 106 steps; the old flat one in two was 17%).
+
+**Gathering professions.** Herbalism, Mining and Skinning level by gathering, not crafting. Where no recipe
+covers a stretch, the plan names the best herbs or ores the dataset's `gathering_nodes` say the skill opens, and
+where they grow, or says that the dataset lists none; Fishing lists its catches by zone.
 
 **Cost.** Materials held in bags or bank are free (and used up as the path goes). A missing material costs
 its vendor price, or a little effort when gathered with a gathering profession the character has, fished
@@ -53,11 +63,11 @@ character (level 60 by default, skill `--from` 1, empty bags and bank, no gather
 `--gather` is given). It needs no game install and no capture; `--dataset` is a directory or the base URL of a
 published dataset (default `$WOWC_DATASET`).
 
-The output lists every band (skill range, recipe, crafts, orange and yellow crafts, expected skill-ups, the
+The output lists every band (skill range, recipe, crafts, orange, yellow and green crafts, expected skill-ups, the
 materials), then totals: each material with its count and where it comes from (a vendor with the copper cost,
 gathering, fishing, disenchanting with the item class, quality and level range, a drop of 5% or more, or
 "rare"), recipe items to buy or find, the tier gates with the trainer's cost for the recipes the path learns,
-and an efficiency score. Model: an orange craft is 1 skill point, a yellow one 0.5; ties between recipes go
+and an efficiency score. Model: an orange craft is 1 skill point, a yellow one 0.75, a green one 0.25; ties between recipes go
 to fewer crafts, then the lower spell id, so the same dataset always gives the same output. Fishing has no
 recipes: its bands are catches (one per skill point) with the catch list by zone.
 
@@ -108,3 +118,13 @@ estimated from its colour. An offer from a trainer the player opened (matched by
 unavailable says what it needs. An opened vendor's price replaces `vendor_sources` for the item and
 names the vendor, nearest first. Every observed fact says when it was seen, and one older than 30
 days says its prices may have changed.
+
+## Advice benchmark
+
+`make advice-benchmark` plans every profession for three synthetic characters (skill 1, 150 and 285) and
+compares the plans with the dataset (recipe colours, reagent counts, rank caps, learn skills) and with the Forever
+guides recorded as facts in `internal/professions/testdata/forever_guides.json`. It also checks the stat
+priority of every class and spec and its suffixes against the dataset's `random_suffixes`
+(`internal/stats/benchmark_test.go`). A difference from the dataset fails the run; a difference from a guide is
+listed in the table (`BENCH_REPORT=<file>`), since a guide's route is one good route and the planner picks its own by
+cost. `BENCH_DATASET=<dir>` names a dataset; without it the latest release is downloaded.

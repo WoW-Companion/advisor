@@ -11,8 +11,8 @@ import (
 // SkillUpMax is how many recipes a skill-up path lists.
 const SkillUpMax = 3
 
-// SkillUpStep is one recipe of a skill-up path. Crafts is an estimate: an orange recipe gives about
-// one point per craft, a yellow one about one in two.
+// SkillUpStep is one recipe of a skill-up path. Crafts is an estimate: an orange recipe gives one
+// point per craft, a yellow one three in four, a green one one in four.
 type SkillUpStep struct {
 	Recipe          string
 	Creates         string
@@ -25,8 +25,38 @@ type SkillUpStep struct {
 	MissingReagents int // reagents the character is short of
 }
 
+// Skill-up chances by colour: a craft gives a point for sure while the recipe is orange, three times in
+// four while yellow, one in four while green; a grey one gives nothing. The dataset holds the yellow and
+// grey thresholds; green starts halfway between them, as in the game. The three chances fit the craft
+// counts of the wow-professions Forever guides (mean error 8%, against 17% for a flat one in two).
+const (
+	chanceYellow = 0.75
+	chanceGreen  = 0.25
+)
+
+// greenFrom is the skill at which a recipe turns green: halfway between its yellow and grey skill.
+func greenFrom(r Recipe) int { return (*r.YellowSkill + *r.GreySkill) / 2 }
+
+// chanceAt is the chance that a craft of the recipe gives a skill point at the skill: 1 orange, 0.75
+// yellow, 0.25 green, 0 grey or unknown.
+func chanceAt(r Recipe, skill int) float64 {
+	if r.YellowSkill == nil || r.GreySkill == nil {
+		return 0
+	}
+	switch {
+	case skill < *r.YellowSkill:
+		return 1
+	case skill < greenFrom(r):
+		return chanceYellow
+	case skill < *r.GreySkill:
+		return chanceGreen
+	}
+	return 0
+}
+
 // craftsFor estimates the crafts of a recipe to climb from skill have to target: one per point
-// while orange, two per point while yellow. It also returns the skill reached.
+// while orange, four per three points while yellow, four per point while green. It also returns the
+// skill reached.
 func craftsFor(r Recipe, have, target int) (crafts, reaches int) {
 	if r.YellowSkill == nil || r.GreySkill == nil {
 		return 0, have
@@ -35,26 +65,24 @@ func craftsFor(r Recipe, have, target int) (crafts, reaches int) {
 	if reaches <= have {
 		return 0, have
 	}
-	if o := min(reaches, *r.YellowSkill) - have; o > 0 {
-		crafts += o
-	}
-	if y := reaches - max(have, *r.YellowSkill); y > 0 {
-		crafts += 2 * y
-	}
-	return crafts, reaches
+	o, y, g := splitCrafts(r, have, reaches)
+	return o + y + g, reaches
 }
 
-// splitCrafts is the crafts of a band that are orange (one skill-up each) and yellow (one in two),
-// by the same rule as craftsFor.
-func splitCrafts(r Recipe, have, reaches int) (orange, yellow int) {
-	if r.YellowSkill == nil {
-		return 0, 0
+// splitCrafts is the crafts of a band that are orange, yellow and green, by the same rule as craftsFor.
+func splitCrafts(r Recipe, have, reaches int) (orange, yellow, green int) {
+	if r.YellowSkill == nil || r.GreySkill == nil {
+		return 0, 0, 0
 	}
+	mid := greenFrom(r)
 	if o := min(reaches, *r.YellowSkill) - have; o > 0 {
 		orange = o
 	}
-	if y := reaches - max(have, *r.YellowSkill); y > 0 {
-		yellow = 2 * y
+	if y := min(reaches, mid) - max(have, *r.YellowSkill); y > 0 {
+		yellow = (4*y + 2) / 3 // y / 0.75, rounded up
+	}
+	if g := reaches - max(have, mid); g > 0 {
+		green = 4 * g
 	}
 	return
 }

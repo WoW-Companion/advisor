@@ -59,7 +59,7 @@ func (p *planner) trainer() string {
 		z := asText(r["zone_name"])
 		name := asText(r["name"])
 		if name == "" {
-			name = fmt.Sprintf("trainer %d", asI64(r["npc_id"]))
+			name = fmt.Sprintf("npc %d (name not in the dataset)", asI64(r["npc_id"]))
 		}
 		cs = append(cs, cand{name, z, zone != "" && strings.EqualFold(z, zone), asI64(r["recipes"]), asI64(r["npc_id"])})
 	}
