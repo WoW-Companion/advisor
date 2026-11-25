@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.63
+
+- Stat advice shows what each point is worth for your character. The stat check and gear advice now work out what a point of Intellect (mana and spell crit) and Stamina (health) gives you from your own numbers, and show it only when it matches your mana and crit. If it does not match, you still get the stat priority and no number. Stats from older addon versions now show the right unmodified value too.
+
 ## 0.7.62
 
 - You can let the app install updates by itself. Settings > Updates has a new "Install updates automatically" switch (off by default), and the update notice has an "Always update automatically" button that turns it on and installs now. The app installs a ready update when it starts or after five quiet minutes, never while an answer is being written, and shows "Updating to…" first. It follows the same rules as the notice: a day after release unless "Get updates right away" is on, never a pulled or skipped version. If your version is pulled, it goes back by itself and tells you why. A failed download is tried again at the next check, up to three times, then the notice is all that is left.

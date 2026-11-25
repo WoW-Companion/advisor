@@ -200,7 +200,7 @@ func Check(c character.Character, ds store.DataStore, group string) Result {
 	low := c.Level != nil && *c.Level < LowLevel
 	// The head is the one priority: the primary stat first, then the item suffixes that carry it.
 	var head []string
-	if l := p.leadLine(Effects(c.Totals)); l != "" {
+	if l := p.leadLine(Effects(c.Class, c.Totals)); l != "" {
 		head = append(head, l)
 	}
 	r.Priority = p.Order()

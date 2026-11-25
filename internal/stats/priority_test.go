@@ -129,7 +129,7 @@ func TestClientNumbersExplainTheAdvice(t *testing.T) {
 	if want := "Shadow: Intellect first (+0.06% spell crit a point), then Stamina for safer pulls."; r.Insights[0] != want {
 		t.Errorf("chip = %q", r.Insights[0])
 	}
-	eff := Effects(c.Totals)
+	eff := Effects(c.Class, c.Totals)
 	if eff[Agility] != "+0.05% crit a point" || eff[Spirit] != "+0.04 mana a second, +0.5 health a second a point" || eff[Intellect] != "+0.06% spell crit a point" {
 		t.Errorf("effects = %v", eff)
 	}
@@ -170,5 +170,61 @@ func TestSuffixTableStats(t *testing.T) {
 		if s, ok := SuffixByKey(k); !ok || s.Words != w || len(s.Stats) != 2 {
 			t.Errorf("%s = %+v", k, s)
 		}
+	}
+}
+
+// capture096 is the real shape of a level 24 Priest capture from addon 0.6.38: no perPoint, and base equal to total.
+const capture096 = `WoWCompanionDB = { characters = { ["Realm:Pri"] = { name = "Pri", stats = {
+  seenAt = 1700000000, level = 24,
+  stats = { int = { base = 119, total = 119, pos = 30, neg = 0 }, sta = { base = 60, total = 60, pos = 0, neg = 0 },
+    spi = { base = 80, total = 80, pos = 0, neg = 0 } },
+  healthMax = 573, manaMax = 1790, meleeCrit = 3, spellCrit = { max = 5.86, schools = { [2] = 5.86 } },
+  manaRegen = { base = 6.5, casting = 2.1 } } } } }`
+
+func priest(manaMax string) character.Character {
+	c := shadow(PrefSurvival)
+	c.Class = "PRIEST"
+	c.Totals = character.ParseTotals(strings.Replace(capture096, "manaMax = 1790", "manaMax = "+manaMax, 1), "Realm:Pri", "Pri")
+	return c
+}
+
+func TestDerivedPerPointPassesCrossCheckForPriest(t *testing.T) {
+	c := priest("1790")
+	if c.Totals.Per != nil {
+		t.Fatal("fixture has no perPoint")
+	}
+	ck, ok := CrossCheck("PRIEST", c.Totals)
+	if !ok || !ck.OK() || ck.PredictedMana < 1700 || ck.PredictedMana > 1900 || ck.PredictedCrit < 4.9 || ck.PredictedCrit > 5.1 {
+		t.Errorf("cross-check = %+v ok=%v", ck, ok)
+	}
+	eff := Effects(c.Class, c.Totals)
+	if eff[Intellect] != "+15 mana, +0.04% spell crit a point" || eff[Stamina] != "+10 health a point" {
+		t.Errorf("effects = %v", eff)
+	}
+	if r := Check(c, nil, ""); !strings.Contains(r.Insights[0], "+15 mana") {
+		t.Errorf("chip = %q", r.Insights[0])
+	}
+}
+
+func TestMismatchHidesDerivedNumbers(t *testing.T) {
+	c := priest("3200")
+	if ck, ok := CrossCheck("PRIEST", c.Totals); !ok || ck.ManaOK {
+		t.Errorf("mana should disagree: %+v", ck)
+	}
+	if eff := Effects(c.Class, c.Totals); eff != nil {
+		t.Errorf("effects = %v", eff)
+	}
+	if r := Check(c, nil, ""); strings.Contains(r.Insights[0], "+15") || !strings.Contains(r.Insights[0], "your mana and spell crit") {
+		t.Errorf("chip = %q", r.Insights[0])
+	}
+	if Effects("WARRIOR", priest("1790").Totals) != nil {
+		t.Error("no rule for a warrior's Intellect")
+	}
+}
+
+func TestPreAddon096BaseIsCorrected(t *testing.T) {
+	tt := priest("1790").Totals
+	if tt.Base["int"] != 89 || tt.Base["sta"] != 60 {
+		t.Errorf("base = %v", tt.Base)
 	}
 }
