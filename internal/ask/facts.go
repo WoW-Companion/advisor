@@ -44,9 +44,14 @@ func Facts(cfg Config, q Question) string {
 		return NoDataFacts + "\n\n" + subjectFacts(cfg, cc, q) + capRunes(brief.Character(c, f.ClientOf(c), time.Now()), FactsBudget)
 	}
 	all := advice.WhatsNextWith(c, cc.ds, cc.qx)
+	var plan route.Plan
+	if cc.qx != nil {
+		plan = route.BuildWith(c, cc.qx, route.OptionsFor(cfg.SavedVariables, cc.ds))
+		all = advice.ByQuestOrder(all, func(s advice.Step) int { return s.QuestID }, route.QuestOrder(plan))
+	}
 	next := advice.Render(c, advice.Limit(all, FactsSteps), len(all))
 	if cc.qx != nil {
-		next += "\n\n" + route.Render(route.BuildWith(c, cc.qx, route.OptionsFor(cfg.SavedVariables, cc.ds)), FactsPlanSteps)
+		next += "\n\n" + route.Render(plan, FactsPlanSteps)
 	}
 	var giver string
 	if g, ok := digest.FindGiver(c, cc.qx, digest.PlanQuests(all), digest.PlanNPCs(all)); ok {
@@ -95,7 +100,12 @@ func load(cfg Config, key string) (loaded, bool) {
 
 // digestOf is the digest the player's panel shows for the loaded character.
 func (l loaded) digest() digest.Digest {
-	return digest.Build(l.c, l.ds, digest.Options{Now: time.Now(), Client: l.f.ClientOf(l.c), Questie: l.qx})
+	opt := digest.Options{Now: time.Now(), Client: l.f.ClientOf(l.c), Questie: l.qx}
+	if l.qx != nil {
+		p := route.BuildWith(l.c, l.qx, route.OptionsFor(l.sv, l.ds))
+		opt.Unlocks, opt.Order = route.UnlockNotes(p), route.QuestOrder(p)
+	}
+	return digest.Build(l.c, l.ds, opt)
 }
 
 // ResolveRef is q's ref: the one it carries, else that of the current suggested question of the
@@ -201,7 +211,7 @@ func entryFacts(cfg Config, cc loaded, sub digest.Subject) string {
 		p := route.BuildWith(cc.c, cc.qx, route.OptionsFor(cfg.SavedVariables, cc.ds))
 		for _, s := range p.Steps {
 			if s.QuestID == l.Quest {
-				put("Plan step", fmt.Sprintf("%d. %s (%.0f, %.0f)", s.N, s.Label, s.X, s.Y))
+				put("Plan step", fmt.Sprintf("%d. %s%s", s.N, s.Label, planCoords(s)))
 				break
 			}
 		}
@@ -386,4 +396,12 @@ func bagFacts(c character.Character, ds store.DataStore) string {
 		return ""
 	}
 	return "Equip these now (already in the character's bags, free; for any gear or upgrade question list them first, before quest rewards, crafts, vendor and Auction House):\n" + strings.Join(lines, "\n")
+}
+
+// planCoords is a plan stop's coordinates, or nothing for a stop known only by its zone.
+func planCoords(s route.Stop) string {
+	if s.ZoneOnly {
+		return ""
+	}
+	return fmt.Sprintf(" (%.0f, %.0f)", s.X, s.Y)
 }

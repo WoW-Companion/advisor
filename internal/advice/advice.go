@@ -6,6 +6,7 @@ package advice
 import (
 	"fmt"
 	"github.com/WoW-Companion/advisor/internal/wording"
+	"slices"
 	"sort"
 	"strings"
 
@@ -406,4 +407,30 @@ func Render(c character.Character, steps []Step, total int) string {
 		fmt.Fprintf(&b, "(%d more not shown)\n", total-len(steps))
 	}
 	return b.String()
+}
+
+// ByQuestOrder puts the items whose quest is in order into that order, each in a slot an on-route
+// item held; everything else stays where it was. The panel's list and the answers' facts use it so
+// they follow the route.
+func ByQuestOrder[T any](items []T, quest func(T) int, order []int) []T {
+	pos := map[int]int{}
+	for i, id := range order {
+		if _, ok := pos[id]; !ok {
+			pos[id] = i
+		}
+	}
+	var slots []int
+	var moved []T
+	for i, it := range items {
+		if _, ok := pos[quest(it)]; ok && quest(it) != 0 {
+			slots = append(slots, i)
+			moved = append(moved, it)
+		}
+	}
+	sort.SliceStable(moved, func(a, b int) bool { return pos[quest(moved[a])] < pos[quest(moved[b])] })
+	out := slices.Clone(items)
+	for k, i := range slots {
+		out[i] = moved[k]
+	}
+	return out
 }

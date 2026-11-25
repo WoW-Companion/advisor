@@ -362,3 +362,15 @@ func TestMissingObjectSectionGivesNoNodes(t *testing.T) {
 		t.Fatalf("nodes %v reason %q", ix.Nodes, ix.NodesReason)
 	}
 }
+
+func TestParseAreaObjective(t *testing.T) {
+	rows := append(fixtureRows(), row{"Quest", 2, "11", []any{"Reach the keep", map[int]any{901: []any{[]any{12.5, 34.5}}}}})
+	ix, st := OpenGame(install(t, header, rows))
+	if ix == nil {
+		t.Fatalf("not readable: %+v", st)
+	}
+	tr := ix.Quests[2].Triggers
+	if len(tr) != 1 || tr[0].Text != "Reach the keep" || len(tr[0].Spawns) != 1 || tr[0].Spawns[0].Area != 901 || tr[0].Spawns[0].X != 12.5 {
+		t.Fatalf("triggers %+v", tr)
+	}
+}

@@ -1,10 +1,17 @@
 # Changelog
 
-## 0.7.78
+## 0.7.79
 
 - Unspent talent points come first: "Spend 1 talent point: Shadow Focus (Shadow)".
 - If your picks can't be seen yet, it says to open your talents instead of naming a talent.
 - "What next" answers mention unspent points first; the line clears once you spend them.
+
+## 0.7.78
+
+- The route, the panel's Next quests and the answers now share one order.
+- A class quest's objectives come early on the route, after anything at your current spot.
+- Every quest in your log gets its open objectives as steps; with no known position, the zone only.
+- Places your Questie database marks for objectives are used, and say so.
 
 ## 0.7.77
 
