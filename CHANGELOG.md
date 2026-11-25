@@ -2,8 +2,8 @@
 
 ## 0.7.74
 
-- Your plan file now carries what each quest needs once you accept it, so the in-game panel can move on without a reload.
-- The overlay follows the character you are playing, and says so; pick one by hand to keep it, or turn it off in Settings.
+- The plan file now says what each quest needs once accepted, so the panel can move on live.
+- The overlay follows the character you play; pick one by hand to keep it, or turn it off.
 
 ## 0.7.73
 
