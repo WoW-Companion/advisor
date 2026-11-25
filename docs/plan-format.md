@@ -45,6 +45,7 @@ WoWCompanionPlan = {
   characters = {
     ["Hero"] = {                 -- the character name as captured, no realm
       start = { map = 7001, x = 48.0, y = 49.0 },   -- last known position; absent when unknown
+      basis = { captured = 1795363000, inLog = { 10, 12 } },  -- what the plan was built from (below)
       zone = "Testisle",         -- the map the route is on ("" when unknown)
       distance = 106.9,          -- route length in map percent
       steps = {                  -- in order; n counts from 1
@@ -66,6 +67,13 @@ WoWCompanionPlan = {
 | `map` | the `uiMapID` |
 | `x`, `y` | map percent, 0 to 100 |
 | `done` | always `false` when written; the addon may track a visited stop |
+
+`basis` is what the plan starts from: `captured` is the capture's time (0 when unknown) and `inLog` the
+quest ids in the log when the plan was built, sorted. A quest in `inLog` has no pick-up step, and steps are
+numbered from 1 in every plan. "Completed" means done after `basis.captured`: a reader judges steps against
+the basis and never counts what was already true when the plan was built. When the capture has no quest log,
+no pick-ups are planned and a note says so. An older addon ignores `basis`; a newer one treats a plan
+without it as having no basis.
 
 Schema 1.1 adds these keys; each appears only when it applies:
 
