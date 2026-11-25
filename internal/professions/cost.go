@@ -2,6 +2,7 @@ package professions
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/WoW-Companion/advisor/internal/store"
@@ -183,12 +184,30 @@ func withinCap(all []scored) []scored {
 // is exempt, because a gatherer finds it as they go.
 const maxUnitsPerMaterial = 600
 
-// leafUnits is how many units of each raw material an option takes, the made ones followed down.
-func leafUnits(o Option) map[int64]int {
+// leafUnits is how many units of each raw material an option takes, the made ones followed down. A
+// piece the plan buys because the character cannot craft it yet (a Bolt of Runecloth below the skill
+// that makes it) counts as the cloth it is made from, so the cap sees the cloth either way.
+func (p *planner) leafUnits(o Option) map[int64]int {
 	out := map[int64]int{}
+	add := func(id int64, n int) {
+		out[id] += n
+		for _, row := range rowsBy(p.ds, "recipes", "creates_item_id", id) {
+			if !strings.EqualFold(asText(row["skill_line_name"]), p.prof) {
+				continue
+			}
+			for _, rr := range reagentsOf(p.ds, asI64(row["spell_id"])) {
+				per := 1
+				if c := asInt(rr["count"]); c != nil && *c > 0 {
+					per = *c
+				}
+				out[asI64(rr["reagent_item_id"])] += per * n
+			}
+			break
+		}
+	}
 	for _, n := range o.Needs {
 		if n.Make == nil {
-			out[n.ID] += n.Missing
+			add(n.ID, n.Missing)
 			continue
 		}
 		for _, l := range n.Make.Leaves() {
@@ -204,26 +223,79 @@ func (p *planner) gatheredBase(id int64) bool {
 		len(rowsBy(p.ds, "fishing_catches", "item_id", id)) > 0
 }
 
-// withinUnitCap drops the options that push a material the character does not gather past
-// maxUnitsPerMaterial over the whole path, unless all of them do.
-func (p *planner) withinUnitCap(all []scored, used map[int64]int) []scored {
+// overCap says an option pushes a material the character does not gather past maxUnitsPerMaterial
+// over the whole path, given what the bands chosen so far already take.
+func (p *planner) overCap(o Option, used map[int64]int) (int64, bool) {
+	for id, n := range p.leafUnits(o) {
+		if used[id]+n > maxUnitsPerMaterial && !p.gatheredBase(id) {
+			return id, true
+		}
+	}
+	return 0, false
+}
+
+// minCappedBand is the fewest skill points a band cut short to fit the cap may still carry; a
+// shorter one is not worth a band of its own.
+const minCappedBand = 5
+
+// withinUnitCap keeps the options that stay under maxUnitsPerMaterial of every material the
+// character does not gather, over the whole path. An option that would pass the cap is cut short to
+// the last skill point where it still fits, so the next band moves to another recipe. When no option
+// fits at all, it returns every option unchanged and the first result says which material overflowed.
+func (p *planner) withinUnitCap(all []scored, recipes []Recipe, used map[int64]int, skill int) ([]scored, bool) {
+	bySpell := map[int64]Recipe{}
+	for _, r := range recipes {
+		bySpell[r.SpellID] = r
+	}
 	var ok []scored
 	for _, s := range all {
-		over := false
-		for id, n := range leafUnits(s.opt) {
-			if used[id]+n > maxUnitsPerMaterial && !p.gatheredBase(id) {
-				over = true
-				break
-			}
-		}
+		_, over := p.overCap(s.opt, used)
 		if !over {
 			ok = append(ok, s)
+			continue
+		}
+		r, found := bySpell[s.spell]
+		if !found {
+			continue
+		}
+		lo, hi := skill+minCappedBand, s.reach-1 // the longest cut that fits, by bisection
+		var best *scored
+		for lo <= hi {
+			mid := (lo + hi) / 2
+			c, good := p.price(r, r.LearnedFrom, skill, mid, p.stock)
+			if good {
+				if _, o := p.overCap(c.opt, used); !o {
+					best = &c
+					lo = mid + 1
+					continue
+				}
+			}
+			hi = mid - 1
+		}
+		if best != nil && best.reach-skill >= minCappedBand {
+			ok = append(ok, *best)
 		}
 	}
 	if len(ok) == 0 {
-		return all
+		return all, true
 	}
-	return ok
+	return ok, false
+}
+
+// noteShortfall says, once per material, that the chosen option goes past the cap because no recipe
+// from this skill avoids it.
+func (p *planner) noteShortfall(pa *Path, o Option, used map[int64]int, skill int, seen map[int64]bool) {
+	var ids []int64
+	for id, n := range p.leafUnits(o) {
+		if used[id]+n > maxUnitsPerMaterial && !p.gatheredBase(id) && !seen[id] {
+			ids = append(ids, id)
+		}
+	}
+	sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] })
+	for _, id := range ids {
+		seen[id] = true
+		pa.Notes = append(pa.Notes, fmt.Sprintf("No recipe from skill %d avoids going past %d × %s over the plan; this plan takes the cheapest and asks for more.", skill, maxUnitsPerMaterial, p.name(id)))
+	}
 }
 
 // fitsAt says a recipe could carry a band starting at skill: learnable, orange or yellow, not
