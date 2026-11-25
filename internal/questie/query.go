@@ -310,6 +310,24 @@ func (ix *Index) NpcFaction(id int) string {
 	return ix.Npcs[id].Faction
 }
 
+// Giver is the quest's nearest starter, on the character's map first, else any NPC starter anywhere.
+func (ix *Index) Giver(q *Quest, at Where) (Place, bool) {
+	if ix == nil || q == nil {
+		return Place{}, false
+	}
+	p, ok := ix.nearest(q.Starters, at)
+	if !ok {
+		for _, r := range q.Starters {
+			if !r.Object {
+				if p, ok = ix.NpcPlace(r.ID, at); ok {
+					break
+				}
+			}
+		}
+	}
+	return p, ok
+}
+
 // ClassOffer is a quest limited to one class (or a few) that the character can take now or soon:
 // StartLevel is the character level it opens at (0 when it is open to the character's level now).
 type ClassOffer struct {
@@ -334,16 +352,7 @@ func (ix *Index) ClassQuests(w Who, at Where, ahead int, skip func(name string) 
 		if !q.ClassQuest() || !q.Eligible(look) || (skip != nil && skip(q.Name)) {
 			continue
 		}
-		p, ok := ix.nearest(q.Starters, at)
-		if !ok {
-			for _, r := range q.Starters {
-				if !r.Object {
-					if p, ok = ix.NpcPlace(r.ID, at); ok {
-						break
-					}
-				}
-			}
-		}
+		p, ok := ix.Giver(q, at)
 		if !ok {
 			continue
 		}

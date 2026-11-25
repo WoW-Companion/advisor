@@ -323,3 +323,51 @@ func TestQuestTeachingThreeSpellsListsAllThree(t *testing.T) {
 		t.Errorf("trainer list = %s", n)
 	}
 }
+
+func priestWithMissedQuest() (character.Character, store.DataStore) {
+	lvl, id, x, y := 24, 7001, 40.0, 60.0
+	c := character.Character{Class: "PRIEST", Race: "Undead", Faction: "Horde", Level: &lvl, KnownSpells: map[int64]bool{2944: true},
+		Location: &character.Location{Zone: "Undercity", MapID: &id, X: &x, Y: &y}}
+	return c, store.New(store.ReaderSource{"class_spells": tblRows([]spellRow{
+		{5, 2652, "Touch of Weakness", i32(1), 10, true, nil},
+		{5, 19261, "Touch of Weakness", i32(2), 20, true, i32(2652)},
+		{5, 585, "Smite", i32(2), 6, true, nil},
+	})})
+}
+
+func tblRows[T any](rows []T) store.SizedReaderAt {
+	var buf bytes.Buffer
+	if err := parquet.Write(&buf, rows); err != nil {
+		panic(err)
+	}
+	return store.SizedReaderAt{ReaderAt: bytes.NewReader(buf.Bytes()), Size: int64(buf.Len())}
+}
+
+func questIndexFor5658() *questie.Index {
+	st := []questie.Ref{{ID: 100}}
+	q := &questie.Quest{ID: 5658, Name: "Touch of Weakness", Level: 10, MinLevel: 10, Classes: 1 << 4, Races: 1 << 4, Starters: st, Finishers: st}
+	return &questie.Index{DB: "v0", Quests: map[int]*questie.Quest{5658: q},
+		Npcs:  map[int]questie.Entity{100: {Name: "Aelthalyste", Spawns: []questie.Spawn{{Area: 902, X: 50, Y: 60}}}},
+		Areas: map[int]questie.Area{902: {UIMap: 7001, Zone: "Undercity"}}}
+}
+
+func TestQuestBlockedRankNeverTrainable(t *testing.T) {
+	c, d := priestWithMissedQuest()
+	if got := names(Spells(c, d, 1, 24)); strings.Contains(got, "Touch of Weakness") {
+		t.Errorf("trainable = %s", got)
+	}
+	got := QuestBlocked(c, d, questIndexFor5658())
+	want := "Touch of Weakness (Rank 2) needs Rank 1 first: it comes from the quest Touch of Weakness at Aelthalyste (Undercity)"
+	if len(got) != 1 || got[0] != want {
+		t.Errorf("blocked = %q", got)
+	}
+	c.CompletedQuests = []int{5658}
+	if got := QuestBlocked(c, d, questIndexFor5658()); len(got) != 0 {
+		t.Errorf("after the quest: %q", got)
+	}
+	lvl := 9
+	c.CompletedQuests, c.Level = nil, &lvl
+	if got := QuestBlocked(c, d, questIndexFor5658()); len(got) != 0 {
+		t.Errorf("level 9: %q", got)
+	}
+}

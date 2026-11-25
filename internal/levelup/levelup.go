@@ -99,7 +99,8 @@ func Spells(c character.Character, ds store.DataStore, from, to int) []Spell {
 		if t, ok := r["trained"].(bool); ok && !t { // learned automatically, not at a trainer
 			continue
 		}
-		if id == 0 || name == "" || seen[id] || superseded[id] || c.KnownSpells[id] || quest[id].Quest != "" {
+		rk, _ := r["rank"].(int64)
+		if id == 0 || name == "" || seen[id] || superseded[id] || c.KnownSpells[id] || quest[id].Quest != "" || questLocked(c, name, int(rk), false) {
 			continue
 		}
 		seen[id] = true
@@ -188,7 +189,7 @@ func trainerSpells(c character.Character, ds store.DataStore, t *character.SeenT
 				superseded[sup] = true
 			}
 		}
-		if sp.Name == "" || sp.Level > to || sp.Level < from || c.KnownSpells[sp.ID] && sp.ID != 0 {
+		if sp.Name == "" || sp.Level > to || sp.Level < from || c.KnownSpells[sp.ID] && sp.ID != 0 || questLocked(c, sp.Name, sp.Rank, sp.Blocked) {
 			continue
 		}
 		key := fmt.Sprintf("%s|%d", strings.ToLower(sp.Name), sp.Rank)
@@ -486,6 +487,9 @@ func Facts(c character.Character, ds store.DataStore, qx *questie.Index, from, t
 	for _, q := range QuestSpells(c, ds, from, to) {
 		fmt.Fprintf(&b, "Not sold by the trainer: %s (level %d). Say it is learned by finishing the class quest %q, and only if the player does not have it yet.\n", q.Name, q.Level, q.Quest)
 	}
+	for _, l := range QuestBlocked(c, ds, qx) {
+		fmt.Fprintf(&b, "Not trainable yet: %s. Say so; never list it as trainable.\n", l)
+	}
 	if p, ok := TrainAt(c, qx); ok && spells {
 		b.WriteString(p.Line(c.Class) + ".\n")
 		if p.Trainer == nil {
@@ -539,4 +543,59 @@ func TrainerSells(c character.Character, ds store.DataStore) string {
 		return who + " sells nothing the player has not learned (" + character.SeenByYou + "). Never name a spell as trainable.\n"
 	}
 	return who + " sells exactly: " + strings.Join(parts, ", ") + " (" + character.SeenByYou + "). Never call any other spell trainable from this trainer.\n"
+}
+
+// questLocked reports whether a trainer rank can't be trained because its Rank 1 is taught by a quest
+// the player has not finished: Rank 1 itself is never a trainer spell, and a later rank is locked
+// while Rank 1 is unknown (always when the trainer showed it unavailable, else only when the capture
+// lists the known spells).
+func questLocked(c character.Character, name string, rank int, shownBlocked bool) bool {
+	sq, ok := advice.QuestSpellFor(name, int(ClassIDs[strings.ToUpper(c.Class)]))
+	if !ok {
+		return false
+	}
+	for _, id := range sq.Rank1 {
+		if c.KnownSpells[id] {
+			return false
+		}
+	}
+	return rank <= 1 || shownBlocked || c.KnownSpells != nil
+}
+
+// QuestBlocked is one line per missed spell quest: the lowest blocked trainer rank (recorded as
+// unavailable at the player's class trainer, else from the dataset's class list up to the character's
+// level) and the quest that teaches the spell, or just where the quest is when no rank is blocked yet.
+func QuestBlocked(c character.Character, ds store.DataStore, qx *questie.Index) []string {
+	var out []string
+	for _, m := range advice.MissedSpellQuests(c, qx) {
+		where := fmt.Sprintf("it comes from the quest %s at %s", m.Quest.Name, m.Giver.Name)
+		if m.Giver.Zone != "" {
+			where += " (" + m.Giver.Zone + ")"
+		}
+		rank := 0
+		if t := seenClassTrainer(c); t != nil {
+			for _, o := range t.Offers {
+				if n := rankDigits.FindString(o.Rank); strings.EqualFold(strings.TrimSpace(o.Name), m.Spell) && n != "" && o.State == "unavailable" {
+					if r, _ := strconv.Atoi(n); r >= 2 && (rank == 0 || r < rank) {
+						rank = r
+					}
+				}
+			}
+		}
+		if rank == 0 && c.Level != nil {
+			for _, r := range classRows(c, ds, 1, *c.Level) {
+				if n, _ := r["name"].(string); strings.EqualFold(n, m.Spell) {
+					if rk, _ := r["rank"].(int64); rk >= 2 && (rank == 0 || int(rk) < rank) {
+						rank = int(rk)
+					}
+				}
+			}
+		}
+		if rank >= 2 {
+			out = append(out, fmt.Sprintf("%s (Rank %d) needs Rank 1 first: %s", m.Spell, rank, where))
+		} else {
+			out = append(out, fmt.Sprintf("%s: %s", m.Spell, where))
+		}
+	}
+	return out
 }

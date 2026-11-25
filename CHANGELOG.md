@@ -6,6 +6,9 @@
 - After an unexpected end, the next start says "closed unexpectedly at <time>" with Open logs.
 - The helper's output has its own log, and it restarts itself if it dies.
 - Settings > Updates: Open logs folder and Copy diagnostics (a zip in Downloads, secrets left out).
+- A missed class or racial spell quest now gets a plan step, such as "Pick up Touch of Weakness from Aelthalyste (Undercity)".
+- A trainer rank blocked by that quest says so, and is no longer listed as trainable.
+- The training line in the digest names the quest that teaches the spell.
 
 ## 0.7.84
 
