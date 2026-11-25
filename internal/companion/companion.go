@@ -859,6 +859,7 @@ func (s *Server) writeDigest() {
 	_, err := server.WriteDigest(server.Config{
 		SavedVariables: s.cfg.ForeverScribe, Dataset: s.datasetDir(), DigestPath: s.cfg.DigestPath, SkipUnchanged: true,
 	}, "")
+	s.logDigest(err)
 	s.mu.Lock()
 	if err != nil {
 		s.digest.Status, s.digest.Error = DigestFailed, err.Error()
@@ -867,6 +868,27 @@ func (s *Server) writeDigest() {
 	}
 	s.mu.Unlock()
 	s.publish("game", s.snapshot())
+}
+
+// LogPrefix marks the advisor's own diagnostic lines on stderr, so the desktop shell (which keeps all
+// of stderr in wowc-advisor.log) does not mistake one for the reason the advisor stopped.
+const LogPrefix = "[wowc] "
+
+// logDigest records one digest write and the game save it answered, so "the plan did not update" can be
+// checked against the log. It writes only for the desktop app, to stderr, and never logs content.
+func (s *Server) logDigest(err error) {
+	if !s.cfg.App {
+		return
+	}
+	save := "no save file"
+	if st, e := os.Stat(s.cfg.ForeverScribe); e == nil {
+		save = "game save " + st.ModTime().Local().Format(time.RFC3339)
+	}
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%s%s digest write failed (%s): %v\n", LogPrefix, time.Now().Format(time.RFC3339), save, err)
+		return
+	}
+	fmt.Fprintf(os.Stderr, "%s%s digest written (%s)\n", LogPrefix, time.Now().Format(time.RFC3339), save)
 }
 
 // autoDigest is the settings switch: {"on": true|false}.

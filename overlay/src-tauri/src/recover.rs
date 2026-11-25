@@ -141,7 +141,7 @@ fn set_busy(app: &AppHandle, busy: bool) {
     refresh_tray(app);
 }
 
-fn log_dir(app: &AppHandle) -> Option<std::path::PathBuf> {
+pub fn log_dir(app: &AppHandle) -> Option<std::path::PathBuf> {
     app.path().app_log_dir().ok()
 }
 
@@ -180,7 +180,7 @@ fn close_window(app: &AppHandle) {
     }
 }
 
-fn open_logs(app: &AppHandle) {
+pub fn open_logs(app: &AppHandle) {
     match log_dir(app).ok_or_else(|| "no log folder".to_string()).and_then(|d| update::open_folder(&d)) {
         Ok(()) => {}
         Err(e) => log(app, &format!("could not open the logs folder: {e}")),
@@ -269,11 +269,13 @@ pub fn restore_for_go_back(app: &AppHandle, target: &str) {
 fn go_back(app: &AppHandle, target: &str) -> Result<(), String> {
     let installer = update::prepare_back(app, target)?;
     restore_for_go_back(app, target);
+    crate::life::set_reason(&format!("go back to {target}: installer started"));
     update::run_and_exit(app, &installer)
 }
 
 fn install(app: &AppHandle, target: &str) -> Result<(), String> {
     let installer = update::prepare(app, target, "")?;
+    crate::life::set_reason(&format!("update to {target}: installer started"));
     update::run_and_exit(app, &installer)
 }
 
