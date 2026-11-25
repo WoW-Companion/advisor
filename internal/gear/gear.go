@@ -144,7 +144,10 @@ type Item struct {
 	Slot          int
 	Bonding       int
 	StatTypes     []int64
-	StatsKnown    bool
+	// Stats is the amount of each stat (type id to amount) from the dataset's stat values; nil when the
+	// dataset has types only.
+	Stats      map[int64]int
+	StatsKnown bool
 }
 
 // Source is one place an item drops or is rewarded. Level and chance fields are nil when unknown.
@@ -217,6 +220,7 @@ func itemOf(row store.Row) Item {
 			it.StatTypes = append(it.StatTypes, i64(v))
 		}
 	}
+	it.Stats = stats.ItemStats(row)
 	return it
 }
 
@@ -229,11 +233,22 @@ func score(it Item, w map[int64]float64, byStats bool) float64 {
 	if len(it.StatTypes) == 0 {
 		return float64(it.ItemLevel)*0.5 + s
 	}
-	sum := 0.0
-	for _, t := range it.StatTypes {
-		sum += w[t]
+	// With the amounts known, each stat counts as much as the item has of it: an item that is mostly
+	// the stat the build wants fits better than one with a token amount of it. With types only, each
+	// type counts once.
+	var sum, total float64
+	if len(it.Stats) > 0 {
+		for t, n := range it.Stats {
+			sum += w[t] * float64(n)
+			total += float64(n)
+		}
+	} else {
+		for _, t := range it.StatTypes {
+			sum += w[t]
+		}
+		total = float64(len(it.StatTypes))
 	}
-	return float64(it.ItemLevel)*(0.5+0.5*sum/float64(len(it.StatTypes))) + s
+	return float64(it.ItemLevel)*(0.5+0.5*sum/total) + s
 }
 
 // Find is Upgrades with options and the basis of the answer.
@@ -255,7 +270,7 @@ func Find(c character.Character, ds store.DataStore, group string, opt Options) 
 	if p, ok := stats.For(c, group); ok {
 		// The player's play style: the stat compass's weights, shared with the stat check and the
 		// Auction House suffixes, so the advice agrees everywhere.
-		res.Spec, res.Rationale, w = p.Label(), "Ballpark stat priorities for "+p.Title(), idWeights(p.Weights)
+		res.Spec, res.Rationale, w = p.Label(), "Ballpark stat priorities for "+p.Title(), idWeights(p.ItemWeights())
 	} else if spec, ww, why, ok := Weights(c.Class, group); ok {
 		res.Spec, res.Rationale, w = spec, why, ww
 	} else if group == "" {

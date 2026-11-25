@@ -166,11 +166,17 @@ func totalsOf(c character.Character, ds store.DataStore) held {
 		if err != nil || row["stats_status"] != "known" {
 			continue
 		}
+		// Each worn stat counts as much as the item has of it; an item with types only counts each once.
+		amounts := ItemStats(row)
 		list, _ := row["stat_types"].([]any)
 		for _, v := range list {
 			id, _ := v.(int64)
 			if s, ok := statByID[id]; ok {
-				gear[s]++
+				if n := amounts[id]; n > 0 {
+					gear[s] += float64(n)
+				} else {
+					gear[s]++
+				}
 				h.items[s] = append(h.items[s], eq.Name)
 			}
 		}
