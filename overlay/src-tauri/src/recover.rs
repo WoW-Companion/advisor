@@ -251,6 +251,8 @@ pub fn restore_for_go_back(app: &AppHandle, target: &str) {
     if !(update::version_key(target) < update::version_key(running)) || update::version_key(target).is_none() {
         return;
     }
+    // A version that was gone back from is not installed again by itself.
+    crate::auto::block(app, running);
     match update::restore_backup(app, target) {
         Ok(Some(r)) => {
             log(app, &format!("restored the settings backup of {target}"));

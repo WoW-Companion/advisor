@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.62
+
+- You can let the app install updates by itself. Settings > Updates has a new "Install updates automatically" switch (off by default), and the update notice has an "Always update automatically" button that turns it on and installs now. The app installs a ready update when it starts or after five quiet minutes, never while an answer is being written, and shows "Updating to…" first. It follows the same rules as the notice: a day after release unless "Get updates right away" is on, never a pulled or skipped version. If your version is pulled, it goes back by itself and tells you why. A failed download is tried again at the next check, up to three times, then the notice is all that is left.
+
 ## 0.7.61
 
 - What's new now lists everything since your last version. If you skipped a few updates, the notes show every version after the one you're running, newest first (up to three versions and about eight lines, then "…and N more changes"), and there is a See all changes button that opens the full list. After going back to an older version it only says so, with no list.

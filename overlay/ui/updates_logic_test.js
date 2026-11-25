@@ -16,7 +16,16 @@ let s = U.bannerState(offer, cfg(), NOW, '', '');
 assert.deepStrictEqual([s.kind, s.version], ['offer', '0.7.54']);
 let v = U.bannerView(s);
 assert.strictEqual(v.text, 'Update 0.7.54 is ready');
-assert.deepStrictEqual(v.actions.map(a => a.label), ['What’s new', 'See all changes', 'Install', 'Later', 'Skip this version']);
+assert.deepStrictEqual(v.actions.map(a => a.label), ['What’s new', 'See all changes', 'Install', 'Always update automatically', 'Later', 'Skip this version']);
+assert.strictEqual(v.actions.find(a => a.label === 'Always update automatically').id, 'always');
+// With the setting already on, the button is gone.
+assert.deepStrictEqual(U.bannerView(U.bannerState(offer, cfg({ autoUpdate: true }), NOW, '', '')).actions.map(a => a.id), ['notes', 'changes', 'install', 'later', 'skip']);
+// The button turns the setting on, and the shell is told with the banner's own switches.
+const on = cfg({ updateNow: true, skipped: ['v0.7.52'] });
+assert.strictEqual(U.turnOnAuto(on).autoUpdate, true);
+assert.deepStrictEqual(U.autoArgs(on), { enabled: true, updateNow: true, skipped: ['0.7.52'] });
+assert.strictEqual(U.autoArgs(cfg()).enabled, false, 'off by default');
+assert.strictEqual(U.autoArgs(cfg({ autoUpdate: true, checkUpdates: false })).enabled, false, 'no checks, no installs');
 assert.strictEqual(v.cls, 'ok');
 assert.strictEqual(U.bannerState(offer, cfg({ checkUpdates: false }), NOW, '', ''), null, 'the master switch hides it');
 assert.strictEqual(U.bannerState(null, cfg(), NOW, '', ''), null);
@@ -80,6 +89,8 @@ assert.strictEqual(U.noticeView(null, at), null);
 // The note after a relaunch: upgrade, go-back, first ever start and no change.
 assert.deepStrictEqual(U.updatedNote('0.7.54', '0.7.55'), { kind: 'up', version: '0.7.55', from: '0.7.54', text: '✓ Updated to 0.7.55', whatsNew: true });
 assert.deepStrictEqual(U.updatedNote('0.7.55', '0.7.54'), { kind: 'back', version: '0.7.54', text: '✓ Went back to 0.7.54', whatsNew: false });
+assert.strictEqual(U.updatedNote('0.7.55', '0.7.54', 'it loses plans.').text, '✓ Went back to 0.7.54: it loses plans');
+assert.strictEqual(U.updatedNote('0.7.54', '0.7.55', 'ignored').text, '✓ Updated to 0.7.55');
 assert.strictEqual(U.updatedNote('', '0.7.55'), null);
 assert.strictEqual(U.updatedNote('0.7.55', '0.7.55'), null);
 assert.strictEqual(U.updatedNote('0.7.9', '0.7.10').kind, 'up');
