@@ -89,6 +89,8 @@ func TestFuryAndProtectionDiffer(t *testing.T) {
 
 func TestSpiritIsWastedOnAWarrior(t *testing.T) {
 	c, ds := gear()
+	lvl := 30 // past the low-level note, so the suffix line and the swap both fit
+	c.Level = &lvl
 	r := Check(style(c, "damage", "Fury"), ds, "")
 	var found bool
 	for _, in := range r.Insights {

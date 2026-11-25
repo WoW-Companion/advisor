@@ -228,7 +228,7 @@ func skill(e lua.Table) (Skill, bool) {
 	if name == "" {
 		return Skill{}, false
 	}
-	return Skill{name, asInt(e["skillID"]), asInt(e["rank"]), asInt(e["max"]), asStr(e["group"])}, true
+	return Skill{name, asInt(e["skillID"]), asInt(e["rank"]), asInt(e["max"]), asStr(e["group"]), false}, true
 }
 
 func isProfessionGroup(group string) bool {

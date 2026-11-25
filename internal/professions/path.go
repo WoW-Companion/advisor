@@ -452,10 +452,13 @@ func ComputePathWith(c character.Character, ds store.DataStore, qx *questie.Inde
 // computePath is ComputePath; whole returns every band in one part, and setup may adjust the planner
 // before it plans.
 func computePath(c character.Character, ds store.DataStore, profession string, target, part int, whole bool, setup func(*planner)) Path {
-	sk, ok := skillOf(c, profession)
+	sk, est, ok := skillFor(c, ds, profession)
 	pa := Path{Profession: profession, Part: max(part, 1)}
 	if ok {
 		pa.Profession = sk.Name
+	}
+	if est {
+		pa.Notes = append(pa.Notes, fmt.Sprintf("Your %s skill is about %d, estimated from the recipe colours in your trade skill window.", sk.Name, *sk.Rank))
 	}
 	if !ok || sk.Rank == nil {
 		pa.Notes = append(pa.Notes, "Open your "+profession+" window in the game once so I can read your skill, then ask again.")

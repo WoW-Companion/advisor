@@ -46,11 +46,16 @@ func TestSurvivabilityRaisesStaminaNextToThePrimary(t *testing.T) {
 	}
 }
 
-// itemRows are dataset rows named with the suffixes, for the verification.
-func itemRows(names ...string) []store.Row {
+// suffixRows are random_suffixes rows for the suffix keys, as the dataset holds them.
+func suffixRows(keys ...string) []store.Row {
 	var out []store.Row
-	for _, n := range names {
-		out = append(out, store.Row{"name": n, "stats_status": "unknown"})
+	for _, k := range keys {
+		sf, _ := SuffixByKey(k)
+		var st []any
+		for _, id := range sf.Stats {
+			st = append(st, id)
+		}
+		out = append(out, store.Row{"name": sf.Name, "stats": st})
 	}
 	return out
 }
@@ -72,7 +77,7 @@ func shadow(pref string) character.Character {
 
 func TestShadowSurvivabilityGivesEagleThenOwl(t *testing.T) {
 	p, _ := For(shadow(PrefSurvival), "")
-	rows := itemRows("Cap of the Eagle", "Cap of the Owl", "Cap of Intellect", "Cap of the Whale")
+	rows := suffixRows("eagle", "owl", "intellect", "whale")
 	var got []string
 	for _, s := range p.VerifiedTop(rows, 2) {
 		got = append(got, s.Name)
@@ -80,16 +85,29 @@ func TestShadowSurvivabilityGivesEagleThenOwl(t *testing.T) {
 	if strings.Join(got, "|") != "of the Eagle|of the Owl" {
 		t.Errorf("suffixes = %v", got)
 	}
-	// A suffix the dataset does not hold is never named.
-	for _, s := range p.VerifiedTop(itemRows("Cap of the Owl"), 2) {
+	// A suffix the table does not hold is never named.
+	for _, s := range p.VerifiedTop(suffixRows("owl"), 2) {
 		if s.Key == "eagle" {
 			t.Error("unverified suffix named")
 		}
 	}
+	// Without the table the curated order stands.
+	if top := p.VerifiedTop(nil, 2); len(top) != 2 || top[0].Key != "eagle" || top[1].Key != "owl" {
+		t.Errorf("curated = %v", top)
+	}
+}
+
+// Elixirs, scrolls and other items named with the words never confirm a suffix.
+func TestItemNamesNeverConfirmASuffix(t *testing.T) {
+	p, _ := For(shadow(PrefSurvival), "")
+	rows := []store.Row{{"name": "Elixir of the Owl", "stats": []any{int64(5)}}, {"name": "Scroll of Intellect"}}
+	for _, s := range p.VerifiedTop(rows, 2) {
+		t.Errorf("suffix %s confirmed by an item name", s.Name)
+	}
 }
 
 func TestChipTextShadowSurvivability(t *testing.T) {
-	ds := rowsDS{fakeDS{}, itemRows("Cap of the Eagle", "Cap of the Owl")}
+	ds := rowsDS{fakeDS{}, suffixRows("eagle", "owl")}
 	r := Check(shadow(PrefSurvival), ds, "")
 	if len(r.Insights) < 2 {
 		t.Fatalf("insights = %q", r.Insights)
@@ -99,6 +117,11 @@ func TestChipTextShadowSurvivability(t *testing.T) {
 	}
 	if want := "Look for 'of the Eagle' (Stamina + Intellect), or 'of the Owl'."; r.Insights[1] != want {
 		t.Errorf("suffix line = %q", r.Insights[1])
+	}
+	for _, in := range r.Insights {
+		if strings.Contains(in, "wants more") {
+			t.Errorf("contradictory line: %q", in)
+		}
 	}
 	if len(r.Insights) > MaxInsights || strings.Join(r.Suffixes, "|") != "of the Eagle|of the Owl" || r.Priority[0] != Intellect {
 		t.Errorf("%+v", r)

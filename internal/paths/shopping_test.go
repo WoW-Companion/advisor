@@ -71,8 +71,9 @@ func TestShoppingListForAWarrior(t *testing.T) {
 		role string
 		want []string
 	}{
-		{"", []string{"of the Bear (Strength + Stamina)"}}, // Strength is not in the data, Tiger's stats contradict
-		{"damage", []string{"of the Bear (Strength + Stamina)"}},
+		// No random_suffixes table in the data: the curated table stands, never item names.
+		{"", []string{"of the Bear (Strength + Stamina)", "of Strength (Strength)"}},
+		{"damage", []string{"of the Tiger (Strength + Agility)", "of the Bear (Strength + Stamina)"}},
 		{"tank", []string{"of the Bear (Strength + Stamina)", "of the Monkey (Agility + Stamina)"}},
 	}
 	for _, tc := range cases {
@@ -96,7 +97,7 @@ func TestShoppingListForAWarrior(t *testing.T) {
 		}
 	}
 	sh, _ := ShoppingList(shopWarrior(""), ds, "", "chest", Options{})
-	if want := "Chest: any green mail chest, level 8–10, 'of the Bear' — cheap on the Auction House"; sh.Line != want {
+	if want := "Chest: any green mail chest, level 8–10, 'of the Bear' or 'of Strength' — cheap on the Auction House"; sh.Line != want {
 		t.Errorf("line = %q", sh.Line)
 	}
 	if r := sh.Result(); r.Paths[0].Kind != Auction || r.Shopping == nil {
@@ -123,14 +124,14 @@ func TestShoppingListNeverHasAPriceOrAnId(t *testing.T) {
 	}
 }
 
-func TestShoppingOmitsUnverifiedSuffixes(t *testing.T) {
+func TestShoppingSuffixesDoNotNeedMatchingItemNames(t *testing.T) {
 	ds := store.New(store.ReaderSource{
 		"items":        tbl(t, []itemRow{chain(201, "Ridged Chain Vest", 14, 8, 2, 0)}),
 		"loot_sources": tbl(t, manyCreatures(201)),
 	})
 	sh, ok := ShoppingList(shopWarrior("tank"), ds, "", "chest", Options{})
-	if !ok || len(sh.Suffixes) != 0 || strings.Contains(sh.Line, "'of") {
-		t.Errorf("no suffix item in the data: %+v %v", sh, ok)
+	if !ok || len(sh.Suffixes) == 0 || !strings.Contains(sh.Line, "'of the Bear'") {
+		t.Errorf("curated suffixes expected: %+v %v", sh, ok)
 	}
 }
 

@@ -320,6 +320,10 @@ func professions(c character.Character) []string {
 	}
 	var out []string
 	for _, p := range c.Professions {
+		if p.FromRecipes {
+			out = append(out, fmt.Sprintf("- %s: known (recipes recorded), skill level not captured", p.Name))
+			continue
+		}
 		out = append(out, fmt.Sprintf("- %s: %s/%s", p.Name, intOr(p.Rank, "?"), intOr(p.Max, "?")))
 	}
 	return out
