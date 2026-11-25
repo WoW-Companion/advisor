@@ -76,7 +76,7 @@ fn guard_path(app: &AppHandle) -> Option<std::path::PathBuf> {
 fn update_guard(app: &AppHandle, f: impl FnOnce(&guard::GuardState) -> guard::GuardState) {
     let g = app.state::<Guard>();
     let mut st = g.state.lock().unwrap();
-    let next = f(&st);
+    let next = f(&*st);
     if let Some(p) = guard_path(app) {
         if let Err(e) = guard::save(&p, &next) {
             recover::log(app, &format!("could not save the launch record: {e}"));
