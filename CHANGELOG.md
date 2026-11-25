@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.7.74
+
+- The plan file now says what each quest needs once accepted, so the panel can move on live.
+- The overlay follows the character you play; pick one by hand to keep it, or turn it off.
+
 ## 0.7.73
 
 - Gear you already carry that beats what you wear now comes first, as "Equip these now".

@@ -6,7 +6,7 @@ const win = window.__TAURI__.window.getCurrentWindow();
 
 const $ = id => document.getElementById(id);
 const log = $('log'), who = $('who'), badge = $('badge'), text = $('text'), send = $('send');
-const DEFAULTS = { schema: 1, opacity: 92, solidHover: false, mode: 'overlay', keyVis: 'Ctrl+Shift+W', keyCt: 'Ctrl+Shift+T', nextOpen: null, settingsOpen: false, chatOpen: true, size: 'M', checkUpdates: true, updateNow: false, autoUpdate: false, skipped: [], later: {}, cleared: [], who: '', setupSeen: false, setupHidden: [], gameDir: '', length: 'standard', byClient: {}, usage: true, groups: { ai: true }, quickBar: true, dismissedSugg: {} };
+const DEFAULTS = { schema: 1, opacity: 92, solidHover: false, mode: 'overlay', keyVis: 'Ctrl+Shift+W', keyCt: 'Ctrl+Shift+T', nextOpen: null, settingsOpen: false, chatOpen: true, size: 'M', checkUpdates: true, updateNow: false, autoUpdate: false, skipped: [], later: {}, cleared: [], who: '', setupSeen: false, setupHidden: [], gameDir: '', length: 'standard', byClient: {}, usage: true, follow: true, pinned: '', groups: { ai: true }, quickBar: true, dismissedSugg: {} };
 // nextOpen null means automatic: open until the chat has a message, then collapsed. A click makes it a choice.
 const cfg = { ...DEFAULTS, ...JSON.parse(localStorage.getItem('wowc') || '{}') };
 cfg.settingsOpen = false; // the settings open from the gear for this session only; a launch starts calm
@@ -312,6 +312,7 @@ function digestNote() {
 function showDigest() {
   const d = state && state.digest;
   $('auto-digest').checked = cfg.autoDigest !== false;
+  $('follow').checked = cfg.follow !== false;
   $('auto-digest-note').textContent = d && d.status === 'addon not found' ? 'addon not found' : d && d.status === 'error' ? d.error : '';
 }
 // Answer length, model, reasoning level and the usage line are pushed to the advisor, which applies
@@ -365,16 +366,24 @@ function showBadge() {
   badge.title = f.tip + (state.error ? '\n' + state.error : '') + digestNote();
 }
 function setChars() {
-  const cur = who.value || cfg.who;
   who.replaceChildren(...state.characters.map(c => {
     const o = document.createElement('option');
     o.value = c.key; o.textContent = c.name + (c.level ? ' (' + c.level + ' ' + c.class + ')' : '');
     return o;
   }));
-  who.value = state.characters.some(c => c.key === cur) ? cur : state.default;
+  const before = who.value || cfg.who;
+  const pick = WowcLaunch.followChoice({ characters: state.characters, newest: state.default, current: before, follow: cfg.follow !== false, pinned: cfg.pinned });
+  who.value = pick.key;
+  cfg.who = pick.key;
+  const note = $('follow-note');
+  note.textContent = pick.line; note.hidden = !pick.line;
   showNext();
+  if (pick.switched) { save(); if (!busy) restoreChat(); }
 }
-who.onchange = () => { cfg.who = who.value; save(); showNext(); if (!busy) restoreChat(); };
+// Choosing a character by hand pins it; choosing the one being played, or turning the setting back
+// on, lets the page follow again.
+who.onchange = () => { cfg.who = who.value; cfg.pinned = who.value === (state && state.default) ? '' : who.value; $('follow-note').hidden = true; save(); showNext(); if (!busy) restoreChat(); };
+$('follow').onchange = ev => { cfg.follow = ev.target.checked; if (cfg.follow) cfg.pinned = ''; save(); if (state) setChars(); };
 
 // Play style: the chosen character's role, focus and spec, saved locally by the advisor. Both role
 // and focus may each be "Not set" (both: the style is cleared); the spec is a dropdown of the class's specs.

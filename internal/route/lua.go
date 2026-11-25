@@ -10,7 +10,7 @@ import (
 )
 
 // Schema is the Plan.lua format version (docs/plan-format.md).
-const Schema = "1.1"
+const Schema = "1.2"
 
 // File is the file name, next to Digest.lua.
 const File = "Plan.lua"
@@ -40,6 +40,9 @@ func stops(b *strings.Builder, indent string, list []Stop) {
 				extra += ", chain = " + digest.Quote(s.Chain)
 			}
 		}
+		if len(s.QuestIDs) > 1 {
+			extra += ", questIDs = " + idList(s.QuestIDs)
+		}
 		if len(s.Unlocks) > 0 {
 			extra += ", unlocks = " + idList(s.Unlocks)
 		}
@@ -67,6 +70,10 @@ func (e Envelope) Lua() string {
 		b.WriteString("      },\n      find = {\n")
 		for _, f := range p.Find {
 			fmt.Fprintf(&b, "        { n = %d, kind = \"objective\", questID = %d, quest = %s, label = %s, done = false },\n", f.N, f.QuestID, digest.Quote(f.Quest), digest.Quote(f.Label))
+		}
+		b.WriteString("      },\n      guidance = {\n")
+		for _, g := range p.Guides {
+			guideLua(&b, "        ", g)
 		}
 		b.WriteString("      },\n    },\n")
 	}
@@ -149,4 +156,35 @@ func Lines(p Plan, limit int) (lines []string, summary string) {
 		summary = wording.Count(p.Total, "stop", "stops")
 	}
 	return lines, summary
+}
+
+func itemLua(it GuideItem) string {
+	s := "text = " + digest.Quote(it.Text)
+	if it.Map != 0 {
+		s += fmt.Sprintf(", map = %d, x = %.1f, y = %.1f", it.Map, it.X, it.Y)
+	}
+	if it.Zone != "" {
+		s += ", zone = " + digest.Quote(it.Zone)
+	}
+	return "{ " + s + " }"
+}
+
+// guideLua is one quest's "once accepted" block, keyed by its quest id.
+func guideLua(b *strings.Builder, indent string, g Guide) {
+	fmt.Fprintf(b, "%s[%d] = {\n%s  questID = %d, quest = %s, class = %t, steps = %s,\n", indent, g.QuestID, indent, g.QuestID, digest.Quote(g.Quest), g.Class, idList(g.Steps))
+	fmt.Fprintf(b, "%s  objectives = {", indent)
+	for i, o := range g.Objectives {
+		if i > 0 {
+			b.WriteString(",")
+		}
+		fmt.Fprintf(b, "\n%s    %s", indent, itemLua(o))
+	}
+	if len(g.Objectives) > 0 {
+		fmt.Fprintf(b, ",\n%s  ", indent)
+	}
+	b.WriteString("},\n")
+	if g.TurnIn != nil {
+		fmt.Fprintf(b, "%s  turnin = %s,\n", indent, itemLua(*g.TurnIn))
+	}
+	fmt.Fprintf(b, "%s  after = %s,\n%s},\n", indent, digest.Quote(g.After), indent)
 }

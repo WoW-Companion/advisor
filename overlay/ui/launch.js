@@ -159,7 +159,18 @@
     return /map units/.test(s) ? s.replace(/,?\s*(?:about\s+)?[\d.,]+\s*map units/i, '') : s;
   }
 
-  const api = { chatStore, gapLabel, gapDivider, visibleSuggestions, suggestionRow, QUICK, quickAction, quickBar, styleNeeds, saveStyleFlow, freshness, planLine, dayKey, MAX_TURNS, MAX_SUGGESTIONS };
+  // followChoice: which character the page shows. The newest capture is the one being played; with
+  // "follow" on, and no character pinned, the page moves to it and says so in one line.
+  function followChoice({ characters, newest, current, follow, pinned }) {
+    const has = k => !!k && (characters || []).some(c => c.key === k);
+    if (!has(newest) && !has(current)) return { key: (characters && characters[0] && characters[0].key) || '', switched: false, line: '' };
+    if (!has(current)) return { key: newest, switched: false, line: '' };
+    if (follow === false || has(pinned) || !has(newest) || newest === current) return { key: current, switched: false, line: '' };
+    const c = characters.find(c => c.key === newest);
+    return { key: newest, switched: true, line: 'Now showing ' + c.name + ': the newest game save is theirs.' };
+  }
+
+  const api = { followChoice, chatStore, gapLabel, gapDivider, visibleSuggestions, suggestionRow, QUICK, quickAction, quickBar, styleNeeds, saveStyleFlow, freshness, planLine, dayKey, MAX_TURNS, MAX_SUGGESTIONS };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.WowcLaunch = api;
 })(typeof window !== 'undefined' ? window : globalThis);

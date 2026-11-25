@@ -35,6 +35,7 @@
   </div>
   <div id="notice" class="notice" hidden></div>
   <div id="data-note" class="data-note" hidden></div>
+  <div id="follow-note" class="data-note" hidden></div>
 
   <section id="setup" class="setup" hidden aria-label="Setup checklist">
     <div class="setup-head"><b>Setup</b><button id="setup-close" class="tiny" type="button" title="Close the checklist">&#215;</button></div>
@@ -109,6 +110,7 @@
     <details class="grp" data-group="style">
       <summary>Play style <span id="style-saved" class="saved" hidden>Saved ✓</span></summary>
       <small>Changes save as you make them.</small>
+      <label class="row"><span class="lbl">Follow the character I'm playing</span><span class="ctl"><input id="follow" type="checkbox"></span></label>
       <label class="row"><span class="lbl">Role</span><span class="ctl"><select id="style-role"><option value="">Not set</option><option value="damage">Damage</option><option value="tank">Tank</option><option value="healer">Healer</option><option value="balanced">Balanced</option></select></span></label>
       <label class="row"><span class="lbl">Focus</span><span class="ctl"><select id="style-focus"><option value="">Not set</option><option value="leveling">Leveling</option><option value="dungeons">Dungeons</option><option value="pvp">PvP</option><option value="mixed">Mixed</option></select></span></label>
       <label class="row"><span class="lbl">Spec</span><span class="ctl"><select id="style-spec"><option value="">Not sure yet</option></select></span></label>
