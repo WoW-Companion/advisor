@@ -25,6 +25,8 @@ type pt struct {
 	x, y float64
 	n    int // spawns in the cluster
 	name string
+	id   int    // the entity's id; objects are 0, so a stop never says an object is an NPC
+	area string // the subzone's name, else the zone's: where the point is, in words
 }
 
 func (s *questieSource) mapName(m int) string {
@@ -65,7 +67,15 @@ func (s *questieSource) points(refs []questie.Ref) []pt {
 		}
 		for _, sp := range e.Spawns {
 			if a, ok := s.qx.Areas[sp.Area]; ok && a.UIMap != 0 {
-				out = append(out, pt{m: a.UIMap, x: sp.X, y: sp.Y, n: 1, name: e.Name})
+				place := a.Sub
+				if place == "" {
+					place = a.Zone
+				}
+				id := r.ID
+				if r.Object {
+					id = 0
+				}
+				out = append(out, pt{m: a.UIMap, x: sp.X, y: sp.Y, n: 1, name: e.Name, id: id, area: place})
 			}
 		}
 	}
@@ -108,7 +118,7 @@ func clusters(pts []pt) []pt {
 		}
 		if hit < 0 {
 			firsts = append(firsts, p)
-			out = append(out, pt{m: p.m, name: p.name})
+			out = append(out, pt{m: p.m, name: p.name, id: p.id, area: p.area})
 			hit = len(out) - 1
 		}
 		c := &out[hit]
@@ -138,7 +148,7 @@ func (s *questieSource) quests(c character.Character, at *questie.Where) []*ques
 		if !ok {
 			return nil
 		}
-		return &spot{kind: kind, m: p.m, x: p.x, y: p.y, quests: []int{q.ID}, names: []string{q.Name}, label: p.name}
+		return &spot{kind: kind, m: p.m, x: p.x, y: p.y, quests: []int{q.ID}, names: []string{q.Name}, label: p.name, npc: p.id, place: p.area}
 	}
 	// best is the spot for an objective whose spawns are pts: spawns off the current map only count
 	// when none is on it; the biggest nearby cluster wins, a cluster under half the biggest's size is
@@ -185,13 +195,18 @@ func (s *questieSource) quests(c character.Character, at *questie.Where) []*ques
 			if name == "" || isDone(name) {
 				return
 			}
+			// A quest in the log lists what is still open: an objective it does not mention is finished
+			// (or not this quest's to do), and is not a step.
+			if len(open) > 0 && textOf(name) == name {
+				return
+			}
 			covered[strings.ToLower(name)] = true
 			mk := func() *spot {
 				return &spot{kind: KindObjective, quests: []int{q.ID}, names: []string{q.Name}, label: objectiveLabel(verb, textOf(name))}
 			}
 			if p, ok := best(s.points(refs), ax, ay); ok {
 				sp := mk()
-				sp.m, sp.x, sp.y = p.m, p.x, p.y
+				sp.m, sp.x, sp.y, sp.place = p.m, p.x, p.y, p.area
 				found = append(found, sp)
 				return
 			}
@@ -201,7 +216,7 @@ func (s *questieSource) quests(c character.Character, at *questie.Where) []*ques
 		}
 		for _, r := range q.Creatures {
 			if e, ok := s.entity(r); ok {
-				add("Kill", e.Name, []questie.Ref{r})
+				add(creatureVerb(e), e.Name, []questie.Ref{r})
 			}
 		}
 		for _, id := range q.Items {
@@ -376,4 +391,30 @@ func filterBig(cs []pt, biggest int) []pt {
 		}
 	}
 	return out
+}
+
+// npcFlags are the bits of an NPC's npcFlags the planner reads.
+const (
+	flagQuestGiver = 0x2
+	flagTrainer    = 0x10
+	flagVendor     = 0x80
+	flagRepair     = 0x1000
+)
+
+// friendly reports whether e is an NPC to talk to, not a mob to fight: Questie names a faction it is
+// friendly to, or it gives quests.
+func friendly(e questie.Entity) bool { return e.Faction != "" || e.Flags&flagQuestGiver != 0 }
+
+// creatureVerb is the verb for a creature objective: a friendly NPC is talked to, never killed.
+func creatureVerb(e questie.Entity) string {
+	if friendly(e) {
+		return "Talk to"
+	}
+	return "Kill"
+}
+
+// npc is the entity of an NPC id (the stop's NPC), for the "here" blocks.
+func (s *questieSource) npc(id int) (questie.Entity, bool) {
+	e, ok := s.qx.Npcs[id]
+	return e, ok
 }

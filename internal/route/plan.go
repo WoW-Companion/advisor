@@ -45,6 +45,7 @@ type Stop struct {
 	X        float64 `json:"x"`
 	Y        float64 `json:"y"`
 	Done     bool    `json:"done"`
+	Place    string  `json:"place,omitempty"` // the subzone or zone the stop is in, in words (Plan.lua 1.3)
 
 	// Chain-aware plan (Plan.lua 1.1). A locked step is a follow-up the plan's turn-ins unlock.
 	Locked     bool   `json:"locked,omitempty"`
@@ -101,6 +102,7 @@ type Plan struct {
 	Follow    []FollowNote `json:"follow_ups,omitempty"` // the locked follow-ups on the route, one per quest
 	Basis     Basis        `json:"basis"`                // what the plan was built from
 	Guides    []Guide      `json:"guides,omitempty"`     // what each listed quest needs once accepted (Plan.lua 1.2)
+	Here      []Here       `json:"here,omitempty"`       // what can be done at each NPC stop (Plan.lua 1.3)
 }
 
 // Basis is the state a plan starts from. "Done" in a plan means done after Captured: a reader judges
@@ -156,6 +158,8 @@ type spot struct {
 	label    string // the NPC or mob
 	must     bool   // part of a class quest: always on the route, never cut to "later"
 	unplaced bool   // an objective with no known location: never routed, listed under Find
+	npc      int    // the NPC's id, on a pick-up or turn-in; 0 when unknown
+	place    string // where it is in words: the subzone, else the zone; empty when unknown
 
 	locked     bool // a follow-up's stop: never merged with an ordinary one
 	depth      int
@@ -344,6 +348,7 @@ func planWith(c character.Character, src source, opt Options) Plan {
 	naive := naiveOrder(chains, preds, len(nodes))
 	order := Solve(prob, naive)
 	order = adjacent(prob, nodes, order)
+	order = groupByPlace(prob, nodes, order)
 	p.Naive = round1(prob.Length(naive))
 	// The cap counts ordinary stops; a follow-up stays when everything it needs does.
 	reg := 0
@@ -443,6 +448,7 @@ func planWith(c character.Character, src source, opt Options) Plan {
 	}
 	p.Total = len(p.Steps)
 	p.Guides = guides(append(listed, chosen...), p.Steps, p.Zone, src.mapName)
+	p.Here = buildHere(p, append(listed, chosen...), src)
 	for i, s := range findSpots {
 		p.Find = append(p.Find, FindStop{N: i + 1, QuestID: s.quests[0], Quest: strings.Join(s.names, ", "), Label: s.label})
 	}
@@ -479,7 +485,7 @@ func mustSet(nodes []*spot, preds [][]int) map[int]bool {
 }
 
 func stopOf(n int, s *spot) Stop {
-	st := Stop{N: n, Kind: s.kind, Map: s.m, X: round1(s.x), Y: round1(s.y)}
+	st := Stop{N: n, Kind: s.kind, Map: s.m, X: round1(s.x), Y: round1(s.y), Place: s.place}
 	if s.locked {
 		st.Locked, st.Depth, st.Chain, st.Observed = true, s.depth, s.chain, s.observed
 		st.UnlockedBy = append([]int(nil), s.unlockedBy...)
@@ -522,7 +528,7 @@ func merge(qs []*quest, cur int, later *[]*spot) (nodes []*spot, preds [][]int, 
 			tol = MergeRadius
 		}
 		for i, n := range nodes {
-			if n.kind == s.kind && n.locked == s.locked && n.depth == s.depth && n.m == s.m && math.Hypot(n.x-s.x, n.y-s.y) <= tol {
+			if n.kind == s.kind && (s.kind != KindObjective || n.label == s.label) && n.locked == s.locked && n.depth == s.depth && n.m == s.m && math.Hypot(n.x-s.x, n.y-s.y) <= tol {
 				n.quests = append(n.quests, s.quests...)
 				n.names = append(n.names, s.names...)
 				n.unlocks = append(n.unlocks, s.unlocks...)
@@ -653,6 +659,49 @@ func adjacent(p *Problem, nodes []*spot, order []int) []int {
 			if p.Feasible(cand) && p.Length(cand) <= p.Length(order)+1e-9 {
 				order = cand
 			}
+			break
+		}
+	}
+	return order
+}
+
+// GroupRadius is how close (map percent) a pick-up or turn-in must be to another stop, or to the player,
+// to be done together with it.
+const GroupRadius = 3.0
+
+// groupByPlace pulls a pick-up or turn-in forward to the first stop (or the player's start) within
+// GroupRadius of it, when every precedence still holds and the route grows by no more than the detour to it can cost (twice GroupRadius):
+// what can be done at one place is done together, and a turn-in the player will pass is not left to the end.
+func groupByPlace(p *Problem, nodes []*spot, order []int) []int {
+	near := func(a, b int) bool {
+		return nodes[a].m == nodes[b].m && math.Hypot(nodes[a].x-nodes[b].x, nodes[a].y-nodes[b].y) <= GroupRadius
+	}
+	for pass := 0; pass < len(order); pass++ {
+		moved := false
+		for j := 1; j < len(order); j++ {
+			n := order[j]
+			if k := nodes[n].kind; k != KindPickup && k != KindTurnIn {
+				continue
+			}
+			at := -2 // insert after the stop at this index of order; -1 is the front
+			if p.Start != nil && math.Hypot(p.Start[0]-nodes[n].x, p.Start[1]-nodes[n].y) <= GroupRadius {
+				at = -1
+			}
+			for k := 0; at == -2 && k < j-1; k++ {
+				if near(order[k], n) {
+					at = k
+				}
+			}
+			if at == -2 || at+1 == j {
+				continue
+			}
+			rest := slices.Delete(slices.Clone(order), j, j+1)
+			cand := slices.Insert(rest, at+1, n)
+			if p.Feasible(cand) && p.Length(cand) <= p.Length(order)+2*GroupRadius {
+				order, moved = cand, true
+			}
+		}
+		if !moved {
 			break
 		}
 	}
