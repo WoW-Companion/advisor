@@ -66,6 +66,12 @@ func trainingLine(c character.Character, ds store.DataStore, opt Options) (Line,
 	for _, x := range sp {
 		rs = append(rs, row{TrainSpell{ID: int(x.ID), Name: x.Name, Rank: x.Rank, New: x.New, Cost: x.Cost}, x.Level})
 	}
+	qb := levelup.QuestBlocked(c, ds, opt.Questie)
+	if len(rs) == 0 && len(qb) > 0 { // nothing to train, but a quest-taught spell is missing
+		l := Line{Kind: KindTraining, Level: level, Text: clip("Quest-taught spell: " + qb[0]), Details: finishDetails(qb)}
+		l.Asks, l.Ref = trainingAsks(nil), trainingRef(level)
+		return l, true
+	}
 	if len(rs) == 0 {
 		return Line{}, false
 	}
@@ -111,7 +117,7 @@ func trainingLine(c character.Character, ds store.DataStore, opt Options) (Line,
 			l.Text = clip(l.Text + " at " + place.City)
 		}
 	}
-	l.Details = trainingDetails(l, from, c, ds, sp)
+	l.Details = trainingDetails(l, from, c, ds, sp, qb)
 	l.Asks, l.Ref = trainingAsks(l.Spells), trainingRef(level)
 	l.Why = trainingWhy(l.Spells)
 	return l, true
@@ -153,7 +159,7 @@ func (l *Line) trainer(c character.Character) {
 	}
 }
 
-func trainingDetails(l Line, from int, c character.Character, ds store.DataStore, sp []levelup.Spell) []string {
+func trainingDetails(l Line, from int, c character.Character, ds store.DataStore, sp []levelup.Spell, qb []string) []string {
 	var d []string
 	var fresh, up []string
 	usually := len(sp) > 0 && sp[0].Usually
@@ -180,6 +186,7 @@ func trainingDetails(l Line, from int, c character.Character, ds store.DataStore
 	for _, q := range levelup.QuestSpells(c, ds, from, l.Level) {
 		d = append(d, q.Line())
 	}
+	d = append(d, qb...)
 	if l.trainAt != "" {
 		d = append(d, l.trainAt)
 	} else if l.NPC != "" {

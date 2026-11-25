@@ -266,8 +266,16 @@ func WhatsNextWith(c character.Character, ds store.DataStore, qx *questie.Index)
 	}
 	// Milestones lead: class quests to pick up, then unspent class talent points, then profession
 	// talent points; then the routine turn-ins, quests and pick-ups.
-	var classQuests, pickUps []Step
+	var classQuests, pickUps, spellQuests []Step
+	missed := map[int]bool{}
+	for _, m := range MissedSpellQuests(c, qx) {
+		missed[m.Quest.ID] = true
+		spellQuests = append(spellQuests, spellQuestStep(c, qx, m))
+	}
 	for _, s := range avail.Quests {
+		if missed[s.QuestID] {
+			continue
+		}
 		if IsClassQuest(s) {
 			classQuests = append(classQuests, s)
 		} else {
@@ -284,6 +292,7 @@ func WhatsNextWith(c character.Character, ds store.DataStore, qx *questie.Index)
 		out = append(out, s)
 	}
 	out = append(out, turnIns...)
+	out = append(out, spellQuests...) // a missed spell quest: ready turn-ins first, then this
 	out = append(out, openSteps...)
 	out = append(out, Limit(pickUps, MaxAvailable)...)
 	out = append(out, failed...)

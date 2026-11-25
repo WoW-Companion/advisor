@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.82
+
+- A missed class or racial spell quest now gets a plan step, such as "Pick up Touch of Weakness from Aelthalyste (Undercity)".
+- A trainer rank blocked by that quest says so, and is no longer listed as trainable.
+- The training line in the digest names the quest that teaches the spell.
+
 ## 0.7.81
 
 - Unspent talent points come first: "Spend 1 talent point: Shadow Focus (Shadow)".

@@ -203,3 +203,30 @@ func TestTrainNowLineNamesTwoSpellsAndTrainer(t *testing.T) {
 		t.Error("everything known but a train line was made")
 	}
 }
+
+// An Undead priest at 24 who never took the Touch of Weakness quest gets a training line naming it.
+func TestTrainingLineNamesMissedSpellQuest(t *testing.T) {
+	r1, r2 := i32p(1), i32p(2)
+	ds := store.New(store.ReaderSource{"class_spells": tbl(t, []spellRow{
+		{5, 2652, "Touch of Weakness", r1, 10, nil},
+		{5, 19261, "Touch of Weakness", r2, 20, i32p(2652)},
+	})})
+	st := []questie.Ref{{ID: 100}}
+	qx := &questie.Index{DB: "v0",
+		Quests: map[int]*questie.Quest{5658: {ID: 5658, Name: "Touch of Weakness", Level: 10, MinLevel: 10, Classes: 1 << 4, Races: 1 << 4, Starters: st, Finishers: st}},
+		Npcs:   map[int]questie.Entity{100: {Name: "Aelthalyste", Spawns: []questie.Spawn{{Area: 902, X: 50, Y: 60}}}},
+		Areas:  map[int]questie.Area{902: {UIMap: 7001, Zone: "Undercity"}}}
+	id, x, y := 7001, 40.0, 60.0
+	c := character.Character{Name: "Priest", Class: "PRIEST", Race: "Undead", Level: ip(24), KnownSpells: map[int64]bool{2944: true},
+		Location: &character.Location{Zone: "Undercity", MapID: &id, X: &x, Y: &y}}
+	opt := synthOpt
+	opt.Questie = qx
+	l, ok := trainingOf(Build(c, ds, opt))
+	if !ok || !strings.Contains(strings.Join(l.Details, "|"), "Touch of Weakness (Rank 2) needs Rank 1 first: it comes from the quest Touch of Weakness at Aelthalyste") {
+		t.Fatalf("training line = %+v, %v", l, ok)
+	}
+	c.CompletedQuests = []int{5658}
+	if l, ok := trainingOf(Build(c, ds, opt)); ok {
+		t.Errorf("quest done: %+v", l)
+	}
+}
