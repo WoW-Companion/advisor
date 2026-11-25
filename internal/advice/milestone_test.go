@@ -21,7 +21,7 @@ func TestTalentMilestones(t *testing.T) {
 		class, prof int
 		want        []string
 	}{
-		{"class and profession", 2, 2, []string{"You have 2 unspent talent points", "You have 2 unspent profession talent points"}},
+		{"class and profession", 2, 2, []string{"Spend 2 talent points", "You have 2 unspent profession talent points"}},
 		{"profession only", 0, 1, []string{"You have 1 unspent profession talent point"}},
 		{"nothing unspent shows none", 0, 0, nil},
 	}
@@ -42,7 +42,7 @@ func TestTalentMilestones(t *testing.T) {
 			t.Errorf("%s: milestone is not first: %s", tc.name, titles(steps))
 		}
 	}
-	s, _ := talentStep(character.Character{Talents: trees(2, 0)})
+	s, _ := talentStep(character.Character{Talents: trees(2, 0)}, nil)
 	if !strings.Contains(s.Reason, "What talents should I get?") {
 		t.Errorf("no pointer to the talents question: %q", s.Reason)
 	}
@@ -66,11 +66,11 @@ func TestClassQuestLeads(t *testing.T) {
 		t.Fatalf("steps: %s", titles(steps))
 	}
 	want := "Class quest: pick up Arcane Initiation from Mage Tutor, Kelp Cove (90.0, 90.0)"
-	if steps[0].Title != want || !strings.Contains(steps[0].Reason, ClassQuestNote) {
-		t.Errorf("first step = %+v", steps[0])
+	if steps[0].Kind != KindTalent { // unspent talent points come before the class quest
+		t.Errorf("first step: %s", titles(steps))
 	}
-	if steps[1].Kind != KindTalent {
-		t.Errorf("second step: %s", titles(steps))
+	if steps[1].Title != want || !strings.Contains(steps[1].Reason, ClassQuestNote) {
+		t.Errorf("second step = %+v", steps[1])
 	}
 	pickUp := -1
 	for i, s := range steps {

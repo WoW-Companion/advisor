@@ -1,10 +1,24 @@
 # Changelog
 
-## 0.7.81
+## 0.7.83
 
 - Ready turn-ins where you stand now come first on the route, nearest first, before pick-ups.
 - Ready turn-ins in a town you can fly to get one "Fly to <town>" step.
 - Travel steps name the place ("Shadowfang Keep (Silverpine Forest)"), never a map number.
+
+## 0.7.82
+
+- Training lists only what your trainer shows as available.
+- A spell that needs an earlier rank is noted, not listed as new.
+- Gold needed counts only the spells you can train now.
+- Talent picks skip ranks you already took, matched by spell.
+- If it can't tell which talents you took, it says so.
+
+## 0.7.81
+
+- Unspent talent points come first: "Spend 1 talent point: Shadow Focus (Shadow)".
+- If your picks can't be seen yet, it says to open your talents instead of naming a talent.
+- "What next" answers mention unspent points first; the line clears once you spend them.
 
 ## 0.7.80
 

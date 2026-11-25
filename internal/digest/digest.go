@@ -260,6 +260,9 @@ func Build(c character.Character, ds store.DataStore, opt Options) Digest {
 		if s.Kind == advice.KindTalent { // milestones lead the NEXT section
 			l := Line{Text: talentNote(c, ds, s.Title), Kind: KindTalent, Points: s.Points}
 			pick, name := nextPick(c, ds)
+			if hedgedTalents(c, ds) { // what is spent is unknown: no rank-1 pick to name
+				pick, name = "", ""
+			}
 			l.Details = talentStepContext(c, s, pick, name)
 			l.Asks, l.Ref = talentAsks(s.Points, name), talentsRef
 			l.Why = talentWhy(c, name)
@@ -317,6 +320,13 @@ func Build(c character.Character, ds store.DataStore, opt Options) Digest {
 	notes = append(notes, note...)
 	if n := bagCount(ups); n > 0 { // free upgrades lead NEXT, ahead of anything to buy
 		quests = append([]Line{bagNextLine(n)}, quests...)
+	}
+	// Unspent class talent points lead everything, bag upgrades too.
+	for i, l := range quests {
+		if l.Kind == KindTalent && strings.HasPrefix(l.Text, "Spend ") {
+			quests = append([]Line{l}, append(quests[:i:i], quests[i+1:]...)...)
+			break
+		}
 	}
 	for i := range quests {
 		if w, ok := link.questWhy[quests[i].Quest]; ok && quests[i].Quest != 0 {
@@ -419,10 +429,16 @@ func nextPick(c character.Character, ds store.DataStore) (phrase, name string) {
 	return "", ""
 }
 
+// hedgedTalents is true when the capture has unspent points but no readable list of what is spent.
+func hedgedTalents(c character.Character, ds store.DataStore) bool {
+	t := c.Talents
+	return t != nil && t.Unspent != nil && *t.Unspent > 0 && (!advice.TalentsKnown(t) || talents.Unreadable(c, ds))
+}
+
 // talentLines is the next MaxTalents points of talents.Plan, with the node's spell id when the
 // dataset has one.
 func talentLines(c character.Character, ds store.DataStore) []TalentLine {
-	if ds == nil {
+	if ds == nil || hedgedTalents(c, ds) {
 		return nil
 	}
 	var out []TalentLine
@@ -470,7 +486,7 @@ func stepNotes(c character.Character, ds store.DataStore, steps []advice.Step) [
 
 // talentNote is the unspent-points title, naming the build's next node when the dataset has one.
 func talentNote(c character.Character, ds store.DataStore, title string) string {
-	if strings.Contains(title, ": take ") { // the saved plan already named the picks
+	if strings.HasPrefix(title, "Spend ") || strings.Contains(title, ": take ") { // the step already named the pick
 		return title
 	}
 	if ds == nil {

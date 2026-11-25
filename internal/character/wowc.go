@@ -75,14 +75,28 @@ func wowcQuest(e lua.Table) (Quest, bool) {
 		Failed: asBool(e["failed"]), Objectives: objs}, true
 }
 
-func wowcTalents(v any) *Talents {
+// wowcTalents reads a record's talents and its talentPoints (unspent points, optional: absent in older
+// captures). A record with unspent points but no talent list still gets a Talents holding the points.
+func wowcTalents(v any, points *int) *Talents {
+	t := wowcTalentTrees(v)
+	if points == nil {
+		return t
+	}
+	if t == nil {
+		t = &Talents{}
+	}
+	t.Unspent = points
+	return t
+}
+
+func wowcTalentTrees(v any) *Talents {
 	trees, ok := each(v, func(t lua.Table) (TalentTree, bool) {
 		tree := TalentTree{Name: asStr(t["tree"])}
 		pts := 0
 		tree.Talents, _ = each(t["nodes"], func(n lua.Table) (Talent, bool) {
 			r := derefInt(asInt(n["rank"]))
 			pts += r
-			return Talent{Name: asStr(n["name"]), Rank: r, MaxRank: asInt(n["max"])}, true
+			return Talent{Name: asStr(n["name"]), Rank: r, MaxRank: asInt(n["max"]), SpellID: asInt(n["spell"])}, true
 		})
 		tree.Points = &pts
 		return tree, true
@@ -101,7 +115,7 @@ func LoadWoWCharacter(key string, rec lua.Table) Character {
 		Money: asInt(rec["money"]), XP: asInt(rec["xp"]), XPMax: asInt(rec["xpMax"]), RestedXP: asInt(rec["rested"]),
 		CapturedAt: asInt64(rec["capturedAt"]), Client: clientBlock(rec["client"]),
 		Equipment: wowcEquipment(rec["equipment"]), Hearth: asStr(rec["hearth"]),
-		Talents: wowcTalents(rec["talents"]), Source: SourceWoWC,
+		Talents: wowcTalents(rec["talents"], asInt(rec["talentPoints"])), Source: SourceWoWC,
 	}
 	if c.Realm == "" {
 		c.Key = strings.TrimPrefix(key, ":")

@@ -178,3 +178,35 @@ func TestRecipesAndFlightMastersAreRead(t *testing.T) {
 		t.Error("absent sections must be empty")
 	}
 }
+
+func TestWoWCTalentPoints(t *testing.T) {
+	n := 3
+	for name, tc := range map[string]struct {
+		talents any
+		points  *int
+		want    *int
+		nilT    bool
+	}{
+		"points with no talents": {nil, &n, &n, false},
+		"absent points":          {nil, nil, nil, true},
+	} {
+		got := wowcTalents(tc.talents, tc.points)
+		if (got == nil) != tc.nilT || (got != nil && (got.Unspent == nil) != (tc.want == nil || false)) {
+			t.Errorf("%s: %+v", name, got)
+		}
+		if got != nil && tc.want != nil && *got.Unspent != *tc.want {
+			t.Errorf("%s: unspent %d", name, *got.Unspent)
+		}
+	}
+}
+
+func TestWoWCTalentNodeSpellID(t *testing.T) {
+	tr := wowcTalentTrees(lua.Table{int64(1): lua.Table{"tree": "Shadow", "nodes": lua.Table{int64(1): lua.Table{"spell": int64(7001), "rank": int64(3), "max": int64(5)}}}})
+	if tr == nil {
+		t.Fatal("no trees")
+	}
+	n := tr.Trees[0].Talents[0]
+	if n.SpellID == nil || *n.SpellID != 7001 || n.Rank != 3 || n.Name != "" || *tr.Trees[0].Points != 3 {
+		t.Errorf("node %+v", n)
+	}
+}
