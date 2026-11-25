@@ -3,6 +3,7 @@ package advice
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/WoW-Companion/advisor/internal/character"
 	"github.com/WoW-Companion/advisor/internal/items"
@@ -36,7 +37,7 @@ func whereOf(c character.Character) (questie.Where, bool) {
 func whoOf(c character.Character) questie.Who {
 	w := questie.Who{Level: *c.Level, Below: AvailBelow, Above: AvailAbove,
 		ClassID: classIDs[strings.ToUpper(c.Class)], RaceID: raceIDs[strings.ToLower(strings.ReplaceAll(c.Race, " ", ""))],
-		Done: map[int]bool{}, InLog: map[int]bool{}}
+		Done: map[int]bool{}, InLog: map[int]bool{}, Now: clockOf(c)}
 	for _, id := range c.CompletedQuests {
 		w.Done[id] = true
 	}
@@ -125,3 +126,11 @@ func locate(c character.Character, steps []Step, qx *questie.Index) {
 
 // WhoOf is the eligibility facts of c for the player's QuestieDB (the same band as the pick-up steps).
 func WhoOf(c character.Character) questie.Who { return whoOf(c) }
+
+// clockOf is the player's date: the capture's time, else the machine's clock.
+func clockOf(c character.Character) time.Time {
+	if c.CapturedAt != nil && *c.CapturedAt > 0 {
+		return time.Unix(*c.CapturedAt, 0)
+	}
+	return time.Now()
+}

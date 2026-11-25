@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.83
+
+- Holiday quests, like Flickering Flames, are only offered while their event runs.
+- Quests that need a higher level than yours are never offered.
+- A holiday quest already in your log still shows.
+
 ## 0.7.82
 
 - Training lists only what your trainer shows as available.

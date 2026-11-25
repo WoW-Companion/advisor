@@ -14,7 +14,7 @@ import (
 	"strings"
 )
 
-const indexSchema = 8 // bump when the cached index's shape changes
+const indexSchema = 9 // bump when the cached index's shape changes
 
 // Spawn is a place, as percent of the area's map.
 type Spawn struct {
@@ -61,6 +61,7 @@ type Quest struct {
 	Credits    []Credit
 	Triggers   []Trigger // area objectives ("reach this place"): text and the places Questie marks
 	Objective  string    // the objective text shown in the quest log (field 8)
+	Event      string    // the holiday the quest belongs to; "" for an ordinary quest
 	Restricted bool      // a requirement this reader cannot check (skill, reputation, spell, event)
 }
 
@@ -430,6 +431,7 @@ func Parse(st Status) (*Index, error) {
 	ix.Areas = parseAreas(zones)
 	ix.linkDungeons(filepath.Dir(zones), npcs, itemRows)
 	ix.linkNodes(objects, itemRows)
+	ix.tagEvents()
 	return ix, nil
 }
 

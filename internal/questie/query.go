@@ -7,6 +7,7 @@ import (
 	"math/bits"
 	"sort"
 	"strings"
+	"time"
 )
 
 // Where is the character's last known place: the uiMapID, or the zone name without one; X and Y are map percent.
@@ -38,6 +39,7 @@ type Who struct {
 	ClassID, RaceID int // 0 when not captured: that rule is not checked
 	Done, InLog     map[int]bool
 	Below, Above    int
+	Now             time.Time // the player's clock; zero skips the holiday check
 }
 
 // Offer is a quest that can be picked up, with its nearest giver.
@@ -135,7 +137,7 @@ func (q *Quest) Eligible(w Who) bool {
 	if q.Name == "" || q.Restricted || len(q.Starters) == 0 || q.Parent != 0 {
 		return false
 	}
-	if w.Done[q.ID] || w.InLog[q.ID] {
+	if w.Done[q.ID] || w.InLog[q.ID] || q.EventClosed(w.Now) {
 		return false
 	}
 	if q.Level < w.Level-w.Below || q.Level > w.Level+w.Above || q.MinLevel > w.Level || (q.MaxLevel > 0 && w.Level > q.MaxLevel) {
