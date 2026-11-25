@@ -224,16 +224,16 @@ func TestSourcesAndRender(t *testing.T) {
 	text := Render(c, res)
 	for _, want := range []string{
 		"Ranked by the gain over what is worn, weighted by Holy stat types and listed by the level needed to wear it; advisor defaults, not authoritative",
-		"Cloth Hood (at level 14; empty slot): from Near Wolf, level 10-12, zone unknown, drops 5.0% of kills; Far Boss, level 40-42, zone unknown, drops 25.0% of kills",
-		"Spirit Hood (at level 14; empty slot): from object 900, zone unknown, drop chance unknown",
-		"Plain Robe (requires level 8; empty slot): source unknown",
+		"Cloth Hood (at level 14; empty slot, by stats): from Near Wolf, level 10-12, zone unknown, drops 5.0% of kills; Far Boss, level 40-42, zone unknown, drops 25.0% of kills",
+		"Spirit Hood (at level 14; empty slot, by stats): from object 900, zone unknown, drop chance unknown",
+		"Plain Robe (requires level 8; empty slot, by stats): source unknown",
 	} {
 		if !strings.Contains(text, want) {
 			t.Errorf("render lacks %q:\n%s", want, text)
 		}
 	}
 	res, _ = Find(c, synth(t, "unknown"), "Test Holy", Options{Slot: "head"})
-	if text := Render(c, res); !strings.Contains(text, "listed by the level needed to wear it: the dataset has no stats for these items.") {
+	if text := Render(c, res); !strings.Contains(text, "Ranked by the level needed to wear it only (quality breaks ties): the dataset has no stats for these items.") {
 		t.Errorf("item level only not stated:\n%s", text)
 	}
 }
