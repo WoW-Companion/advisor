@@ -8,10 +8,10 @@ Gates:
 - Artisan: skill 225-300, character level 35, trainer Tanner Tess in Goldshire; trainer recipes on this path: 2 for 12g
 
 Bands:
-1. Skill 1→45: 59 × Light Armor Kit (29 orange, 30 yellow; expected skill-ups 44); learn: trainer
+1. Skill 1→45: 59 × Light Armor Kit (29 orange, 30 yellow; expected skill-ups 44); learn: probably from your trainer; check when you visit
    Materials: 59 × Light Leather
    Alternative: Leather Boots
-2. Skill 45→75: 50 × Leather Boots (10 orange, 40 yellow; expected skill-ups 30); learn: trainer
+2. Skill 45→75: 50 × Leather Boots (10 orange, 40 yellow; expected skill-ups 30); learn: probably from your trainer; check when you visit
    Materials: 100 × Light Leather, 50 × Coarse Thread
    Alternative: Embossed Vest
 3. Skill 75→110: 55 × Embossed Vest (15 orange, 40 yellow; expected skill-ups 35); learn: trainer, 2s
@@ -39,8 +39,8 @@ Bands:
    Materials: 150 × Rune Thread, 200 × Core Hide
 
 Check (recipe, learn skill and where it comes from):
-1. 1→45 Light Armor Kit: learn skill 1; learnt from trainer
-2. 45→75 Leather Boots: learn skill 1; learnt from trainer
+1. 1→45 Light Armor Kit: learn skill 1; probably from your trainer; check when you visit
+2. 45→75 Leather Boots: learn skill 1; probably from your trainer; check when you visit
 3. 75→110 Embossed Vest: learn skill 40; learnt from trainer, 2s
 4. 110→140 Fine Belt: learn skill 75; learnt from trainer, 15s
 5. 140→150 Dark Tunic: learn skill 100; learnt from Pattern: Dark Tunic from a vendor, 60s
@@ -50,7 +50,7 @@ Check (recipe, learn skill and where it comes from):
 9. 230→270 Hide Cloak: learn skill 225; learnt from trainer, 4g
 10. 270→300 Core Cuirass: learn skill 250; learnt from trainer, 8g
 
-Guide check: 1-45 Light Armor Kit (trainer); 45-75 Leather Boots (trainer); 75-110 Embossed Vest (trainer); 110-140 Fine Belt (trainer); 140-150 Dark Tunic (vendor pattern Pattern: Dark Tunic); 150-205 Heavy Armor Kit (trainer); 205-225 Rugged Gloves (trainer); 225-230 Rugged Gloves (known); 230-270 Hide Cloak (trainer); 270-300 Core Cuirass (trainer).
+Guide check: 1-45 Light Armor Kit (trainer, unconfirmed: ask your trainer); 45-75 Leather Boots (trainer, unconfirmed: ask your trainer); 75-110 Embossed Vest (trainer, confirmed); 110-140 Fine Belt (trainer, confirmed); 140-150 Dark Tunic (vendor pattern Pattern: Dark Tunic); 150-205 Heavy Armor Kit (trainer, confirmed); 205-225 Rugged Gloves (trainer, confirmed); 225-230 Rugged Gloves (known); 230-270 Hide Cloak (trainer, confirmed); 270-300 Core Cuirass (trainer, confirmed).
 
 Material totals:
 - 159 × Light Leather: a vendor, 25c each = 39s 75c
