@@ -32,7 +32,8 @@ type Need struct {
 	Have    int
 	Missing int
 	From    string // where to get the missing part; empty when nothing is missing
-	Make    *Make  // when the missing part is made from other materials: what it takes
+	Made    string `json:"made,omitempty"` // when the missing part is smelted or crafted: how, in a line
+	Make    *Make  `json:"-"`              // the same as a tree, for the benchmark
 }
 
 // Option is one recipe that carries a band.
@@ -343,6 +344,7 @@ func (p *planner) price(r Recipe, from string, skill, target int, left map[int64
 			s.effort += n.Missing * src.effort
 			if ch != nil {
 				n.Make = p.expand(ch, n.Missing, skill, 0)
+				n.Made = n.Make.describe()
 				s.opt.SubSkillUps += n.Make.skillUps()
 			}
 		}
