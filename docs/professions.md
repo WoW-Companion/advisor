@@ -66,3 +66,12 @@ recipes: its bands are catches (one per skill point) with the catch list by zone
 `where_to_learn` answers "who trains that?". For a trainer recipe it lists up to three trainers of the profession (those that teach the recipe when the dataset says so), for the character's faction or neutral, nearest first: the character's zone, then their continent, then the rest. Coordinates come from the dataset's trainers row, else from the player's QuestieDB spawns (marked "from your Questie database"). A recipe taught by an item lists the vendor, drop or quest that gives the item.
 
 The skill gate is the trainer's required skill when the dataset has it. Where the only value is the client minimum of 1 for a trainer recipe, no number is stated: the trainer shows whether you can learn it yet. Called with no recipe, the tool counts those recipes per profession.
+
+## Where to gather and fish
+
+`where_to_gather` answers "where can I mine copper?" (an `item`, optionally with `kind`: mine, herb or fish) and "where should I fish at my level?" (a `kind` alone). It reads the herb nodes, ore veins and fishing schools from the player's own QuestieDB, so it needs Questie installed; the dataset's gathering tables are empty.
+
+- **Item answer.** Up to three zones with the most nodes or schools that yield the item (ids from either source agree, and one item may come from several object ids), the character's own zone first, with one or two sample coordinates, the nearest to the character first within their own zone.
+- **Level answer.** The character's skill comes from their profession. A node suits them when it needs no more than that skill; the best are those within 50 points under it, else the highest they can take. The skill a node needs is the curated `profession_notes` figure for its name (sections `nodes` or `gathering`, `skill_min`), else the dataset's `skill_required`, else the lowest required level of what it yields.
+- **Planner.** `profession_plan` uses the same zones in the "Mine/Pick/Fish X: Zone: Node (x, y)" lines for the materials a path still needs.
+- Every place read from Questie is marked "from your Questie database". Without Questie, or when its object rows are missing or unreadable, nothing is guessed: the answer says no place is known and the planner keeps its dataset lines.

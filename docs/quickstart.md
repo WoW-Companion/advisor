@@ -191,6 +191,7 @@ The companion sits beside the game, not inside it, and changes nothing in the cl
 | `stat_check` | What your stats lack, waste or already cover for your play style, in plain words. |
 | `profession_plan` | How to level each profession. |
 | `where_to_learn` | Who trains, sells or teaches a recipe: the nearest for your faction, with zone and coordinates. |
+| `where_to_gather` | Where to mine, pick herbs or fish: the zones with the most nodes or schools, with coordinates (needs Questie). |
 | `talent_plan` | Where the next talent points go. |
 | `get_character_profile` | The character's saved play style and talent plan (or the question to ask first). |
 | `set_character_profile` | Saves the play style and talent plan on your PC. |

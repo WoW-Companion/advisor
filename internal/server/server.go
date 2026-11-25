@@ -25,6 +25,7 @@ import (
 	"github.com/WoW-Companion/advisor/internal/doctor"
 	"github.com/WoW-Companion/advisor/internal/dungeons"
 	"github.com/WoW-Companion/advisor/internal/farm"
+	"github.com/WoW-Companion/advisor/internal/gather"
 	"github.com/WoW-Companion/advisor/internal/gear"
 	"github.com/WoW-Companion/advisor/internal/inventory"
 	"github.com/WoW-Companion/advisor/internal/items"
@@ -378,6 +379,13 @@ type LearnInput struct {
 type LearnOutput struct {
 	learn.Result
 	Counts map[string]int `json:"trainer_recipes_without_a_skill_number,omitempty"`
+}
+
+// GatherInput is the where_to_gather argument.
+type GatherInput struct {
+	Character string `json:"character,omitempty" jsonschema:"character name; omit when only one was captured"`
+	Item      string `json:"item,omitempty" jsonschema:"the herb, ore or fish to find (for example Copper Ore, Peacebloom); omit for the zones that suit the character's skill"`
+	Kind      string `json:"kind,omitempty" jsonschema:"mine, herb or fish: narrows an item search, and says which skill a level answer is for"`
 }
 
 // TalentInput is the talent_plan argument.
@@ -896,7 +904,7 @@ func New(cfg Config) *mcp.Server {
 			have = append(have, p.Name)
 			if want == "" || strings.EqualFold(p.Name, want) {
 				plans = append(plans, professions.Plan(c, ds, p.Name))
-				pa := professions.ComputePath(c, ds, p.Name, in.TargetSkill, in.Part)
+				pa := professions.ComputePathWith(c, ds, questie.ForSavedVariables(cfg.SavedVariables), p.Name, in.TargetSkill, in.Part)
 				paths = append(paths, pa)
 				texts = append(texts, professions.RenderPath(pa))
 			}
@@ -942,6 +950,34 @@ func New(cfg Config) *mcp.Server {
 			return toolError(err.Error()), LearnOutput{}, nil
 		}
 		return nil, LearnOutput{Result: res}, nil
+	})
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "where_to_gather",
+		Description: "Answers 'where can I mine / pick / fish X?' (item) and 'where should I mine / herb / fish at my level?' (kind only) for one captured character (by name; omit if only one): " +
+			"up to 3 zones with the most herb or ore nodes or fishing schools, the character's own zone first, with sample coordinates; places come from the player's QuestieDB and are marked. Lead with the first line of text.",
+	}, func(_ context.Context, _ *mcp.CallToolRequest, in GatherInput) (*mcp.CallToolResult, gather.Result, error) {
+		f, errResult := load(cfg.SavedVariables)
+		if errResult != nil {
+			return errResult, gather.Result{}, nil
+		}
+		c, err := chosen(cfg, f, in.Character)
+		if err != nil {
+			return toolError(err.Error()), gather.Result{}, nil
+		}
+		var ds store.DataStore
+		if cfg.Dataset != "" {
+			ds = store.NewDir(cfg.Dataset)
+		}
+		g := gather.New(questie.ForSavedVariables(cfg.SavedVariables), ds)
+		if strings.TrimSpace(in.Item) != "" {
+			return nil, g.Find(c, in.Item, in.Kind), nil
+		}
+		kind := gather.KindOf(in.Kind)
+		if kind == "" {
+			return toolError("Say which to gather: mine, herb or fish, or name the item."), gather.Result{}, nil
+		}
+		return nil, g.ForLevel(c, kind), nil
 	})
 
 	mcp.AddTool(s, &mcp.Tool{

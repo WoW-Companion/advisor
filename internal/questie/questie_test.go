@@ -319,3 +319,46 @@ func TestParseObjectiveText(t *testing.T) {
 		t.Fatalf("describe %q", got)
 	}
 }
+
+func nodeRows() []row {
+	spawn := func(area int, x, y float64) map[int]any { return map[int]any{area: []any{[]any{x, y}}} }
+	return []row{
+		{"Object", 700, "S", map[int]any{1: "Test Copper Vein"}}, {"Object", 700, "4", spawn(901, 11.5, 22.5)},
+		{"Object", 701, "S", map[int]any{1: "Test Copper Vein"}}, {"Object", 701, "4", spawn(903, 33.5, 44.5)},
+		{"Object", 702, "S", map[int]any{1: "Test Reef School"}}, {"Object", 702, "4", spawn(902, 1.5, 2.5)},
+		{"Object", 703, "S", map[int]any{1: "Unused Object"}}, {"Object", 703, "4", spawn(901, 9.0, 9.0)},
+		{"Item", 800, "S", map[int]any{1: "Test Copper Ore", 10: 5}}, {"Item", 800, "3", []any{700, 701}},
+		{"Item", 801, "S", map[int]any{1: "Test Reef Fish"}}, {"Item", 801, "3", []any{702, 999}},
+	}
+}
+
+func TestParseNodesAndTheirYields(t *testing.T) {
+	ix, st := OpenGame(install(t, header, append(fixtureRows(), nodeRows()...)))
+	if ix == nil {
+		t.Fatalf("not readable: %+v", st)
+	}
+	if len(ix.Nodes) != 3 || ix.Nodes[703].ID != 0 {
+		t.Fatalf("nodes %+v", ix.Nodes)
+	}
+	n := ix.Nodes[700]
+	if n.Kind != KindOre || len(n.Yields) != 1 || n.Yields[0].Name != "Test Copper Ore" || n.Yields[0].Level != 5 || len(n.Spawns) != 1 {
+		t.Fatalf("copper %+v", n)
+	}
+	if f := ix.Nodes[702]; f.Kind != KindFish || f.Spawns[0].Area != 902 {
+		t.Fatalf("school %+v", f)
+	}
+	zs := ix.NodeZones([]Node{ix.Nodes[700], ix.Nodes[701]}, Where{Zone: "Farland", X: 30, Y: 40})
+	if len(zs) != 2 || zs[0].Zone != "Farland" || !zs[0].Here || zs[1].Zone != "Testisle" {
+		t.Fatalf("zones %+v", zs)
+	}
+}
+
+func TestMissingObjectSectionGivesNoNodes(t *testing.T) {
+	ix, st := OpenGame(install(t, header, fixtureRows()))
+	if ix == nil {
+		t.Fatalf("not readable: %+v", st)
+	}
+	if len(ix.Nodes) != 0 || ix.NodesReason == "" {
+		t.Fatalf("nodes %v reason %q", ix.Nodes, ix.NodesReason)
+	}
+}
