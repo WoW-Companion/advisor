@@ -142,3 +142,45 @@ func SlotName(slot string, invType int) string {
 	}
 	return Upper(s)
 }
+
+var actionVerbs = map[string]bool{}
+
+func init() {
+	for _, w := range strings.Fields("kill slay collect gather speak talk use explore escort defeat reach visit discover find deliver protect clear loot obtain listen investigate search return bring recover retrieve acquire free rescue destroy burn place plant capture tame interrogate inspect examine survey light activate open ride fly travel go meet accompany follow help assist heal cleanse purify summon defend guard mine fish cook craft learn train equip wear complete finish pick turn continue") {
+		actionVerbs[w] = true
+	}
+}
+
+// StartsWithAction reports whether s opens with an action verb ("Kill Wolf", "Turn in Quest").
+func StartsWithAction(s string) bool {
+	f := strings.Fields(strings.ToLower(s))
+	return len(f) > 0 && actionVerbs[strings.Trim(f[0], ".,:;!")]
+}
+
+// pastToAction maps the past-tense ending the game puts on an objective to the verb it means.
+var pastToAction = []struct{ suffix, verb string }{
+	{" placed", "Place"}, {" slain", "Kill"}, {" killed", "Kill"}, {" collected", "Collect"},
+	{" used", "Use"}, {" destroyed", "Destroy"}, {" burned", "Burn"}, {" planted", "Plant"},
+	{" rescued", "Rescue"}, {" freed", "Free"}, {" delivered", "Deliver"}, {" activated", "Activate"},
+	{" discovered", "Discover"}, {" investigated", "Investigate"}, {" cleansed", "Cleanse"},
+}
+
+// Action makes an objective's text read as an instruction: text that already opens with a verb is
+// kept, "Western vial placed" becomes "Place Western vial", and anything else gets verb ("Complete"
+// when verb is empty) in front.
+func Action(verb, text string) string {
+	text = strings.TrimSpace(text)
+	if StartsWithAction(text) {
+		return text
+	}
+	l := strings.ToLower(text)
+	for _, p := range pastToAction {
+		if strings.HasSuffix(l, p.suffix) {
+			return p.verb + " " + strings.TrimSpace(text[:len(text)-len(p.suffix)])
+		}
+	}
+	if verb == "" {
+		verb = "Complete"
+	}
+	return verb + " " + text
+}

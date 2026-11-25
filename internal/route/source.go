@@ -264,10 +264,11 @@ func (s *questieSource) quests(c character.Character, at *questie.Where) []*ques
 		if lq.Level != nil {
 			q.level = *lq.Level
 		}
-		complete := lq.Complete != nil && *lq.Complete
+		ready := character.Quest(lq).Ready()
+		complete := ready
 		var done, open []string
 		for _, o := range lq.Objectives {
-			if o.Done != nil && *o.Done {
+			if o.ObjectiveDone() {
 				done = append(done, strings.ToLower(o.Text))
 			} else {
 				open = append(open, o.Text)
@@ -280,6 +281,12 @@ func (s *questieSource) quests(c character.Character, at *questie.Where) []*ques
 				ax, ay = q.turnin.x, q.turnin.y
 			}
 			q.objs, q.unplaced = objectives(qq, done, open, ax, ay)
+		}
+		// A turn-in is for a quest that is done. When the capture does not say so and no objective step
+		// explains what is left, the quest is listed under Find and its turn-in withheld.
+		if !ready && len(q.objs) == 0 && len(q.unplaced) == 0 {
+			q.turnin = nil
+			q.unplaced = []*spot{{kind: KindObjective, unplaced: true, quests: []int{qq.ID}, names: []string{qq.Name}, label: "Finish " + qq.Name + " (location unknown)"}}
 		}
 		out = append(out, q)
 	}

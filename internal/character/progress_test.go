@@ -102,3 +102,21 @@ func TestObjectiveProgressPrintsCountOnce(t *testing.T) {
 		}
 	}
 }
+
+func TestQuestReadiness(t *testing.T) {
+	yes, no := true, false
+	for _, tc := range []struct {
+		q     Quest
+		ready bool
+		text  string
+	}{
+		{Quest{Complete: &yes}, true, "ready to turn in"},
+		{Quest{Complete: &no, Objectives: []Objective{{Done: &yes}, {Done: &no}, {Done: &no}}}, false, "1 of 3 objectives done"},
+		{Quest{Objectives: []Objective{{Done: &yes}}}, true, "ready to turn in"},
+		{Quest{}, false, "not ready to turn in"},
+	} {
+		if tc.q.Ready() != tc.ready || tc.q.Readiness() != tc.text {
+			t.Errorf("%+v: ready %v %q", tc.q, tc.q.Ready(), tc.q.Readiness())
+		}
+	}
+}
