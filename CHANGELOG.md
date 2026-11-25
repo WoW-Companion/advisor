@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.57
+
+- Removed a leftover keyboard test from Settings.
+
 ## 0.7.56
 
 - Stat and gear advice agree: your main stat first, survivability adds Stamina, with the right item names (like 'of the Eagle'). The stat check now leads with your main stat (Intellect for a Shadow Priest), says what comes next, and names the two item suffixes to look for. "More survivability" adds Stamina next to your main stat instead of replacing it, and gear advice follows the same list. When the game addon has recorded what a point of a stat does for you, the advice quotes it. In the overlay's What next, the same green gear for many slots is now one line instead of eight.
