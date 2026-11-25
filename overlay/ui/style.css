@@ -240,3 +240,5 @@ a:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; border-ra
 .settings .saved { margin-left: 8px; color: var(--gold); font-size: 11px; opacity: 1; transition: opacity .6s; }
 .settings .saved.fade { opacity: 0; }
 .settings small.err { color: #e07070; }
+.time-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.time-chip { cursor: pointer; }

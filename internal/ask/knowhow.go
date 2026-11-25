@@ -36,6 +36,8 @@ const (
 	TopicClass      Topic = "class"
 	TopicProfession Topic = "profession"
 	TopicLevelUp    Topic = "levelup"
+	TopicSession    Topic = "session"
+	TopicTriage     Topic = "triage"
 )
 
 // currentMarker precedes the player's own question when a chat history is prepended.
@@ -76,6 +78,14 @@ func Classify(text string, ds store.DataStore, c *character.Character) Class {
 		cl.Kind = KindState
 	default:
 		cl.Kind = KindKnowHow
+	}
+	if subj, ok := sessionSubject(t); ok {
+		cl.Kind, cl.Topic, cl.Subject = KindKnowHow, TopicSession, subj
+		return cl
+	}
+	if subj, ok := triageSubject(t, c); ok {
+		cl.Kind, cl.Topic, cl.Subject = KindKnowHow, TopicTriage, subj
+		return cl
 	}
 	if subj, ok := levelUpSubject(t); ok {
 		cl.Kind, cl.Topic, cl.Subject = KindKnowHow, TopicLevelUp, subj
@@ -125,6 +135,65 @@ func levelUpSubject(t string) (string, bool) {
 	}
 	if hasAny(t, nextLevels) {
 		return "next", true
+	}
+	return "", false
+}
+
+var minutesRe = regexp.MustCompile(`\b(\d{1,3})\s*(?:min|mins|minutes?)\b`)
+var hoursRe = regexp.MustCompile(`\b(\d{1,2}|an|one|two|half an)\s*(?:hours?|hrs?)\b`)
+var timeIntent = []string{"i've got", "i have", "ive got", "i got", "i only have", "only have", "have about", "got about", "to play", "to spare", "quick session", "short session", "play for", "session"}
+
+// sessionSubject reports an "I've got 30 minutes" question; the subject is "min:30" (minutes, 5 to
+// 240). It needs a time and a sign the player is saying how long they can play.
+func sessionSubject(t string) (string, bool) {
+	mins := 0
+	if m := minutesRe.FindStringSubmatch(t); m != nil {
+		mins, _ = strconv.Atoi(m[1])
+	} else if m := hoursRe.FindStringSubmatch(t); m != nil {
+		switch m[1] {
+		case "an", "one", "1":
+			mins = 60
+		case "two":
+			mins = 120
+		case "half an":
+			mins = 30
+		default:
+			h, _ := strconv.Atoi(m[1])
+			mins = h * 60
+		}
+	} else if hasAny(t, []string{"half an hour", "half hour"}) {
+		mins = 30
+	} else if hasAny(t, []string{"quick session", "short session"}) {
+		mins = 30
+	}
+	if mins == 0 || !hasAny(t, timeIntent) && !hasAny(t, []string{"what should i do", "what can i do", "what can i get done", "plan"}) {
+		return "", false
+	}
+	return "min:" + strconv.Itoa(min(max(mins, 5), 240)), true
+}
+
+// triageSubject reports a quest-triage question: "abandon" for what to drop or a full log, or
+// "quest:<title>" for "is <quest> worth it?" about a quest in the capture's log.
+func triageSubject(t string, c *character.Character) (string, bool) {
+	if hasAny(t, []string{"abandon", "log is full", "log full", "quest log is full", "what should i drop", "what to drop", "which quests should i drop", "clear my log", "clean up my log", "free up quest", "free up my log"}) {
+		return "abandon", true
+	}
+	if !hasAny(t, []string{"worth it", "worth doing", "worth my time", "should i skip", "should i do", "should i bother", "worth finishing"}) {
+		return "", false
+	}
+	if c != nil {
+		best := ""
+		for _, q := range c.Quests {
+			if n := strings.ToLower(q.Title); len(n) > len(best) && strings.Contains(t, n) {
+				best = n
+			}
+		}
+		if best != "" {
+			return "quest:" + best, true
+		}
+	}
+	if hasAny(t, []string{"quest"}) {
+		return "quest:", true
 	}
 	return "", false
 }
@@ -188,7 +257,7 @@ func (g Grounding) Footer() string {
 // Offer reports whether the answer may carry the Check Icy Veins button: a know-how answer about a
 // dungeon, class or profession that has not already been checked.
 func (g Grounding) Offer() bool {
-	return g.KnowHow && !g.Browsing && g.Topic != TopicNone && g.Topic != TopicLevelUp
+	return g.KnowHow && !g.Browsing && g.Topic != TopicNone && g.Topic != TopicLevelUp && g.Topic != TopicSession && g.Topic != TopicTriage
 }
 
 // GroundFor classifies q and, for a know-how question, builds the grounding pack. State questions
@@ -247,6 +316,11 @@ func ground(cc loaded, q Question) Grounding {
 			}
 			s, spells, quests := levelup.Facts(c, cc.ds, cc.qx, from, to)
 			g.Spells, g.Quests = spells, quests
+			b.WriteString(s)
+		}
+	case TopicSession, TopicTriage:
+		if s, ok := sessionFacts(cc, q, cl); ok {
+			g.Quests = true
 			b.WriteString(s)
 		}
 	case TopicProfession:

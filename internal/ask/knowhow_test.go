@@ -248,3 +248,26 @@ func TestClassifyLevelUpQuestions(t *testing.T) {
 		t.Error("level-up answers offer Icy Veins")
 	}
 }
+
+func TestClassifySessionAndTriageQuestions(t *testing.T) {
+	lv := 10
+	c := &character.Character{Level: &lv, Quests: []character.Quest{{QuestID: 5, Title: "Wolves at the Door"}}}
+	for text, want := range map[string][2]interface{}{
+		"I've got 30 minutes, what should I do?": {TopicSession, "min:30"},
+		"I have an hour to play":                 {TopicSession, "min:60"},
+		"quick session, 15 min":                  {TopicSession, "min:15"},
+		"What should I abandon?":                 {TopicTriage, "abandon"},
+		"My quest log is full":                   {TopicTriage, "abandon"},
+		"Is Wolves at the Door worth it?":        {TopicTriage, "quest:wolves at the door"},
+	} {
+		cl := Classify(text, nil, c)
+		if cl.Topic != want[0] || cl.Subject != want[1] || cl.Kind != KindKnowHow {
+			t.Errorf("%q = %+v, want %v %v", text, cl, want[0], want[1])
+		}
+	}
+	for _, text := range []string{"What should I do next?", "How long is the Deadmines run?", "Is the Axe worth it?"} {
+		if cl := Classify(text, nil, c); cl.Topic == TopicSession || cl.Topic == TopicTriage {
+			t.Errorf("%q classified as %s", text, cl.Topic)
+		}
+	}
+}

@@ -34,15 +34,17 @@ const (
 
 // Stop is one place on the route.
 type Stop struct {
-	N       int     `json:"n"`
-	Kind    string  `json:"kind"`
-	QuestID int     `json:"quest_id,omitempty"`
-	Quest   string  `json:"quest,omitempty"`
-	Label   string  `json:"label"`
-	Map     int     `json:"map"`
-	X       float64 `json:"x"`
-	Y       float64 `json:"y"`
-	Done    bool    `json:"done"`
+	N       int    `json:"n"`
+	Kind    string `json:"kind"`
+	QuestID int    `json:"quest_id,omitempty"`
+	Quest   string `json:"quest,omitempty"`
+	// QuestIDs is every quest the stop serves (a merged stop serves several); QuestID is the first.
+	QuestIDs []int   `json:"quest_ids,omitempty"`
+	Label    string  `json:"label"`
+	Map      int     `json:"map"`
+	X        float64 `json:"x"`
+	Y        float64 `json:"y"`
+	Done     bool    `json:"done"`
 
 	// Chain-aware plan (Plan.lua 1.1). A locked step is a follow-up the plan's turn-ins unlock.
 	Locked     bool   `json:"locked,omitempty"`
@@ -465,6 +467,7 @@ func stopOf(n int, s *spot) Stop {
 	st.Unlocks = append([]int(nil), s.unlocks...)
 	if len(s.quests) > 0 {
 		st.QuestID, st.Quest = s.quests[0], strings.Join(s.names, ", ")
+		st.QuestIDs = slices.Clone(s.quests)
 	}
 	with := func(prefix, sep string) string {
 		l := prefix + strings.Join(s.names, ", ")

@@ -65,6 +65,7 @@ type loaded struct {
 	f  character.File
 	ds store.DataStore
 	qx *questie.Index
+	sv string // the capture's path, for the route options and the quest XP table
 }
 
 // load reads the capture and picks the question's character, with its saved play style; ok is false
@@ -81,7 +82,7 @@ func load(cfg Config, key string) (loaded, bool) {
 	if err != nil {
 		return loaded{}, false
 	}
-	l := loaded{c: character.AttachTotals(unlock.AddonSV(cfg.SavedVariables), profile.Attach(profile.Path(), c)), f: f}
+	l := loaded{c: character.AttachTotals(unlock.AddonSV(cfg.SavedVariables), profile.Attach(profile.Path(), c)), f: f, sv: cfg.SavedVariables}
 	if cfg.Dataset != "" {
 		l.ds = store.NewDir(cfg.Dataset)
 	}
