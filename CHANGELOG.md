@@ -2,10 +2,11 @@
 
 ## 0.7.82
 
-- Training lists only what your class trainer shows as available; a spell that needs an earlier rank is noted, not listed as new.
-- Gold needed adds up the available spells only, and "Unlocked between levels" is gone when the trainer's list is known.
-- Talent picks read your spent ranks by spell id, so a maxed talent is no longer suggested again.
-- If your spent talents can't be told apart, it says it can't see which you've taken yet.
+- Training lists only what your trainer shows as available.
+- A spell that needs an earlier rank is noted, not listed as new.
+- Gold needed counts only the spells you can train now.
+- Talent picks skip ranks you already took, matched by spell.
+- If it can't tell which talents you took, it says so.
 
 ## 0.7.81
 

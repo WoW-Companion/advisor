@@ -173,8 +173,7 @@ func nodeSpells(ds store.DataStore) (map[int64]int64, map[string]bool) {
 }
 
 // Unreadable is true when the capture says points are spent but some spent class node cannot be
-// told apart: no node id, no name and no spell id the dataset knows, or points with no node list at
-// all. Crediting such a capture would propose rank 1 of a talent that may already be maxed.
+// told apart: no node id, no name and no spell id the dataset knows. Crediting such a capture would propose rank 1 of a talent that may already be maxed.
 func Unreadable(c character.Character, ds store.DataStore) bool {
 	if c.Talents == nil {
 		return false
@@ -183,9 +182,6 @@ func Unreadable(c character.Character, ds store.DataStore) bool {
 	for _, tr := range c.Talents.Trees {
 		if tr.IsProfession() {
 			continue
-		}
-		if len(tr.Talents) == 0 && tr.Points != nil && *tr.Points > 0 {
-			return true
 		}
 		for _, tl := range tr.Talents {
 			if tl.Rank <= 0 || tl.NodeID != nil || strings.TrimSpace(tl.Name) != "" {
