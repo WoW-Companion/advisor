@@ -122,6 +122,18 @@
     activities: [{ value: 'leveling', label: 'Leveling' }, { value: 'dungeons', label: 'Dungeons' }, { value: 'pvp', label: 'PvP' }, { value: 'mixed', label: 'Mixed' }],
   });
 
+  // saveStyleFlow saves one play-style change. Empty role or focus ("Not set") is a real value and is
+  // sent, never dropped. deps.post(body) resolves { ok, text }; deps.reread() brings back what the advisor
+  // really has saved. Resolves { ok: true } or { ok: false, error } with the reason in plain words.
+  async function saveStyleFlow(deps, character, v) {
+    const body = { character, role: v.role || '', focus: v.focus || '', spec: (v.spec || '').trim(), stat_pref: v.stat_pref || '' };
+    let res;
+    try { res = await deps.post(body); } catch (e) { res = { ok: false, text: '' }; }
+    if (res.ok) { await deps.reread(res); return { ok: true }; }
+    await deps.reread(res);
+    return { ok: false, error: 'Not saved: ' + (String(res.text || '').trim() || 'the advisor did not answer. Your last saved choice is shown.') };
+  }
+
   // --- freshness dot -------------------------------------------------------------------------
   const plural = (n, w) => n + ' ' + w + (n === 1 ? '' : 's');
   function agoWords(s) {
@@ -143,7 +155,7 @@
     return /map units/.test(s) ? s.replace(/,?\s*(?:about\s+)?[\d.,]+\s*map units/i, '') : s;
   }
 
-  const api = { chatStore, gapLabel, gapDivider, visibleSuggestions, suggestionRow, QUICK, quickAction, quickBar, styleNeeds, freshness, planLine, dayKey, MAX_TURNS, MAX_SUGGESTIONS };
+  const api = { chatStore, gapLabel, gapDivider, visibleSuggestions, suggestionRow, QUICK, quickAction, quickBar, styleNeeds, saveStyleFlow, freshness, planLine, dayKey, MAX_TURNS, MAX_SUGGESTIONS };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.WowcLaunch = api;
 })(typeof window !== 'undefined' ? window : globalThis);

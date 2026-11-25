@@ -107,11 +107,13 @@
       <label class="row"><span class="lbl">Show tokens used</span><span class="ctl"><input id="usage" type="checkbox"></span></label>
     </details>
     <details class="grp" data-group="style">
-      <summary>Play style</summary>
+      <summary>Play style <span id="style-saved" class="saved" hidden>Saved ✓</span></summary>
+      <small>Changes save as you make them.</small>
       <label class="row"><span class="lbl">Role</span><span class="ctl"><select id="style-role"><option value="">Not set</option><option value="damage">Damage</option><option value="tank">Tank</option><option value="healer">Healer</option><option value="balanced">Balanced</option></select></span></label>
       <label class="row"><span class="lbl">Focus</span><span class="ctl"><select id="style-focus"><option value="">Not set</option><option value="leveling">Leveling</option><option value="dungeons">Dungeons</option><option value="pvp">PvP</option><option value="mixed">Mixed</option></select></span></label>
       <label class="row"><span class="lbl">Spec</span><span class="ctl"><select id="style-spec"><option value="">Not sure yet</option></select></span></label>
       <label class="row"><span class="lbl">Stat preference</span><span class="ctl"><select id="style-pref"><option value="balanced">Balanced</option><option value="damage">More damage</option><option value="survival">More survivability</option></select></span></label>
+      <small id="style-error" class="err" role="alert" hidden></small>
       <small>For the character chosen above. Talent advice follows it; the buttons also appear in the chat when a question needs it.</small>
     </details>
     <details class="grp" data-group="game">

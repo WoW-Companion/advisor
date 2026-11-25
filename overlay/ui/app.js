@@ -375,7 +375,7 @@ function setChars() {
 who.onchange = () => { cfg.who = who.value; save(); showNext(); if (!busy) restoreChat(); };
 
 // Play style: the chosen character's role, focus and spec, saved locally by the advisor. Both role
-// and focus are needed before it saves; the spec is a dropdown of the class's specs.
+// and focus may each be "Not set" (both: the style is cleared); the spec is a dropdown of the class's specs.
 function showStyle() {
   const c = state && state.characters.find(c => c.key === who.value), st = (c && c.style) || {};
   for (const card of document.querySelectorAll('.style-card')) if (card.dataset.character === who.value && card.setStyle) card.setStyle(st);
@@ -387,18 +387,35 @@ function showStyle() {
   $('style-pref').value = st.stat_pref || 'balanced';
 }
 // saveStyle stores a play style for one character; the settings section and the inline card both use it.
-async function saveStyle(character, { role, focus, spec, stat_pref }) {
-  try {
-    const r = await api('/api/profile', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ character, role, focus, spec: (spec || '').trim(), stat_pref: stat_pref || '' }) });
-    if (!r.ok) return false;
-    state.characters = await r.json(); showNext();
-    return true;
-  } catch (e) { return false; /* the next state load shows what is saved */ }
+async function saveStyle(character, vals) {
+  return (await styleFlow(character, vals)).ok;
 }
-function pushStyle() {
-  const role = $('style-role').value, focus = $('style-focus').value;
-  if (!who.value || !role || !focus) return;
-  saveStyle(who.value, { role, focus, spec: $('style-spec').value, stat_pref: $('style-pref').value });
+async function styleFlow(character, vals) {
+  return WowcLaunch.saveStyleFlow({
+    post: async body => {
+      const r = await api('/api/profile', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      if (!r.ok) return { ok: false, text: await r.text() };
+      state.characters = await r.json();
+      return { ok: true };
+    },
+    // After every save the profile is read again from the advisor, so the dropdowns show what is saved.
+    reread: async () => {
+      try { const r = await api('/api/state'); if (r.ok) state = await r.json(); } catch (e) { /* keep what we have */ }
+      showNext();
+    },
+  }, character, vals);
+}
+let savedTimer = null;
+function showSaved(res) {
+  const tick = $('style-saved'), err = $('style-error');
+  clearTimeout(savedTimer);
+  err.hidden = res.ok; err.textContent = res.ok ? '' : res.error;
+  tick.hidden = !res.ok; tick.classList.remove('fade');
+  if (res.ok) savedTimer = setTimeout(() => { tick.classList.add('fade'); savedTimer = setTimeout(() => { tick.hidden = true; }, 700); }, 1500);
+}
+async function pushStyle() {
+  if (!who.value) return;
+  showSaved(await styleFlow(who.value, { role: $('style-role').value, focus: $('style-focus').value, spec: $('style-spec').value, stat_pref: $('style-pref').value }));
 }
 for (const id of ['style-role', 'style-focus', 'style-spec', 'style-pref']) $(id).onchange = pushStyle;
 

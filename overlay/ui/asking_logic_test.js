@@ -71,6 +71,14 @@ card.setStyle({ role: 'damage', focus: 'leveling', spec: '' });
 assert(opts[0].className.includes('on') && opts[2].className.includes('on') && !opts[1].className.includes('on'));
 assert(A.NEEDS_LINE.startsWith('Tell me how you like to play'));
 
+// One of role and focus "Not set": the card asks only for the missing one and saves the kept one with it.
+const half = []; 
+const hc = A.needsCard(doc, { roles: null, activities: [{ value: 'leveling', label: 'Leveling' }, { value: 'pvp', label: 'PvP' }], role: 'tank', focus: '' }, st => half.push(st));
+assert.strictEqual(hc.find('opt').length, 2);
+assert(hc.find('style-save')[0].disabled);
+hc.find('opt')[1].onclick(); hc.find('style-save')[0].onclick();
+assert.deepStrictEqual(half, [{ role: 'tank', focus: 'pvp', spec: '' }]);
+
 // Wording: a short question, no reload text, no preamble.
 assert.strictEqual(A.shortQuestion("I'm a level 12 priest. Where should my talent point go?"), 'Where should my talent point go?');
 assert.strictEqual(A.shortQuestion('Where should my talent point go?'), 'Where should my talent point go?');

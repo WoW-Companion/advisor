@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.42
+
+- Play Style changes save as you make them, with a Saved tick; Not set clears a choice. Set Role and Focus to Not set and the character's play style is cleared, so the next talent or stat question shows the play-style buttons again; set just one to Not set and only that one is asked for. Spec "Not sure yet" clears the spec. A small "Saved ✓" shows after each change, and if a save is refused, the reason appears under the section and the dropdowns go back to what is really saved. Done still just closes the panel. The AI client can now forget a single choice when you ask it to.
+
 ## 0.7.41
 
 - Profession leveling plans now follow when each recipe can really be learned, stop at each trainer rank, and show the ore, cloth or leather behind every bar and bolt. No recipe is planned before the skill it is learned at, and a guessed learn skill is shown as "around skill N". A plan stops at 75, 150 and 225 and names the rank and character level you need to train next. By default only recipes from a trainer or vendor are planned; drop, quest and reputation patterns are used only if you already know them, and up to two are offered as "if you have the pattern". Bars, grinding stones, bolts and cured leather are followed back to smelting or crafting, with the skill-ups the crafts give, and ore, herbs, leather and cloth say where to gather or buy them instead of "rare".

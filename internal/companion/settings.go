@@ -98,8 +98,15 @@ func (s *Server) setProfile(w http.ResponseWriter, r *http.Request) {
 			req.StatPref = cmp.Or(req.StatPref, e.Profile.StatPref)
 		}
 		p, err := profile.Clean(req.Profile)
+		if err != nil {
+			return err
+		}
+		if p.Role == "" && p.Focus == "" {
+			e.Profile = nil // both "Not set": the play style is cleared, the next question asks again
+			return nil
+		}
 		e.Profile = &p
-		return err
+		return nil
 	})
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)

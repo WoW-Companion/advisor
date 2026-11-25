@@ -65,7 +65,9 @@ func TestClean(t *testing.T) {
 	}{
 		{"good", character.Profile{Role: "tank", Focus: "dungeons"}, true},
 		{"bad role", character.Profile{Role: "dps", Focus: "pvp"}, false},
-		{"no focus", character.Profile{Role: "tank"}, false},
+		{"no focus", character.Profile{Role: "tank"}, true}, // "Not set" is a real choice
+		{"neither", character.Profile{}, true},
+		{"bad focus", character.Profile{Role: "tank", Focus: "x"}, false},
 	}
 	for _, tc := range cases {
 		if _, err := Clean(tc.in); (err == nil) != tc.ok {

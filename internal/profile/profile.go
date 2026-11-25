@@ -95,7 +95,11 @@ func Update(path, key string, fn func(*Entry) error) (Entry, error) {
 	if err := fn(&e); err != nil {
 		return Entry{}, err
 	}
-	f.Characters[key] = e
+	if e.Profile == nil {
+		delete(f.Characters, key) // nothing left to keep: the character has no entry
+	} else {
+		f.Characters[key] = e
+	}
 	out, _ := json.MarshalIndent(f, "", "  ")
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return Entry{}, err
@@ -114,16 +118,17 @@ func Attach(path string, c character.Character) character.Character {
 	return c
 }
 
-// Clean checks a profile: role and focus are from the allowed lists (case-insensitive, lower-cased
-// on save) and the spec is short text.
+// Clean checks a profile: role and focus are empty ("Not set") or from the allowed lists
+// (case-insensitive, lower-cased on save) and the spec is short text. An empty role or focus is
+// asked for again when a question needs it.
 func Clean(p character.Profile) (character.Profile, error) {
 	p.Role, p.Focus = strings.ToLower(strings.TrimSpace(p.Role)), strings.ToLower(strings.TrimSpace(p.Focus))
 	p.Spec = strings.TrimSpace(p.Spec)
 	p.StatPref = strings.ToLower(strings.TrimSpace(p.StatPref))
 	switch {
-	case !slices.Contains(Roles, p.Role):
+	case p.Role != "" && !slices.Contains(Roles, p.Role):
 		return p, fmt.Errorf("role must be one of %s", strings.Join(Roles, ", "))
-	case !slices.Contains(Foci, p.Focus):
+	case p.Focus != "" && !slices.Contains(Foci, p.Focus):
 		return p, fmt.Errorf("focus must be one of %s", strings.Join(Foci, ", "))
 	case !slices.Contains(StatPrefs, p.StatPref):
 		return p, fmt.Errorf("stat_pref must be one of %s", strings.Join(StatPrefs[1:], ", "))
@@ -131,6 +136,12 @@ func Clean(p character.Profile) (character.Profile, error) {
 		return p, errors.New("spec is too long")
 	}
 	return p, nil
+}
+
+// Incomplete is true when a saved play style lacks its role or its focus, so a question that needs
+// them must ask. A nil profile is incomplete too.
+func Incomplete(p *character.Profile) bool {
+	return p == nil || p.Role == "" || p.Focus == ""
 }
 
 // Ask is the short multiple-choice question the model puts to a player who has no saved play

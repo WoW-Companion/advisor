@@ -98,3 +98,43 @@ func TestProfileFlow(t *testing.T) {
 		t.Errorf("talent_tree = %s", text)
 	}
 }
+
+// set_character_profile never forgets a field the AI merely omitted; only the clear list does, and
+// clearing role and focus together removes the saved play style.
+func TestSetProfileClear(t *testing.T) {
+	store := filepath.Join(t.TempDir(), "profiles.json")
+	call := profileSession(t, store)
+	var out ProfileOutput
+	set := func(args map[string]any) {
+		t.Helper()
+		args["character"] = "testpriest"
+		text, isErr := call("set_character_profile", args)
+		out = ProfileOutput{}
+		if isErr || json.Unmarshal([]byte(text), &out) != nil {
+			t.Fatalf("set %v = %s", args, text)
+		}
+	}
+	set(map[string]any{"role": "healer", "focus": "dungeons", "spec": "Test Priest"})
+	set(map[string]any{"stat_pref": "survival"})
+	if out.Profile.Spec != "Test Priest" || out.Profile.Role != "healer" {
+		t.Errorf("an omitted field was dropped: %+v", out.Profile)
+	}
+	set(map[string]any{"clear": []string{"spec"}})
+	if out.Profile == nil || out.Profile.Spec != "" || out.Profile.Role != "healer" || out.Profile.StatPref != "survival" {
+		t.Errorf("clear spec: %+v", out.Profile)
+	}
+	set(map[string]any{"clear": []string{"focus"}})
+	if out.Profile == nil || out.Profile.Focus != "" || !out.NeedsProfile {
+		t.Errorf("clear focus: %+v needs=%v", out.Profile, out.NeedsProfile)
+	}
+	set(map[string]any{"clear": []string{"role", "focus"}})
+	if out.Profile != nil || !out.NeedsProfile {
+		t.Errorf("clear both: %+v", out.Profile)
+	}
+	if b, _ := os.ReadFile(store); strings.Contains(string(b), "testpriest") {
+		t.Errorf("the cleared character is still stored: %s", b)
+	}
+	if text, isErr := call("set_character_profile", map[string]any{"character": "testpriest", "clear": []string{"colour"}}); !isErr || !strings.HasPrefix(text, "Not saved:") {
+		t.Errorf("unknown clear field = %q", text)
+	}
+}

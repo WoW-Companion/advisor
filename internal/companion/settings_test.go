@@ -2,6 +2,7 @@ package companion
 
 import (
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -88,5 +89,63 @@ func TestNotSureYetThenTalentsShowsSpecButtons(t *testing.T) {
 	n, ok := ask.PlayStyleNeeded(s.askCfg(), q)
 	if !ok || n.Needs != ask.NeedsSpec || len(n.Specs) == 0 || n.Role != "healer" || n.Focus != "dungeons" {
 		t.Errorf("after Not sure yet: %+v, %v", n, ok)
+	}
+}
+
+// "Not set" is a real choice: both empty clears the profile, one empty saves it empty and the card
+// asks only for that one, a refused save leaves what was saved.
+func TestPlayStyleNotSet(t *testing.T) {
+	capture := "../../testdata/foreverscribe/tree_priest.lua"
+	path := filepath.Join(t.TempDir(), "profiles.json")
+	t.Setenv(profile.Env, path)
+	s := New(Config{ForeverScribe: capture, Profiles: path, Ask: ask.Config{Command: []string{"claude"}}})
+	s.chars = []CharInfo{{Key: "Testpriest", Name: "Testpriest"}}
+	post := func(body string) int {
+		w := httptest.NewRecorder()
+		s.setProfile(w, httptest.NewRequest("POST", "/api/profile", strings.NewReader(body)))
+		return w.Code
+	}
+	q := ask.Question{Character: "Testpriest", Text: "Which talent should I take next for my play style, and why?", Ref: "talents"}
+
+	if post(`{"character":"Testpriest","role":"healer","focus":"dungeons","spec":"Test Priest"}`) != 200 {
+		t.Fatal("save")
+	}
+	// One field Not set: saved empty, the card asks for only that one.
+	if post(`{"character":"Testpriest","role":"","focus":"dungeons","spec":"Test Priest"}`) != 200 {
+		t.Fatal("role Not set was refused")
+	}
+	if p := profile.Get(path, "Testpriest").Profile; p == nil || p.Role != "" || p.Focus != "dungeons" {
+		t.Fatalf("stored %+v", p)
+	}
+	n, ok := ask.PlayStyleNeeded(s.askCfg(), q)
+	if !ok || len(n.Roles) == 0 || len(n.Activities) != 0 || n.Focus != "dungeons" {
+		t.Errorf("role missing: %+v, %v", n, ok)
+	}
+	// Spec cleared on its own.
+	post(`{"character":"Testpriest","role":"healer","focus":"dungeons","spec":"Test Priest"}`)
+	post(`{"character":"Testpriest","role":"healer","focus":"dungeons","spec":""}`)
+	if p := profile.Get(path, "Testpriest").Profile; p == nil || p.Spec != "" || p.Role != "healer" {
+		t.Errorf("spec not cleared: %+v", p)
+	}
+	// A refused save changes nothing.
+	if post(`{"character":"Testpriest","role":"dps","focus":"dungeons"}`) != 400 {
+		t.Error("a bad role was accepted")
+	}
+	if p := profile.Get(path, "Testpriest").Profile; p == nil || p.Role != "healer" {
+		t.Errorf("a refused save changed the profile: %+v", p)
+	}
+	// Both Not set: the profile is removed and the full card comes back.
+	if post(`{"character":"Testpriest","role":"","focus":"","spec":""}`) != 200 {
+		t.Fatal("clearing was refused")
+	}
+	if p := profile.Get(path, "Testpriest").Profile; p != nil {
+		t.Errorf("profile not removed: %+v", p)
+	}
+	if b, _ := os.ReadFile(path); strings.Contains(string(b), "Testpriest") {
+		t.Errorf("entry still stored: %s", b)
+	}
+	n, ok = ask.PlayStyleNeeded(s.askCfg(), q)
+	if !ok || n.Needs != ask.NeedsPlayStyle || len(n.Roles) == 0 || len(n.Activities) == 0 {
+		t.Errorf("after clearing: %+v, %v", n, ok)
 	}
 }
