@@ -39,7 +39,7 @@ When the addon records per-point effects in `WoWCompanionDB.stats[key].per` (`in
 
 1. The addon's recorded totals, `WoWCompanionDB.stats[<character key>] = { at, level, str, agi, sta, int, spi,
    armor, ap, crit, dodge, parry, block }`, every field optional and read tolerantly.
-2. When there are none, gear-only totals: how many worn items carry each stat, from the dataset's item stats. The
+2. When there are none, gear-only totals: the stat amounts of the worn items from the dataset's item stats (one per stat for an item the dataset lists by type only). The
    result says which source it used (`source`: `captured`, `gear` or `none`).
 
 Each of Strength, Agility, Stamina, Intellect and Spirit is compared as a share of the five against the share the

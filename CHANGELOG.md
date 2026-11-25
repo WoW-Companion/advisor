@@ -1,10 +1,16 @@
 # Changelog
 
-## 0.7.80
+## 0.7.81
 
 - Unspent talent points come first: "Spend 1 talent point: Shadow Focus (Shadow)".
 - If your picks can't be seen yet, it says to open your talents instead of naming a talent.
 - "What next" answers mention unspent points first; the line clears once you spend them.
+
+## 0.7.80
+
+- Gear upgrades now weigh how much of each stat an item has, not only which stats.
+- Spell Power counts for casters and healers, and Attack Power for melee, in upgrades.
+- The stat check adds up the stat amounts of your worn gear.
 
 ## 0.7.79
 
