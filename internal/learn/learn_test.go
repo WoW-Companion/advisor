@@ -25,12 +25,13 @@ type trainerRow struct {
 	Npc       int32    `parquet:"npc_id"`
 	Name      string   `parquet:"name"`
 	Prof      string   `parquet:"profession"`
+	ZoneID    int32    `parquet:"zone_id"`
 	Zone      string   `parquet:"zone_name"`
-	Recipes   int32    `parquet:"recipes"`
-	Faction   string   `parquet:"faction"`
 	X         *float64 `parquet:"x,optional"`
 	Y         *float64 `parquet:"y,optional"`
-	Continent string   `parquet:"continent"`
+	Faction   string   `parquet:"faction"`
+	Recipes   int32    `parquet:"recipes"`
+	Reporters int32    `parquet:"reporters"`
 }
 
 type trainerSpell struct {
@@ -79,13 +80,15 @@ func data(t *testing.T) store.DataStore {
 			{500, "Blacksmithing", "Runed Copper Gauntlets", 90, 1, "trainer"},
 			{501, "Blacksmithing", "Bronze Hammer", 91, 90, "trainer"},
 			{502, "Blacksmithing", "Plans: Thorium Bar", 92, 1, "item"},
+			{700, "Leatherworking", "Embossed Leather Boots", 94, 1, "trainer"},
+			{701, "Leatherworking", "Fine Leather Belt", 95, 150, "trainer"},
 			{600, "Alchemy", "Minor Healing Potion", 93, 1, "trainer"},
 		}),
 		"trainers": table(t, []trainerRow{
-			{1, "Alliance Smith", "Blacksmithing", "Elwynn Forest", 20, "Alliance", fp(40), fp(60), "Eastern Kingdoms"},
-			{2, "Horde Smith", "Blacksmithing", "Durotar", 20, "Horde", fp(50), fp(50), "Kalimdor"},
-			{3, "Far Alliance Smith", "Blacksmithing", "Ironforge", 30, "Alliance", fp(50), fp(40), "Eastern Kingdoms"},
-			{4, "Questie Smith", "Blacksmithing", "", 5, "Horde", nil, nil, ""},
+			{1, "Alliance Smith", "Blacksmithing", 12, "Elwynn Forest", fp(40), fp(60), "Alliance", 20, 3},
+			{2, "Horde Smith", "Blacksmithing", 14, "Durotar", fp(50), fp(50), "Horde", 20, 3},
+			{3, "Far Alliance Smith", "Blacksmithing", 1537, "Ironforge", fp(50), fp(40), "Alliance", 30, 3},
+			{4, "Questie Smith", "Blacksmithing", 0, "", nil, nil, "Horde", 5, 1},
 		}),
 		"trainer_spells": table(t, []trainerSpell{{1, 501, 90}}),
 		"npcs":           table(t, []npcRow{{10, "Recipe Vendor", "Orgrimmar"}, {1, "Alliance Smith", ""}}),
@@ -170,7 +173,94 @@ func TestClientMinimumOfOneStatesNoNumber(t *testing.T) {
 
 func TestGateCounts(t *testing.T) {
 	got := GateCounts(data(t))
-	if got["Blacksmithing"] != 1 || got["Alchemy"] != 1 || len(got) != 2 {
+	if got["Blacksmithing"] != 1 || got["Alchemy"] != 1 || got["Leatherworking"] != 1 || len(got) != 3 {
 		t.Errorf("%v", got)
+	}
+}
+
+func npc(name, sub, faction string, flags, area int, x, y float64) questie.Entity {
+	return questie.Entity{Name: name, Sub: sub, Faction: faction, Flags: flags, Spawns: []questie.Spawn{{Area: area, X: x, Y: y}}}
+}
+
+func leatherIndex() *questie.Index {
+	return &questie.Index{
+		Areas: map[int]questie.Area{1: {UIMap: 85, Zone: "Orgrimmar"}, 2: {UIMap: 87, Zone: "Ironforge"}, 3: {UIMap: 88, Zone: "Thunder Bluff"}},
+		Npcs: map[int]questie.Entity{
+			1: npc("Orc Leatherer", "Leatherworking Trainer", "H", 0, 1, 60, 50),
+			2: npc("Dwarf Leatherer", "Leatherworking Trainer", "A", 0, 2, 30, 30),
+			3: npc("Far Tauren", "Leatherworking Trainer", "H", 0, 3, 40, 40),
+			4: npc("Leather Goods", "Leatherworking Supplies", "H", 0, 1, 61, 51),
+			5: npc("Journeyman Orc", "Journeyman Leatherworker", "H", 0, 1, 70, 70),
+			6: npc("Expert Orc", "Expert Leatherworker", "H", 0, 1, 80, 80),
+		},
+	}
+}
+
+func TestQuestieTrainerWhenDatasetHasNone(t *testing.T) {
+	qx := leatherIndex()
+	res, err := Find(char("Horde", "Orgrimmar"), data(t), qx, "Embossed Leather Boots")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "Learn it from Orc Leatherer, Leatherworking Trainer, in Orgrimmar (60, 50) (from your Questie database)."
+	if !strings.HasPrefix(res.Text, want) {
+		t.Errorf("want %q first:\n%s", want, res.Text)
+	}
+	if strings.Contains(res.Text, "Dwarf") || strings.Contains(res.Text, "Leather Goods") {
+		t.Errorf("wrong faction or a vendor: %s", res.Text)
+	}
+	al, _ := Find(char("Alliance", "Ironforge"), data(t), qx, "Embossed Leather Boots")
+	if !strings.HasPrefix(al.Text, "Learn it from Dwarf Leatherer, Leatherworking Trainer, in Ironforge (30, 30)") {
+		t.Errorf("%s", al.Text)
+	}
+	// Away from the zone, the same continent beats the other one.
+	far, _ := Find(char("Horde", "Durotar"), data(t), qx, "Embossed Leather Boots")
+	if !strings.Contains(far.Text, "Orc Leatherer") {
+		t.Errorf("%s", far.Text)
+	}
+}
+
+func TestRankTierSuitsTheSkill(t *testing.T) {
+	qx := leatherIndex()
+	c := char("Horde", "Orgrimmar")
+	c.Professions = []character.Skill{{Name: "Leatherworking", Rank: &[]int{100}[0]}}
+	res, _ := Find(c, data(t), qx, "Embossed Leather Boots")
+	if !strings.HasPrefix(res.Text, "Learn it from Journeyman Orc, Journeyman Leatherworker, in Orgrimmar") {
+		t.Errorf("skill 100 should go to the Journeyman:\n%s", res.Text)
+	}
+	// A recipe gated at 150 still suits the Journeyman; the apprentice trainer does not reach it.
+	res, _ = Find(c, data(t), qx, "Fine Leather Belt")
+	if !strings.HasPrefix(res.Text, "Learn it from Journeyman Orc") {
+		t.Errorf("gate 150:\n%s", res.Text)
+	}
+	c.Professions[0].Rank = &[]int{200}[0]
+	res, _ = Find(c, data(t), qx, "Embossed Leather Boots")
+	if !strings.HasPrefix(res.Text, "Learn it from Expert Orc") {
+		t.Errorf("skill 200 should go to the Expert:\n%s", res.Text)
+	}
+}
+
+func TestTrainerOfRules(t *testing.T) {
+	for _, tc := range []struct {
+		sub   string
+		flags int
+		prof  string
+		tier  int
+	}{
+		{"Blacksmithing Trainer", 0, "Blacksmithing", 75},
+		{"Junior Blacksmithing Trainer", 0, "Blacksmithing", 75},
+		{"Journeyman Blacksmith", 0, "Blacksmithing", 150},
+		{"Expert Blacksmith", 0, "Blacksmithing", 225},
+		{"Artisan Blacksmith", 0, "Blacksmithing", 300},
+		{"First Aid Trainer", 0, "First Aid", 75},
+		{"Blacksmith", 0x10, "Blacksmithing", 75},
+		{"Blacksmith", 0, "", 0},
+		{"Blacksmithing Supplies", 0x10, "", 0},
+		{"", 0x10, "", 0},
+	} {
+		p, tier, ok := questie.TrainerOf(questie.Entity{Sub: tc.sub, Flags: tc.flags})
+		if p != tc.prof || tier != tc.tier || ok != (tc.prof != "") {
+			t.Errorf("%q flags %d: %q %d %v", tc.sub, tc.flags, p, tier, ok)
+		}
 	}
 }

@@ -14,7 +14,7 @@ import (
 	"strings"
 )
 
-const indexSchema = 6 // bump when the cached index's shape changes
+const indexSchema = 7 // bump when the cached index's shape changes
 
 // Spawn is a place, as percent of the area's map.
 type Spawn struct {
@@ -28,6 +28,7 @@ type Entity struct {
 	Level   int
 	Rank    int    // 0 normal, 1 elite, 2 rare elite, 3 boss, 4 rare
 	Faction string // friendlyToFaction: "A", "H", "AH"; empty when Questie names none
+	Flags   int    // npcFlags, a bit set; 0x10 marks a trainer
 	Spawns  []Spawn
 }
 
@@ -265,7 +266,7 @@ func asList(v any) []any { a, _ := v.([]any); return a }
 
 func buildEntity(r rawRow, spawnField string) Entity {
 	s := r.scalars()
-	return Entity{Name: text(s[int64(1)]), Sub: text(s[int64(14)]), Level: num(s[int64(5)]), Rank: num(s[int64(6)]), Faction: text(s[int64(13)]), Spawns: spawns(r[spawnField])}
+	return Entity{Name: text(s[int64(1)]), Sub: text(s[int64(14)]), Level: num(s[int64(5)]), Rank: num(s[int64(6)]), Faction: text(s[int64(13)]), Flags: num(s[int64(15)]), Spawns: spawns(r[spawnField])}
 }
 
 var areaLine = regexp.MustCompile(`^\s*\[(\d+)\]\s*=\s*(\d+),?\s*(?:--\s*(.*?))?\s*$`)

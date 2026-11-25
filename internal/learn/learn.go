@@ -31,6 +31,7 @@ const (
 type Way struct {
 	Kind    string  `json:"kind" jsonschema:"trainer, vendor, drop or quest"`
 	Name    string  `json:"name,omitempty"`
+	Title   string  `json:"title,omitempty" jsonschema:"a Questie trainer's rank title, such as Journeyman Blacksmith"`
 	Zone    string  `json:"zone,omitempty"`
 	X       float64 `json:"x,omitempty"`
 	Y       float64 `json:"y,omitempty"`
@@ -40,10 +41,12 @@ type Way struct {
 	Price   string  `json:"price,omitempty"`
 	Line    string  `json:"line"`
 
-	tier int
-	dist float64
-	rank int64
-	id   int64
+	tier  int
+	dist  float64
+	ttier int // a Questie trainer's rank tier; 0 for a dataset trainer
+	miss  int // 1 when the trainer's rank tier does not reach the skill wanted
+	rank  int64
+	id    int64
 }
 
 // Gate is the skill needed to learn the recipe.
@@ -107,22 +110,20 @@ type finder struct {
 	hasAt bool
 	zone  string
 	cont  string
+	skill int // the character's skill in the recipe's profession
 }
 
 // place fills a way's zone and coordinates from the dataset row, then from Questie for what is
 // missing. It returns the faction Questie names, for a row with none.
 func (f *finder) place(w *Way, npc store.Row, id int64) (continent, qfaction string) {
 	w.Zone = str(npc["zone_name"])
-	if w.Zone == "" {
-		w.Zone = str(npc["located_in"])
-	}
-	continent = str(npc["continent"])
 	if x, ok := f64(npc["x"]); ok {
 		if y, ok := f64(npc["y"]); ok {
 			w.X, w.Y, w.HasXY = x, y, true
 		}
 	}
 	qfaction = f.qx.NpcFaction(int(id))
+	defer func() { continent = continentOf(w.Zone) }()
 	if w.HasXY && w.Zone != "" {
 		return
 	}
@@ -157,6 +158,8 @@ func sortWays(ws []Way) {
 	sort.SliceStable(ws, func(i, j int) bool {
 		a, b := ws[i], ws[j]
 		switch {
+		case a.miss != b.miss:
+			return a.miss < b.miss
 		case a.tier != b.tier:
 			return a.tier < b.tier
 		case a.dist != b.dist:
@@ -165,6 +168,8 @@ func sortWays(ws []Way) {
 			return a.HasXY
 		case a.rank != b.rank:
 			return a.rank > b.rank
+		case a.ttier != b.ttier:
+			return a.ttier < b.ttier
 		}
 		return a.id < b.id
 	})
@@ -172,6 +177,9 @@ func sortWays(ws []Way) {
 
 func where(w Way) string {
 	s := w.Name
+	if w.Title != "" {
+		s += ", " + w.Title + ","
+	}
 	if w.Zone != "" {
 		s += " in " + w.Zone
 	}
@@ -182,7 +190,7 @@ func where(w Way) string {
 }
 
 // trainers lists the trainers of the profession that teach the recipe, for the character's faction.
-func (f *finder) trainers(prof string, spell int64, from string) []Way {
+func (f *finder) trainers(prof string, spell int64, from string, need int64) []Way {
 	teach := map[int64]bool{}
 	for _, r := range rows(f.ds, "trainer_spells", "spell_id", spell) {
 		teach[i64(r["npc_id"])] = true
@@ -207,6 +215,37 @@ func (f *finder) trainers(prof string, spell int64, from string) []Way {
 			continue
 		}
 		f.rank(&w, cont)
+		out = append(out, w)
+	}
+	if len(out) == 0 {
+		out = f.questieTrainers(prof, need)
+	}
+	return out
+}
+
+// questieTrainers lists the profession's trainers from the player's QuestieDB, for the character's
+// faction, when the dataset has none for it. A trainer whose rank tier does not reach the skill
+// wanted (the recipe's gate or the character's skill, whichever is higher) sorts after those that do.
+func (f *finder) questieTrainers(prof string, need int64) []Way {
+	want := int(need)
+	if f.skill > want {
+		want = f.skill
+	}
+	var out []Way
+	for _, t := range f.qx.ProfessionTrainers(prof) {
+		if !factionOK(f.qx.NpcFaction(t.ID), f.c.Faction) {
+			continue
+		}
+		p, ok := f.qx.NpcPlace(t.ID, f.at)
+		if !ok || p.Zone == "" {
+			continue
+		}
+		w := Way{Kind: Trainer, Name: t.Name, Title: t.Sub, Zone: p.Zone, X: p.X, Y: p.Y, HasXY: true,
+			Questie: true, id: int64(t.ID), ttier: t.Tier}
+		if t.Tier < want {
+			w.miss = 1
+		}
+		f.rank(&w, continentOf(p.Zone))
 		out = append(out, w)
 	}
 	return out
@@ -287,6 +326,18 @@ func line(w Way) string {
 // gate is the recipe's real skill gate. A trainer's required skill comes first; a client minimum
 // of 1 on a trainer recipe is no gate at all and states no number.
 func (f *finder) gate(r store.Row, prof string, trainerTaught bool) Gate {
+	need := f.need(r)
+	if need > 1 {
+		return Gate{Skill: int(need), Line: fmt.Sprintf("It needs %s %d.", prof, need)}
+	}
+	if trainerTaught {
+		return Gate{Unknown: true, Line: "The trainer will show whether you can learn it yet."}
+	}
+	return Gate{}
+}
+
+// need is the skill the recipe needs, or 0 when no number is known.
+func (f *finder) need(r store.Row) int64 {
 	spell := i64(r["spell_id"])
 	var need int64
 	for _, t := range rows(f.ds, "trainer_spells", "spell_id", spell) {
@@ -306,13 +357,7 @@ func (f *finder) gate(r store.Row, prof string, trainerTaught bool) Gate {
 			need = n
 		}
 	}
-	if need > 1 {
-		return Gate{Skill: int(need), Line: fmt.Sprintf("It needs %s %d.", prof, need)}
-	}
-	if trainerTaught {
-		return Gate{Unknown: true, Line: "The trainer will show whether you can learn it yet."}
-	}
-	return Gate{}
+	return need
 }
 
 // Recipe says where to learn the recipe row r (a recipes row) for the character.
@@ -328,19 +373,15 @@ func Recipe(c character.Character, ds store.DataStore, qx *questie.Index, r stor
 	prof, spell, from := str(r["skill_line_name"]), i64(r["spell_id"]), strings.ToLower(str(r["learned_from"]))
 	res := Result{Recipe: str(r["name"]), Profession: prof, Ways: []Way{}}
 	var ways []Way
-	// The character's continent: that of any trainer in their zone.
-	if f.zone != "" {
-		all, _ := ds.Filter("trainers", store.Range{Column: "profession", Min: prof, Max: prof})
-		for _, t := range all {
-			if strings.EqualFold(str(t["zone_name"]), f.zone) && str(t["continent"]) != "" {
-				f.cont = str(t["continent"])
-				break
-			}
+	f.cont = continentOf(f.zone)
+	for _, p := range c.Professions {
+		if strings.EqualFold(p.Name, prof) && p.Rank != nil {
+			f.skill = *p.Rank
 		}
 	}
 	byTrainer := from != "item"
 	if byTrainer {
-		ways = append(ways, f.trainers(prof, spell, from)...)
+		ways = append(ways, f.trainers(prof, spell, from, f.need(r))...)
 	}
 	if from == "item" || from == "both" {
 		for _, ri := range rows(ds, "recipe_items", "teaches_spell_id", spell) {
