@@ -52,7 +52,7 @@ func Facts(cfg Config, q Question) string {
 	if g, ok := digest.FindGiver(c, cc.qx, digest.PlanQuests(all), digest.PlanNPCs(all)); ok {
 		giver = "Quest giver with something for the character now (not in the plan): " + g.Text() + "."
 	}
-	return capRunes(subjectFacts(cfg, cc, q)+brief.Character(c, f.ClientOf(c), time.Now())+"\n\n"+styleLine(c)+join(bagFacts(c, cc.ds))+join(professionPlanFacts(cc, q.Text))+"\n\n"+next+join(trainFacts(cc))+join(giver), FactsBudget)
+	return capRunes(subjectFacts(cfg, cc, q)+brief.Character(c, f.ClientOf(c), time.Now())+"\n\n"+styleLine(c)+join(bagFacts(c, cc.ds))+join(professionPlanFacts(cc, q.Text))+join(talentFacts(c, cc.ds))+"\n\n"+next+join(trainFacts(cc))+join(giver), FactsBudget)
 }
 
 func join(s string) string {
@@ -341,6 +341,14 @@ func professionPlanFacts(cc loaded, text string) string {
 		return ""
 	}
 	return "The character HAS " + prof + " (it is one of their professions); never say they lack it. Their " + prof + " leveling plan from profession_plan; answer from it, not from general tips:\n" + capRunes(body, planRunes)
+}
+
+// talentFacts states unspent class talent points, for "what next" answers to mention first; "" when there are none.
+func talentFacts(c character.Character, ds store.DataStore) string {
+	if c.Talents == nil || c.Talents.Unspent == nil || *c.Talents.Unspent <= 0 {
+		return ""
+	}
+	return "Unspent talent points (mention this FIRST in any \"what next\" answer; spending them takes no travel): " + advice.TalentTitle(c, ds, *c.Talents.Unspent) + "."
 }
 
 // trainFacts is the nearest place to train class spells, when the character has spells to train, ; "" otherwise.

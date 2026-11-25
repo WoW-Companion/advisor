@@ -72,7 +72,7 @@ func TestWhatsNext(t *testing.T) {
 				{QuestID: 6, Title: "Level 21", Level: ip(21)},
 				{QuestID: 199, Title: "Unknown level"},
 			}}, true,
-			"talent:You have 2 unspent talent points | turn_in:Turn in A turn | turn_in:Turn in C turn | turn_in:Turn in B turn | turn_in:Turn in No zone turn | " +
+			"talent:Spend 2 talent points | turn_in:Turn in A turn | turn_in:Turn in C turn | turn_in:Turn in B turn | turn_in:Turn in No zone turn | " +
 				"quest:Level from dataset | quest:Two above | quest:Level 21 | " +
 				"quest:Unknown level | quest:Abandon Failed one"},
 		{"rogue 12: grey and too-high skipped, no dataset means unknown levels",

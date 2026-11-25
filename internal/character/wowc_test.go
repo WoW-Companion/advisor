@@ -178,3 +178,24 @@ func TestRecipesAndFlightMastersAreRead(t *testing.T) {
 		t.Error("absent sections must be empty")
 	}
 }
+
+func TestWoWCTalentPoints(t *testing.T) {
+	n := 3
+	for name, tc := range map[string]struct {
+		talents any
+		points  *int
+		want    *int
+		nilT    bool
+	}{
+		"points with no talents": {nil, &n, &n, false},
+		"absent points":          {nil, nil, nil, true},
+	} {
+		got := wowcTalents(tc.talents, tc.points)
+		if (got == nil) != tc.nilT || (got != nil && (got.Unspent == nil) != (tc.want == nil || false)) {
+			t.Errorf("%s: %+v", name, got)
+		}
+		if got != nil && tc.want != nil && *got.Unspent != *tc.want {
+			t.Errorf("%s: unspent %d", name, *got.Unspent)
+		}
+	}
+}

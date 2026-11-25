@@ -14,6 +14,7 @@ import (
 	"github.com/WoW-Companion/advisor/internal/questie"
 	"github.com/WoW-Companion/advisor/internal/quests"
 	"github.com/WoW-Companion/advisor/internal/store"
+	"github.com/WoW-Companion/advisor/internal/talents"
 )
 
 // Step kinds.
@@ -272,10 +273,12 @@ func WhatsNextWith(c character.Character, ds store.DataStore, qx *questie.Index)
 			pickUps = append(pickUps, s)
 		}
 	}
-	out := Limit(classQuests, MaxClassQuests)
-	if s, ok := talentStep(c); ok {
+	// Unspent class talent points come before everything: no travel, and the game nags until spent.
+	var out []Step
+	if s, ok := talentStep(c, ds); ok {
 		out = append(out, s)
 	}
+	out = append(out, Limit(classQuests, MaxClassQuests)...)
 	if s, ok := professionTalentStep(c); ok {
 		out = append(out, s)
 	}
@@ -291,7 +294,44 @@ func WhatsNextWith(c character.Character, ds store.DataStore, qx *questie.Index)
 // TalentAsk is the question that gets the player's talent picks.
 const TalentAsk = `ask "What talents should I get?"`
 
-func talentStep(c character.Character) (Step, bool) {
+// TalentsKnown reports whether the capture lists what the character has already picked.
+func TalentsKnown(t *character.Talents) bool {
+	if t == nil {
+		return false
+	}
+	for _, tr := range t.Trees {
+		if len(tr.Talents) > 0 || (tr.Points != nil && *tr.Points > 0) {
+			return true
+		}
+		for _, g := range tr.Groups {
+			if g.Spent > 0 {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// TalentTitle is the top line for n unspent class talent points: the build's next pick, net of the
+// ranks already spent, or a hedge when the capture cannot say what is spent.
+func TalentTitle(c character.Character, ds store.DataStore, n int) string {
+	spend := fmt.Sprintf("Spend %d talent %s", n, plural(n, "point", "points"))
+	if !TalentsKnown(c.Talents) {
+		return spend + ". Open your talents (N); I can't see what you've already picked yet"
+	}
+	if ds != nil {
+		if p := talents.Plan(c, ds, talents.Options{Limit: 1}); len(p.Next) > 0 {
+			pick := p.Next[0].Name
+			if p.Spec != "" {
+				pick += " (" + p.Spec + ")"
+			}
+			return spend + ": " + pick
+		}
+	}
+	return spend
+}
+
+func talentStep(c character.Character, ds store.DataStore) (Step, bool) {
 	t := c.Talents
 	if t == nil || t.Unspent == nil || *t.Unspent <= 0 {
 		return Step{}, false
@@ -299,7 +339,7 @@ func talentStep(c character.Character) (Step, bool) {
 	n := *t.Unspent
 	s := Step{
 		Kind:    KindTalent,
-		Title:   fmt.Sprintf("You have %d unspent talent %s", n, plural(n, "point", "points")),
+		Title:   TalentTitle(c, ds, n),
 		Reason:  "milestone; " + TalentAsk,
 		Sources: []string{"capture: talents.unspent"},
 		Points:  n,

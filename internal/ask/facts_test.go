@@ -1,6 +1,7 @@
 package ask
 
 import (
+	"github.com/WoW-Companion/advisor/internal/character"
 	"github.com/WoW-Companion/advisor/internal/digest"
 	"strings"
 	"testing"
@@ -104,5 +105,22 @@ func TestPathStepsRule(t *testing.T) {
 	}
 	if PathStepsRule("") != "" {
 		t.Error("a rule for no path")
+	}
+}
+
+func TestTalentFacts(t *testing.T) {
+	n, zero := 1, 0
+	for name, tc := range map[string]struct {
+		t    *character.Talents
+		want string
+	}{
+		"unspent":     {&character.Talents{Unspent: &n}, "mention this FIRST"},
+		"none":        {&character.Talents{Unspent: &zero}, ""},
+		"not in file": {nil, ""},
+	} {
+		got := talentFacts(character.Character{Talents: tc.t}, nil)
+		if (tc.want == "") != (got == "") || !strings.Contains(got, tc.want) {
+			t.Errorf("%s: %q", name, got)
+		}
 	}
 }

@@ -10,7 +10,7 @@ WoWCompanionDigest = {
       character = "Testchar",
       sections = {
         { id = "next_quests", lines = {
-          { text = "You have 2 unspent talent points: Penance", kind = "talent", points = 2, details = { "2 talent points to spend", "Next pick: Penance (rank 1)" }, asks = { "Why does the Penance talent suit my play style?", "What changes in play once I take the Penance talent?" }, ref = "talents", why = "Your plan's next pick: Penance" },
+          { text = "Spend 2 talent points: Penance (Discipline)", kind = "talent", points = 2, details = { "2 talent points to spend", "Next pick: Penance (rank 1)" }, asks = { "Why does the Penance talent suit my play style?", "What changes in play once I take the Penance talent?" }, ref = "talents", why = "Your plan's next pick: Penance" },
           { text = "Turn in Wolves at the Door (Dunemark)", quest = 100, kind = "turnin", title = "Wolves at the Door", level = 11, zone = "Dunemark", details = { "In Dunemark", "A level below you" }, asks = { "What comes after I hand in Wolves at the Door?", "Should I finish anything nearby before handing in Wolves at the Door?" }, ref = "quest:100", why = "Done — hand it in on your way" },
           { text = "Gather Peacebloom (Dunemark)", quest = 101, kind = "progress", title = "Gather Peacebloom", level = 12, zone = "Dunemark", details = { "In Dunemark", "Right for your level" }, asks = { "What should I do alongside Gather Peacebloom to save time?", "What does Gather Peacebloom lead to?" }, ref = "quest:101" },
         } },
