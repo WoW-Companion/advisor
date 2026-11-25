@@ -195,3 +195,41 @@ func (c Character) NearbyGivers(now time.Time) []Giver {
 	})
 	return out
 }
+
+// ObjectiveDone reports whether o is finished, by its done flag or its count.
+func (o Objective) ObjectiveDone() bool { d, _ := o.finished(); return d }
+
+// Ready reports whether the quest can be handed in: the game says it is complete, or it has
+// objectives and every one is finished. A quest with no readable objectives is not ready.
+func (q Quest) Ready() bool {
+	if q.Complete != nil && *q.Complete {
+		return true
+	}
+	if len(q.Objectives) == 0 {
+		return false
+	}
+	for _, o := range q.Objectives {
+		if !o.ObjectiveDone() {
+			return false
+		}
+	}
+	return true
+}
+
+// Readiness is the quest's state in words: "ready to turn in", "1 of 3 objectives done", or
+// "not ready to turn in" when the capture lists no objectives.
+func (q Quest) Readiness() string {
+	if q.Ready() {
+		return "ready to turn in"
+	}
+	if len(q.Objectives) == 0 {
+		return "not ready to turn in"
+	}
+	done := 0
+	for _, o := range q.Objectives {
+		if o.ObjectiveDone() {
+			done++
+		}
+	}
+	return fmt.Sprintf("%d of %d objectives done", done, len(q.Objectives))
+}

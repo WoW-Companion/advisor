@@ -194,6 +194,13 @@ func entryFacts(cfg Config, cc loaded, sub digest.Subject) string {
 		put("Elite or group quest", "yes")
 	}
 	put("Why it is listed", l.Why)
+	if l.Quest > 0 {
+		for _, q := range cc.c.Quests {
+			if q.QuestID == l.Quest {
+				put("Quest status", q.Readiness()+" (never say turn in unless it is ready to turn in)")
+			}
+		}
+	}
 	for _, o := range l.Objectives {
 		put("Objective", o.Text)
 	}

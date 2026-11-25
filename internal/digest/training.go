@@ -349,6 +349,17 @@ func questContext(c character.Character, l Line, reason string) []string {
 	if len(open) > 0 {
 		d = append(d, "Still to do: "+strings.Join(open, "; "))
 	}
+	if l.Kind != KindPickup {
+		for _, q := range c.Quests {
+			if q.QuestID == l.Quest && l.Quest != 0 {
+				r := q.Readiness()
+				if strings.HasSuffix(r, "turn in") {
+					r += map[bool]string{true: " now", false: " yet"}[q.Ready()]
+				}
+				d = append(d, "Quest status: "+r)
+			}
+		}
+	}
 	if l.Kind == KindTurnIn && len(l.Unlocks) > 0 {
 		d = append(d, "Unlocks: "+strings.Join(l.Unlocks, "; "))
 	}
