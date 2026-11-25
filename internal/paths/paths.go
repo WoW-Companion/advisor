@@ -467,6 +467,7 @@ func (f *finder) craft() (Path, bool) {
 				if plans == "" {
 					plans = str(r["name"])
 				}
+				plans = strings.TrimPrefix(plans, "Plans: ")
 				line = fmt.Sprintf("Needs the Plans: %s (you don't have them). Your %s %d is enough once you do. ", plans, prof, have)
 			case !known && !listed && src.Kind != "trainer":
 				line = fmt.Sprintf("You can make it if you have the recipe (your %s %d, needs %d). ", prof, have, need)

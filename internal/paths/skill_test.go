@@ -169,7 +169,7 @@ func TestSkillItemRecipeNotRecordedNeedsPlans(t *testing.T) {
 	c.Recipes = map[string]character.SeenRecipes{"blacksmithing": {Entries: []character.SeenRecipe{{Name: "Rough Sharpening Stone", ID: 905}}}}
 	p := craftOf(t, For(c, ds, gauntlets, Options{}))
 	if p.Skill.Status != NeedsRecipe || *p.Skill.RecipeKnown || strings.Contains(p.Line, "You can make it now") ||
-		!strings.Contains(p.Line, "Needs the Plans: Plans: Runed Gauntlets (you don't have them). Your Blacksmithing 70 is enough once you do.") {
+		!strings.Contains(p.Line, "Needs the Plans: Runed Gauntlets (you don't have them). Your Blacksmithing 70 is enough once you do.") {
 		t.Fatalf("not recorded: %+v", p)
 	}
 }
