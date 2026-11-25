@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.45
+
+- Ask what your next level brings: spells to train, what they cost, and the class quests coming up; the NEXT bar tells you when it's time to visit your trainer. "What do I get at level 12?" lists the new spells and ranks for your class (the ones you already know are left out), a plain line on what each does, which to train first for your spec and role, the training cost where the game data has one, and a total to bring ("bring about 1g 20s"); if you are short it says so and points you to the Bags review to sell something. Class quests your class can take now or within five levels show with who gives them and where, and the ones open now join What next?. Costs the game data does not have are shown as unknown, never guessed.
+
 ## 0.7.44
 
 - Ask where an item is across all your characters, and press Bags for what to sell, keep, toss or mail to an alt. "Where's my Linen Cloth?" names each character holding it, with how many and whether it is in the bags or the bank, and says when a character's bank has not been seen yet. The new Bags button gives a short list: Sell (with the vendor value), Mail to your alts, Keep and Toss, each with its reason. Prices the game data does not have are shown as unknown, never guessed, and nothing is mailed or sold for you.

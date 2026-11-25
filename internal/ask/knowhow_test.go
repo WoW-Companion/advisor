@@ -227,3 +227,24 @@ func TestKnowHowRulesDoNotForbidKnowledge(t *testing.T) {
 		t.Error("a state question got know-how")
 	}
 }
+
+func TestClassifyLevelUpQuestions(t *testing.T) {
+	for text, want := range map[string]string{
+		"What's new at my next level?":             "next",
+		"What do I get at level 12?":               "12",
+		"what will I learn in the next two levels": "next2",
+	} {
+		cl := Classify(text, nil, nil)
+		if cl.Topic != TopicLevelUp || cl.Subject != want || cl.Kind != KindKnowHow {
+			t.Errorf("%q = %+v, want levelup %s", text, cl, want)
+		}
+	}
+	for _, text := range []string{"How do I level faster?", "What should I do at level 12?", "what does Deadmines drop"} {
+		if cl := Classify(text, nil, nil); cl.Topic == TopicLevelUp {
+			t.Errorf("%q classified as level-up", text)
+		}
+	}
+	if (Grounding{KnowHow: true, Topic: TopicLevelUp}).Offer() {
+		t.Error("level-up answers offer Icy Veins")
+	}
+}

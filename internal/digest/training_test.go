@@ -8,6 +8,7 @@ import (
 
 	"github.com/WoW-Companion/advisor/internal/character"
 	"github.com/WoW-Companion/advisor/internal/lua"
+	"github.com/WoW-Companion/advisor/internal/questie"
 	"github.com/WoW-Companion/advisor/internal/store"
 )
 
@@ -177,5 +178,28 @@ func TestTurnInDetailsListWhatItUnlocks(t *testing.T) {
 	l.Kind = KindPickup
 	if d := questContext(c, l, "ready"); slices.ContainsFunc(d, func(s string) bool { return strings.HasPrefix(s, "Unlocks:") }) {
 		t.Fatalf("a pick-up says what it unlocks: %q", d)
+	}
+}
+
+func TestTrainNowLineNamesTwoSpellsAndTrainer(t *testing.T) {
+	c := warrior(12)
+	c.Faction = "Alliance"
+	c.KnownSpells = map[int64]bool{355: true}
+	qx := &questie.Index{DB: "t", Areas: map[int]questie.Area{1: {Zone: "Valanaar"}},
+		Npcs: map[int]questie.Entity{9: {Name: "Captain Rhea", Sub: "Warrior Trainer", Faction: "A", Spawns: []questie.Spawn{{Area: 1, X: 60, Y: 61}}}}}
+	opt := synthOpt
+	opt.Questie = qx
+	l, ok := trainingOf(Build(c, warriorStore(t), opt))
+	// Known Taunt is left out; Rend rank 1 never shows (nothing at its level in the store), so the
+	// untrained spells up to level 12 are Hamstring, Heroic Strike 2, Rend 2 and Shield Bash.
+	if !ok || !strings.HasPrefix(l.Text, "New spells to train: ") || strings.Count(l.Text, ",") != 1 || strings.Contains(l.Text, "Taunt") {
+		t.Fatalf("train line = %+v", l)
+	}
+	if l.NPC != "Captain Rhea" || !strings.Contains(strings.Join(l.Details, "|"), "Trainer: Captain Rhea, Valanaar") {
+		t.Errorf("trainer = %q %v", l.NPC, l.Details)
+	}
+	c.KnownSpells = map[int64]bool{355: true, 1715: true, 284: true, 6546: true, 72: true}
+	if _, ok := trainingOf(Build(c, warriorStore(t), opt)); ok {
+		t.Error("everything known but a train line was made")
 	}
 }
