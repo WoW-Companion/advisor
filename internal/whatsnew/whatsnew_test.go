@@ -1,6 +1,7 @@
 package whatsnew
 
 import (
+	"os"
 	"regexp"
 	"strings"
 	"testing"
@@ -45,7 +46,7 @@ func TestBundledHasRecentVersions(t *testing.T) {
 
 func TestSectionIsOnlyThatVersion(t *testing.T) {
 	md := "# Changelog\n\n## 0.2.0\n\n- New `thing`. More.\n- Second.\n\n## 0.1.0\n\n- Old.\n"
-	if got := Section(md, "v0.2.0"); got != "- New thing. More.\n- Second." {
+	if got := Section(md, "v0.2.0"); got != "- New thing.\n- More.\n- Second." {
 		t.Errorf("section = %q", got)
 	}
 	if got := Section(md, "0.1.0"); got != "- Old." {
@@ -122,5 +123,65 @@ func TestRangeCapsVersionsAndBullets(t *testing.T) {
 	}
 	if got := Range(rangeLog, "0.7.55", "0.7.58", nil); strings.Contains(got, "more changes") {
 		t.Errorf("nothing hidden, no tail: %q", got)
+	}
+}
+
+func TestSplitKeepsAllText(t *testing.T) {
+	for _, s := range []string{
+		"One thing. Second thing! Third? 4 more.",
+		"Single sentence with no end",
+		"Dr. smith stays. Next one.",
+		"Josef in Undercity (level 20). Then \"Quoted\" bit.",
+	} {
+		got := Split(s)
+		if strings.Join(got, " ") != s {
+			t.Errorf("%q lost text: %q", s, got)
+		}
+	}
+	if got := Split("A. B."); len(got) != 2 || got[0] != "A." {
+		t.Errorf("split = %q", got)
+	}
+	if len(Split("  ")) != 0 {
+		t.Error("blank gives bullets")
+	}
+}
+
+func TestSectionAndRangeSplitOldParagraphs(t *testing.T) {
+	md := "## 0.2.0\n\n- First change. Second change.\n"
+	if got := Section(md, "0.2.0"); got != "- First change.\n- Second change." {
+		t.Errorf("section = %q", got)
+	}
+	if got := Range(md, "0.1.0", "0.2.0", nil); got != "## 0.2.0\n- First change.\n- Second change." {
+		t.Errorf("range = %q", got)
+	}
+}
+
+func TestLintFlagsLongBulletsAndIds(t *testing.T) {
+	long := strings.Repeat("word ", 25)
+	cases := map[string]string{
+		"over":  "## 0.9.0\n\n- " + long + "\n",
+		"id":    "## 0.9.0\n\n- Fixed ADV-159 thing.\n",
+		"file":  "## 0.9.0\n\n- Edited updates.json again.\n",
+		"dev":   "## 0.9.0\n\n- The sidecar restarts.\n",
+		"odds":  "## 0.9.0\n\n- Skill-ups now work 75% of the time.\n",
+		"oldok": "## 0.1.0\n\n- " + long + " ADV-1\n",
+		"clean": "## 0.9.0\n\n- Profession plans need fewer crafts.\n",
+	}
+	for name, md := range cases {
+		got := Lint(md)
+		if want := name != "oldok" && name != "clean"; (len(got) > 0) != want {
+			t.Errorf("%s: problems = %v", name, got)
+		}
+	}
+}
+
+// Every note a player can see follows the writing rule, and the newest version is the one in VERSION.
+func TestBundledNotesFollowTheWritingRule(t *testing.T) {
+	if p := Lint(advisor.Changelog); len(p) > 0 {
+		t.Errorf("release notes break the rule (see docs/releasing.md):\n%s", strings.Join(p, "\n"))
+	}
+	top := Bundled()[0].Version
+	if v, _ := os.ReadFile("../../VERSION"); strings.TrimSpace(string(v)) != top {
+		t.Errorf("newest CHANGELOG version is %s but VERSION is %q: a release is the next version, with its notes", top, strings.TrimSpace(string(v)))
 	}
 }

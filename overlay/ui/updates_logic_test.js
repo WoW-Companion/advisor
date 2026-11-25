@@ -16,10 +16,10 @@ let s = U.bannerState(offer, cfg(), NOW, '', '');
 assert.deepStrictEqual([s.kind, s.version], ['offer', '0.7.54']);
 let v = U.bannerView(s);
 assert.strictEqual(v.text, 'Update 0.7.54 is ready');
-assert.deepStrictEqual(v.actions.map(a => a.label), ['What’s new', 'See all changes', 'Install', 'Always update automatically', 'Later', 'Skip this version']);
+assert.deepStrictEqual(v.actions.map(a => a.label), ['Install', 'Always update automatically', 'Later', 'Skip this version']);
 assert.strictEqual(v.actions.find(a => a.label === 'Always update automatically').id, 'always');
 // With the setting already on, the button is gone.
-assert.deepStrictEqual(U.bannerView(U.bannerState(offer, cfg({ autoUpdate: true }), NOW, '', '')).actions.map(a => a.id), ['notes', 'changes', 'install', 'later', 'skip']);
+assert.deepStrictEqual(U.bannerView(U.bannerState(offer, cfg({ autoUpdate: true }), NOW, '', '')).actions.map(a => a.id), ['install', 'later', 'skip']);
 // The button turns the setting on, and the shell is told with the banner's own switches.
 const on = cfg({ updateNow: true, skipped: ['v0.7.52'] });
 assert.strictEqual(U.turnOnAuto(on).autoUpdate, true);
@@ -106,11 +106,24 @@ sch.checked(); assert.strictEqual(sch.focus(), false);
 assert.strictEqual(U.CHECK_EVERY, 4 * 3600 * 1000);
 console.log('ok');
 
-// The note after an update knows the version it left, "See all changes" is in the banner,
+// The note after an update knows the version it left, "See all changes" is the notice's link,
 // and a go-back shows no what's new.
 assert.strictEqual(U.updatedNote('0.7.55', '0.7.58').from, '0.7.55');
 assert.strictEqual(U.whatsNewQuery(U.updatedNote('0.7.55', '0.7.58')), '?version=0.7.58&from=0.7.55');
 assert.strictEqual(U.updatedNote('0.7.58', '0.7.55').whatsNew, false);
 assert.strictEqual(U.updatedNote('0.7.58', '0.7.55').text, '✓ Went back to 0.7.55');
-assert.ok(U.bannerView(U.bannerState(offer, cfg(), NOW, '', '')).actions.some(a => a.id === 'changes' && a.label === 'See all changes'));
+assert.deepStrictEqual(U.bannerView(U.bannerState(offer, cfg(), NOW, '', '')).actions.map(a => a.id).slice(0, 1), ['install']);
+
+// Notes as bullets: the notice shows at most 4 and says there is more; nothing is rewritten.
+const six = '- a one\n- b **two**\n- c\n- d\n- e\n- f';
+let nv = U.noteView(six, U.NOTICE_BULLETS);
+assert.strictEqual(U.NOTICE_BULLETS, 4);
+assert.deepStrictEqual(nv, { groups: [{ version: '', bullets: ['a one', 'b two', 'c', 'd'] }], more: true });
+nv = U.noteView('- a\n- b\n- c\n- d', 4);
+assert.strictEqual(nv.more, false);
+assert.strictEqual(nv.groups[0].bullets.length, 4);
+// What's new keeps its versions and the server's tail; the cap only applies when given.
+nv = U.noteView('## 0.7.62\n- a\n- b\n## 0.7.61\n- c\n…and 3 more changes');
+assert.deepStrictEqual(nv, { groups: [{ version: '0.7.62', bullets: ['a', 'b'] }, { version: '0.7.61', bullets: ['c'] }], more: true });
+assert.deepStrictEqual(U.noteView(''), { groups: [], more: false });
 assert.ok(/^https:\/\/github\.com\/WoW-Companion\/advisor\/.*CHANGELOG\.md$/.test(U.CHANGELOG_URL));

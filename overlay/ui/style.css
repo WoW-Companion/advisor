@@ -248,7 +248,11 @@ a:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; border-ra
 .update-bar.bad { background: #5a2019; border-color: #c4503d; }
 .update-bar .upd-text { flex: 1 1 100%; overflow-wrap: anywhere; }
 .update-bar button { padding: 1px 8px; font-size: 11px; }
-.update-bar .upd-notes { flex: 1 1 100%; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 9em; overflow: auto; font-size: 11px; opacity: .92; }
+.update-bar .upd-notes { flex: 1 1 100%; overflow-wrap: anywhere; font-size: 11px; opacity: .92; }
+.upd-notes ul { margin: 0; padding-left: 16px; }
+.upd-notes li { margin: 0 0 3px; }
+.upd-notes .upd-ver { margin: 4px 0 2px; font-weight: 600; }
+.upd-notes a { color: inherit; text-decoration: underline; cursor: pointer; }
 .version-list { display: grid; gap: 3px; font-size: 12px; }
 .version-list .ver-row { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
 .update-notice { display: flex; justify-content: space-between; align-items: center; gap: 6px; margin: 4px 0; padding: 5px 8px; border-radius: 8px; font-size: 12px; }
