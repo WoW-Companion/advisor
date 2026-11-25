@@ -140,7 +140,10 @@ func (p *planner) name(id int64) string {
 	}
 	n := itemName(p.ds, id)
 	if n == "" {
-		n = fmt.Sprintf("item %d", id)
+		n = namesTableItem(p.ds, id)
+	}
+	if n == "" {
+		n = fmt.Sprintf("unnamed item %d", id)
 	}
 	p.names[id] = n
 	return n
@@ -195,6 +198,9 @@ func (p *planner) sourceOf(id int64) source {
 				offer(source{20 + 2*int(asI64(n["skill_required"])), "gathering (" + prof + ")"})
 			}
 		}
+	}
+	if p.has("Mining") && best.text == "the Auction House" && minedBase(p.ds, id, p.name(id)) {
+		best = source{minedEffort(p.ds, id, p.name(id)), "gathering (Mining)"} // a miner finds it, whatever the Auction House asks
 	}
 	if rows := rowsBy(p.ds, "fishing_catches", "item_id", id); len(rows) > 0 && p.has("Fishing") {
 		offer(source{effortGather, "fishing"})
@@ -477,6 +483,7 @@ func computePath(c character.Character, ds store.DataStore, profession string, t
 		return pa
 	}
 	var bands []Band
+	used := map[int64]int{} // raw materials the bands chosen so far take
 	skill := p.skill
 	for len(bands) < 400 && skill < target {
 		// A band never crosses a rank cap (75, 150, 225): the next rank is trained first.
@@ -504,9 +511,12 @@ func computePath(c character.Character, ds store.DataStore, profession string, t
 			skill = next
 			continue
 		}
-		all = withinCap(all)
+		all = p.withinUnitCap(withinCap(all), used)
 		sortScored(all)
 		best := all[0]
+		for id, n := range leafUnits(best.opt) {
+			used[id] += n
+		}
 		b := Band{From: skill, To: best.reach, Best: best.opt}
 		if t, ok := p.rankStarting(skill); ok {
 			b.Rank, b.RankLevel = t.Name, t.MinLevel

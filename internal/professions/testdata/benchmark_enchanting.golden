@@ -27,5 +27,5 @@ Material totals:
 - 219 × Strange Dust: disenchanting uncommon weapon, item level 10-20
 - 60 × Lesser Magic Essence: disenchanting uncommon armor, item level 10-30
 
-Efficiency: 279 materials in all, 2 distinct, vendor cost 0c, 0 rare; score 279 (lower is better).
-score = total materials + vendor silver + 250 per rare material (no vendor, no gathering, fishing or disenchant source, no drop of 5% or more).
+Efficiency: 279 materials in all, 2 distinct, vendor cost 0c, 0 rare (0 units), 0 gathered, 0 bought; score 279 (lower is better).
+score = total materials + vendor silver + 250 per rare unit (no vendor, no gathering, fishing or disenchant source, no drop of 5% or more) + 4 per gathered unit (farming time) + 20 per unit bought at the Auction House (bars you could smelt yourself).

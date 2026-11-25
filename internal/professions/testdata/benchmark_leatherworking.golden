@@ -26,7 +26,6 @@ Bands:
 6. Skill 150→205: 75 × Heavy Armor Kit (35 orange, 40 yellow; expected skill-ups 55); learn: trainer, 90s
    First train Expert at the trainer (character level 20).
    Materials: 375 × Heavy Leather
-   Alternative: Dark Tunic
 7. Skill 205→225: 35 × Rugged Gloves (5 orange, 30 yellow; expected skill-ups 20); learn: trainer, 2g
    Materials: 210 × Rugged Leather, 70 × Rune Thread
 8. Skill 225→230: 10 × Rugged Gloves (0 orange, 10 yellow; expected skill-ups 5)
@@ -64,5 +63,5 @@ Material totals:
 Recipes to buy or find:
 - Pattern: Dark Tunic for Dark Tunic: vendor (a vendor), 60s
 
-Efficiency: 2614 materials in all, 7 distinct, vendor cost 37g 75s, 1 rare; score 6639 (lower is better).
-score = total materials + vendor silver + 250 per rare material (no vendor, no gathering, fishing or disenchant source, no drop of 5% or more).
+Efficiency: 2614 materials in all, 7 distinct, vendor cost 37g 75s, 1 rare (200 units), 1125 gathered, 0 bought; score 60889 (lower is better).
+score = total materials + vendor silver + 250 per rare unit (no vendor, no gathering, fishing or disenchant source, no drop of 5% or more) + 4 per gathered unit (farming time) + 20 per unit bought at the Auction House (bars you could smelt yourself).

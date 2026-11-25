@@ -114,7 +114,10 @@ type BenchEfficiency struct {
 	TotalMaterials    int    `json:"total_materials"`
 	DistinctMaterials int    `json:"distinct_materials"`
 	VendorCopper      int64  `json:"vendor_copper"`
-	RareMaterials     int    `json:"rare_materials"`
+	RareMaterials     int    `json:"rare_materials"` // distinct rare materials
+	RareUnits         int    `json:"rare_units"`
+	GatheredUnits     int    `json:"gathered_units"`
+	AuctionUnits      int    `json:"auction_units"`
 	Score             int64  `json:"score"`
 	Formula           string `json:"formula"`
 }
@@ -152,7 +155,14 @@ type Benchmark struct {
 }
 
 // EfficiencyFormula is how the score is built; lower is better.
-const EfficiencyFormula = "score = total materials + vendor silver + 250 per rare material (no vendor, no gathering, fishing or disenchant source, no drop of 5% or more)"
+const EfficiencyFormula = "score = total materials + vendor silver + 250 per rare unit (no vendor, no gathering, fishing or disenchant source, no drop of 5% or more) + 4 per gathered unit (farming time) + 20 per unit bought at the Auction House (bars you could smelt yourself)"
+
+// Per-unit weights of the efficiency score, on top of the 1 every unit counts.
+const (
+	scoreRareUnit     = 250
+	scoreGatheredUnit = 4
+	scoreAuctionUnit  = 20
+)
 
 const commonDrop = 5.0 // percent of kills
 
@@ -271,15 +281,22 @@ func NewBenchmark(ds store.DataStore, o BenchOptions) Benchmark {
 			t.CostCopper = t.UnitCopper * int64(t.Count)
 			e.VendorCopper += t.CostCopper
 		}
-		if t.Rare {
+		switch {
+		case t.Rare:
 			e.RareMaterials++
+			e.RareUnits += t.Count
+		case t.Kind == "gathering":
+			e.GatheredUnits += t.Count
+		case t.Kind == "auction":
+			e.AuctionUnits += t.Count
 		}
 		e.TotalMaterials += t.Count
 		b.Materials = append(b.Materials, *t)
 	}
 	sort.Slice(b.Materials, func(i, j int) bool { return b.Materials[i].ID < b.Materials[j].ID })
 	e.DistinctMaterials = len(b.Materials)
-	e.Score = int64(e.TotalMaterials) + e.VendorCopper/100 + 250*int64(e.RareMaterials)
+	e.Score = int64(e.TotalMaterials) + e.VendorCopper/100 + scoreRareUnit*int64(e.RareUnits) +
+		scoreGatheredUnit*int64(e.GatheredUnits) + scoreAuctionUnit*int64(e.AuctionUnits)
 	e.Formula = EfficiencyFormula
 	trainer := p.trainer()
 	for i, t := range tiers {
@@ -332,6 +349,14 @@ func classify(p *planner, t *BenchTotal) {
 	}
 	if profs := gatherProfs(ds, t.ID); len(profs) > 0 {
 		t.Kind, t.Source = "gathering", "gathering ("+strings.Join(profs, ", ")+")"
+		return
+	}
+	if p.has("Mining") && minedBase(ds, t.ID, t.Item) {
+		t.Kind, t.Source = "gathering", "gathering (Mining)"
+		return
+	}
+	if madeByMining(ds, t.ID) {
+		t.Kind, t.Source = "auction", "the Auction House, or smelt it with Mining"
 		return
 	}
 	if rows := rowsBy(ds, "fishing_catches", "item_id", t.ID); len(rows) > 0 {
@@ -571,8 +596,8 @@ func RenderBenchmark(b Benchmark) string {
 		}
 	}
 	e := b.Efficiency
-	fmt.Fprintf(&w, "\nEfficiency: %d materials in all, %d distinct, vendor cost %s, %d rare; score %d (lower is better).\n%s.\n",
-		e.TotalMaterials, e.DistinctMaterials, Money(e.VendorCopper), e.RareMaterials, e.Score, e.Formula)
+	fmt.Fprintf(&w, "\nEfficiency: %d materials in all, %d distinct, vendor cost %s, %d rare (%d units), %d gathered, %d bought; score %d (lower is better).\n%s.\n",
+		e.TotalMaterials, e.DistinctMaterials, Money(e.VendorCopper), e.RareMaterials, e.RareUnits, e.GatheredUnits, e.AuctionUnits, e.Score, e.Formula)
 	for _, n := range b.Notes {
 		w.WriteString(n + "\n")
 	}
@@ -604,11 +629,14 @@ func renderBenchMaterial(m BenchMaterial) string {
 	}
 	how := fmt.Sprintf("%s %d × %s, %s", m.Make.Verb, m.Make.Crafts, m.Make.Recipe, m.Make.Profession)
 	if m.Make.LearnSkill != nil {
+		around, skill := "", "skill"
 		if m.Make.LearnSkillSource == "estimate" {
-			how += fmt.Sprintf(", around skill %d", *m.Make.LearnSkill)
-		} else {
-			how += fmt.Sprintf(", skill %d", *m.Make.LearnSkill)
+			around = "around "
 		}
+		if m.Make.Verb == "smelt" {
+			skill = "needs Mining skill"
+		}
+		how += fmt.Sprintf(", %s %s%d", skill, around, *m.Make.LearnSkill)
 	}
 	if m.Make.ExpectedSkillUps >= 1 {
 		how += ", about " + trimFloat(m.Make.ExpectedSkillUps) + " skill-ups"

@@ -14,6 +14,11 @@ const maxChain = 3
 // times over) is a conversion no plan should count on: the material is bought instead.
 const maxLeavesPerUnit = 10
 
+// maxLeavesPerCraftedPiece is the same cap for a piece of gear the planned profession makes as a
+// step on the way (a Shining Silver Breastplate takes 20 Bronze Bars, 4 Silver Bars and more): its
+// crafts give skill-ups of their own, so they are not a conversion to avoid.
+const maxLeavesPerCraftedPiece = 80
+
 type makeKey struct {
 	item  int64
 	skill int
@@ -90,6 +95,12 @@ func (p *planner) skillIn(line string, band int) int {
 	if strings.EqualFold(line, p.prof) {
 		return band
 	}
+	if p.fresh && strings.EqualFold(line, "Mining") {
+		// A planned character has no Mining skill to read: it is assumed to level Mining as it goes.
+		if _, ok := skillOf(p.c, line); ok {
+			return band
+		}
+	}
 	if sk, ok := skillOf(p.c, line); ok && sk.Rank != nil {
 		return *sk.Rank
 	}
@@ -121,8 +132,8 @@ func (p *planner) resolve(id int64, skill, depth int) (source, *makeChoice) {
 		line := asText(row["skill_line_name"])
 		rc := recipeOf(row)
 		own := strings.EqualFold(line, p.prof)
-		if !own && !strings.EqualFold(line, "Mining") && !p.has(line) {
-			continue
+		if !own && !p.has(line) {
+			continue // a smelt needs the character to have Mining; without it the bars are bought
 		}
 		have := p.skillIn(line, skill)
 		if rc.LearnSkill != nil && have >= 0 && *rc.LearnSkill > have {
@@ -156,7 +167,11 @@ func (p *planner) resolve(id int64, skill, depth int) (source, *makeChoice) {
 				leaves += per
 			}
 		}
-		if len(rs) == 0 || leaves > maxLeavesPerUnit {
+		limit := maxLeavesPerUnit
+		if own && p.craftedPiece(rc) {
+			limit = maxLeavesPerCraftedPiece
+		}
+		if len(rs) == 0 || leaves > limit {
 			continue
 		}
 		if bestUnit < 0 || unit < bestUnit {
@@ -177,6 +192,19 @@ func (p *planner) resolve(id int64, skill, depth int) (source, *makeChoice) {
 	}
 	p.made[key] = res
 	return res.src, res.ch
+}
+
+// craftedPiece says a recipe makes gear (armor or a weapon) and not a trade good.
+func (p *planner) craftedPiece(r Recipe) bool {
+	if r.CreatesItem == 0 {
+		return false
+	}
+	it, err := p.ds.Get("items", r.CreatesItem)
+	if err != nil {
+		return false
+	}
+	c := asI64(it["class_id"])
+	return c == 2 || c == 4
 }
 
 // expand lays out what making count units of a material takes, following reagents that are made
@@ -234,7 +262,11 @@ func (m *Make) describe() string {
 		if m.Around {
 			around = "around "
 		}
-		out += fmt.Sprintf(", %sskill %d", around, *m.LearnSkill)
+		if m.Verb == "smelt" {
+			out += fmt.Sprintf(", needs Mining skill %s%d", around, *m.LearnSkill)
+		} else {
+			out += fmt.Sprintf(", %sskill %d", around, *m.LearnSkill)
+		}
 	}
 	if m.SkillUps >= 1 {
 		out += fmt.Sprintf(", about %s skill-ups", trimFloat(m.SkillUps))
