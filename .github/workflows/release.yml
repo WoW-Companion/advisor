@@ -122,6 +122,16 @@ jobs:
           path: ~/.cargo/bin/cargo-tauri.exe
           key: tauri-cli-${{ runner.os }}-2.12.6
 
+      # Tauri's bundler downloads its NSIS toolchain from GitHub on every run and fails the build on
+      # one 503. It keeps it in <cache dir>/tauri/NSIS (%LOCALAPPDATA%\tauri\NSIS on Windows), so
+      # cache that folder; the key carries the CLI version and the NSIS / nsis_tauri_utils versions
+      # pinned in tauri-bundler 2.12.6 (the pre-fetch step below must change with them).
+      - id: tauri-nsis
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: ${{ env.LOCALAPPDATA }}\tauri\NSIS
+          key: tauri-nsis-${{ runner.os }}-cli-2.12.6-nsis-3.13-utils-0.5.3
+
       - name: Build the Go advisor sidecar
         shell: bash
         env:
@@ -137,6 +147,46 @@ jobs:
         shell: bash
         if: steps.tauri-cli.outputs.cache-hit != 'true'
         run: cargo install tauri-cli --version "=2.12.6" --locked
+
+      # On a cache miss, fetch what the bundler would, with retries, and lay it out as the bundler
+      # does (NSIS/ plus Plugins/x86-unicode/additional/nsis_tauri_utils.dll). Both files are checked
+      # against the SHA-1s hard-coded in tauri-bundler 2.12.6, so the bundler finds a valid folder
+      # and skips its own download. If this step still fails after retries, the build fails here.
+      - name: Pre-fetch the NSIS tools
+        if: steps.tauri-nsis.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $tools = Join-Path $env:LOCALAPPDATA 'tauri'
+          $tmp = Join-Path $env:RUNNER_TEMP 'nsis-prefetch'
+          New-Item -ItemType Directory -Force -Path $tools, $tmp | Out-Null
+          function Get-Verified($url, $sha1, $out) {
+            for ($i = 1; $i -le 6; $i++) {
+              try {
+                Invoke-WebRequest -Uri $url -OutFile $out -UseBasicParsing
+                $got = (Get-FileHash -Algorithm SHA1 -Path $out).Hash
+                if ($got -eq $sha1) { return }
+                throw "SHA-1 mismatch for ${url}: $got"
+              } catch {
+                Write-Host "attempt $i failed: $($_.Exception.Message)"
+                if ($i -eq 6) { throw }
+                Start-Sleep -Seconds (5 * $i * $i)
+              }
+            }
+          }
+          $zip = Join-Path $tmp 'nsis-3.13.zip'
+          $dll = Join-Path $tmp 'nsis_tauri_utils.dll'
+          Get-Verified 'https://github.com/tauri-apps/binary-releases/releases/download/nsis-3.13/nsis-3.13.zip' 'DB14F8AF2EA346B786C6AE19343F61AAF5E09B8E' $zip
+          Get-Verified 'https://github.com/tauri-apps/nsis-tauri-utils/releases/download/nsis_tauri_utils-v0.5.3/nsis_tauri_utils.dll' '75197FEE3C6A814FE035788D1C34EAD39349B860' $dll
+          $nsis = Join-Path $tools 'NSIS'
+          if (Test-Path $nsis) { Remove-Item -Recurse -Force $nsis }
+          Expand-Archive -Path $zip -DestinationPath $tools
+          Rename-Item -Path (Join-Path $tools 'nsis-3.13') -NewName 'NSIS'
+          $extra = Join-Path $nsis 'Plugins\x86-unicode\additional'
+          New-Item -ItemType Directory -Force -Path $extra | Out-Null
+          Copy-Item $dll (Join-Path $extra 'nsis_tauri_utils.dll')
+          # The bundler also checks NSIS.exe's SHA-1 (6D45D4E8...); it recreates the folder if wrong.
+          Write-Host "NSIS tools ready in $nsis"
 
       - name: Build the app and the NSIS installer
         working-directory: overlay/src-tauri
