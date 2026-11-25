@@ -53,7 +53,9 @@
       text: s.failure ? 'The update did not install: ' + s.failure : 'Update ' + s.version + ' is ready',
       actions: s.failure
         ? [...err, { id: 'later', label: 'Later' }]
-        : [{ id: 'install', label: 'Install' }, ...(s.auto ? [] : [{ id: 'always', label: 'Always update automatically' }]), { id: 'later', label: 'Later' }, { id: 'skip', label: 'Skip this version' }],
+        : [{ id: 'install', label: 'Install' }, { id: 'whatsnew', label: 'What’s new' }, { id: 'later', label: 'Later' }],
+      // A small line under the buttons, not a button; gone once the setting is on.
+      always: !s.failure && !s.auto,
     };
   }
 
@@ -74,8 +76,8 @@
 
   const NOTICE_BULLETS = 4; // the notice shows this many bullets, then a See all changes link
 
-  // The page "See all changes" opens: the CHANGELOG on GitHub.
-  const CHANGELOG_URL = 'https://github.com/WoW-Companion/advisor/blob/main/CHANGELOG.md';
+  // The page "See all changes" opens: the public release list (the one page the shell lets through).
+  const CHANGELOG_URL = 'https://github.com/WoW-Companion/advisor/releases';
   // The note's request: everything after the version left, up to the new one.
   function whatsNewQuery(note) { return '?version=' + encodeURIComponent(note.version) + '&from=' + encodeURIComponent(note.from || ''); }
 

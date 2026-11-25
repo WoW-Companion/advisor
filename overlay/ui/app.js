@@ -14,7 +14,7 @@ const save = () => { localStorage.setItem('wowc', JSON.stringify(cfg)); if (type
 const chats = WowcLaunch.chatStore(localStorage); // each character's last 50 turns, on this PC only
 
 let conn = null, state = null, busy = false, events = null;
-const upd = { status: null, busy: '', failure: '', last: '', fresh: false, ok: false, checkedAt: 0, confirm: '' }; // the update banner's state
+const upd = { status: null, busy: '', failure: '', last: '', fresh: false, ok: false, checkedAt: 0, confirm: '', notesFor: '' }; // the update banner's state
 
 // --- connection to the sidecar -------------------------------------------------------------
 
@@ -775,18 +775,33 @@ function renderUpdates() {
     back: () => installVersion(s.backTo),
     retry: () => installVersion(upd.last),
     later: () => { WowcUpdates.later(cfg, s.version || upd.last, Date.now()); upd.failure = ''; save(); renderUpdates(); },
-    skip: () => { WowcUpdates.skip(cfg, s.version); save(); renderUpdates(); },
+    whatsnew: () => { upd.notesFor = upd.notesFor === s.version ? '' : s.version; renderUpdates(); },
     details: () => invoke('open_install_page', { url: RELEASES_URL }).catch(e => notice(String(e))),
     dismiss: () => { upd.failure = ''; renderUpdates(); },
   };
+  const row = document.createElement('div');
+  row.className = 'upd-actions';
   for (const a of view.actions) {
     const b = document.createElement('button');
     b.type = 'button'; b.textContent = a.label; b.onclick = act[a.id];
-    bar.append(b);
+    row.append(b);
   }
-  if (s.kind === 'offer' && !s.busy && !s.failure) {
-    const n = drawNotes(WowcUpdates.noteView(s.notes, WowcUpdates.NOTICE_BULLETS), true);
-    if (n) bar.append(n);
+  if (view.actions.length) bar.append(row);
+  if (view.always) {
+    const l = Object.assign(document.createElement('label'), { className: 'upd-always' });
+    const c = Object.assign(document.createElement('input'), { type: 'checkbox' });
+    c.onchange = act.always;
+    l.append(c, ' Always update automatically');
+    bar.append(l);
+  }
+  // What's new opens the notes, with See all changes and Skip this version beneath them.
+  if (s.kind === 'offer' && !s.busy && !s.failure && upd.notesFor === s.version) {
+    const n = drawNotes(WowcUpdates.noteView(s.notes, WowcUpdates.NOTICE_BULLETS), true)
+      || Object.assign(document.createElement('div'), { className: 'upd-notes', textContent: 'No notes were published for this version.' });
+    const a = Object.assign(document.createElement('a'), { textContent: 'Skip this version', href: '#', role: 'button' });
+    a.onclick = ev => { ev.preventDefault(); WowcUpdates.skip(cfg, s.version); save(); renderUpdates(); };
+    n.append(a);
+    bar.append(n);
   }
 }
 

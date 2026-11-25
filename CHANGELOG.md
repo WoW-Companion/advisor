@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.69
+
+- See all changes now opens the release list.
+- A link that can't be opened now says so in plain words.
+- The update notice fits on one row: Install, What's new and Later.
+
 ## 0.7.68
 
 - Update notes are now short bullets, one change each.
