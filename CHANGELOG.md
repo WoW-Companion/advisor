@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.47
+
+- Profession leveling plans now follow cheaper, common recipes all the way to 300, including vendor patterns, quest recipes and enchanting materials, and skip specialist or cooldown recipes. Where no trainer or vendor recipe covers a stretch of skill, the plan says so and names a pattern or quest to look for instead of stopping. Alchemy plans no longer come up empty, and Leatherworking no longer counts hundreds of thousands of materials.
+
 ## 0.7.46
 
 - Tell it how long you can play and get a plan that fits; ask whether a quest is worth it, or what to drop when your log is full. "I've got 30 minutes" (or a quick session, an hour) gives a short loop from your quest route: quests ready to hand in first, then the nearby work that pays the most XP for the time, a trainer visit when you have spells to learn, and a finish at the closest flight point or inn on a short session. It says "about 25 minutes", the XP you should get and how much of your level that is, and it leaves out quests that need a group. Under a What next? answer there are 15 min, 30 min and 1 hour buttons. "Is Wolves at the Door worth it?" and "What should I abandon?" rate each quest in your log by XP for the time and mark it grey (little XP, finish only if it is on the way), far (its work is in another zone), group (elite or a dungeon: bring a group or skip it) or a chain starter (worth keeping); a quest that rewards a gear upgrade counts for more, and when the log is full it names the quests to drop first. Where the game data has no quest XP, the XP is estimated from the quest's level and says so.

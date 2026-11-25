@@ -39,7 +39,7 @@ func renderOption(b *strings.Builder, o Option, indent string) {
 // RenderPath is the plain-text answer: the next step first, then where you are, the bands, and prep.
 func RenderPath(pa Path) string {
 	var b strings.Builder
-	if len(pa.Bands) > 0 && pa.Part == 1 {
+	if len(pa.Bands) > 0 && pa.Part == 1 && pa.Bands[0].Gap == "" {
 		f := pa.Bands[0]
 		fmt.Fprintf(&b, "Next: make ~%d × %s (skill %d→%d).\n\n", f.Best.Crafts, f.Best.Recipe, f.From, f.To)
 	}
@@ -48,6 +48,13 @@ func RenderPath(pa Path) string {
 		b.WriteString(w + "\n")
 	}
 	for i, band := range pa.Bands {
+		if band.Gap != "" {
+			fmt.Fprintf(&b, "\n%d. Skill %d→%d: %s\n", (pa.Part-1)*MaxBands+i+1, band.From, band.To, band.Gap)
+			if band.Rank != "" {
+				fmt.Fprintf(&b, "   First train %s at your trainer (character level %d).\n", band.Rank, band.RankLevel)
+			}
+			continue
+		}
 		fmt.Fprintf(&b, "\n%d. Make ~%d × %s (skill %d→%d)", (pa.Part-1)*MaxBands+i+1, band.Best.Crafts, band.Best.Recipe, band.From, band.To)
 		fmt.Fprintf(&b, ", %s there.\n", band.Best.Difficulty)
 		if band.Rank != "" {

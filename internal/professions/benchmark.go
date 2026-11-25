@@ -63,6 +63,8 @@ type BenchBand struct {
 	PatternOptions   []BenchPattern  `json:"if_you_have_the_pattern,omitempty"`
 	Materials        []BenchMaterial `json:"materials"`
 	Alternative      string          `json:"alternative,omitempty"`
+	Gap              string          `json:"gap,omitempty"`    // set when no recipe covers the band
+	Source           string          `json:"source,omitempty"` // how the recipe is learnt, in a few words
 }
 
 // BenchPattern is a recipe from a drop, quest or reputation that fits a band, for a player who has it.
@@ -146,6 +148,7 @@ type Benchmark struct {
 	Efficiency  BenchEfficiency   `json:"efficiency"`
 	FishZones   []BenchFishZone   `json:"fishing_zones,omitempty"`
 	Notes       []string          `json:"notes,omitempty"`
+	GuideCheck  string            `json:"guide_check"` // one line: each band's recipe and how it is learnt
 }
 
 // EfficiencyFormula is how the score is built; lower is better.
@@ -208,6 +211,10 @@ func NewBenchmark(ds store.DataStore, o BenchOptions) Benchmark {
 	p := &planner{c: c, ds: ds, notes: notes, prof: name, srcs: map[int64]source{}, names: map[int64]string{}}
 	for _, band := range pa.Bands {
 		opt := band.Best
+		if band.Gap != "" {
+			b.Bands = append(b.Bands, BenchBand{From: band.From, To: band.To, Gap: band.Gap, Rank: band.Rank, RankLevel: band.RankLevel, Materials: []BenchMaterial{}})
+			continue
+		}
 		bb := BenchBand{From: band.From, To: band.To, Recipe: opt.Recipe, SpellID: opt.Spell, Crafts: opt.Crafts,
 			OrangeCrafts: opt.OrangeCrafts, YellowCrafts: opt.YellowCrafts, Learn: opt.Learn, Materials: []BenchMaterial{},
 			ExpectedSkillUps: float64(opt.OrangeCrafts) + float64(opt.YellowCrafts)/2}
@@ -242,6 +249,7 @@ func NewBenchmark(ds store.DataStore, o BenchOptions) Benchmark {
 			}
 			add(n)
 		}
+		bb.Source = learnWhere(opt)
 		b.Bands = append(b.Bands, bb)
 		li := opt.LearnInfo
 		ti := tierIdx(band.From)
@@ -284,6 +292,7 @@ func NewBenchmark(ds store.DataStore, o BenchOptions) Benchmark {
 	if len(b.Bands) == 0 && strings.EqualFold(name, "Fishing") {
 		b.fishing(ds, tiers)
 	}
+	b.GuideCheck = guideCheck(b.Bands)
 	return b
 }
 
@@ -473,6 +482,10 @@ func RenderBenchmark(b Benchmark) string {
 	}
 	w.WriteString("\nBands:\n")
 	for i, x := range b.Bands {
+		if x.Gap != "" {
+			fmt.Fprintf(&w, "%d. Skill %d→%d: %s\n", i+1, x.From, x.To, x.Gap)
+			continue
+		}
 		fmt.Fprintf(&w, "%d. Skill %d→%d: %d × %s (%d orange, %d yellow; expected skill-ups %s)", i+1, x.From, x.To, x.Crafts, x.Recipe,
 			x.OrangeCrafts, x.YellowCrafts, trimFloat(x.ExpectedSkillUps))
 		if x.Learn != "" {
@@ -502,6 +515,10 @@ func RenderBenchmark(b Benchmark) string {
 	if len(b.Bands) > 0 {
 		w.WriteString("\nCheck (recipe, learn skill and where it comes from):\n")
 		for i, x := range b.Bands {
+			if x.Gap != "" {
+				fmt.Fprintf(&w, "%d. %d→%d: no recipe covers it\n", i+1, x.From, x.To)
+				continue
+			}
 			fmt.Fprintf(&w, "%d. %d→%d %s: %s", i+1, x.From, x.To, x.Recipe, learnWords(x.LearnSkill, x.LearnSkillSource))
 			if x.Learn != "" {
 				w.WriteString("; learnt from " + x.Learn)
@@ -518,6 +535,9 @@ func RenderBenchmark(b Benchmark) string {
 			}
 			fmt.Fprintf(&w, "- %s: %s\n", z.Zone, strings.Join(cs, ", "))
 		}
+	}
+	if b.GuideCheck != "" {
+		w.WriteString("\n" + b.GuideCheck + "\n")
 	}
 	w.WriteString("\nMaterial totals:\n")
 	for _, t := range b.Materials {
@@ -594,4 +614,42 @@ func trimFloat(f float64) string {
 		return fmt.Sprintf("%d", int64(f))
 	}
 	return fmt.Sprintf("%.1f", f)
+}
+
+// learnWhere says in a few words how the band's recipe is learnt: known, trainer, a vendor
+// pattern, a quest reward, or another pattern.
+func learnWhere(o Option) string {
+	li := o.LearnInfo
+	switch li.Via {
+	case "known":
+		return "known"
+	case "trainer":
+		return "trainer"
+	case "item":
+		switch li.Source {
+		case "vendor":
+			return "vendor pattern " + li.Item
+		case "quest":
+			return "quest recipe " + li.Item + " from " + li.Where
+		}
+		return "pattern " + li.Item + " (" + li.Source + ")"
+	}
+	return "unknown"
+}
+
+// guideCheck is the one line a guide can be compared with: each band, its recipe and how it is
+// learnt, with a gap named as such.
+func guideCheck(bands []BenchBand) string {
+	if len(bands) == 0 {
+		return ""
+	}
+	var parts []string
+	for _, x := range bands {
+		if x.Gap != "" {
+			parts = append(parts, fmt.Sprintf("%d-%d GAP", x.From, x.To))
+			continue
+		}
+		parts = append(parts, fmt.Sprintf("%d-%d %s (%s)", x.From, x.To, x.Recipe, x.Source))
+	}
+	return "Guide check: " + strings.Join(parts, "; ") + "."
 }

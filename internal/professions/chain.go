@@ -122,6 +122,9 @@ func (p *planner) resolve(id int64, skill, depth int) (source, *makeChoice) {
 		if rc.LearnSkill != nil && have >= 0 && *rc.LearnSkill > have {
 			continue
 		}
+		if p.blockedRecipe(rc) || p.usesCooldown(rc.SpellID) {
+			continue
+		}
 		if _, _, _, ok := p.learnDetail(rc, rc.LearnedFrom, 300); !ok {
 			continue
 		}
@@ -167,6 +170,11 @@ func (p *planner) resolve(id int64, skill, depth int) (source, *makeChoice) {
 // expand lays out what making count units of a material takes, following reagents that are made
 // themselves, and the skill-ups the crafts give when the recipe is the planned profession's.
 func (p *planner) expand(ch *makeChoice, count, skill, depth int) *Make {
+	if p.expanding == nil {
+		p.expanding = map[int64]bool{}
+	}
+	p.expanding[ch.rec.SpellID] = true
+	defer delete(p.expanding, ch.rec.SpellID)
 	name := ch.rec.Name
 	if name == "" {
 		name = itemName(p.ds, ch.rec.CreatesItem)
@@ -189,7 +197,7 @@ func (p *planner) expand(ch *makeChoice, count, skill, depth int) *Make {
 		n := Need{ID: ru.id, Item: p.name(ru.id), Total: ru.per * count, Missing: ru.per * count}
 		src, sub := p.resolve(ru.id, skill, depth+1)
 		n.From = src.text
-		if sub != nil && !p.making[ru.id] {
+		if sub != nil && !p.making[ru.id] && !p.expanding[sub.rec.SpellID] {
 			n.Make = p.expand(sub, n.Total, skill, depth+1)
 		}
 		m.Needs = append(m.Needs, n)

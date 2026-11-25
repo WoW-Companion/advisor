@@ -65,6 +65,8 @@ type learnInfo struct {
 	Item   string
 	Source string
 	Where  string
+	// QuestOK is set for a quest recipe the character can take now: the quest's level and faction fit.
+	QuestOK bool
 }
 
 // Band is one stretch of skill, from From to To, with the recipe to make and an alternative.
@@ -75,6 +77,7 @@ type Band struct {
 	Patterns  []Option // recipes learnt from drops, quests or reputation, for a player who has the pattern
 	Rank      string   // the rank to train before this band, when it starts one
 	RankLevel int      // the character level that rank needs
+	Gap       string   // set when no recipe covers the band: the plain-words line saying so; Best is empty
 }
 
 // Path is the computed skill-up path for one profession.
@@ -118,6 +121,8 @@ type planner struct {
 	// made caches how each material is best made, by item and skill.
 	made   map[makeKey]*resolved
 	making map[int64]bool
+	// expanding holds the recipes being laid out, so a recipe is never expanded inside itself.
+	expanding map[int64]bool
 }
 
 func (p *planner) name(id int64) string {
@@ -164,7 +169,7 @@ func (p *planner) sourceOf(id int64) source {
 	if s, ok := p.srcs[id]; ok {
 		return s
 	}
-	best := source{effortAH, "the Auction House"}
+	best := source{p.baseEffort(id), "the Auction House"}
 	offer := func(s source) {
 		if s.effort < best.effort {
 			best = s
@@ -172,23 +177,27 @@ func (p *planner) sourceOf(id int64) source {
 	}
 	for _, v := range rowsBy(p.ds, "vendor_sources", "item_id", id) {
 		price := asI64(v["price_copper"])
-		offer(source{int(price), "a vendor, " + Money(price) + " each"})
+		offer(source{int(max(price, 1)), "a vendor, " + Money(price) + " each"})
 	}
 	for _, y := range rowsBy(p.ds, "gathering_yields", "item_id", id) {
 		for _, n := range rowsBy(p.ds, "gathering_nodes", "node_id", asI64(y["node_id"])) {
 			prof := asText(n["profession"])
 			if p.has(prof) {
-				offer(source{effortGather, "gathering (" + prof + ")"})
+				offer(source{20 + 2*int(asI64(n["skill_required"])), "gathering (" + prof + ")"})
 			}
 		}
 	}
 	if rows := rowsBy(p.ds, "fishing_catches", "item_id", id); len(rows) > 0 && p.has("Fishing") {
 		offer(source{effortGather, "fishing"})
 	}
-	if len(rowsBy(p.ds, "disenchant_yields", "material_item_id", id)) > 0 && len(p.disenchantable(id)) > 0 {
-		offer(source{effortDisenc, "disenchanting your own gear"})
+	if rows := rowsBy(p.ds, "disenchant_yields", "material_item_id", id); len(rows) > 0 {
+		if len(p.disenchantable(id)) > 0 {
+			offer(source{effortDisenc, "disenchanting your own gear"})
+		} else if t := disenchantText(rows); t != "" {
+			offer(source{effortDisenc, t})
+		}
 	}
-	if best.text == "the Auction House" {
+	if strings.HasPrefix(best.text, "the Auction House") {
 		best.text += p.materialHint(id)
 	}
 	p.srcs[id] = best
@@ -239,12 +248,25 @@ func (p *planner) learnDetail(r Recipe, from string, skill int) (effort int, tex
 				}
 			}
 			if s.effort == effortAH {
+				var bestQuest *source
+				var qInfo learnInfo
 				for _, l := range rowsBy(p.ds, "loot_sources", "item_id", id) {
 					switch k := strings.ToLower(asText(l["source_kind"])); {
 					case strings.Contains(k, "quest"):
-						s = source{effortQuest, p.name(id) + " from a quest"}
-						info.Source, info.Where = "quest", "a quest"
+						qname, usable := p.questFor(asI64(l["source_id"]))
+						if qname == "" {
+							qname = "a quest"
+						}
+						cand := source{effortQuest, p.name(id) + " from the quest " + qname}
+						ci := info
+						ci.Source, ci.Where, ci.QuestOK = "quest", "the quest "+qname, usable
+						if bestQuest == nil || usable && !qInfo.QuestOK {
+							bestQuest, qInfo = &cand, ci
+						}
 					case strings.Contains(k, "creature") || strings.Contains(k, "object"):
+						if s.effort != effortAH || bestQuest != nil {
+							continue
+						}
 						who := ""
 						if n, err := p.ds.Get("npcs", asI64(l["source_id"])); err == nil {
 							who = asText(n["name"])
@@ -258,13 +280,13 @@ func (p *planner) learnDetail(r Recipe, from string, skill int) (effort int, tex
 						}
 						info.Source = "drop"
 					}
-					if s.effort != effortAH {
-						break
-					}
+				}
+				if bestQuest != nil {
+					s, info = *bestQuest, qInfo
 				}
 			}
-			if (info.Source == "vendor") == p.patterns {
-				continue // by default only trainer and vendor recipes; the rest only for a pattern the player has
+			if isDefaultSource(info) == p.patterns {
+				continue // by default trainer, vendor and quest recipes the character can take; the rest only for a pattern the player has
 			}
 			if byItem == nil || s.effort < byItem.effort {
 				c := s
@@ -286,6 +308,7 @@ type scored struct {
 	opt     Option
 	reach   int
 	effort  int
+	mats    int // raw materials the band takes in all
 	crafts  int
 	spell   int64
 	use     map[int64]int // stock consumed
@@ -296,6 +319,9 @@ type scored struct {
 // price a recipe over one band from skill to target.
 func (p *planner) price(r Recipe, from string, skill, target int, left map[int64]int) (scored, bool) {
 	if r.LearnSkill != nil && *r.LearnSkill > skill {
+		return scored{}, false
+	}
+	if p.blockedRecipe(r) || p.usesCooldown(r.SpellID) {
 		return scored{}, false
 	}
 	d := difficulty(r, skill)
@@ -348,6 +374,7 @@ func (p *planner) price(r Recipe, from string, skill, target int, left map[int64
 				s.opt.SubSkillUps += n.Make.skillUps()
 			}
 		}
+		s.mats += n.leaves()
 		s.opt.Needs = append(s.opt.Needs, n)
 	}
 	return s, true
@@ -432,9 +459,23 @@ func computePath(c character.Character, ds store.DataStore, profession string, t
 			}
 		}
 		if len(all) == 0 {
-			pa.Notes = append(pa.Notes, fmt.Sprintf("No further recipe fits from skill %d: ask your trainer for the next ones.", skill))
-			break
+			// Nothing fits here: say so for the stretch no recipe covers, then go on from where one does.
+			next := stop
+			for s := skill + 1; s < stop; s++ {
+				if p.anyFits(recipes, s, stop) {
+					next = s
+					break
+				}
+			}
+			g := p.gapBand(recipes, skill, next, stop)
+			if t, ok := p.rankStarting(skill); ok {
+				g.Rank, g.RankLevel = t.Name, t.MinLevel
+			}
+			bands = append(bands, g)
+			skill = next
+			continue
 		}
+		all = withinCap(all)
 		sortScored(all)
 		best := all[0]
 		b := Band{From: skill, To: best.reach, Best: best.opt}
@@ -485,15 +526,18 @@ func NextSkillUp(c character.Character, ds store.DataStore, profession string) s
 	if len(pa.Bands) == 0 {
 		return ""
 	}
+	if pa.Bands[0].Gap != "" {
+		return ""
+	}
 	return fmt.Sprintf("next skill-up: make %d × %s", pa.Bands[0].Best.Crafts, pa.Bands[0].Best.Recipe)
 }
 
-// sortScored orders options by cost per skill point, then fewer crafts, then spell id.
+// sortScored orders options by cost per expected skill point (the skill-ups of intermediate
+// crafts count), then fewer crafts, then spell id.
 func sortScored(all []scored) {
 	sort.Slice(all, func(i, j int) bool {
 		a, b := all[i], all[j]
-		ai, bi := a.effort*(b.reach-a.from), b.effort*(a.reach-b.from) // cost per point, cross-multiplied
-		if ai != bi {
+		if ai, bi := a.perPoint(), b.perPoint(); ai != bi {
 			return ai < bi
 		}
 		if a.crafts != b.crafts {
@@ -531,4 +575,63 @@ func (p *planner) patternAlternatives(recipes []Recipe, skill, stop int, best st
 		out = append(out, s.opt)
 	}
 	return out
+}
+
+// isDefaultSource says a recipe item is a source a plan may count on: sold by a vendor, or the
+// reward of a quest the character can take now.
+func isDefaultSource(i learnInfo) bool {
+	return i.Source == "vendor" || i.Source == "quest" && i.QuestOK
+}
+
+// questFor names a quest and says whether the character can take it: the quest's level is within
+// the character's and its faction, when it has one, is theirs.
+func (p *planner) questFor(id int64) (name string, usable bool) {
+	row, err := p.ds.Get("quests", id)
+	if err != nil {
+		return "", false
+	}
+	name = asText(row["name"])
+	req := int64(0)
+	for _, col := range []string{"required_level", "min_level", "level"} {
+		if v := asI64(row[col]); v > 0 {
+			req = v
+			break
+		}
+	}
+	if p.c.Level != nil && req > int64(*p.c.Level) {
+		return name, false
+	}
+	f := strings.ToLower(asText(row["faction"]))
+	if (f == "horde" || f == "alliance") && p.c.Faction != "" && !strings.EqualFold(f, p.c.Faction) {
+		return name, false
+	}
+	return name, name != ""
+}
+
+// disenchantText says where a dust, essence or shard comes from when no gear is held: the item
+// levels of the green (or better) gear that disenchants into it.
+func disenchantText(rows []store.Row) string {
+	lo, hi := int64(-1), int64(0)
+	for _, r := range rows {
+		if asText(r["state"]) == "none" || asText(r["quality"]) != "uncommon" {
+			continue
+		}
+		if l := asI64(r["min_item_level"]); lo < 0 || l < lo {
+			lo = l
+		}
+		hi = max(hi, asI64(r["max_item_level"]))
+	}
+	if lo < 0 {
+		return ""
+	}
+	return fmt.Sprintf("disenchant level-%d to %d greens or buy", lo, hi)
+}
+
+func (p *planner) anyFits(recipes []Recipe, skill, stop int) bool {
+	for _, r := range recipes {
+		if p.fitsAt(r, skill, stop) {
+			return true
+		}
+	}
+	return false
 }
