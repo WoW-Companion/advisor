@@ -119,6 +119,47 @@ guidance = {                      -- per character, keyed by quest id; data only
 Names and positions come from the dataset or the player's own capture, never invented; an item without
 `map`, `x` and `y` has only a `zone`. Older addons ignore the block.
 
+## Schema 1.3: places and "here" data
+
+Steps are a quest's open objectives, one per thing left to do, each with the verb its objective type
+implies and the place where it is done. A friendly or quest-giving NPC is "Talk to" (or the objective's
+own "Listen to"), never "Kill". A quest in the log that lists open objectives plans only those. Objective
+stops merge only when they say the same thing (the same label) within 3 map percent.
+
+Order: after the optimiser, a pick-up or turn-in within 3 map percent of the player's position, or of an
+earlier stop, is moved right after it when every precedence holds and the route grows by no more than
+twice that (the cost of the detour). What can be done at one place is done together.
+
+Every step gains `place = "Windsong Lake"` (the subzone, else the zone; absent when unknown). A pin on the
+world map sits at the step's `x`, `y`, which is the place the work is done (the objective's cluster, the
+giver or the finisher), never the quest giver for an objective. Its marker is `kind` (`objective`,
+`turnin`, `pickup`). Steps at one position are one stacked pin that lists each step's own `label`.
+Guidance items gain `place` too; an item with no position has only `zone`.
+
+A per-NPC `here` list, one block per NPC the route picks up from or turns in to:
+
+```lua
+here = {
+  {
+    npc = "Test Windshaper", npcID = 3, map = 7001, x = 50.0, y = 50.0, place = "Test Village", steps = { 4 },
+    can = { "turn in", "buy and sell", "repair" },   -- also "pick up", "train"
+    quests = {
+      { questID = 30, quest = "The Test Construct", role = "turnin",   -- or "pickup"
+        text = "Turn in The Test Construct once you have done: Collect Test Gyro (0/1) (Test Lake); Collect Test Core (0/1) (Test Camp).",
+        missing = { { text = "Collect Test Gyro (0/1)", map = 7001, x = 10.0, y = 70.0, zone = "Testisle", place = "Test Lake" } } },
+    },
+    nearby = {                   -- quests a giver within 12 map percent offers that are not on the route
+      [32] = { questID = 32, quest = "Hill Errand", giver = "Test Cultist", map = 7001, x = 55.0, y = 52.0,
+               guidance = { ... } },   -- the 1.2 guidance block of that quest
+    },
+  },
+},
+```
+
+`missing` is what the quest still needs, in the 1.2 item format; with nothing missing, `text` says so.
+`can` comes from the NPC's service flags. `nearby` holds quests the planner listed but did not route (too
+high a level, past the cap); a quest Questie says is not available to the character is never in it.
+
 Minor schema changes only add keys; readers ignore keys they do not know.
 
 ## Chain-aware plan

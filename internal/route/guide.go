@@ -25,6 +25,8 @@ type GuideItem struct {
 	X    float64 `json:"x,omitempty"`
 	Y    float64 `json:"y,omitempty"`
 	Zone string  `json:"zone,omitempty"`
+	// Place is the subzone (else the zone) the position is in, in words: "Windsong Lake".
+	Place string `json:"place,omitempty"`
 }
 
 // unknownTag is the suffix the planner puts on an objective it could not place.
@@ -38,7 +40,7 @@ func itemOf(s *spot, zone func(int) string, fallback string) GuideItem {
 	if s.unplaced || s.m == 0 {
 		return GuideItem{Text: text, Zone: fallback}
 	}
-	return GuideItem{Text: text, Map: s.m, X: round1(s.x), Y: round1(s.y), Zone: zone(s.m)}
+	return GuideItem{Text: text, Map: s.m, X: round1(s.x), Y: round1(s.y), Zone: zone(s.m), Place: s.place}
 }
 
 // guides writes one Guide per listed quest, sorted by quest id. steps are the route's steps.

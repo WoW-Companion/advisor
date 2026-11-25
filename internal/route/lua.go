@@ -10,7 +10,7 @@ import (
 )
 
 // Schema is the Plan.lua format version (docs/plan-format.md).
-const Schema = "1.2"
+const Schema = "1.3"
 
 // File is the file name, next to Digest.lua.
 const File = "Plan.lua"
@@ -39,6 +39,9 @@ func stops(b *strings.Builder, indent string, list []Stop) {
 			if s.Chain != "" {
 				extra += ", chain = " + digest.Quote(s.Chain)
 			}
+		}
+		if s.Place != "" {
+			extra += ", place = " + digest.Quote(s.Place)
 		}
 		if len(s.QuestIDs) > 1 {
 			extra += ", questIDs = " + idList(s.QuestIDs)
@@ -74,6 +77,10 @@ func (e Envelope) Lua() string {
 		b.WriteString("      },\n      guidance = {\n")
 		for _, g := range p.Guides {
 			guideLua(&b, "        ", g)
+		}
+		b.WriteString("      },\n      here = {\n")
+		for _, h := range p.Here {
+			hereLua(&b, "        ", h)
 		}
 		b.WriteString("      },\n    },\n")
 	}
@@ -166,12 +173,22 @@ func itemLua(it GuideItem) string {
 	if it.Zone != "" {
 		s += ", zone = " + digest.Quote(it.Zone)
 	}
+	if it.Place != "" {
+		s += ", place = " + digest.Quote(it.Place)
+	}
 	return "{ " + s + " }"
 }
 
 // guideLua is one quest's "once accepted" block, keyed by its quest id.
 func guideLua(b *strings.Builder, indent string, g Guide) {
-	fmt.Fprintf(b, "%s[%d] = {\n%s  questID = %d, quest = %s, class = %t, steps = %s,\n", indent, g.QuestID, indent, g.QuestID, digest.Quote(g.Quest), g.Class, idList(g.Steps))
+	fmt.Fprintf(b, "%s[%d] = ", indent, g.QuestID)
+	guideBody(b, indent, g)
+	b.WriteString(",\n")
+}
+
+// guideBody is the guide's table, without its key or a trailing comma.
+func guideBody(b *strings.Builder, indent string, g Guide) {
+	fmt.Fprintf(b, "{\n%s  questID = %d, quest = %s, class = %t, steps = %s,\n", indent, g.QuestID, digest.Quote(g.Quest), g.Class, idList(g.Steps))
 	fmt.Fprintf(b, "%s  objectives = {", indent)
 	for i, o := range g.Objectives {
 		if i > 0 {
@@ -186,5 +203,33 @@ func guideLua(b *strings.Builder, indent string, g Guide) {
 	if g.TurnIn != nil {
 		fmt.Fprintf(b, "%s  turnin = %s,\n", indent, itemLua(*g.TurnIn))
 	}
-	fmt.Fprintf(b, "%s  after = %s,\n%s},\n", indent, digest.Quote(g.After), indent)
+	fmt.Fprintf(b, "%s  after = %s,\n%s}", indent, digest.Quote(g.After), indent)
+}
+
+// hereLua is one NPC's "here" block (Plan.lua 1.3).
+func hereLua(b *strings.Builder, indent string, h Here) {
+	fmt.Fprintf(b, "%s{\n%s  npc = %s, npcID = %d, map = %d, x = %.1f, y = %.1f, place = %s, steps = %s,\n", indent, indent,
+		digest.Quote(h.NPC), h.NPCID, h.Map, h.X, h.Y, digest.Quote(h.Place), idList(h.Steps))
+	var can []string
+	for _, c := range h.Can {
+		can = append(can, digest.Quote(c))
+	}
+	fmt.Fprintf(b, "%s  can = { %s },\n%s  quests = {\n", indent, strings.Join(can, ", "), indent)
+	for _, q := range h.Quests {
+		fmt.Fprintf(b, "%s    { questID = %d, quest = %s, role = %s, text = %s, missing = {", indent, q.QuestID, digest.Quote(q.Quest), digest.Quote(q.Role), digest.Quote(q.Text))
+		for i, m := range q.Missing {
+			if i > 0 {
+				b.WriteString(",")
+			}
+			fmt.Fprintf(b, " %s", itemLua(m))
+		}
+		b.WriteString(" } },\n")
+	}
+	fmt.Fprintf(b, "%s  },\n%s  nearby = {\n", indent, indent)
+	for _, n := range h.Nearby {
+		fmt.Fprintf(b, "%s    [%d] = { questID = %d, quest = %s, giver = %s, map = %d, x = %.1f, y = %.1f, guidance = ", indent, n.QuestID, n.QuestID, digest.Quote(n.Quest), digest.Quote(n.Giver), n.Map, n.X, n.Y)
+		guideBody(b, indent+"    ", n.Guidance)
+		b.WriteString(" },\n")
+	}
+	fmt.Fprintf(b, "%s  },\n%s},\n", indent, indent)
 }

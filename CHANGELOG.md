@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.76
+
+- Quest steps now name what is left to do and where: "Talk to" a friendly NPC, never "Kill".
+- Pick-ups and turn-ins at a place you are already at come first on the route.
+- The plan file now says, for each NPC stop, what you can do there and what each quest still needs.
+
 ## 0.7.74
 
 - The plan file now says what each quest needs once accepted, so the panel can move on live.
