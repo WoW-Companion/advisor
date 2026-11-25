@@ -625,14 +625,47 @@ fn fetch_text(cache: &Path, url: &str, name: &str) -> Result<String, String> {
     text
 }
 
+/// A pulled running version: where to go back to, and why it was pulled.
+#[derive(Clone, Debug, PartialEq)]
+pub struct GoBack {
+    pub back_to: String,
+    pub reason: String,
+}
+
+/// The pull of the running version in `updates.json`, when there is one.
+pub fn running_pull(text: &str, running: &str) -> Option<GoBack> {
+    let v: serde_json::Value = serde_json::from_str(text).ok()?;
+    let bare = |s: &str| s.trim().trim_start_matches('v').to_string();
+    let field = |e: &serde_json::Value, k: &str| e.get(k).and_then(|x| x.as_str()).map(bare).unwrap_or_default();
+    v.get("pulled")?
+        .as_array()?
+        .iter()
+        .find(|e| field(e, "version") == running)
+        .map(|e| GoBack { back_to: field(e, "back_to"), reason: e.get("reason").and_then(|x| x.as_str()).unwrap_or("").trim().to_string() })
+}
+
 /// Looks up the newest release and the pull file over HTTPS, without the page or the sidecar.
 pub fn check_latest(app: &AppHandle) -> Result<Check, String> {
+    check_full(app).map(|(c, _)| c)
+}
+
+/// `check_latest` plus the pull of the running version, which the automatic updater acts on. A failed
+/// release lookup still answers when the running version is pulled.
+pub fn check_full(app: &AppHandle) -> Result<(Check, Option<GoBack>), String> {
     let cache = cache_dir(app)?;
-    let latest = fetch_text(&cache, LATEST_URL, "latest.json.part")?;
-    let (tag, at) = latest_release(&latest).ok_or("The release information could not be read.")?;
+    let running = env!("CARGO_PKG_VERSION");
     // A pull file that cannot be read pulls nothing: it must never block an update.
-    let pulled = fetch_text(&cache, PULLS_URL, "updates.json.part").map(|t| pulled_versions(&t)).unwrap_or_default();
-    Ok(judge(&tag, at, env!("CARGO_PKG_VERSION"), &pulled, now_secs()))
+    let pulls = fetch_text(&cache, PULLS_URL, "updates.json.part").unwrap_or_default();
+    let back = running_pull(&pulls, running);
+    let latest = match fetch_text(&cache, LATEST_URL, "latest.json.part") {
+        Ok(t) => t,
+        Err(_) if back.is_some() => return Ok((Check::UpToDate, back)),
+        Err(e) => return Err(e),
+    };
+    let Some((tag, at)) = latest_release(&latest) else {
+        return if back.is_some() { Ok((Check::UpToDate, back)) } else { Err("The release information could not be read.".into()) };
+    };
+    Ok((judge(&tag, at, running, &pulled_versions(&pulls), now_secs()), back))
 }
 
 /// Opens the shell's log folder in the file manager.
@@ -859,6 +892,15 @@ mod tests {
         assert_eq!(latest_release("<html>"), None);
         assert_eq!(pulled_versions(r#"{"pulled":[{"version":"v0.7.52"},{"version":"0.7.53"},{}]}"#), vec!["0.7.52".to_string(), "0.7.53".to_string()]);
         assert!(pulled_versions("garbage").is_empty());
+    }
+
+    #[test]
+    fn the_pull_of_the_running_version_names_where_to_go_back() {
+        let t = r#"{"pulled":[{"version":"v0.7.52","back_to":"0.7.51","reason":"crash"},{"version":"0.7.53","back_to":"v0.7.51","reason":" bad save "}]}"#;
+        assert_eq!(running_pull(t, "0.7.53"), Some(GoBack { back_to: "0.7.51".into(), reason: "bad save".into() }));
+        assert_eq!(running_pull(t, "0.7.52").map(|g| g.back_to).as_deref(), Some("0.7.51"));
+        assert_eq!(running_pull(t, "0.7.54"), None);
+        assert_eq!(running_pull("garbage", "0.7.53"), None);
     }
 
     #[test]

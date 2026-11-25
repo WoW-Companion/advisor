@@ -28,7 +28,7 @@
     if (p) return { kind: 'pulled', version: p.version, reason: p.reason || 'it was pulled', backTo: p.back_to || '', busy, failure };
     const v = bare(status.latest);
     const hidden = !status.available || (cfg.skipped || []).map(bare).includes(v) || ((cfg.later || {})[v] || 0) > now;
-    if (!hidden) return { kind: 'offer', version: v, notes: status.notes || '', busy, failure };
+    if (!hidden) return { kind: 'offer', version: v, notes: status.notes || '', auto: !!cfg.autoUpdate, busy, failure };
     // An install the player started from the version list has its own progress and error line.
     if (busy || failure) return { kind: 'task', busy, failure };
     return null;
@@ -53,8 +53,15 @@
       text: s.failure ? 'The update did not install: ' + s.failure : 'Update ' + s.version + ' is ready',
       actions: s.failure
         ? [...err, { id: 'later', label: 'Later' }]
-        : [{ id: 'notes', label: 'What’s new' }, { id: 'changes', label: 'See all changes' }, { id: 'install', label: 'Install' }, { id: 'later', label: 'Later' }, { id: 'skip', label: 'Skip this version' }],
+        : [{ id: 'notes', label: 'What’s new' }, { id: 'changes', label: 'See all changes' }, { id: 'install', label: 'Install' }, ...(s.auto ? [] : [{ id: 'always', label: 'Always update automatically' }]), { id: 'later', label: 'Later' }, { id: 'skip', label: 'Skip this version' }],
     };
+  }
+
+  // "Always update automatically": the setting goes on; the caller then installs now.
+  function turnOnAuto(cfg) { cfg.autoUpdate = true; return cfg; }
+  // What the shell is told about the setting: it applies the banner's rules itself, without the page.
+  function autoArgs(cfg) {
+    return { enabled: !!cfg.autoUpdate && cfg.checkUpdates !== false, updateNow: !!cfg.updateNow, skipped: (cfg.skipped || []).map(bare).filter(Boolean) };
   }
 
   function skip(cfg, version) {
@@ -115,11 +122,12 @@
 
   // The note at the top of the chat on the first start of a different version than the last one.
   // last is the version seen at the previous start ("" the first time ever: no note).
-  function updatedNote(last, running) {
+  // reason is why an automatic go-back happened ("" when the player went back themselves).
+  function updatedNote(last, running, reason) {
     const a = bare(last), b = bare(running);
     if (!a || !b || a === b || cmp(a, b) === 0) return null;
     return cmp(b, a) < 0 ? { kind: 'up', version: b, from: a, text: '✓ Updated to ' + b, whatsNew: true }
-                         : { kind: 'back', version: b, text: '✓ Went back to ' + b, whatsNew: false };
+                         : { kind: 'back', version: b, text: '✓ Went back to ' + b + (reason ? ': ' + String(reason).replace(/[.\s]+$/, '') : ''), whatsNew: false };
   }
 
   // When to look again: on start, every CHECK_EVERY, after the PC slept (a late one-minute tick), and
@@ -141,7 +149,7 @@
     };
   }
 
-  const api = { CHECK_EVERY, LATER_MS, WAKE_GAP, TICK, updateQuery, bannerState, bannerView, skip, later, plainNotes, versionRows, noticeView, updatedNote, whatsNewQuery, CHANGELOG_URL, cmp, createSchedule };
+  const api = { CHECK_EVERY, LATER_MS, WAKE_GAP, TICK, updateQuery, bannerState, bannerView, turnOnAuto, autoArgs, skip, later, plainNotes, versionRows, noticeView, updatedNote, whatsNewQuery, CHANGELOG_URL, cmp, createSchedule };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.WowcUpdates = api;
 })(typeof window !== 'undefined' ? window : globalThis);

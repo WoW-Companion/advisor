@@ -6,11 +6,11 @@ const win = window.__TAURI__.window.getCurrentWindow();
 
 const $ = id => document.getElementById(id);
 const log = $('log'), who = $('who'), badge = $('badge'), text = $('text'), send = $('send');
-const DEFAULTS = { schema: 1, opacity: 92, solidHover: false, mode: 'overlay', keyVis: 'Ctrl+Shift+W', keyCt: 'Ctrl+Shift+T', nextOpen: null, settingsOpen: false, chatOpen: true, size: 'M', checkUpdates: true, updateNow: false, skipped: [], later: {}, cleared: [], who: '', setupSeen: false, setupHidden: [], gameDir: '', length: 'standard', byClient: {}, usage: true, groups: { ai: true }, quickBar: true, dismissedSugg: {} };
+const DEFAULTS = { schema: 1, opacity: 92, solidHover: false, mode: 'overlay', keyVis: 'Ctrl+Shift+W', keyCt: 'Ctrl+Shift+T', nextOpen: null, settingsOpen: false, chatOpen: true, size: 'M', checkUpdates: true, updateNow: false, autoUpdate: false, skipped: [], later: {}, cleared: [], who: '', setupSeen: false, setupHidden: [], gameDir: '', length: 'standard', byClient: {}, usage: true, groups: { ai: true }, quickBar: true, dismissedSugg: {} };
 // nextOpen null means automatic: open until the chat has a message, then collapsed. A click makes it a choice.
 const cfg = { ...DEFAULTS, ...JSON.parse(localStorage.getItem('wowc') || '{}') };
 cfg.settingsOpen = false; // the settings open from the gear for this session only; a launch starts calm
-const save = () => localStorage.setItem('wowc', JSON.stringify(cfg));
+const save = () => { localStorage.setItem('wowc', JSON.stringify(cfg)); if (typeof syncAuto === 'function') syncAuto(); };
 const chats = WowcLaunch.chatStore(localStorage); // each character's last 50 turns, on this PC only
 
 let conn = null, state = null, busy = false, events = null;
@@ -601,7 +601,7 @@ async function load() {
 
 // Streaming text is painted at most once per frame, so a fast stream stays smooth.
 function ask(question, ref, icy) {
-  busy = true; send.disabled = true;
+  busy = true; send.disabled = true; reportActivity();
   scrollDown(true);
   put(null, 'q', question);
   const a = put(null, 'a live', WowcAsking.workingLine(question, ref));
@@ -614,10 +614,10 @@ function ask(question, ref, icy) {
     .then(({ id }) => follow(id, a))
     .catch(err => { a.textContent = err.message; a.classList.add('err'); settle(); });
 }
-function settle() { busy = false; send.disabled = false; text.focus(); }
+function settle() { busy = false; send.disabled = false; text.focus(); reportActivity(); }
 // follow streams one answer into bubble a. A "needs" answer turns the bubble into the play-style card.
 function follow(id, a) {
-  busy = true; send.disabled = true;
+  busy = true; send.disabled = true; reportActivity();
   let got = '', queued = false;
   const paint = () => { queued = false; a.textContent = got; scrollDown(); };
   const stop = () => { a.classList.remove('live'); settle(); };
@@ -712,6 +712,31 @@ async function installVersion(version) {
     renderUpdates(); renderVersionList();
   }
 }
+// The shell installs by itself when "Install updates automatically" is on, so it is told the setting
+// and whether an answer is being written or an input has focus (it waits for five quiet minutes).
+var autoSent = '';
+function syncAuto() {
+  const settingsJson = JSON.stringify(cfg), args = WowcUpdates.autoArgs(cfg);
+  const key = JSON.stringify(args) + settingsJson;
+  if (key === autoSent) return;
+  autoSent = key;
+  invoke('auto_update_config', { ...args, settingsJson }).catch(() => { autoSent = ''; });
+}
+function reportActivity() {
+  const el = document.activeElement, tag = el && el.tagName;
+  const focused = document.hasFocus() && (tag === 'TEXTAREA' || tag === 'INPUT');
+  invoke('report_activity', { asking: !!busy, focused }).catch(() => {});
+}
+document.addEventListener('focusin', reportActivity);
+document.addEventListener('focusout', () => setTimeout(reportActivity, 0));
+window.addEventListener('blur', () => setTimeout(reportActivity, 0));
+setInterval(reportActivity, 30000);
+// "Updating to <v>…" for a few seconds before the shell starts (empty text clears it).
+listen('auto-update-note', ev => {
+  const t = String(ev.payload || '');
+  if (t) { upd.busy = t; upd.autoNote = true; } else if (upd.autoNote) { upd.busy = ''; upd.autoNote = false; }
+  renderUpdates();
+});
 listen('update-progress', ev => { if (upd.busy) { upd.busy = String(ev.payload); renderUpdates(); } });
 
 function renderUpdates() {
@@ -728,6 +753,7 @@ function renderUpdates() {
   const act = {
     notes: () => { upd.notesOpen = !upd.notesOpen; renderUpdates(); },
     install: () => installVersion(s.version),
+    always: () => { WowcUpdates.turnOnAuto(cfg); $('auto-update').checked = true; save(); syncAuto(); installVersion(s.version); },
     back: () => installVersion(s.backTo),
     retry: () => installVersion(upd.last),
     later: () => { WowcUpdates.later(cfg, s.version || upd.last, Date.now()); upd.failure = ''; save(); renderUpdates(); },
@@ -789,10 +815,13 @@ function renderVersionList() {
 
 // The note at the top of the chat after a start on a different version. The version is remembered
 // at once, so the note is gone on the next launch (kept outside the settings, which a go-back restores).
-function showUpdatedNote(running) {
+async function showUpdatedNote(running) {
   const last = localStorage.getItem('wowc-lastver') || '';
   localStorage.setItem('wowc-lastver', running);
-  const n = WowcUpdates.updatedNote(last, running);
+  const first = WowcUpdates.updatedNote(last, running);
+  // An automatic go-back keeps its reason in the shell: "✓ Went back to <v>: <reason>".
+  const reason = first && first.kind === 'back' ? await invoke('take_went_back', { version: running }).catch(() => '') : '';
+  const n = WowcUpdates.updatedNote(last, running, reason);
   const bar = $('updated-note');
   if (!n) return;
   bar.hidden = false;
@@ -816,8 +845,11 @@ function showUpdatedNote(running) {
 $('check-updates').checked = cfg.checkUpdates;
 $('check-updates').onchange = ev => { cfg.checkUpdates = ev.target.checked; save(); $('check-now').disabled = !cfg.checkUpdates; if (!cfg.checkUpdates) { versionLine.clearNotice(); renderUpdates(); } else versionLine.check(); };
 $('update-now').checked = cfg.updateNow;
+$('auto-update').checked = cfg.autoUpdate;
+$('auto-update').onchange = ev => { cfg.autoUpdate = ev.target.checked; save(); renderUpdates(); };
 $('update-now').onchange = ev => { cfg.updateNow = ev.target.checked; save(); versionLine.check(); };
 $('check-now').disabled = !cfg.checkUpdates;
+syncAuto();
 $('check-now').onclick = async () => {
   const out = $('check-now-out');
   out.textContent = 'Checking\u2026';

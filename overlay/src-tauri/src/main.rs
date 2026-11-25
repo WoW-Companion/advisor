@@ -2,6 +2,7 @@
 // sidecar. It holds no game logic; it never reads or touches the game process.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod auto;
 mod guard;
 mod recover;
 mod update;
@@ -660,6 +661,7 @@ fn main() {
         .manage(Sidecar::default())
         .manage(Guard::default())
         .manage(recover::Recovery::default())
+        .manage(auto::Auto::default())
         .invoke_handler(tauri::generate_handler![
             get_status,
             restart_sidecar,
@@ -674,6 +676,9 @@ fn main() {
             quit,
             set_shortcuts,
             read_clipboard,
+            auto::auto_update_config,
+            auto::report_activity,
+            auto::take_went_back,
             recover::recovery_state,
             recover::recovery_do
         ])
@@ -696,8 +701,15 @@ fn main() {
                         let _ = w.hide();
                     }
                     recover::show_safe(&h, previous.as_deref());
+                    // The crash check wins: this version is never installed again by itself.
+                    auto::init(&h);
+                    auto::block(&h, env!("CARGO_PKG_VERSION"));
                 }
-                guard::Decision::Normal => start_sidecar(&h),
+                guard::Decision::Normal => {
+                    start_sidecar(&h);
+                    auto::init(&h);
+                    auto::start(&h);
+                }
             }
             Ok(())
         })
