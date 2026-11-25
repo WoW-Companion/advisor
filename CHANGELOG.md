@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.84
+
+- In town, a dungeon quest at your level (The Book of Ur) is a pick-up step, first on the route.
+- A dungeon far above you, and holiday quests, stay under later.
+- With a nearly full quest log, only as many pick-ups as free slots are planned.
+
 ## 0.7.83
 
 - Ready turn-ins where you stand now come first on the route, nearest first, before pick-ups.

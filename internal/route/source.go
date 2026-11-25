@@ -18,6 +18,7 @@ import (
 // at run time for the player's local plan only; nothing here is stored in the repo.
 type questieSource struct {
 	qx     *questie.Index
+	opt    Options
 	follow func(use []*quest, cur int, opt Options) []*quest // set by quests
 }
 
@@ -375,6 +376,12 @@ func (s *questieSource) quests(c character.Character, at *questie.Where) []*ques
 				continue
 			}
 			q := &quest{id: qq.ID, name: qq.Name, level: qq.Level, pickup: pick, must: classQuestOf(c, qq)}
+			q.festival = festivalSort(qq.Zone)
+			q.xp = s.opt.XP[qq.ID]
+			if d := s.qx.DungeonOf(qq.ID); d != nil {
+				q.dungeon = d.Name
+				q.dMin, q.dMax = s.dungeonLevels(d)
+			}
 			q.objs, q.unplaced = objectives(qq, nil, nil, pick.x, pick.y)
 			q.turnin = spotFrom(KindTurnIn, qq, qq.Finishers, pick.x, pick.y, true)
 			out = append(out, q)
@@ -522,4 +529,22 @@ func creatureVerb(e questie.Entity) string {
 func (s *questieSource) npc(id int) (questie.Entity, bool) {
 	e, ok := s.qx.Npcs[id]
 	return e, ok
+}
+
+// festivalSorts are Questie's negative zone-or-sort values for holiday and festival quests: Seasonal,
+// Lunar Festival, Midsummer, Brewfest, Noblegarden, Love is in the Air, Winter Veil, Children's Week,
+// Hallow's End, Harvest Festival, New Year.
+var festivalSorts = map[int]bool{-22: true, -284: true, -366: true, -369: true, -370: true, -374: true, -376: true,
+	-1001: true, -1002: true, -1003: true, -1005: true, -1006: true, -1007: true, -1008: true}
+
+func festivalSort(zone int) bool { return festivalSorts[zone] }
+
+// dungeonLevels is the level range the options give a dungeon, by instance id, else by name; 0, 0 when unknown.
+func (s *questieSource) dungeonLevels(d *questie.Dungeon) (lo, hi int) {
+	for _, l := range s.opt.Dungeons {
+		if (d.Instance != 0 && l.Map == d.Instance) || strings.EqualFold(l.Name, d.Name) {
+			return l.Min, l.Max
+		}
+	}
+	return 0, 0
 }
