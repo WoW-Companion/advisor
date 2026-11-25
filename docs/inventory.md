@@ -27,3 +27,11 @@ Without a dataset, only quest links come from the capture; everything else is un
 capture the review covers the bags only and says so.
 
 Operator check: run `inventory_review` against a real ForeverScribe capture and a built dataset.
+
+## bags_across_characters
+
+`bags_across_characters` reads every captured character at once. Read-only: nothing is mailed, sold or moved.
+
+- `mode: find` (`item`): each character holding the item, with count and bags or bank; characters whose bank was never opened with the addon running are named ("bank not seen yet").
+- `mode: review`: each stack is **Sell**, **Mail** (to a named alt), **Keep**, **Toss** or *Not sure*. Grey items sell; a reagent used only by a profession no character has sells (on the Auction House when it is tradeable and not grey); a reagent or gear upgrade another character uses is mailed to them; a quest item no character's log asks for is tossed (the dataset cannot say whether such a quest could still be started); gear no character's class can use, or more than 10 levels below the wearer, sells; of food, drink and ammo only the best the character can use now is kept. Prices the dataset lacks stay unknown and are left out of the total.
+- `mode: mail` (`character`): the lines above that are addressed to that character.

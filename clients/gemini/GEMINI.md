@@ -58,6 +58,11 @@ All character tools take an optional `character` name (omit it when only one was
 - `quest_chain`: where a quest sits in its quest line (quest id or name): the line, every step and the quest's position.
 - `inventory_review`: what in the bags and bank to equip, keep for professions, hand in for quests,
   vendor or bank, with the reason for each.
+- `bags_across_characters`: bags and banks of ALL captured characters. `mode` find (`item`): who holds an
+  item, how many, bags or bank, and whose bank was never seen; `review` (default): sell, mail to an alt, keep
+  or toss with a reason, the vendor value and slots freed; `mail` (`character`): what to mail to that
+  character. Use it for "where's my X", "who has X", "what should I mail to <alt>" and any bags question that
+  names several characters. For "Look at my bags and bank: what can I sell, what should I keep, and what should go to my other characters?" call it in review mode and answer a short grouped list: Sell (with the value), Mail to <alt>, Keep, Toss, each stack with its short reason. Advice only: nothing is mailed or sold. Relay "unknown" prices and "bank not seen yet" as stated.
 - `update_digest`: writes the in-game digest into the WoWCompanion_Digest addon. Call it only when
   the player asks to refresh the in-game digest.
 

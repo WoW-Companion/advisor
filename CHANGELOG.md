@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.44
+
+- Ask where an item is across all your characters, and press Bags for what to sell, keep, toss or mail to an alt. "Where's my Linen Cloth?" names each character holding it, with how many and whether it is in the bags or the bank, and says when a character's bank has not been seen yet. The new Bags button gives a short list: Sell (with the vendor value), Mail to your alts, Keep and Toss, each with its reason. Prices the game data does not have are shown as unknown, never guessed, and nothing is mailed or sold for you.
+
 ## 0.7.43
 
 - Ask how to beat a dungeon, play your class or work a profession and get real tactics, built around the bosses, quests and drops in your game, even if you're not there yet; a Check Icy Veins button refines it from the WoW Forever guide. A dungeon you are too low for gets one line ("You're 10; it opens around 13.") and then the full plan, with its level range, entrance, bosses, quests to bring and the drops for your class. Under the answer a small line says what it is built from, and the button appears when your AI client can read web pages. Your game data is also re-checked each time the advisor starts, so a republished level range reaches you without opening the companion, and map rows that are not dungeons (such as Ruins of Lordaeron) are no longer suggested.

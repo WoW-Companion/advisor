@@ -71,13 +71,14 @@
   }
 
   // --- quick bar -----------------------------------------------------------------------------
-  // The four buttons. quickAction says what a button does for a character as data, so the page runs
+  // The five buttons. quickAction says what a button does for a character as data, so the page runs
   // it and a test can read it: { act: 'ask', question, ref } sends a question, { act: 'play_style' }
   // shows the play-style card, { act: 'refresh' } calls the refresh endpoint and asks nothing.
   const QUICK = [
     { id: 'next', icon: '➤', label: 'What next?' },
     { id: 'talents', icon: '✦', label: 'Talents' },
     { id: 'gear', icon: '↑', label: 'Gear' },
+    { id: 'bags', icon: '▣', label: 'Bags' },
     { id: 'refresh', icon: '⟳', label: 'Refresh' },
   ];
   // Fixed, broad questions in plain player words: a drill-down belongs on a card, never on a button.
@@ -86,6 +87,7 @@
     next: 'What should I do next, and why?',
     talents: 'Which talent should I take next for my play style, and why?',
     gear: 'Look at my gear and suggest the best upgrades within reach right now: quest rewards, things I can make, vendor buys and cheap Auction House finds. Start with the biggest gain.',
+  bags: 'Look at my bags and bank: what can I sell, what should I keep, and what should go to my other characters?',
   };
   function quickAction(id, c) {
     const entries = (c && c.entries) || [];
@@ -99,6 +101,8 @@
         return { act: 'ask', question: QUICK_ASK.talents, ref: 'talents' };
       case 'gear':
         return { act: 'ask', question: QUICK_ASK.gear, ref: 'upgrades' };
+      case 'bags':
+        return { act: 'ask', question: QUICK_ASK.bags, ref: 'bags' };
       case 'refresh':
         return { act: 'refresh' };
     }

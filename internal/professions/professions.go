@@ -426,3 +426,28 @@ func FarMaterials(c character.Character, ds store.DataStore) map[int64][]string 
 	}
 	return out
 }
+
+// Trades are the professions whose recipes ReagentUsers reads.
+var Trades = []string{"Alchemy", "Blacksmithing", "Enchanting", "Engineering", "Leatherworking", "Tailoring", "Cooking", "First Aid"}
+
+// ReagentUsers maps each reagent item id to the professions whose recipes use it, at any skill. A
+// profession the dataset has no recipes for contributes nothing, and ok is false when none do.
+func ReagentUsers(ds store.DataStore) (users map[int64][]string, ok bool) {
+	users = map[int64][]string{}
+	for _, p := range Trades {
+		recipes, err := Recipes(ds, p)
+		if err != nil {
+			continue
+		}
+		ok = true
+		for _, r := range recipes {
+			for _, row := range reagentsOf(ds, r.SpellID) {
+				id, _ := row["reagent_item_id"].(int64)
+				if l := users[id]; len(l) == 0 || l[len(l)-1] != p {
+					users[id] = append(l, p)
+				}
+			}
+		}
+	}
+	return users, ok
+}

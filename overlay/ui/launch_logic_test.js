@@ -50,25 +50,27 @@ row.find('sugg-go')[1].onclick(); row.find('sugg-x')[2].onclick();
 assert.deepStrictEqual([picked, hid], [['b'], ['c']]);
 assert.strictEqual(L.dayKey(new Date(2026, 10, 3)), '2026-11-03');
 
-// Quick bar: four buttons, each one the right action; Refresh asks nothing.
+// Quick bar: five buttons, each one the right action; Refresh asks nothing.
 const ch = { style: { role: 'damage', focus: 'leveling' }, entries: [
   { group: 'next', kind: 'turnin', title: 'T', ref: 'quest:5', asks: ['Where do I turn in T?'] },
   { group: 'talents', kind: 'talent', title: '2 points', ref: 'talents', asks: ['Where should my talent points go?'] },
   { group: 'upgrades', kind: 'upgrade', title: 'Axe', ref: 'item:9', asks: ['Is the Axe an upgrade?'] }] };
 const ran = [];
 const bar = L.quickBar(doc, id => ran.push(id));
-assert.deepStrictEqual(bar.find('quick-lbl').map(e => e.textContent), ['What next?', 'Talents', 'Gear', 'Refresh']);
+assert.deepStrictEqual(bar.find('quick-lbl').map(e => e.textContent), ['What next?', 'Talents', 'Gear', 'Bags', 'Refresh']);
 bar.children.forEach(b => b.onclick());
-assert.deepStrictEqual(ran, ['next', 'talents', 'gear', 'refresh']);
+assert.deepStrictEqual(ran, ['next', 'talents', 'gear', 'bags', 'refresh']);
 assert.deepStrictEqual(L.quickAction('next', ch), { act: 'ask', question: 'What should I do next, and why?', ref: 'quest:5' });
 assert.deepStrictEqual(L.quickAction('talents', ch), { act: 'ask', question: 'Which talent should I take next for my play style, and why?', ref: 'talents' });
 assert.deepStrictEqual(L.quickAction('talents', { entries: [] }), { act: 'play_style' }, 'no stored style: the card');
 assert.deepStrictEqual(L.quickAction('gear', ch), { act: 'ask', question: 'Look at my gear and suggest the best upgrades within reach right now: quest rewards, things I can make, vendor buys and cheap Auction House finds. Start with the biggest gain.', ref: 'upgrades' });
 assert.deepStrictEqual(L.quickAction('gear', { entries: [] }), L.quickAction('gear', ch), 'Gear is the same whatever the entries');
-for (const id of ['next', 'talents', 'gear']) {
+for (const id of ['next', 'talents', 'gear', 'bags']) {
   const a = L.quickAction(id, ch);
   if (a.act === 'ask') for (const e of ch.entries) for (const k of e.asks || []) assert.notStrictEqual(a.question, k, 'a quick button never sends a card ask');
 }
+assert.deepStrictEqual(L.quickAction('bags', ch), { act: 'ask', question: 'Look at my bags and bank: what can I sell, what should I keep, and what should go to my other characters?', ref: 'bags' });
+assert.deepStrictEqual(L.quickAction('bags', { entries: [] }), L.quickAction('bags', ch), 'Bags is the same whatever the entries');
 assert.deepStrictEqual(L.quickAction('refresh', ch), { act: 'refresh' });
 assert.strictEqual(L.quickAction('refresh', ch).question, undefined, 'Refresh makes no AI call');
 

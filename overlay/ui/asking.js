@@ -262,6 +262,7 @@
   // text or a tool name.
   function workingLine(question, ref) {
     const q = String(question || '').toLowerCase();
+    if (ref === 'bags' || /\b(bags?|bank)\b/.test(q)) return 'Looking through your bags…';
     if (ref === 'upgrades' || /\bgear\b/.test(q)) return 'Checking your gear…';
     if (ref === 'talents' || /talent/.test(q)) return 'Looking at your talents…';
     if (/what should i do next|what next|what('| i)?s next/.test(q)) return 'Planning your next steps…';

@@ -513,3 +513,17 @@ func sources(ds store.DataStore, itemID int64, level int) []Source {
 	}
 	return out
 }
+
+// CanUse reports whether a character of the class token at level can wear or wield the dataset item
+// row, by armor type, weapon type, shield and class restriction. known is false for an unsupported
+// class, an item that is not worn gear, or a row the dataset gives no type for.
+func CanUse(class string, level int, row store.Row) (usable, known bool) {
+	rl, ok := rules[strings.ToUpper(class)]
+	if !ok || row == nil || i64(row["slot"]) == 0 {
+		return false, false
+	}
+	if !allowsClass(int32(i64(row["allowable_class_mask"])), rl.ID) {
+		return false, true
+	}
+	return rl.canUse(int8(i64(row["class_id"])), int8(i64(row["subclass_id"])), int8(i64(row["slot"])), level), true
+}
