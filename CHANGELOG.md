@@ -1,9 +1,15 @@
 # Changelog
 
-## 0.7.67
+## 0.7.68
 
 - Update notes are now short bullets, one change each.
 - The update notice shows the first few changes, with a See all changes link for the rest.
+
+## 0.7.67
+
+- Alchemy plans from skill 1 no longer open with a gap before the first elixirs.
+- Profession plans no longer ask you to buy bolts the plan crafts itself.
+- Stat advice now checks both stats of each suffix.
 
 ## 0.7.66
 

@@ -105,25 +105,42 @@ func asInt(v any) (int64, bool) {
 	return 0, false
 }
 
-// Verified reports whether the random_suffixes rows hold the suffix with the stats it says. With no
-// rows the curated table is trusted. Item names are never matched: elixirs and scrolls share the words.
+// suffixSets groups the random_suffixes rows named name by suffix id into the set of stat ids each one
+// gives. The dataset holds one row per stat of a suffix (the stat column a number), though a row whose
+// stat column is a list is read too.
+func suffixSets(rows []store.Row, name string) map[int64]map[int64]bool {
+	out := map[int64]map[int64]bool{}
+	for _, r := range rows {
+		if n, _ := r["name"].(string); n != name {
+			continue
+		}
+		id, _ := asInt(r["suffix_id"])
+		if out[id] == nil {
+			out[id] = map[int64]bool{}
+		}
+		if l, ok := r["stats"].([]any); ok {
+			for _, v := range l {
+				if n, ok := asInt(v); ok {
+					out[id][n] = true
+				}
+			}
+		} else if n, ok := asInt(r["stats"]); ok {
+			out[id][n] = true
+		}
+	}
+	return out
+}
+
+// Verified reports whether the random_suffixes rows hold the suffix with exactly the stats it says.
+// With no rows the curated table is trusted. Item names are never matched: elixirs and scrolls share
+// the words.
 func Verified(s Suffix, rows []store.Row) bool {
 	if len(rows) == 0 {
 		return true
 	}
-	for _, r := range rows {
-		if name, _ := r["name"].(string); name != s.Name {
+	for _, have := range suffixSets(rows, s.Name) {
+		if len(have) != len(s.Stats) {
 			continue
-		}
-		l, ok := r["stats"].([]any)
-		if !ok {
-			return true
-		}
-		have := map[int64]bool{}
-		for _, v := range l {
-			if n, ok := asInt(v); ok {
-				have[n] = true
-			}
 		}
 		all := true
 		for _, st := range s.Stats {
