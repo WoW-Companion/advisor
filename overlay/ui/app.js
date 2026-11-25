@@ -732,6 +732,7 @@ function renderUpdates() {
     retry: () => installVersion(upd.last),
     later: () => { WowcUpdates.later(cfg, s.version || upd.last, Date.now()); upd.failure = ''; save(); renderUpdates(); },
     skip: () => { WowcUpdates.skip(cfg, s.version); save(); renderUpdates(); },
+    changes: () => invoke('open_install_page', { url: WowcUpdates.CHANGELOG_URL }).catch(e => notice(String(e))),
     details: () => invoke('open_install_page', { url: RELEASES_URL }).catch(e => notice(String(e))),
     dismiss: () => { upd.failure = ''; renderUpdates(); },
   };
@@ -801,7 +802,7 @@ function showUpdatedNote(running) {
     const b = Object.assign(document.createElement('button'), { type: 'button', textContent: 'What’s new' });
     b.onclick = async () => {
       if (!body.textContent) {
-        try { const r = await api('/api/whats-new?version=' + encodeURIComponent(n.version)); const l = r.ok ? (await r.json())[0].lines : []; body.textContent = l.length ? l.map(x => '• ' + x).join('\n') : 'No notes were published for this version.'; } catch { body.textContent = 'No notes were published for this version.'; }
+        try { const r = await api('/api/whats-new' + WowcUpdates.whatsNewQuery(n)); const l = r.ok ? (await r.json())[0].lines : []; body.textContent = WowcUpdates.plainNotes(l.join('\n')); } catch { body.textContent = 'No notes were published for this version.'; }
       }
       body.hidden = !body.hidden;
     };

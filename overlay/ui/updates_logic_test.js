@@ -16,7 +16,7 @@ let s = U.bannerState(offer, cfg(), NOW, '', '');
 assert.deepStrictEqual([s.kind, s.version], ['offer', '0.7.54']);
 let v = U.bannerView(s);
 assert.strictEqual(v.text, 'Update 0.7.54 is ready');
-assert.deepStrictEqual(v.actions.map(a => a.label), ['What’s new', 'Install', 'Later', 'Skip this version']);
+assert.deepStrictEqual(v.actions.map(a => a.label), ['What’s new', 'See all changes', 'Install', 'Later', 'Skip this version']);
 assert.strictEqual(v.cls, 'ok');
 assert.strictEqual(U.bannerState(offer, cfg({ checkUpdates: false }), NOW, '', ''), null, 'the master switch hides it');
 assert.strictEqual(U.bannerState(null, cfg(), NOW, '', ''), null);
@@ -78,7 +78,7 @@ assert.strictEqual(U.noticeView({ available: false }, at).button, '');
 assert.strictEqual(U.noticeView(null, at), null);
 
 // The note after a relaunch: upgrade, go-back, first ever start and no change.
-assert.deepStrictEqual(U.updatedNote('0.7.54', '0.7.55'), { kind: 'up', version: '0.7.55', text: '✓ Updated to 0.7.55', whatsNew: true });
+assert.deepStrictEqual(U.updatedNote('0.7.54', '0.7.55'), { kind: 'up', version: '0.7.55', from: '0.7.54', text: '✓ Updated to 0.7.55', whatsNew: true });
 assert.deepStrictEqual(U.updatedNote('0.7.55', '0.7.54'), { kind: 'back', version: '0.7.54', text: '✓ Went back to 0.7.54', whatsNew: false });
 assert.strictEqual(U.updatedNote('', '0.7.55'), null);
 assert.strictEqual(U.updatedNote('0.7.55', '0.7.55'), null);
@@ -94,3 +94,12 @@ t += U.CHECK_EVERY + 1; assert.strictEqual(sch.focus(), true); assert.strictEqua
 sch.checked(); assert.strictEqual(sch.focus(), false);
 assert.strictEqual(U.CHECK_EVERY, 4 * 3600 * 1000);
 console.log('ok');
+
+// The note after an update knows the version it left, "See all changes" is in the banner,
+// and a go-back shows no what's new.
+assert.strictEqual(U.updatedNote('0.7.55', '0.7.58').from, '0.7.55');
+assert.strictEqual(U.whatsNewQuery(U.updatedNote('0.7.55', '0.7.58')), '?version=0.7.58&from=0.7.55');
+assert.strictEqual(U.updatedNote('0.7.58', '0.7.55').whatsNew, false);
+assert.strictEqual(U.updatedNote('0.7.58', '0.7.55').text, '✓ Went back to 0.7.55');
+assert.ok(U.bannerView(U.bannerState(offer, cfg(), NOW, '', '')).actions.some(a => a.id === 'changes' && a.label === 'See all changes'));
+assert.ok(/^https:\/\/github\.com\/WoW-Companion\/advisor\/.*CHANGELOG\.md$/.test(U.CHANGELOG_URL));

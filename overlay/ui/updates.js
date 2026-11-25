@@ -53,7 +53,7 @@
       text: s.failure ? 'The update did not install: ' + s.failure : 'Update ' + s.version + ' is ready',
       actions: s.failure
         ? [...err, { id: 'later', label: 'Later' }]
-        : [{ id: 'notes', label: 'What’s new' }, { id: 'install', label: 'Install' }, { id: 'later', label: 'Later' }, { id: 'skip', label: 'Skip this version' }],
+        : [{ id: 'notes', label: 'What’s new' }, { id: 'changes', label: 'See all changes' }, { id: 'install', label: 'Install' }, { id: 'later', label: 'Later' }, { id: 'skip', label: 'Skip this version' }],
     };
   }
 
@@ -64,6 +64,11 @@
   function later(cfg, version, now) {
     cfg.later = { [bare(version)]: now + LATER_MS }; // only the latest "Later" is kept
   }
+
+  // The page "See all changes" opens: the CHANGELOG on GitHub.
+  const CHANGELOG_URL = 'https://github.com/WoW-Companion/advisor/blob/main/CHANGELOG.md';
+  // The note's request: everything after the version left, up to the new one.
+  function whatsNewQuery(note) { return '?version=' + encodeURIComponent(note.version) + '&from=' + encodeURIComponent(note.from || ''); }
 
   // A release body as plain lines: no markdown marks, bullets as dots.
   function plainNotes(md) {
@@ -113,7 +118,7 @@
   function updatedNote(last, running) {
     const a = bare(last), b = bare(running);
     if (!a || !b || a === b || cmp(a, b) === 0) return null;
-    return cmp(b, a) < 0 ? { kind: 'up', version: b, text: '✓ Updated to ' + b, whatsNew: true }
+    return cmp(b, a) < 0 ? { kind: 'up', version: b, from: a, text: '✓ Updated to ' + b, whatsNew: true }
                          : { kind: 'back', version: b, text: '✓ Went back to ' + b, whatsNew: false };
   }
 
@@ -136,7 +141,7 @@
     };
   }
 
-  const api = { CHECK_EVERY, LATER_MS, WAKE_GAP, TICK, updateQuery, bannerState, bannerView, skip, later, plainNotes, versionRows, noticeView, updatedNote, cmp, createSchedule };
+  const api = { CHECK_EVERY, LATER_MS, WAKE_GAP, TICK, updateQuery, bannerState, bannerView, skip, later, plainNotes, versionRows, noticeView, updatedNote, whatsNewQuery, CHANGELOG_URL, cmp, createSchedule };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.WowcUpdates = api;
 })(typeof window !== 'undefined' ? window : globalThis);
