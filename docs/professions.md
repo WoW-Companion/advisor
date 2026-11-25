@@ -134,7 +134,7 @@ priority of every class and spec and its suffixes against the dataset's `random_
 listed in the table (`BENCH_REPORT=<file>`), since a guide's route is one good route and the planner picks its own by
 cost. `BENCH_DATASET=<dir>` names a dataset; without it the latest release is downloaded.
 
-The run ends with one summary line, `advice-benchmark: 231 checks, 186 same, 45 differ (professions 81/32,
+The run ends with one summary line, `advice-benchmark: 247 checks, 195 same, 52 differ (professions 90/39,
 tailoring-guide 6/13, stats 99/0)`: every table row counts as same ("match") or differ, by area. Each area prints
 `advice-benchmark-count <area> same=N differ=M`, and `internal/benchsummary` adds them up. The share of
 same rows is how closely the advice agrees with the game data and the Forever guides, and is read per run. The rows
