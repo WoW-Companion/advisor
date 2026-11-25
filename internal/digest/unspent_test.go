@@ -59,3 +59,20 @@ func TestUnspentTalentPointsLead(t *testing.T) {
 		}
 	}
 }
+
+// A captured node with only a spell id (no name) cannot be told from a maxed talent: the line hedges.
+func TestUnspentTalentNamelessNodesHedge(t *testing.T) {
+	c := synthChar()
+	c.Talents = &character.Talents{Unspent: ip(1), Trees: []character.TalentTree{{Name: "Discipline", Points: ip(3),
+		Talents: []character.Talent{{Rank: 3}}}}}
+	l := firstNext(t, c)
+	if l.Kind != KindTalent || !strings.Contains(l.Text, "can't see what you've already picked") || l.Points != 1 {
+		t.Errorf("line %+v", l)
+	}
+	if strings.Contains(l.Why+strings.Join(l.Details, "|"), "Penance") {
+		t.Errorf("hedged line names a pick: %+v", l)
+	}
+	if d := Build(c, synthStore(t), synthOpt); len(d.Talents) != 0 {
+		t.Errorf("panel lists picks: %+v", d.Talents)
+	}
+}

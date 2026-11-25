@@ -50,7 +50,7 @@ func titles(steps []Step) string {
 
 func TestWhatsNext(t *testing.T) {
 	trees := &character.Talents{Unspent: ip(2), Trees: []character.TalentTree{
-		{Name: "Discipline", Points: ip(9)}, {Name: "Holy", Points: ip(3)},
+		{Name: "Discipline", Points: ip(9), Talents: []character.Talent{{Name: "Penance", Rank: 9}}}, {Name: "Holy", Points: ip(3), Talents: []character.Talent{{Name: "Renew", Rank: 3}}},
 	}}
 	cases := []struct {
 		name string

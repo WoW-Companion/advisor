@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.7.82
+
+- Training lists only what your class trainer shows as available; a spell that needs an earlier rank is noted, not listed as new.
+- Gold needed adds up the available spells only, and "Unlocked between levels" is gone when the trainer's list is known.
+- Talent picks read your spent ranks by spell id, so a maxed talent is no longer suggested again.
+- If your spent talents can't be told apart, it says it can't see which you've taken yet.
+
 ## 0.7.81
 
 - Unspent talent points come first: "Spend 1 talent point: Shadow Focus (Shadow)".
