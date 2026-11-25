@@ -10,8 +10,8 @@ import (
 )
 
 // BenchModel states how the benchmark counts skill-ups, in the output itself.
-const BenchModel = "Skill-up model: an orange craft gives 1 skill point, a yellow craft about 0.5 " +
-	"(from the midpoint of the yellow range), a grey craft none. Each band picks the recipe with the lowest " +
+const BenchModel = "Skill-up model: an orange craft gives 1 skill point, a yellow craft 0.75, a green craft 0.25 " +
+	"(green starts halfway between the dataset's yellow and grey skill), a grey craft none. Each band picks the recipe with the lowest " +
 	"cost per point; ties go to fewer crafts, then the lower spell id. Nothing is held: every material is bought or gathered."
 
 // BenchOptions describe the synthetic character of a benchmark.
@@ -53,6 +53,7 @@ type BenchBand struct {
 	Crafts           int             `json:"crafts"`
 	OrangeCrafts     int             `json:"orange_crafts"`
 	YellowCrafts     int             `json:"yellow_crafts"`
+	GreenCrafts      int             `json:"green_crafts"`
 	ExpectedSkillUps float64         `json:"expected_skill_ups"`
 	Learn            string          `json:"learn,omitempty"`
 	LearnSkill       *int            `json:"learn_skill,omitempty"`
@@ -226,8 +227,8 @@ func NewBenchmark(ds store.DataStore, o BenchOptions) Benchmark {
 			continue
 		}
 		bb := BenchBand{From: band.From, To: band.To, Recipe: opt.Recipe, SpellID: opt.Spell, Crafts: opt.Crafts,
-			OrangeCrafts: opt.OrangeCrafts, YellowCrafts: opt.YellowCrafts, Learn: opt.Learn, Materials: []BenchMaterial{},
-			ExpectedSkillUps: float64(opt.OrangeCrafts) + float64(opt.YellowCrafts)/2}
+			OrangeCrafts: opt.OrangeCrafts, YellowCrafts: opt.YellowCrafts, GreenCrafts: opt.GreenCrafts, Learn: opt.Learn,
+			Materials: []BenchMaterial{}, ExpectedSkillUps: float64(opt.OrangeCrafts) + chanceYellow*float64(opt.YellowCrafts) + chanceGreen*float64(opt.GreenCrafts)}
 		if band.Or != nil {
 			bb.Alternative = band.Or.Recipe
 		}
@@ -306,7 +307,8 @@ func NewBenchmark(ds store.DataStore, o BenchOptions) Benchmark {
 		b.Tiers = append(b.Tiers, BenchTier{Name: t.Name, SkillMin: t.SkillMin, SkillCap: t.SkillCap, MinLevel: t.MinLevel,
 			Trainer: trainer, TrainerCopper: trainerCost[i], TrainerSpells: trainerN[i], Reachable: t.MinLevel <= o.Level && t.SkillMin < allowed})
 	}
-	if len(b.Bands) == 0 && strings.EqualFold(name, "Fishing") {
+	if strings.EqualFold(name, "Fishing") && onlyGaps(b.Bands) {
+		b.Bands = b.Bands[:0]
 		b.fishing(ds, tiers)
 	}
 	b.GuideCheck = guideCheck(b.Bands)
@@ -514,8 +516,8 @@ func RenderBenchmark(b Benchmark) string {
 			fmt.Fprintf(&w, "%d. Skill %d→%d: %s\n", i+1, x.From, x.To, x.Gap)
 			continue
 		}
-		fmt.Fprintf(&w, "%d. Skill %d→%d: %d × %s (%d orange, %d yellow; expected skill-ups %s)", i+1, x.From, x.To, x.Crafts, x.Recipe,
-			x.OrangeCrafts, x.YellowCrafts, trimFloat(x.ExpectedSkillUps))
+		fmt.Fprintf(&w, "%d. Skill %d→%d: %d × %s (%d orange, %d yellow, %d green; expected skill-ups %s)", i+1, x.From, x.To, x.Crafts, x.Recipe,
+			x.OrangeCrafts, x.YellowCrafts, x.GreenCrafts, trimFloat(x.ExpectedSkillUps))
 		if x.Learn != "" {
 			w.WriteString("; learn: " + x.Learn)
 		}
@@ -703,4 +705,14 @@ func firstAidNote(bands []BenchBand) string {
 		}
 	}
 	return ""
+}
+
+// onlyGaps says no band names a recipe (or there is no band).
+func onlyGaps(bands []BenchBand) bool {
+	for _, x := range bands {
+		if x.Gap == "" {
+			return false
+		}
+	}
+	return true
 }

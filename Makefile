@@ -1,6 +1,6 @@
 PLATFORMS := windows/amd64 windows/arm64 darwin/amd64 darwin/arm64 linux/amd64 linux/arm64
 
-.PHONY: verify dist cross-check bench integration
+.PHONY: verify dist cross-check bench integration advice-benchmark
 verify:
 	@out="$$(gofmt -l .)"; if [ -n "$$out" ]; then echo "gofmt needed on:"; echo "$$out"; exit 1; fi
 	go vet ./...
@@ -48,3 +48,15 @@ integration:
 	fi; \
 	echo "integration: dataset $$dir"; \
 	WOWC_INTEGRATION_DATASET="$$dir" go test -tags integration ./integration -run TestIntegration -count=1 -v
+
+# The profession and stat advice benchmark: plans every profession at skill 1, 150 and 285 and checks the plans
+# and the stat priorities and suffixes against a real dataset and the recorded Forever guide steps. Needs the
+# network unless BENCH_DATASET names a dataset directory; not part of verify. BENCH_REPORT=<file> receives the
+# result tables in Markdown. See docs/professions.md.
+advice-benchmark:
+	@set -e; dir="$(BENCH_DATASET)"; \
+	if [ -z "$$dir" ]; then \
+		dir="$$(go run ./cmd/wowc-advisor dataset update --cache "$${TMPDIR:-/tmp}/wowc-advice-benchmark" | sed -n 's/^dataset .* ready at //p')"; \
+	fi; \
+	echo "advice-benchmark: dataset $$dir"; \
+	WOWC_BENCH_DATASET="$$dir" WOWC_BENCH_REPORT="$(BENCH_REPORT)" go test ./internal/professions ./internal/stats -run 'AdviceBenchmark|StatBenchmark' -count=1 -v

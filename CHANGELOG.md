@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.65
+
+- Profession plans count skill-ups the way the game does, and gathering professions say what to gather. A craft now gives a skill point for sure while a recipe is orange, three times in four while yellow and one in four once it turns green (it fits the craft counts of the Forever guides far better than the old flat one in two), so a plan leaves a recipe when it turns green unless nothing else is better, and needs fewer crafts. Herbalism, Mining and Skinning no longer send you to the Auction House for a pattern: they name the herbs and ores your skill opens and where they grow, and Fishing shows its catches again. Suffix advice no longer offers a suffix with a stat your build ignores (no "of the Owl" for a Destruction Warlock or an Elemental Shaman), and a trainer the dataset has no name for is shown as its id, not "trainer trainer".
+
 ## 0.7.64
 
 - Gear advice names the right item suffixes, and the app knows your professions from your recipes. A priest who wants survivability now gets "of the Eagle" before "of the Owl" (the suffixes are checked against the game's own suffix list, not against item names like elixirs), and the stat text no longer adds a contradicting "wants more Stamina" line. A profession whose recipes the app has recorded counts as yours even when your skill levels were not captured, so "How do I level tailoring?" gets your real plan instead of "you don't have Tailoring".

@@ -1,0 +1,1694 @@
+{
+ "retrieved": "2026-11-25",
+ "note": "Skill ranges, recipe names and craft counts of the wow-professions.com WoW Forever leveling guides, recorded as facts to compare against; no guide text is kept.",
+ "professions": [
+  {
+   "profession": "Alchemy",
+   "source": "https://www.wow-professions.com/forever/alchemy-leveling-guide",
+   "steps": [
+    {
+     "from": 1,
+     "to": 10,
+     "recipe": "Elixir of Minor Force",
+     "crafts": 9,
+     "reagents": [
+      {
+       "item": "Silverleaf",
+       "per": 1
+      },
+      {
+       "item": "Empty Vial",
+       "per": 1
+      }
+     ]
+    },
+    {
+     "from": 10,
+     "to": 55,
+     "recipe": "Elixir of Minor Defense",
+     "crafts": 45,
+     "reagents": [
+      {
+       "item": "Silverleaf",
+       "per": 1
+      },
+      {
+       "item": "Peacebloom",
+       "per": 1
+      },
+      {
+       "item": "Empty Vial",
+       "per": 1
+      }
+     ]
+    },
+    {
+     "from": 55,
+     "to": 65,
+     "recipe": "Minor Mana Potion",
+     "crafts": 10,
+     "reagents": [
+      {
+       "item": "Mageroyal",
+       "per": 1
+      },
+      {
+       "item": "Peacebloom",
+       "per": 1
+      },
+      {
+       "item": "Empty Vial",
+       "per": 1
+      }
+     ]
+    },
+    {
+     "from": 65,
+     "to": 90,
+     "recipe": "Elixir of Minor Fortitude",
+     "crafts": 28,
+     "reagents": [
+      {
+       "item": "Earthroot",
+       "per": 2
+      },
+      {
+       "item": "Peacebloom",
+       "per": 1
+      },
+      {
+       "item": "Empty Vial",
+       "per": 1
+      }
+     ]
+    },
+    {
+     "from": 90,
+     "to": 120,
+     "recipe": "Elixir of Wisdom",
+     "crafts": 30,
+     "reagents": [
+      {
+       "item": "Mageroyal",
+       "per": 1
+      },
+      {
+       "item": "Briarthorn",
+       "per": 2
+      },
+      {
+       "item": "Empty Vial",
+       "per": 1
+      }
+     ]
+    },
+    {
+     "from": 120,
+     "to": 130,
+     "recipe": "Lesser Mana Potion",
+     "crafts": 10
+    },
+    {
+     "from": 130,
+     "to": 150,
+     "recipe": "Fire Oil",
+     "crafts": 20,
+     "reagents": [
+      {
+       "item": "Firefin Snapper",
+       "per": 2
+      },
+      {
+       "item": "Empty Vial",
+       "per": 1
+      }
+     ]
+    },
+    {
+     "from": 150,
+     "to": 165,
+     "recipe": "Elixir of Fire Power",
+     "crafts": 15,
+     "reagents": [
+      {
+       "item": "Fire Oil",
+       "per": 2
+      },
+      {
+       "item": "Kingsblood",
+       "per": 1
+      }
+     ]
+    },
+    {
+     "from": 165,
+     "to": 195,
+     "recipe": "Mana Potion",
+     "crafts": 36,
+     "reagents": [
+      {
+       "item": "Stranglekelp",
+       "per": 1
+      },
+      {
+       "item": "Kingsblood",
+       "per": 1
+      }
+     ]
+    },
+    {
+     "from": 195,
+     "to": 235,
+     "recipe": "Nature Protection Potion",
+     "crafts": 62,
+     "reagents": [
+      {
+       "item": "Liferoot",
+       "per": 1
+      },
+      {
+       "item": "Stranglekelp",
+       "per": 1
+      }
+     ]
+    },
+    {
+     "from": 235,
+     "to": 250,
+     "recipe": "Elixir of Greater Intellect",
+     "crafts": 15,
+     "reagents": [
+      {
+       "item": "Blindweed",
+       "per": 1
+      },
+      {
+       "item": "Khadgar's Whisker",
+       "per": 1
+      }
+     ]
+    },
+    {
+     "from": 250,
+     "to": 260,
+     "recipe": "Stonescale Oil",
+     "crafts": 47
+    },
+    {
+     "from": 260,
+     "to": 265,
+     "recipe": "Elixir of Greater Intellect",
+     "crafts": 10
+    },
+    {
+     "from": 265,
+     "to": 300,
+     "recipe": "Elixir of Greater Defense",
+     "crafts": 44,
+     "reagents": [
+      {
+       "item": "Stonescale Oil",
+       "per": 2
+      },
+      {
+       "item": "Sungrass",
+       "per": 1
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "profession": "Blacksmithing",
+   "source": "https://www.wow-professions.com/forever/blacksmithing-leveling-guide",
+   "steps": [
+    {
+     "from": 1,
+     "to": 25,
+     "recipe": "Rough Sharpening Stone",
+     "crafts": 30,
+     "reagents": [
+      {
+       "item": "Rough Stone",
+       "per": 1
+      }
+     ]
+    },
+    {
+     "from": 25,
+     "to": 50,
+     "recipe": "Rough Grinding Stone",
+     "crafts": 30,
+     "reagents": [
+      {
+       "item": "Rough Stone",
+       "per": 2
+      }
+     ]
+    },
+    {
+     "from": 50,
+     "to": 75,
+     "recipe": "Coarse Grinding Stone",
+     "crafts": 36,
+     "reagents": [
+      {
+       "item": "Coarse Stone",
+       "per": 2
+      }
+     ]
+    },
+    {
+     "from": 75,
+     "to": 80,
+     "recipe": "Silver Rod",
+     "crafts": 5,
+     "reagents": [
+      {
+       "item": "Silver Bar",
+       "per": 1
+      }
+     ]
+    },
+    {
+     "from": 80,
+     "to": 95,
+     "recipe": "Rough Bronze Leggings",
+     "crafts": 15,
+     "reagents": [
+      {
+       "item": "Bronze Bar",
+       "per": 6
+      }
+     ]
+    },
+    {
+     "from": 95,
+     "to": 100,
+     "recipe": "Patterned Bronze Bracers",
+     "crafts": 5,
+     "reagents": [
+      {
+       "item": "Bronze Bar",
+       "per": 5
+      }
+     ]
+    },
+    {
+     "from": 100,
+     "to": 112,
+     "recipe": "Heavy Grinding Stone",
+     "crafts": 20,
+     "reagents": [
+      {
+       "item": "Heavy Stone",
+       "per": 3
+      }
+     ]
+    },
+    {
+     "from": 112,
+     "to": 125,
+     "recipe": "Patterned Bronze Bracers",
+     "crafts": 13,
+     "reagents": [
+      {
+       "item": "Bronze Bar",
+       "per": 5
+      }
+     ]
+    },
+    {
+     "from": 125,
+     "to": 140,
+     "recipe": "Silvered Bronze Gauntlets",
+     "crafts": 15,
+     "reagents": [
+      {
+       "item": "Bronze Bar",
+       "per": 8
+      },
+      {
+       "item": "Silver Bar",
+       "per": 1
+      }
+     ]
+    },
+    {
+     "from": 140,
+     "to": 175,
+     "recipe": "Green Iron Bracers",
+     "crafts": 40,
+     "reagents": [
+      {
+       "item": "Iron Bar",
+       "per": 6
+      },
+      {
+       "item": "Green Dye",
+       "per": 1
+      }
+     ]
+    },
+    {
+     "from": 175,
+     "to": 180,
+     "recipe": "Solid Grinding Stone",
+     "crafts": 8,
+     "reagents": [
+      {
+       "item": "Solid Stone",
+       "per": 4
+      }
+     ]
+    },
+    {
+     "from": 180,
+     "to": 195,
+     "recipe": "Golden Scale Bracers",
+     "crafts": 20,
+     "reagents": [
+      {
+       "item": "Steel Bar",
+       "per": 5
+      }
+     ]
+    },
+    {
+     "from": 195,
+     "to": 210,
+     "recipe": "Mithril Plate Pants",
+     "crafts": 17,
+     "reagents": [
+      {
+       "item": "Mithril Bar",
+       "per": 12
+      }
+     ]
+    },
+    {
+     "from": 210,
+     "to": 215,
+     "recipe": "Heavy Mithril Axe",
+     "crafts": 6,
+     "reagents": [
+      {
+       "item": "Mithril Bar",
+       "per": 12
+      }
+     ]
+    },
+    {
+     "from": 215,
+     "to": 225,
+     "recipe": "Mithril Coif",
+     "crafts": 10,
+     "reagents": [
+      {
+       "item": "Mithril Bar",
+       "per": 10
+      }
+     ]
+    },
+    {
+     "from": 225,
+     "to": 235,
+     "recipe": "Dense Sharpening Stone",
+     "crafts": 16,
+     "reagents": [
+      {
+       "item": "Dense Stone",
+       "per": 1
+      }
+     ]
+    },
+    {
+     "from": 235,
+     "to": 245,
+     "recipe": "Mithril Spurs",
+     "crafts": 28,
+     "reagents": [
+      {
+       "item": "Mithril Bar",
+       "per": 4
+      }
+     ]
+    },
+    {
+     "from": 245,
+     "to": 270,
+     "recipe": "Imperial Plate Bracers",
+     "crafts": 27,
+     "reagents": [
+      {
+       "item": "Thorium Bar",
+       "per": 20
+      },
+      {
+       "item": "Star Ruby",
+       "per": 1
+      }
+     ]
+    },
+    {
+     "from": 270,
+     "to": 290,
+     "recipe": "Radiant Boots",
+     "crafts": 22,
+     "reagents": [
+      {
+       "item": "Thorium Bar",
+       "per": 14
+      },
+      {
+       "item": "Heart of Fire",
+       "per": 4
+      }
+     ]
+    },
+    {
+     "from": 290,
+     "to": 300,
+     "recipe": "Radiant Leggings",
+     "crafts": 10,
+     "reagents": [
+      {
+       "item": "Thorium Bar",
+       "per": 20
+      },
+      {
+       "item": "Heart of Fire",
+       "per": 4
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "profession": "Enchanting",
+   "source": "https://www.wow-professions.com/forever/enchanting-leveling-guide",
+   "steps": [
+    {
+     "from": 1,
+     "to": 2,
+     "recipe": "Runed Copper Rod",
+     "crafts": 1
+    },
+    {
+     "from": 2,
+     "to": 20,
+     "recipe": "Enchant Bracer - Inferior Stamina",
+     "crafts": 18,
+     "reagents": [
+      {
+       "item": "Mote of Magic",
+       "per": 1
+      }
+     ]
+    },
+    {
+     "from": 20,
+     "to": 70,
+     "recipe": "Enchant Chest - Inferior Stamina",
+     "crafts": 50,
+     "reagents": [
+      {
+       "item": "Strange Dust",
+       "per": 1
+      }
+     ]
+    },
+    {
+     "from": 70,
+     "to": 109,
+     "recipe": "Enchant Chest - Minor Absorption",
+     "crafts": 49,
+     "reagents": [
+      {
+       "item": "Lesser Magic Essence",
+       "per": 1
+      }
+     ]
+    },
+    {
+     "from": 109,
+     "to": 110,
+     "recipe": "Runed Silver Rod",
+     "crafts": 1
+    },
+    {
+     "from": 110,
+     "to": 125,
+     "recipe": "Greater Magic Wand",
+     "crafts": 23,
+     "reagents": [
+      {
+       "item": "Simple Wood",
+       "per": 1
+      },
+      {
+       "item": "Lesser Magic Essence",
+       "per": 2
+      }
+     ]
+    },
+    {
+     "from": 125,
+     "to": 150,
+     "recipe": "Enchant 2H Weapon - Lesser Intellect",
+     "crafts": 37,
+     "reagents": [
+      {
+       "item": "Lesser Magic Essence",
+       "per": 4
+      }
+     ]
+    },
+    {
+     "from": 150,
+     "to": 151,
+     "recipe": "Runed Golden Rod",
+     "crafts": 1
+    },
+    {
+     "from": 151,
+     "to": 165,
+     "recipe": "Minor Mana Oil",
+     "crafts": 16,
+     "reagents": [
+      {
+       "item": "Soul Dust",
+       "per": 1
+      }
+     ]
+    },
+    {
+     "from": 165,
+     "to": 200,
+     "recipe": "Enchant Boots - Lesser Agility",
+     "crafts": 44,
+     "reagents": [
+      {
+       "item": "Soul Dust",
+       "per": 1
+      }
+     ]
+    },
+    {
+     "from": 200,
+     "to": 201,
+     "recipe": "Runed Truesilver Rod",
+     "crafts": 1
+    },
+    {
+     "from": 201,
+     "to": 220,
+     "recipe": "Lesser Wizard Oil",
+     "crafts": 25,
+     "reagents": [
+      {
+       "item": "Vision Dust",
+       "per": 1
+      }
+     ]
+    },
+    {
+     "from": 220,
+     "to": 225,
+     "recipe": "Enchant Cloak - Greater Defense",
+     "crafts": 5,
+     "reagents": [
+      {
+       "item": "Vision Dust",
+       "per": 1
+      }
+     ]
+    },
+    {
+     "from": 225,
+     "to": 250,
+     "recipe": "Enchant Gloves - Agility",
+     "crafts": 34,
+     "reagents": [
+      {
+       "item": "Vision Dust",
+       "per": 1
+      }
+     ]
+    },
+    {
+     "from": 250,
+     "to": 270,
+     "recipe": "Lesser Mana Oil",
+     "crafts": 26,
+     "reagents": [
+      {
+       "item": "Dream Dust",
+       "per": 1
+      }
+     ]
+    },
+    {
+     "from": 270,
+     "to": 275,
+     "recipe": "Enchant Shield - Greater Stamina",
+     "crafts": 5,
+     "reagents": [
+      {
+       "item": "Dream Dust",
+       "per": 6
+      }
+     ]
+    },
+    {
+     "from": 275,
+     "to": 295,
+     "recipe": "Wizard Oil",
+     "crafts": 26,
+     "reagents": [
+      {
+       "item": "Illusion Dust",
+       "per": 3
+      }
+     ]
+    },
+    {
+     "from": 295,
+     "to": 299,
+     "recipe": "Enchant Shield - Greater Stamina",
+     "crafts": 8,
+     "reagents": [
+      {
+       "item": "Dream Dust",
+       "per": 6
+      }
+     ]
+    },
+    {
+     "from": 299,
+     "to": 300,
+     "recipe": "Runed Arcanite Rod",
+     "crafts": 1
+    }
+   ]
+  },
+  {
+   "profession": "Engineering",
+   "source": "https://www.wow-professions.com/forever/engineering-leveling-guide",
+   "steps": [
+    {
+     "from": 1,
+     "to": 35,
+     "recipe": "Rough Blasting Powder",
+     "crafts": 56,
+     "reagents": [
+      {
+       "item": "Rough Stone",
+       "per": 1
+      }
+     ]
+    },
+    {
+     "from": 35,
+     "to": 55,
+     "recipe": "Handful of Copper Bolts",
+     "crafts": 28,
+     "reagents": [
+      {
+       "item": "Copper Bar",
+       "per": 1
+      }
+     ]
+    },
+    {
+     "from": 55,
+     "to": 56,
+     "recipe": "Arclight Spanner",
+     "crafts": 1
+    },
+    {
+     "from": 56,
+     "to": 75,
+     "recipe": "Rough Copper Bomb",
+     "crafts": 28,
+     "reagents": [
+      {
+       "item": "Copper Bar",
+       "per": 1
+      },
+      {
+       "item": "Linen Cloth",
+       "per": 1
+      }
+     ]
+    },
+    {
+     "from": 75,
+     "to": 90,
+     "recipe": "Coarse Blasting Powder",
+     "crafts": 51,
+     "reagents": [
+      {
+       "item": "Coarse Stone",
+       "per": 1
+      }
+     ]
+    },
+    {
+     "from": 90,
+     "to": 100,
+     "recipe": "Coarse Dynamite",
+     "crafts": 17,
+     "reagents": [
+      {
+       "item": "Coarse Blasting Powder",
+       "per": 3
+      },
+      {
+       "item": "Linen Cloth",
+       "per": 1
+      }
+     ]
+    },
+    {
+     "from": 100,
+     "to": 105,
+     "recipe": "Silver Contact",
+     "crafts": 5,
+     "reagents": [
+      {
+       "item": "Silver Bar",
+       "per": 1
+      }
+     ]
+    },
+    {
+     "from": 105,
+     "to": 125,
+     "recipe": "Bronze Tube",
+     "crafts": 25,
+     "reagents": [
+      {
+       "item": "Bronze Bar",
+       "per": 2
+      },
+      {
+       "item": "Weak Flux",
+       "per": 1
+      }
+     ]
+    },
+    {
+     "from": 125,
+     "to": 135,
+     "recipe": "Standard Scope",
+     "crafts": 10,
+     "reagents": [
+      {
+       "item": "Bronze Tube",
+       "per": 1
+      },
+      {
+       "item": "Moss Agate",
+       "per": 1
+      }
+     ]
+    },
+    {
+     "from": 135,
+     "to": 150,
+     "recipe": "Heavy Blasting Powder",
+     "crafts": 40,
+     "reagents": [
+      {
+       "item": "Heavy Stone",
+       "per": 1
+      }
+     ]
+    },
+    {
+     "from": 150,
+     "to": 160,
+     "recipe": "Bronze Framework",
+     "crafts": 15,
+     "reagents": [
+      {
+       "item": "Bronze Bar",
+       "per": 2
+      },
+      {
+       "item": "Medium Leather",
+       "per": 1
+      },
+      {
+       "item": "Wool Cloth",
+       "per": 1
+      }
+     ]
+    },
+    {
+     "from": 160,
+     "to": 175,
+     "recipe": "Explosive Sheep",
+     "crafts": 15
+    },
+    {
+     "from": 175,
+     "to": 190,
+     "recipe": "Solid Blasting Powder",
+     "crafts": 31,
+     "reagents": [
+      {
+       "item": "Solid Stone",
+       "per": 2
+      }
+     ]
+    },
+    {
+     "from": 190,
+     "to": 195,
+     "recipe": "Iron Grenade",
+     "crafts": 10,
+     "reagents": [
+      {
+       "item": "Iron Bar",
+       "per": 1
+      },
+      {
+       "item": "Heavy Blasting Powder",
+       "per": 1
+      },
+      {
+       "item": "Silk Cloth",
+       "per": 1
+      }
+     ]
+    },
+    {
+     "from": 195,
+     "to": 200,
+     "recipe": "Mithril Tube",
+     "crafts": 6,
+     "reagents": [
+      {
+       "item": "Mithril Bar",
+       "per": 3
+      }
+     ]
+    },
+    {
+     "from": 200,
+     "to": 215,
+     "recipe": "Unstable Trigger",
+     "crafts": 21,
+     "reagents": [
+      {
+       "item": "Mithril Bar",
+       "per": 1
+      },
+      {
+       "item": "Mageweave Cloth",
+       "per": 1
+      },
+      {
+       "item": "Solid Blasting Powder",
+       "per": 1
+      }
+     ]
+    },
+    {
+     "from": 215,
+     "to": 238,
+     "recipe": "Mithril Casing",
+     "crafts": 40,
+     "reagents": [
+      {
+       "item": "Mithril Bar",
+       "per": 3
+      }
+     ]
+    },
+    {
+     "from": 238,
+     "to": 250,
+     "recipe": "Hi-Explosive Bomb",
+     "crafts": 20
+    },
+    {
+     "from": 250,
+     "to": 260,
+     "recipe": "Dense Blasting Powder",
+     "crafts": 44,
+     "reagents": [
+      {
+       "item": "Dense Stone",
+       "per": 2
+      }
+     ]
+    },
+    {
+     "from": 260,
+     "to": 280,
+     "recipe": "Thorium Widget",
+     "crafts": 20,
+     "reagents": [
+      {
+       "item": "Thorium Bar",
+       "per": 3
+      },
+      {
+       "item": "Runecloth",
+       "per": 1
+      }
+     ]
+    },
+    {
+     "from": 280,
+     "to": 300,
+     "recipe": "Thorium Tube",
+     "crafts": 21,
+     "reagents": [
+      {
+       "item": "Thorium Bar",
+       "per": 6
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "profession": "Leatherworking",
+   "source": "https://www.wow-professions.com/forever/leatherworking-leveling-guide",
+   "steps": [
+    {
+     "from": 1,
+     "to": 30,
+     "recipe": "Light Leather",
+     "crafts": 35,
+     "reagents": [
+      {
+       "item": "Ruined Leather Scraps",
+       "per": 3
+      }
+     ]
+    },
+    {
+     "from": 30,
+     "to": 40,
+     "recipe": "Cured Light Hide",
+     "crafts": 10,
+     "reagents": [
+      {
+       "item": "Light Hide",
+       "per": 1
+      },
+      {
+       "item": "Salt",
+       "per": 1
+      }
+     ]
+    },
+    {
+     "from": 40,
+     "to": 70,
+     "recipe": "Embossed Leather Gloves",
+     "crafts": 30,
+     "reagents": [
+      {
+       "item": "Light Leather",
+       "per": 3
+      },
+      {
+       "item": "Coarse Thread",
+       "per": 2
+      }
+     ]
+    },
+    {
+     "from": 70,
+     "to": 80,
+     "recipe": "Embossed Leather Pants",
+     "crafts": 10
+    },
+    {
+     "from": 80,
+     "to": 95,
+     "recipe": "Cured Medium Hide",
+     "crafts": 20,
+     "reagents": [
+      {
+       "item": "Medium Hide",
+       "per": 1
+      },
+      {
+       "item": "Salt",
+       "per": 1
+      }
+     ]
+    },
+    {
+     "from": 95,
+     "to": 105,
+     "recipe": "Fine Leather Belt",
+     "crafts": 22,
+     "reagents": [
+      {
+       "item": "Light Leather",
+       "per": 6
+      },
+      {
+       "item": "Coarse Thread",
+       "per": 2
+      }
+     ]
+    },
+    {
+     "from": 105,
+     "to": 125,
+     "recipe": "Dark Leather Belt",
+     "crafts": 20
+    },
+    {
+     "from": 125,
+     "to": 130,
+     "recipe": "Heavy Leather",
+     "crafts": 8,
+     "reagents": [
+      {
+       "item": "Medium Leather",
+       "per": 5
+      }
+     ]
+    },
+    {
+     "from": 130,
+     "to": 143,
+     "recipe": "Cured Heavy Hide",
+     "crafts": 25,
+     "reagents": [
+      {
+       "item": "Heavy Hide",
+       "per": 1
+      },
+      {
+       "item": "Salt",
+       "per": 3
+      }
+     ]
+    },
+    {
+     "from": 143,
+     "to": 150,
+     "recipe": "Hillman's Leather Gloves",
+     "crafts": 8
+    },
+    {
+     "from": 150,
+     "to": 165,
+     "recipe": "Barbaric Shoulders",
+     "crafts": 15
+    },
+    {
+     "from": 165,
+     "to": 175,
+     "recipe": "Guardian Gloves",
+     "crafts": 10
+    },
+    {
+     "from": 175,
+     "to": 185,
+     "recipe": "Barbaric Harness",
+     "crafts": 10
+    },
+    {
+     "from": 185,
+     "to": 205,
+     "recipe": "Nightscape Headband",
+     "crafts": 22,
+     "reagents": [
+      {
+       "item": "Thick Leather",
+       "per": 5
+      },
+      {
+       "item": "Silken Thread",
+       "per": 2
+      }
+     ]
+    },
+    {
+     "from": 205,
+     "to": 235,
+     "recipe": "Nightscape Pants",
+     "crafts": 36,
+     "reagents": [
+      {
+       "item": "Thick Leather",
+       "per": 14
+      },
+      {
+       "item": "Silken Thread",
+       "per": 4
+      }
+     ]
+    },
+    {
+     "from": 235,
+     "to": 265,
+     "recipe": "Wicked Leather Gauntlets",
+     "crafts": 36,
+     "reagents": [
+      {
+       "item": "Rugged Leather",
+       "per": 8
+      },
+      {
+       "item": "Black Dye",
+       "per": 1
+      },
+      {
+       "item": "Rune Thread",
+       "per": 1
+      }
+     ]
+    },
+    {
+     "from": 265,
+     "to": 300,
+     "recipe": "Runic Leather Headband",
+     "crafts": 49,
+     "reagents": [
+      {
+       "item": "Rugged Leather",
+       "per": 14
+      },
+      {
+       "item": "Runecloth",
+       "per": 10
+      },
+      {
+       "item": "Rune Thread",
+       "per": 1
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "profession": "Tailoring",
+   "source": "https://www.wow-professions.com/forever/tailoring-leveling-guide",
+   "steps": [
+    {
+     "from": 1,
+     "to": 30,
+     "recipe": "Bolt of Linen Cloth",
+     "crafts": 30,
+     "reagents": [
+      {
+       "item": "Linen Cloth",
+       "per": 2
+      }
+     ]
+    },
+    {
+     "from": 30,
+     "to": 55,
+     "recipe": "Linen Belt",
+     "crafts": 28,
+     "reagents": [
+      {
+       "item": "Bolt of Linen Cloth",
+       "per": 1
+      },
+      {
+       "item": "Coarse Thread",
+       "per": 1
+      }
+     ]
+    },
+    {
+     "from": 55,
+     "to": 80,
+     "recipe": "Bolt of Woolen Cloth",
+     "crafts": 37,
+     "reagents": [
+      {
+       "item": "Wool Cloth",
+       "per": 3
+      }
+     ]
+    },
+    {
+     "from": 80,
+     "to": 95,
+     "recipe": "Woolen Cape",
+     "crafts": 22,
+     "reagents": [
+      {
+       "item": "Bolt of Woolen Cloth",
+       "per": 1
+      },
+      {
+       "item": "Fine Thread",
+       "per": 1
+      }
+     ]
+    },
+    {
+     "from": 95,
+     "to": 100,
+     "recipe": "Double-stitched Woolen Shoulders",
+     "crafts": 5
+    },
+    {
+     "from": 100,
+     "to": 120,
+     "recipe": "Bolt of Silk Cloth",
+     "crafts": 54,
+     "reagents": [
+      {
+       "item": "Silk Cloth",
+       "per": 4
+      }
+     ]
+    },
+    {
+     "from": 120,
+     "to": 125,
+     "recipe": "Azure Silk Hood",
+     "crafts": 5
+    },
+    {
+     "from": 125,
+     "to": 140,
+     "recipe": "Small Silk Pack",
+     "crafts": 15,
+     "reagents": [
+      {
+       "item": "Bolt of Silk Cloth",
+       "per": 3
+      },
+      {
+       "item": "Heavy Leather",
+       "per": 2
+      },
+      {
+       "item": "Fine Thread",
+       "per": 3
+      }
+     ]
+    },
+    {
+     "from": 140,
+     "to": 150,
+     "recipe": "Bolt of Mageweave",
+     "crafts": 23,
+     "reagents": [
+      {
+       "item": "Mageweave Cloth",
+       "per": 5
+      }
+     ]
+    },
+    {
+     "from": 150,
+     "to": 170,
+     "recipe": "Crimson Silk Vest",
+     "crafts": 20,
+     "reagents": [
+      {
+       "item": "Bolt of Silk Cloth",
+       "per": 4
+      },
+      {
+       "item": "Red Dye",
+       "per": 2
+      },
+      {
+       "item": "Fine Thread",
+       "per": 2
+      }
+     ]
+    },
+    {
+     "from": 170,
+     "to": 185,
+     "recipe": "Crimson Silk Pantaloons",
+     "crafts": 17,
+     "reagents": [
+      {
+       "item": "Bolt of Silk Cloth",
+       "per": 4
+      },
+      {
+       "item": "Red Dye",
+       "per": 2
+      },
+      {
+       "item": "Silken Thread",
+       "per": 2
+      }
+     ]
+    },
+    {
+     "from": 185,
+     "to": 200,
+     "recipe": "Black Mageweave Leggings",
+     "crafts": 22,
+     "reagents": [
+      {
+       "item": "Bolt of Mageweave",
+       "per": 2
+      },
+      {
+       "item": "Silken Thread",
+       "per": 3
+      }
+     ]
+    },
+    {
+     "from": 200,
+     "to": 205,
+     "recipe": "Black Mageweave Shoulders",
+     "crafts": 5
+    },
+    {
+     "from": 205,
+     "to": 215,
+     "recipe": "Bolt of Runecloth",
+     "crafts": 23,
+     "reagents": [
+      {
+       "item": "Runecloth",
+       "per": 5
+      }
+     ]
+    },
+    {
+     "from": 215,
+     "to": 225,
+     "recipe": "Red Mageweave Bag",
+     "crafts": 17,
+     "reagents": [
+      {
+       "item": "Bolt of Mageweave",
+       "per": 5
+      },
+      {
+       "item": "Red Dye",
+       "per": 2
+      },
+      {
+       "item": "Heavy Silken Thread",
+       "per": 2
+      }
+     ]
+    },
+    {
+     "from": 225,
+     "to": 240,
+     "recipe": "Runecloth Belt",
+     "crafts": 24,
+     "reagents": [
+      {
+       "item": "Bolt of Runecloth",
+       "per": 3
+      },
+      {
+       "item": "Rune Thread",
+       "per": 1
+      }
+     ]
+    },
+    {
+     "from": 240,
+     "to": 250,
+     "recipe": "Runecloth Gloves",
+     "crafts": 11,
+     "reagents": [
+      {
+       "item": "Bolt of Runecloth",
+       "per": 4
+      },
+      {
+       "item": "Rugged Leather",
+       "per": 4
+      },
+      {
+       "item": "Rune Thread",
+       "per": 1
+      }
+     ]
+    },
+    {
+     "from": 250,
+     "to": 280,
+     "recipe": "Runecloth Cuffs",
+     "crafts": 39,
+     "reagents": [
+      {
+       "item": "Bolt of Runecloth",
+       "per": 5
+      },
+      {
+       "item": "Ironweb Spider Silk",
+       "per": 1
+      },
+      {
+       "item": "Rune Thread",
+       "per": 1
+      }
+     ]
+    },
+    {
+     "from": 280,
+     "to": 300,
+     "recipe": "Runecloth Shoulders",
+     "crafts": 58,
+     "reagents": [
+      {
+       "item": "Bolt of Runecloth",
+       "per": 7
+      },
+      {
+       "item": "Ironweb Spider Silk",
+       "per": 2
+      },
+      {
+       "item": "Rugged Leather",
+       "per": 4
+      },
+      {
+       "item": "Rune Thread",
+       "per": 1
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "profession": "Cooking",
+   "source": "https://www.wow-professions.com/forever/cooking-leveling-guide",
+   "steps": [
+    {
+     "from": 1,
+     "to": 50,
+     "recipe": "Brilliant Smallfish",
+     "crafts": 55
+    },
+    {
+     "from": 50,
+     "to": 100,
+     "recipe": "Longjaw Mud Snapper",
+     "crafts": 55
+    },
+    {
+     "from": 100,
+     "to": 150,
+     "recipe": "Bristle Whisker Catfish",
+     "crafts": 53
+    },
+    {
+     "from": 150,
+     "to": 175,
+     "recipe": "Goblin Deviled Clams",
+     "crafts": 28,
+     "reagents": [
+      {
+       "item": "Tangy Clam Meat",
+       "per": 1
+      },
+      {
+       "item": "Hot Spices",
+       "per": 1
+      }
+     ]
+    },
+    {
+     "from": 175,
+     "to": 225,
+     "recipe": "Roast Raptor",
+     "crafts": 55,
+     "reagents": [
+      {
+       "item": "Raptor Flesh",
+       "per": 1
+      },
+      {
+       "item": "Hot Spices",
+       "per": 1
+      }
+     ]
+    },
+    {
+     "from": 225,
+     "to": 285,
+     "recipe": "Spotted Yellowtail",
+     "crafts": 72
+    },
+    {
+     "from": 285,
+     "to": 300,
+     "recipe": "Nightfin Soup",
+     "crafts": 18,
+     "reagents": [
+      {
+       "item": "Raw Nightfin Snapper",
+       "per": 1
+      },
+      {
+       "item": "Refreshing Spring Water",
+       "per": 1
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "profession": "First Aid",
+   "source": "https://www.wow-professions.com/forever/first-aid-leveling-guide",
+   "steps": [
+    {
+     "from": 1,
+     "to": 40,
+     "recipe": "Linen Bandage",
+     "crafts": 50,
+     "reagents": [
+      {
+       "item": "Linen Cloth",
+       "per": 1
+      }
+     ]
+    },
+    {
+     "from": 40,
+     "to": 80,
+     "recipe": "Heavy Linen Bandage",
+     "crafts": 60,
+     "reagents": [
+      {
+       "item": "Linen Cloth",
+       "per": 2
+      }
+     ]
+    },
+    {
+     "from": 80,
+     "to": 115,
+     "recipe": "Wool Bandage",
+     "crafts": 52,
+     "reagents": [
+      {
+       "item": "Wool Cloth",
+       "per": 1
+      }
+     ]
+    },
+    {
+     "from": 115,
+     "to": 150,
+     "recipe": "Heavy Wool Bandage",
+     "crafts": 51,
+     "reagents": [
+      {
+       "item": "Wool Cloth",
+       "per": 2
+      }
+     ]
+    },
+    {
+     "from": 150,
+     "to": 180,
+     "recipe": "Silk Bandage",
+     "crafts": 44,
+     "reagents": [
+      {
+       "item": "Silk Cloth",
+       "per": 1
+      }
+     ]
+    },
+    {
+     "from": 180,
+     "to": 210,
+     "recipe": "Heavy Silk Bandage",
+     "crafts": 44,
+     "reagents": [
+      {
+       "item": "Silk Cloth",
+       "per": 2
+      }
+     ]
+    },
+    {
+     "from": 210,
+     "to": 240,
+     "recipe": "Mageweave Bandage",
+     "crafts": 45,
+     "reagents": [
+      {
+       "item": "Mageweave Cloth",
+       "per": 1
+      }
+     ]
+    },
+    {
+     "from": 240,
+     "to": 260,
+     "recipe": "Heavy Mageweave Bandage",
+     "crafts": 30,
+     "reagents": [
+      {
+       "item": "Mageweave Cloth",
+       "per": 2
+      }
+     ]
+    },
+    {
+     "from": 260,
+     "to": 290,
+     "recipe": "Runecloth Bandage",
+     "crafts": 44,
+     "reagents": [
+      {
+       "item": "Runecloth",
+       "per": 1
+      }
+     ]
+    },
+    {
+     "from": 290,
+     "to": 300,
+     "recipe": "Heavy Runecloth Bandage",
+     "crafts": 12,
+     "reagents": [
+      {
+       "item": "Runecloth",
+       "per": 2
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

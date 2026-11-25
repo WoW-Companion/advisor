@@ -54,20 +54,22 @@ func SuffixByKey(key string) (Suffix, bool) {
 // StatNames maps the dataset's stat type ids to stat names.
 var StatNames = map[int64]string{idAgility: Agility, idStrength: Strength, idIntellect: Intellect, idSpirit: Spirit, idStamina: Stamina}
 
-// RankSuffixes orders the suffixes for a priority: only suffixes that carry the priority's lead stat, best first
-// by the sum of the weights of the stats they give (so Stamina + Intellect beats Intellect + Spirit
+// RankSuffixes orders the suffixes for a priority: only suffixes that carry the priority's lead stat and
+// no stat the priority leaves out (a weight under fineWeight: Spirit for a Destruction Warlock), best
+// first by the sum of the weights of the stats they give (so Stamina + Intellect beats Intellect + Spirit
 // when Stamina outweighs Spirit, and a pair beats the single stat). A tie keeps the table order.
 func (p Prof) RankSuffixes() []Suffix {
 	lead := p.top()
 	var out []Suffix
 	score := map[string]float64{}
 	for _, s := range Suffixes {
-		has, sum := false, 0.0
+		has, sum, useless := false, 0.0, false
 		for _, id := range s.Stats {
 			has = has || StatNames[id] == lead
 			sum += p.Weights[StatNames[id]]
+			useless = useless || p.Weights[StatNames[id]] < fineWeight
 		}
-		if has {
+		if has && !useless {
 			out = append(out, s)
 			score[s.Key] = sum
 		}

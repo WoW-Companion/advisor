@@ -1,5 +1,5 @@
 Profession plan: Leatherworking 1→300, level 60, horde, empty bags and bank.
-Skill-up model: an orange craft gives 1 skill point, a yellow craft about 0.5 (from the midpoint of the yellow range), a grey craft none. Each band picks the recipe with the lowest cost per point; ties go to fewer crafts, then the lower spell id. Nothing is held: every material is bought or gathered.
+Skill-up model: an orange craft gives 1 skill point, a yellow craft 0.75, a green craft 0.25 (green starts halfway between the dataset's yellow and grey skill), a grey craft none. Each band picks the recipe with the lowest cost per point; ties go to fewer crafts, then the lower spell id. Nothing is held: every material is bought or gathered.
 
 Gates:
 - Apprentice: skill 1-75, character level 5, trainer Tanner Tess in Goldshire; trainer recipes on this path: 2 for 0c
@@ -8,64 +8,58 @@ Gates:
 - Artisan: skill 225-300, character level 35, trainer Tanner Tess in Goldshire; trainer recipes on this path: 2 for 12g
 
 Bands:
-1. Skill 1→45: 59 × Light Armor Kit (29 orange, 30 yellow; expected skill-ups 44); learn: probably from your trainer; check when you visit
-   Materials: 59 × Light Leather
+1. Skill 1→45: 71 × Light Armor Kit (29 orange, 10 yellow, 32 green; expected skill-ups 44.5); learn: probably from your trainer; check when you visit
+   Materials: 71 × Light Leather
    Alternative: Leather Boots
-2. Skill 45→75: 50 × Leather Boots (10 orange, 40 yellow; expected skill-ups 30); learn: probably from your trainer; check when you visit
-   Materials: 100 × Light Leather, 50 × Coarse Thread
+2. Skill 45→75: 64 × Leather Boots (10 orange, 14 yellow, 40 green; expected skill-ups 30.5); learn: probably from your trainer; check when you visit
+   Materials: 128 × Light Leather, 64 × Coarse Thread
    Alternative: Embossed Vest
-3. Skill 75→110: 55 × Embossed Vest (15 orange, 40 yellow; expected skill-ups 35); learn: trainer, 2s
+3. Skill 75→100: 29 × Embossed Vest (15 orange, 14 yellow, 0 green; expected skill-ups 25.5); learn: trainer, 2s
    First train Journeyman at the trainer (character level 10).
-   Materials: 110 × Coarse Thread, 220 × Medium Leather
+   Materials: 58 × Coarse Thread, 116 × Medium Leather
    Alternative: Fine Belt
-4. Skill 110→140: 50 × Fine Belt (10 orange, 40 yellow; expected skill-ups 30); learn: trainer, 15s
-   Materials: 300 × Medium Leather
+4. Skill 100→130: 34 × Fine Belt (20 orange, 14 yellow, 0 green; expected skill-ups 30.5); learn: trainer, 15s
+   Materials: 204 × Medium Leather
    Alternative: Dark Tunic
-5. Skill 140→147: 9 × Dark Tunic (5 orange, 4 yellow; expected skill-ups 7); learn: Pattern: Dark Tunic from a vendor, 60s
-   Materials: 18 × Coarse Thread, 72 × Medium Leather
-6. Skill 147→150: 6 × Dark Tunic (0 orange, 6 yellow; expected skill-ups 3)
-   Materials: 12 × Coarse Thread, 48 × Medium Leather
-7. Skill 150→205: 75 × Heavy Armor Kit (35 orange, 40 yellow; expected skill-ups 55); learn: trainer, 90s
+5. Skill 130→150: 22 × Dark Tunic (15 orange, 7 yellow, 0 green; expected skill-ups 20.2); learn: Pattern: Dark Tunic from a vendor, 60s
+   Materials: 44 × Coarse Thread, 176 × Medium Leather
+   Alternative: Fine Belt
+6. Skill 150→205: 89 × Heavy Armor Kit (35 orange, 14 yellow, 40 green; expected skill-ups 55.5); learn: trainer, 90s
    First train Expert at the trainer (character level 20).
-   Materials: 375 × Heavy Leather
-8. Skill 205→225: 35 × Rugged Gloves (5 orange, 30 yellow; expected skill-ups 20); learn: trainer, 2g
-   Materials: 210 × Rugged Leather, 70 × Rune Thread
-9. Skill 225→230: 10 × Rugged Gloves (0 orange, 10 yellow; expected skill-ups 5)
+   Materials: 445 × Heavy Leather
+   Alternative: Dark Tunic
+7. Skill 205→225: 39 × Rugged Gloves (5 orange, 14 yellow, 20 green; expected skill-ups 20.5); learn: trainer, 2g
+   Materials: 234 × Rugged Leather, 78 × Rune Thread
+8. Skill 225→260: 39 × Hide Cloak (25 orange, 14 yellow, 0 green; expected skill-ups 35.5); learn: trainer, 4g
    First train Artisan at the trainer (character level 35).
-   Materials: 60 × Rugged Leather, 20 × Rune Thread
-   Alternative: Hide Cloak
-10. Skill 230→270: 60 × Hide Cloak (20 orange, 40 yellow; expected skill-ups 40); learn: trainer, 4g
-   Materials: 480 × Rugged Leather, 60 × Rune Thread
-11. Skill 270→300: 50 × Core Cuirass (10 orange, 40 yellow; expected skill-ups 30); learn: trainer, 8g
-   Materials: 150 × Rune Thread, 200 × Core Hide
+   Materials: 312 × Rugged Leather, 39 × Rune Thread
+9. Skill 260→300: 74 × Core Cuirass (20 orange, 14 yellow, 40 green; expected skill-ups 40.5); learn: trainer, 8g
+   Materials: 222 × Rune Thread, 296 × Core Hide
 
 Check (recipe, learn skill and where it comes from):
 1. 1→45 Light Armor Kit: learn skill 1; probably from your trainer; check when you visit
 2. 45→75 Leather Boots: learn skill 1; probably from your trainer; check when you visit
-3. 75→110 Embossed Vest: learn skill 40; learnt from trainer, 2s
-4. 110→140 Fine Belt: learn skill 75; learnt from trainer, 15s
-5. 140→147 Dark Tunic: learn skill 100; learnt from Pattern: Dark Tunic from a vendor, 60s
-6. 147→150 Dark Tunic: learn skill 100
-7. 150→205 Heavy Armor Kit: learn skill 150; learnt from trainer, 90s
-8. 205→225 Rugged Gloves: learn skill 175; learnt from trainer, 2g
-9. 225→230 Rugged Gloves: learn skill 175
-10. 230→270 Hide Cloak: learn skill 225; learnt from trainer, 4g
-11. 270→300 Core Cuirass: learn skill 250; learnt from trainer, 8g
+3. 75→100 Embossed Vest: learn skill 40; learnt from trainer, 2s
+4. 100→130 Fine Belt: learn skill 75; learnt from trainer, 15s
+5. 130→150 Dark Tunic: learn skill 100; learnt from Pattern: Dark Tunic from a vendor, 60s
+6. 150→205 Heavy Armor Kit: learn skill 150; learnt from trainer, 90s
+7. 205→225 Rugged Gloves: learn skill 175; learnt from trainer, 2g
+8. 225→260 Hide Cloak: learn skill 225; learnt from trainer, 4g
+9. 260→300 Core Cuirass: learn skill 250; learnt from trainer, 8g
 
-Guide check: 1-45 Light Armor Kit (trainer, unconfirmed: ask your trainer); 45-75 Leather Boots (trainer, unconfirmed: ask your trainer); 75-110 Embossed Vest (trainer, confirmed); 110-140 Fine Belt (trainer, confirmed); 140-147 Dark Tunic (vendor pattern Pattern: Dark Tunic); 147-150 Dark Tunic (known); 150-205 Heavy Armor Kit (trainer, confirmed); 205-225 Rugged Gloves (trainer, confirmed); 225-230 Rugged Gloves (known); 230-270 Hide Cloak (trainer, confirmed); 270-300 Core Cuirass (trainer, confirmed).
+Guide check: 1-45 Light Armor Kit (trainer, unconfirmed: ask your trainer); 45-75 Leather Boots (trainer, unconfirmed: ask your trainer); 75-100 Embossed Vest (trainer, confirmed); 100-130 Fine Belt (trainer, confirmed); 130-150 Dark Tunic (vendor pattern Pattern: Dark Tunic); 150-205 Heavy Armor Kit (trainer, confirmed); 205-225 Rugged Gloves (trainer, confirmed); 225-260 Hide Cloak (trainer, confirmed); 260-300 Core Cuirass (trainer, confirmed).
 
 Material totals:
-- 159 × Light Leather: a vendor, 25c each = 39s 75c
-- 190 × Coarse Thread: a vendor, 40c each = 76s
-- 640 × Medium Leather: a vendor, 1s 50c each = 9g 60s
-- 375 × Heavy Leather: gathering (Skinning)
-- 750 × Rugged Leather: gathering (Skinning)
-- 300 × Rune Thread: a vendor, 9s each = 27g
-- 200 × Core Hide: no vendor, gathering or common drop listed: the Auction House [rare]
+- 199 × Light Leather: a vendor, 25c each = 49s 75c
+- 166 × Coarse Thread: a vendor, 40c each = 66s 40c
+- 496 × Medium Leather: a vendor, 1s 50c each = 7g 44s
+- 445 × Heavy Leather: gathering (Skinning)
+- 546 × Rugged Leather: gathering (Skinning)
+- 339 × Rune Thread: a vendor, 9s each = 30g 51s
+- 296 × Core Hide: no vendor, gathering or common drop listed: the Auction House [rare]
 
 Recipes to buy or find:
 - Pattern: Dark Tunic for Dark Tunic: vendor (a vendor), 60s
 
-Efficiency: 2614 materials in all, 7 distinct, vendor cost 37g 75s, 1 rare (200 units), 1125 gathered, 0 bought; score 60889 (lower is better).
+Efficiency: 2487 materials in all, 7 distinct, vendor cost 39g 11s, 1 rare (296 units), 991 gathered, 0 bought; score 84362 (lower is better).
 score = total materials + vendor silver + 250 per rare unit (no vendor, no gathering, fishing or disenchant source, no drop of 5% or more) + 4 per gathered unit (farming time) + 20 per unit bought at the Auction House (bars you could smelt yourself).
-No recipe from skill 147 avoids going past 600 × Medium Leather over the plan; this plan takes the cheapest and asks for more.

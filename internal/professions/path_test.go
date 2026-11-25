@@ -180,7 +180,7 @@ func TestPathBlacksmithingUsesBankedBars(t *testing.T) {
 	ds := pathData(t)
 	c := character.Character{Name: "Smith", Level: ip(20), BankCaptured: true,
 		Professions: []character.Skill{{Name: "Blacksmithing", Rank: ip(100), Max: ip(150)}},
-		Bank:        []character.ItemStack{stack(3, 400, "Copper Bar")}}
+		Bank:        []character.ItemStack{stack(3, 500, "Copper Bar")}}
 	pa := ComputePath(c, ds, "Blacksmithing", 140, 1)
 	b := pa.Bands[0]
 	if b.Best.Recipe != "Copper Mace" || b.Best.Needs[0].Have == 0 || b.Best.Needs[0].Missing != 0 {

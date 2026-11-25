@@ -57,6 +57,7 @@ type Option struct {
 	Spell        int64
 	OrangeCrafts int
 	YellowCrafts int
+	GreenCrafts  int
 	LearnInfo    learnInfo
 }
 
@@ -400,7 +401,7 @@ func (p *planner) price(r Recipe, from string, skill, target int, left map[int64
 		spell: r.SpellID, effort: le, use: map[int64]int{}, from: skill}
 	s.opt.Spell, s.opt.LearnInfo = r.SpellID, linfo
 	s.opt.LearnSkill, s.opt.LearnFrom, s.opt.Around = r.LearnSkill, r.LearnSource, r.LearnSource == "estimate"
-	s.opt.OrangeCrafts, s.opt.YellowCrafts = splitCrafts(r, skill, reach)
+	s.opt.OrangeCrafts, s.opt.YellowCrafts, s.opt.GreenCrafts = splitCrafts(r, skill, reach)
 	if !p.known[r.SpellID] {
 		s.learned = r.SpellID
 	}
@@ -510,12 +511,13 @@ func computePath(c character.Character, ds store.DataStore, profession string, t
 	shortSeen := map[int64]bool{}
 	used := map[int64]int{} // raw materials the bands chosen so far take
 	skill := p.skill
+	var prevStock, prevUsed map[int64]int // the stock and the raw materials used before the last band
 	for len(bands) < 400 && skill < target {
 		// A band never crosses a rank cap (75, 150, 225): the next rank is trained first.
 		stop := min(target, p.notes.TierAt(skill).SkillCap)
 		var all []scored
 		for _, r := range recipes {
-			if s, ok := p.price(r, r.LearnedFrom, skill, stop, p.stock); ok {
+			if s, ok := p.price(r, r.LearnedFrom, skill, greenCap(r, skill, stop), p.stock); ok {
 				all = append(all, s)
 			}
 		}
@@ -540,6 +542,17 @@ func computePath(c character.Character, ds store.DataStore, profession string, t
 		all, fellBack = p.withinUnitCap(withinCap(all), recipes, used, skill)
 		sortScored(all)
 		best := all[0]
+		if n := len(bands); n > 0 && !fellBack && bands[n-1].Gap == "" && bands[n-1].To == skill && bands[n-1].Best.Spell == best.spell {
+			if _, ranked := p.rankStarting(skill); !ranked {
+				// The recipe that turned green is still the best one: carry on with it as one band.
+				if m, ok := p.extend(recipes, bands[n-1], best, prevStock, prevUsed); ok {
+					bands[n-1] = m.band
+					p.stock, used, skill = m.stock, m.used, m.band.To
+					continue
+				}
+			}
+		}
+		prevStock, prevUsed = cloneInts(p.stock), cloneInts(used)
 		if fellBack {
 			p.noteShortfall(&pa, best.opt, used, skill, shortSeen)
 		}
@@ -708,4 +721,69 @@ func (p *planner) anyFits(recipes []Recipe, skill, stop int) bool {
 		}
 	}
 	return false
+}
+
+func cloneInts(m map[int64]int) map[int64]int {
+	out := make(map[int64]int, len(m))
+	for k, v := range m {
+		out[k] = v
+	}
+	return out
+}
+
+// greenCap is where a candidate band ends: at the skill where the recipe turns green (a craft is then
+// one point in four), when it starts earlier and would run past it. A guide leaves a recipe there; the
+// recipe is taken up again, in the same band, only when nothing else is better.
+func greenCap(r Recipe, skill, stop int) int {
+	if r.YellowSkill == nil || r.GreySkill == nil {
+		return stop
+	}
+	if g := greenFrom(r); skill < g && stop > g {
+		return g
+	}
+	return stop
+}
+
+type extended struct {
+	band  Band
+	stock map[int64]int
+	used  map[int64]int
+}
+
+// extend joins the band a recipe turned green in with the stretch after it, priced as one band from the
+// stock and the use before the first: the same plan as if the recipe had been taken to the end at once.
+// It gives up (ok false) when that goes over the material caps or the recipe cannot be priced.
+func (p *planner) extend(recipes []Recipe, prev Band, next scored, stock, used map[int64]int) (extended, bool) {
+	var r Recipe
+	found := false
+	for _, x := range recipes {
+		if x.SpellID == next.spell {
+			r, found = x, true
+			break
+		}
+	}
+	if !found || stock == nil {
+		return extended{}, false
+	}
+	st, us := cloneInts(stock), cloneInts(used)
+	wasLearnt := p.learnt[next.spell]
+	delete(p.learnt, next.spell)
+	s2, ok := p.price(r, r.LearnedFrom, prev.From, next.reach, st)
+	if ok && s2.reach == next.reach {
+		if _, over := p.overCap(s2.opt, us); !over {
+			for id, n := range p.leafUnits(s2.opt) {
+				us[id] += n
+			}
+			for id, n := range s2.use {
+				st[id] -= n
+			}
+			if s2.learned != 0 {
+				p.learnt[s2.learned] = true
+			}
+			return extended{Band{From: prev.From, To: s2.reach, Best: s2.opt, Rank: prev.Rank, RankLevel: prev.RankLevel,
+				Patterns: prev.Patterns, Or: prev.Or}, st, us}, true
+		}
+	}
+	p.learnt[next.spell] = wasLearnt
+	return extended{}, false
 }
