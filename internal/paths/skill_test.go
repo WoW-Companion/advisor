@@ -104,7 +104,7 @@ func TestSkillNotProfessionBoEAndBoP(t *testing.T) {
 func TestSkillCanMakeNamesVendorAndDropRecipes(t *testing.T) {
 	ds := skillFixture(t)
 	p := craftOf(t, For(smith(70, 0), ds, gauntlets, Options{}))
-	if p.Skill.Status != CanMake || !strings.Contains(p.Line, "You can make it now (your Blacksmithing 70, needs 60)") ||
+	if p.Skill.Status != CanMake || !strings.Contains(p.Line, "You can make it if you have the recipe (your Blacksmithing 70, needs 60)") ||
 		!strings.Contains(p.Line, "buy the recipe Plans: Runed Gauntlets from Smith Brann in Dunemark for 1g 25s") ||
 		p.Recipe.Kind != "vendor" || p.Recipe.Offer == nil || strings.Contains(p.Line, "trainer") {
 		t.Fatalf("vendor recipe: %+v", p)
@@ -137,7 +137,7 @@ func TestSkillShortByTwelveWithBankMaterials(t *testing.T) {
 	if st.Recipe != "Rough Sharpening Stone" || st.Difficulty != "orange" || st.Crafts != 12 || st.Reaches != 60 || len(st.Missing) != 0 {
 		t.Fatalf("step: %+v", st)
 	}
-	for _, want := range []string{"You're at 48, it needs 60: 12 points to go.", "about 12 crafts to reach 60", "you have the materials", "Then make it"} {
+	for _, want := range []string{"Your Blacksmithing is 48; it needs 60 (12 more points).", "about 12 crafts to reach 60", "you have the materials", "Then make it"} {
 		if !strings.Contains(p.Line, want) {
 			t.Errorf("line lacks %q: %s", want, p.Line)
 		}
@@ -159,5 +159,40 @@ func TestSkillFarShortLeadsWithOtherWays(t *testing.T) {
 	if p.Skill.Status != Far || p.Skill.Gap != 102 || len(p.Skill.SkillUp) != 0 || r.Dependable() ||
 		!strings.Contains(p.Line, "far short") || !strings.Contains(p.Line, "Auction House") {
 		t.Fatalf("far: %+v", p)
+	}
+}
+
+func TestSkillItemRecipeNotRecordedNeedsPlans(t *testing.T) {
+	ds := skillFixture(t)
+	c := smith(70, 0)
+	c.KnownSpells = nil // as before the addon listed spells
+	c.Recipes = map[string]character.SeenRecipes{"blacksmithing": {Entries: []character.SeenRecipe{{Name: "Rough Sharpening Stone", ID: 905}}}}
+	p := craftOf(t, For(c, ds, gauntlets, Options{}))
+	if p.Skill.Status != NeedsRecipe || *p.Skill.RecipeKnown || strings.Contains(p.Line, "You can make it now") ||
+		!strings.Contains(p.Line, "Needs the Plans: Runed Gauntlets (you don't have them). Your Blacksmithing 70 is enough once you do.") {
+		t.Fatalf("not recorded: %+v", p)
+	}
+}
+
+func TestSkillRecordedRecipeCountsAsKnown(t *testing.T) {
+	c := smith(70, 0)
+	c.Recipes = map[string]character.SeenRecipes{"blacksmithing": {Entries: []character.SeenRecipe{{Name: "runed gauntlets"}}}}
+	p := craftOf(t, For(c, skillFixture(t), gauntlets, Options{}))
+	if p.Skill.Status != CanMake || p.Recipe.Kind != "known" || !strings.Contains(p.Line, "You can make it now") {
+		t.Fatalf("recorded: %+v", p)
+	}
+}
+
+func TestSkillNoRecordHedges(t *testing.T) {
+	p := craftOf(t, For(smith(70, 0), skillFixture(t), gauntlets, Options{}))
+	if p.Skill.RecipeKnown != nil || !strings.Contains(p.Line, "if you have the recipe") || strings.Contains(p.Line, "You can make it now") {
+		t.Fatalf("hedge: %+v", p)
+	}
+}
+
+func TestSkillGapLineNamesProfession(t *testing.T) {
+	p := craftOf(t, For(smith(48, 40), skillFixture(t), gauntlets, Options{}))
+	if !strings.HasPrefix(p.Line, "Your Blacksmithing is 48;") {
+		t.Fatal(p.Line)
 	}
 }

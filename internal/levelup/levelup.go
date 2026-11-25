@@ -257,7 +257,12 @@ func QuestSpells(c character.Character, ds store.DataStore, from, to int) []Ques
 			out = append(out, QuestSpell{ID: id, Name: name, Level: int(lv), Quest: q.Quest})
 		}
 	}
-	sort.SliceStable(out, func(i, j int) bool { return out[i].Level < out[j].Level })
+	sort.SliceStable(out, func(i, j int) bool {
+		if out[i].Level != out[j].Level {
+			return out[i].Level < out[j].Level
+		}
+		return out[i].Name < out[j].Name
+	})
 	return out
 }
 

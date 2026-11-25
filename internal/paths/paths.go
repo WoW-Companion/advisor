@@ -439,11 +439,12 @@ func (f *finder) craft() (Path, bool) {
 		have := *skill.Rank
 		spell := i64(r["spell_id"])
 		sc := &SkillCheck{Profession: prof, Have: have, Need: need}
-		if len(f.c.KnownSpells) > 0 {
-			k := f.c.KnownSpells[spell]
-			sc.RecipeKnown = &k
+		kn := f.c.KnowsRecipe(prof, spell, str(r["name"]), f.itemID)
+		listed := kn != character.RecipeUnknown
+		known := kn == character.RecipeKnown
+		if listed {
+			sc.RecipeKnown = &known
 		}
-		known := f.c.KnownSpells[spell]
 		src := RecipeSource{Kind: "known", Line: "you already know the recipe"}
 		if !known {
 			src = f.recipeSource(r, prof)
@@ -458,12 +459,23 @@ func (f *finder) craft() (Path, bool) {
 			if gateUnknown {
 				line = "You can make it now. "
 			}
-			if !known && len(f.c.KnownSpells) > 0 && src.Kind != "trainer" {
+			switch {
+			case !known && listed && src.Kind != "trainer":
 				// The skill reaches it but the recipe comes from an item the character does not have.
 				sc.Status = NeedsRecipe
-				line = fmt.Sprintf("Not craftable yet: your %s is %d but you don't have the recipe. ", prof, have)
+				plans := src.Item
+				if plans == "" {
+					plans = str(r["name"])
+				}
+				plans = strings.TrimPrefix(plans, "Plans: ")
+				line = fmt.Sprintf("Needs the Plans: %s (you don't have them). Your %s %d is enough once you do. ", plans, prof, have)
+			case !known && !listed && src.Kind != "trainer":
+				line = fmt.Sprintf("You can make it if you have the recipe (your %s %d, needs %d). ", prof, have, need)
+				if gateUnknown {
+					line = "You can make it if you have the recipe. "
+				}
 			}
-			line += learnSentence(src, known, len(f.c.KnownSpells) > 0)
+			line += learnSentence(src, known, listed)
 			line += "; have " + matsLine(reagents)
 			rank := rankCraft
 			if missingOf(reagents) == 0 && sc.Status == CanMake {
@@ -474,13 +486,13 @@ func (f *finder) craft() (Path, bool) {
 		sc.Gap = need - have
 		if sc.Gap > ShortMax {
 			sc.Status = Far
-			line := fmt.Sprintf("You're far short: your %s is %d and it needs %d (%d points to go). ", prof, have, need, sc.Gap)
+			line := fmt.Sprintf("You're far short: your %s is %d; it needs %d (%d more points). ", prof, have, need, sc.Gap)
 			line += f.otherWays(prof)
 			return Path{Kind: Craft, Line: line, Skill: sc, Recipe: &src, Informational: true, rank: rankOtherCraft}, true
 		}
 		sc.Status = Short
 		sc.SkillUp = f.skillUpSteps(prof, have, need, spell)
-		line := fmt.Sprintf("You're at %d, it needs %d: %d points to go.", have, need, sc.Gap)
+		line := fmt.Sprintf("Your %s is %d; it needs %d (%d more points).", prof, have, need, sc.Gap)
 		if len(sc.SkillUp) == 0 {
 			line += " The game data lists no recipe of yours that gives a skill-up now."
 		} else {
@@ -489,7 +501,7 @@ func (f *finder) craft() (Path, bool) {
 				line += fmt.Sprintf(" %d) %s.", i+1, s.Line)
 			}
 		}
-		line += " Then make it; " + learnSentence(src, known, len(f.c.KnownSpells) > 0)
+		line += " Then make it; " + learnSentence(src, known, listed)
 		if !f.tradeable() {
 			line += "."
 		} else {

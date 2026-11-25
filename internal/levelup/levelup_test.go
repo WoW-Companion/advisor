@@ -302,3 +302,24 @@ func TestEmptySpellsHedgesAndNoTrainerSaysUsually(t *testing.T) {
 		t.Errorf("hedged with known spells:\n%s", text)
 	}
 }
+
+func TestQuestTeachingThreeSpellsListsAllThree(t *testing.T) {
+	ds := store.New(store.ReaderSource{"class_spells": tbl(t, []spellRow{
+		{1, 81, "Stance Alpha", nil, 10, true, nil},
+		{1, 82, "Armor Break", nil, 10, true, nil},
+		{1, 83, "Provoke", nil, 10, true, nil},
+		{1, 84, "Trained Thing", nil, 10, true, nil},
+	}), "quest_rewards": tbl(t, []questRow{{81, "The Test Bulwark"}, {82, "The Test Bulwark"}, {83, "The Test Bulwark"}})})
+	c := warrior(10, nil)
+	var got []string
+	for _, q := range QuestSpells(c, ds, 10, 10) {
+		got = append(got, q.Line())
+	}
+	want := "Armor Break: from the class quest The Test Bulwark|Provoke: from the class quest The Test Bulwark|Stance Alpha: from the class quest The Test Bulwark"
+	if g := strings.Join(got, "|"); len(got) != 3 || g != want {
+		t.Fatalf("quest spells = %q", g)
+	}
+	if n := names(Spells(c, ds, 10, 10)); n != "Trained Thing" {
+		t.Errorf("trainer list = %s", n)
+	}
+}

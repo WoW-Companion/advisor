@@ -44,9 +44,10 @@ func craftOf(c character.Character, ds store.DataStore, itemID int64) (Craft, bo
 				have = p.Rank
 			}
 		}
-		known := c.KnownSpells[i64(r["spell_id"])]
+		rname, _ := r["name"].(string)
+		kn := c.KnowsRecipe(prof, i64(r["spell_id"]), rname, itemID)
 		switch {
-		case known:
+		case kn == character.RecipeKnown:
 			cr.Status = CraftNow
 		case have == nil:
 		case from == "item":

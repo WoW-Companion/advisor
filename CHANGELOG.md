@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.7.77
+
+- Recorded recipes count as known; a plan you lack says "Needs the Plans", not "you can make it".
+- Without a recipe list, crafting advice says "if you have the recipe".
+- Skill-gap lines name the profession: "Your Blacksmithing is 35; it needs 45 (10 more points)."
+- The update note names what updated: the app, the addon, or both.
+- A class quest that teaches several spells lists them in a fixed order.
+
 ## 0.7.76
 
 - Quest steps now name what is left to do and where: "Talk to" a friendly NPC, never "Kill".
