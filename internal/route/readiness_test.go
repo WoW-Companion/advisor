@@ -55,14 +55,24 @@ func TestUnreadyQuestGetsObjectivesAndNoEarlyTurnIn(t *testing.T) {
 	}
 }
 
-// A capture that lists no objectives for an unfinished quest gives no standalone turn-in.
-func TestUnreadyQuestWithoutObjectivesHasNoTurnIn(t *testing.T) {
+// A capture that lists no objectives for an unfinished quest: the quest's open objectives are steps
+// (every logged quest has them), and any turn-in comes after them; with no such step, it is under Find.
+func TestUnreadyQuestWithoutObjectivesHasNoEarlyTurnIn(t *testing.T) {
 	p := Build(vialChar(false), vialIsle())
-	if find(p, KindTurnIn, 30) != nil {
-		t.Errorf("turn-in for an unready quest: %+v", p.Steps)
+	if find(p, KindObjective, 30) == nil {
+		if find(p, KindTurnIn, 30) != nil {
+			t.Errorf("turn-in for an unready quest with no objective step: %+v", p.Steps)
+		}
+		if len(p.Find) == 0 || !strings.HasPrefix(p.Find[0].Label, "Finish ") {
+			t.Errorf("find = %+v", p.Find)
+		}
+		return
 	}
-	if len(p.Find) == 0 || !strings.HasPrefix(p.Find[0].Label, "Finish ") {
-		t.Errorf("find = %+v", p.Find)
+	ti := stepIndex(p, KindTurnIn, 30)
+	for i, s := range p.Steps {
+		if s.Kind == KindObjective && s.QuestID == 30 && ti >= 0 && i > ti {
+			t.Errorf("objective after the turn-in: %+v", p.Steps)
+		}
 	}
 }
 
