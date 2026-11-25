@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	"github.com/WoW-Companion/advisor/internal/character"
+	"github.com/WoW-Companion/advisor/internal/gear"
+	"github.com/WoW-Companion/advisor/internal/paths"
 	"github.com/WoW-Companion/advisor/internal/store"
 )
 
@@ -175,5 +177,38 @@ func TestGainWords(t *testing.T) {
 				}
 			}
 		}
+	}
+}
+
+func TestShoppingListsWithTheSameRangeAndSuffixesBecomeOneLine(t *testing.T) {
+	mk := func(slot, armor string, best gear.Candidate) paths.Shopping {
+		return paths.Shopping{Slot: slot, Armor: armor, MinLevel: 20, MaxLevel: 24, Type: armor + " " + slot,
+			Suffixes: []string{"of the Eagle (Stamina + Intellect)", "of the Owl (Intellect + Spirit)"}, Best: best}
+	}
+	var shops []shopAt
+	var lines []Line
+	add := func(slot, armor string, best gear.Candidate) {
+		shops = append(shops, shopAt{len(lines), slot, mk(slot, armor, best)})
+		lines = append(lines, Line{})
+	}
+	add("head", "cloth", gear.Candidate{Delta: 3})
+	add("shoulder", "cloth", gear.Candidate{Delta: 12})
+	add("back", "", gear.Candidate{})
+	add("chest", "cloth", gear.Candidate{})
+	// A different range stays its own line, as does a lone list.
+	odd := mk("legs", "cloth", gear.Candidate{})
+	odd.MinLevel, odd.Desc = 22, "any green cloth legs, level 22–24"
+	shops = append(shops, shopAt{len(lines), "legs", odd})
+	lines = append(lines, Line{})
+	got := groupShopping(character.Character{}, lines, shops)
+	if len(got) != 2 {
+		t.Fatalf("lines = %d: %+v", len(got), got)
+	}
+	want := "Green cloth gear, level 20–24, 'of the Eagle' or 'of the Owl': helm, shoulders, cloak, chest"
+	if got[0].Text != want || got[0].Gain != "Big upgrade" || got[0].PathKind != paths.Auction {
+		t.Errorf("group line = %+v", got[0])
+	}
+	if got[1].Text != "any green cloth legs, level 22–24" {
+		t.Errorf("lone line = %+v", got[1])
 	}
 }

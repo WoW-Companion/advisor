@@ -19,7 +19,7 @@ const (
 // MaxInsights and MaxInsight bound what the player reads.
 const (
 	MaxInsights = 3
-	MaxInsight  = 90
+	MaxInsight  = 120
 )
 
 // LowLevel is the level below which the numbers are small and quest gear matters more than tuning.
@@ -55,6 +55,9 @@ type Result struct {
 	Totals map[string]float64 `json:"totals,omitempty" jsonschema:"the numbers the check read; internal, never quote them"`
 	Swap   []string           `json:"swap,omitempty" jsonschema:"worn items that carry a stat the play style barely uses, to swap first"`
 	Weight map[string]float64 `json:"weights,omitempty" jsonschema:"the profile's stat weights after the preference; internal"`
+	// Priority is the stats in order, the primary stat first; Suffixes the item suffixes that fit, best first.
+	Priority []string `json:"priority,omitempty" jsonschema:"the stats that matter, the primary stat first; internal"`
+	Suffixes []string `json:"suffixes,omitempty" jsonschema:"item suffixes that fit the priority, best first, such as 'of the Eagle'"`
 }
 
 // Prof is a character's profile and its adjusted weights: the one source every feature reads.
@@ -195,9 +198,21 @@ func Check(c character.Character, ds store.DataStore, group string) Result {
 	h := totalsOf(c, ds)
 	r.Source = h.source
 	low := c.Level != nil && *c.Level < LowLevel
+	// The head is the one priority: the primary stat first, then the item suffixes that carry it.
+	var head []string
+	if l := p.leadLine(Effects(c.Totals)); l != "" {
+		head = append(head, l)
+	}
+	r.Priority = p.Order()
+	if top := suffixesFor(p, c, ds); len(top) > 0 {
+		head = append(head, suffixLine(top))
+		for _, s := range top {
+			r.Suffixes = append(r.Suffixes, s.Name)
+		}
+	}
 	if h.source == SourceNone {
-		r.Insights = []string{"I can't see your stats yet, so I can't tell what to raise."}
-		if low {
+		r.Insights = append(head, "I can't see your stats yet, so I can't tell what to raise.")
+		if low && len(r.Insights) < MaxInsights {
 			r.Insights = append(r.Insights, lowLevelNote)
 		}
 		r.Asks = p.asks("")
@@ -226,9 +241,10 @@ func Check(c character.Character, ds store.DataStore, group string) Result {
 		}
 	}
 	label := p.Label()
-	var out []string
+	// Where the character stands: what to raise, what is wasted. The low-level note keeps its place.
+	var standing []string
 	if raise != "" {
-		out = append(out, fit(
+		standing = append(standing, fit(
 			fmt.Sprintf("%s wants more %s: %s.", label, Name(raise), p.Reason(raise)),
 			fmt.Sprintf("More %s would help: %s.", Name(raise), p.Reason(raise)),
 			fmt.Sprintf("%s wants more %s.", label, Name(raise))))
@@ -238,9 +254,23 @@ func Check(c character.Character, ds store.DataStore, group string) Result {
 		s := wasted[0]
 		items := dedupe(h.items[s])
 		r.Swap = items
-		out = append(out, wastedLine(s, label, c.Class, items))
+		standing = append(standing, wastedLine(s, label, c.Class, items))
 	}
-	if low && len(out) < MaxInsights {
+	out := head
+	room := MaxInsights - len(out)
+	if low {
+		room--
+	}
+	if len(standing) > room && raise != "" && raise == p.Lead() {
+		standing = standing[1:] // the lead line already puts it first; keep the room for what to swap
+	}
+	for _, l := range standing {
+		if room > 0 {
+			out = append(out, l)
+			room--
+		}
+	}
+	if low {
 		out = append(out, lowLevelNote)
 	}
 	if fine != "" && len(out) < MaxInsights {
@@ -319,4 +349,20 @@ func sign(f float64) float64 {
 		return -1
 	}
 	return 1
+}
+
+// equipWindow is how far above the character's level the suffix check looks for items.
+const equipWindow = 10
+
+// suffixesFor is the top two suffixes for the priority that the dataset confirms; none without a
+// dataset or a level.
+func suffixesFor(p Prof, c character.Character, ds store.DataStore) []Suffix {
+	if ds == nil || c.Level == nil {
+		return nil
+	}
+	rows, err := ds.Filter("items", store.Range{Column: "required_level", Min: 0, Max: int64(*c.Level + equipWindow)})
+	if err != nil {
+		return nil
+	}
+	return p.VerifiedTop(rows, 2)
 }

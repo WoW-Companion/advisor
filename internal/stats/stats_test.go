@@ -100,7 +100,7 @@ func TestSpiritIsWastedOnAWarrior(t *testing.T) {
 	// A priest keeps it.
 	c.Class = "PRIEST"
 	for _, in := range Check(style(c, "healer", "Holy"), ds, "").Insights {
-		if strings.Contains(in, "Spirit") {
+		if strings.Contains(in, "Spirit") && strings.Contains(in, "swap") {
 			t.Errorf("priest told Spirit is wasted: %q", in)
 		}
 	}

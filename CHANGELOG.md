@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.56
+
+- Stat and gear advice agree: your main stat first, survivability adds Stamina, with the right item names (like 'of the Eagle'). The stat check now leads with your main stat (Intellect for a Shadow Priest), says what comes next, and names the two item suffixes to look for. "More survivability" adds Stamina next to your main stat instead of replacing it, and gear advice follows the same list. When the game addon has recorded what a point of a stat does for you, the advice quotes it. In the overlay's What next, the same green gear for many slots is now one line instead of eight.
+
 ## 0.7.55
 
 - If an update ever misbehaves, the app offers to go back, even from the tray icon. The tray menu now has Check for updates, Go back to the previous version (when one is saved) and Open logs folder, and they work even if the window, the advisor or your AI connection is broken. If a new version fails to start properly in its first ten minutes, the next start shows a plain screen that says "This update isn't working on your PC" with Go back, Keep trying and Open logs, and it never comes back for a version you chose to keep trying. Going back also restores the settings you had in that version. Your saved settings and profiles now carry a version number so older versions keep reading them. The addon check never offers an addon version that has been pulled, offers to reinstall the previous one if yours was pulled, and tells you whether the addon needs a /reload or a full game restart.
