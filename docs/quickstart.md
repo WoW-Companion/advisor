@@ -201,6 +201,7 @@ The companion sits beside the game, not inside it, and changes nothing in the cl
 | `quest_chain` | Where a quest sits in its quest line. |
 | `quest_plan` | An efficient ordered quest route with map coordinates, from your own Questie. |
 | `inventory_review` | What to keep, sell or bank from your bags and bank. |
+| `bags_across_characters` | Where an item is across all your characters, and what to sell, mail to which alt, keep or toss. |
 | `update_digest` | Writes the in-game digest the panel shows. |
 | `doctor` | Checks the whole setup and says how to fix each failure. |
 

@@ -466,6 +466,25 @@ type InventoryOutput struct {
 	Text           string                       `json:"text" jsonschema:"plain-text rendering"`
 }
 
+// BagsInput is the bags_across_characters argument.
+type BagsInput struct {
+	Mode      string `json:"mode,omitempty" jsonschema:"find (where is an item), review (sell, mail, keep or toss across all characters; the default) or mail (what to mail to one character)"`
+	Item      string `json:"item,omitempty" jsonschema:"for find: the item name, such as Linen Cloth"`
+	Character string `json:"character,omitempty" jsonschema:"for mail: the character the items would go to"`
+}
+
+// BagsOutput is the bags_across_characters result.
+type BagsOutput struct {
+	Mode         string            `json:"mode"`
+	Lines        []inventory.Line  `json:"lines,omitempty" jsonschema:"review and mail: one per stack with its action (sell, mail, keep, toss, unsure) and reason"`
+	Found        []inventory.Found `json:"found,omitempty" jsonschema:"find: each matching item with who holds it"`
+	SellValue    *int64            `json:"sell_value_copper" jsonschema:"copper the priced vendor stacks sell for; null when no price is known"`
+	SellUnpriced int               `json:"sell_unpriced" jsonschema:"vendor stacks with no known price"`
+	SlotsFreed   int               `json:"bag_slots_freed"`
+	Notes        []string          `json:"notes"`
+	Text         string            `json:"text" jsonschema:"plain-text rendering"`
+}
+
 // DefaultDungeonLimit is how many ranked dungeons dungeon_plan lists when none is asked for.
 const DefaultDungeonLimit = 3
 
@@ -1195,6 +1214,59 @@ func New(cfg Config) *mcp.Server {
 			out.VendorValue = &r.VendorValue
 		}
 		return nil, out, nil
+	})
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "bags_across_characters",
+		Description: "Bags and banks of ALL captured characters together. mode find (item=name): which characters hold an item, how many, in bags or bank, and whose bank was never seen. " +
+			"mode review (default): what to sell, mail to which alt, keep or toss, with a reason each, the vendor value and bag slots freed. " +
+			"mode mail (character=name): what other characters hold that this one's professions or class use. Read-only: nothing is mailed, sold or moved. " +
+			"Prices and items the dataset lacks are reported as unknown, never guessed.",
+	}, func(_ context.Context, _ *mcp.CallToolRequest, in BagsInput) (*mcp.CallToolResult, BagsOutput, error) {
+		none := BagsOutput{Notes: []string{}}
+		f, errResult := load(cfg.SavedVariables)
+		if errResult != nil {
+			return errResult, none, nil
+		}
+		if len(f.Characters) == 0 {
+			return toolError("The SavedVariables file holds no characters."), none, nil
+		}
+		var ds store.DataStore
+		if cfg.Dataset != "" {
+			ds = store.NewDir(cfg.Dataset)
+		}
+		mode := strings.ToLower(strings.TrimSpace(in.Mode))
+		out := BagsOutput{Mode: mode, Notes: []string{}}
+		switch mode {
+		case "find":
+			if strings.TrimSpace(in.Item) == "" {
+				return toolError("find needs an item name."), none, nil
+			}
+			r := inventory.Find(f.Characters, in.Item, ds)
+			out.Found, out.Notes, out.Text = r.Items, append(out.Notes, r.Notes...), inventory.RenderFind(r)
+			return nil, out, nil
+		case "mail":
+			if strings.TrimSpace(in.Character) == "" {
+				return toolError("mail needs the character the items would go to."), none, nil
+			}
+			r, name, ok := inventory.MailFor(f.Characters, in.Character, ds)
+			if !ok {
+				return toolError("No captured character '" + in.Character + "'."), none, nil
+			}
+			out.Lines, out.Notes, out.Text = r.Lines, append(out.Notes, r.Notes...), inventory.RenderMail(r, name)
+			return nil, out, nil
+		case "", "review":
+			out.Mode = "review"
+			r := inventory.ReviewAll(f.Characters, ds)
+			out.Lines, out.SellUnpriced, out.SlotsFreed = r.Lines, r.SellUnpriced, r.SlotsFreed
+			out.Notes = append(out.Notes, r.Notes...)
+			if r.SellValue > 0 || r.SellUnpriced == 0 && len(r.Lines) > 0 {
+				out.SellValue = &r.SellValue
+			}
+			out.Text = inventory.RenderAll(r, len(f.Characters))
+			return nil, out, nil
+		}
+		return toolError("mode must be find, review or mail."), none, nil
 	})
 
 	mcp.AddTool(s, &mcp.Tool{

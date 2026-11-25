@@ -93,7 +93,7 @@ var nextQuestion = regexp.MustCompile(`(?i)\bwhat\s+(should\s+i\s+do\s+|do\s+i\s
 
 // NextQuestion reports whether q is the What next? question, the only answer that carries a heads-up.
 func NextQuestion(q Question) bool {
-	return q.Ref != "talents" && q.Ref != "upgrades" && q.Ref != "stats" && nextQuestion.MatchString(q.Text)
+	return q.Ref != "talents" && q.Ref != "upgrades" && q.Ref != "bags" && q.Ref != "stats" && nextQuestion.MatchString(q.Text)
 }
 
 // lengthRule is the instruction each length adds to the prompt, and the most characters an answer
