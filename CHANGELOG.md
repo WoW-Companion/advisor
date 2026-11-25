@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.50
+
+- Blacksmithing plans now smelt your own bars and use sensible recipes. If you mine, every bar (Bronze, Iron, Steel, Mithril, Truesilver, Thorium and the rest) is smelted from ore, and the plan says which Mining skill each smelt needs; without Mining the bars are bought at the Auction House and no longer counted as rare. Pieces a recipe needs first, like a Shining Silver Breastplate, are crafted on the way and their skill-ups count. A rare material now costs the same for each unit you need, not once per kind, and gathered materials carry a small per-unit cost for the time spent farming. Items the game data has no name for show as "unnamed item N".
+
 ## 0.7.49
 
 - Profession plans prefer recipes trainers are known to sell, and say when to double-check with your trainer. Each stretch of a plan now says whether its recipe is confirmed by trainer data, sold by a vendor or a quest reward, or only probably from your trainer ("check when you visit"), and a confirmed recipe wins over an unconfirmed one at a similar cost. Recipes whose pattern only drops inside a dungeon, like the Gordok Ogre Suit, are no longer treated as trainer recipes. Leatherworking no longer counts tens of thousands of materials by turning light leather into heavier grades. First Aid keeps Minor and Lesser Healing Potion, which the game lists under First Aid.

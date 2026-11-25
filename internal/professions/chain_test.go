@@ -137,7 +137,7 @@ func TestDropPatternOnlyWhenKnown(t *testing.T) {
 }
 
 func TestBarExpandsToOre(t *testing.T) {
-	b := NewBenchmark(chainData(t), BenchOptions{Profession: "Blacksmithing", From: 60, To: 75})
+	b := NewBenchmark(chainData(t), BenchOptions{Profession: "Blacksmithing", From: 60, To: 75, Gather: "mining"})
 	var bar *BenchMake
 	for _, x := range b.Bands {
 		for _, m := range x.Materials {

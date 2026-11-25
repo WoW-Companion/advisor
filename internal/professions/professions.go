@@ -230,6 +230,19 @@ func itemName(ds store.DataStore, id int64) string {
 	return ""
 }
 
+// namesTableItem is the name the dataset's names table holds for an item the items table has no
+// name for; empty when neither does.
+func namesTableItem(ds store.DataStore, id int64) string {
+	for _, row := range rowsBy(ds, "names", "id", id) {
+		if strings.EqualFold(asText(row["table"]), "items") || strings.EqualFold(asText(row["table"]), "item") {
+			if n := asText(row["name"]); n != "" {
+				return n
+			}
+		}
+	}
+	return ""
+}
+
 // reagentsOf reads the reagent rows of one spell, in item id order.
 func reagentsOf(ds store.DataStore, spell int64) []store.Row {
 	rows, err := ds.Filter("recipe_reagents", store.Range{Column: "spell_id", Min: spell, Max: spell})

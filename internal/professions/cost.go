@@ -3,6 +3,8 @@ package professions
 import (
 	"fmt"
 	"strings"
+
+	"github.com/WoW-Companion/advisor/internal/store"
 )
 
 // The material cost model. Every material has a relative cost per unit, in copper-like units, so
@@ -176,6 +178,54 @@ func withinCap(all []scored) []scored {
 	return ok
 }
 
+// maxUnitsPerMaterial is the most units of one bought or dropped material a whole path may take
+// before another recipe is chosen instead; a gathered base material (ore, stone, leather, herbs)
+// is exempt, because a gatherer finds it as they go.
+const maxUnitsPerMaterial = 600
+
+// leafUnits is how many units of each raw material an option takes, the made ones followed down.
+func leafUnits(o Option) map[int64]int {
+	out := map[int64]int{}
+	for _, n := range o.Needs {
+		if n.Make == nil {
+			out[n.ID] += n.Missing
+			continue
+		}
+		for _, l := range n.Make.Leaves() {
+			out[l.ID] += l.Total
+		}
+	}
+	return out
+}
+
+// gatheredBase says a material is something a gatherer finds, so its count is not capped.
+func (p *planner) gatheredBase(id int64) bool {
+	return len(gatherProfs(p.ds, id)) > 0 || p.has("Mining") && minedBase(p.ds, id, p.name(id)) ||
+		len(rowsBy(p.ds, "fishing_catches", "item_id", id)) > 0
+}
+
+// withinUnitCap drops the options that push a material the character does not gather past
+// maxUnitsPerMaterial over the whole path, unless all of them do.
+func (p *planner) withinUnitCap(all []scored, used map[int64]int) []scored {
+	var ok []scored
+	for _, s := range all {
+		over := false
+		for id, n := range leafUnits(s.opt) {
+			if used[id]+n > maxUnitsPerMaterial && !p.gatheredBase(id) {
+				over = true
+				break
+			}
+		}
+		if !over {
+			ok = append(ok, s)
+		}
+	}
+	if len(ok) == 0 {
+		return all
+	}
+	return ok
+}
+
 // fitsAt says a recipe could carry a band starting at skill: learnable, orange or yellow, not
 // left out, and with a way to learn it.
 func (p *planner) fitsAt(r Recipe, skill, stop int) bool {
@@ -210,4 +260,55 @@ func (p *planner) gapBand(recipes []Recipe, from, to, stop int) Band {
 		text += ": look for a pattern at the Auction House or a quest reward"
 	}
 	return Band{From: from, To: to, Gap: text + "."}
+}
+
+// minedBase says an item is mined: an ore a Mining smelt takes, or a stone. The dataset lists the
+// nodes of some of these (Truesilver Ore, Dense Stone) nowhere, though a miner finds them.
+func minedBase(ds store.DataStore, id int64, name string) bool {
+	for _, r := range rowsBy(ds, "recipe_reagents", "reagent_item_id", id) {
+		if isMiningSpell(ds, asI64(r["spell_id"])) {
+			return true
+		}
+	}
+	if strings.HasSuffix(strings.ToLower(name), " stone") {
+		if it, err := ds.Get("items", id); err == nil && asI64(it["class_id"]) == 7 && asI64(it["subclass_id"]) == 7 {
+			return true
+		}
+	}
+	return false
+}
+
+// madeByMining says a Mining smelt makes the item, so it is a bar a miner smelts and anyone else buys.
+func madeByMining(ds store.DataStore, id int64) bool {
+	for _, row := range rowsBy(ds, "recipes", "creates_item_id", id) {
+		if strings.EqualFold(asText(row["skill_line_name"]), "Mining") {
+			return true
+		}
+	}
+	return false
+}
+
+// minedEffort is what one unit of a mined base material costs: ore by the skill its smelt needs,
+// stone by its tier.
+func minedEffort(ds store.DataStore, id int64, name string) int {
+	for _, r := range rowsBy(ds, "recipe_reagents", "reagent_item_id", id) {
+		for _, sp := range rowsBy(ds, "recipes", "spell_id", asI64(r["spell_id"])) {
+			if strings.EqualFold(asText(sp["skill_line_name"]), "Mining") {
+				return 20 + 2*int(asI64(sp["learn_skill"]))
+			}
+		}
+	}
+	if t := tierEffort(name); t > 0 {
+		return 20 + 10*((t-60)/30)
+	}
+	return 100
+}
+
+func isMiningSpell(ds store.DataStore, spell int64) bool {
+	for _, sp := range rowsBy(ds, "recipes", "spell_id", spell) {
+		if strings.EqualFold(asText(sp["skill_line_name"]), "Mining") {
+			return true
+		}
+	}
+	return false
 }
