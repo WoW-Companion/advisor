@@ -2,8 +2,8 @@
 
 ## 0.7.82
 
-- A missed class or racial spell quest now gets a plan step, such as "Pick up Touch of Weakness from Aelthalyste (Undercity)".
-- A trainer rank blocked by that quest says so, and is no longer listed as trainable.
+- A missed class or racial spell quest, like Touch of Weakness, now gets a plan step.
+- A trainer rank blocked by that quest says so, not listed as trainable.
 - The training line in the digest names the quest that teaches the spell.
 
 ## 0.7.81
