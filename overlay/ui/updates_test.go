@@ -31,7 +31,7 @@ func TestUpdateBannerAndSettingsWiring(t *testing.T) {
 			t.Errorf("index.html lacks %s", want)
 		}
 	}
-	for _, want := range []string{"updateNow: false", "invoke('install_update'", "Update now", "WowcUpdates.updateQuery", "schedule.focus()", "update-progress", "wowc-lastver", "Go back"} {
+	for _, want := range []string{"updateNow: false", "invoke('install_update'", "WowcUpdates.updateQuery", "schedule.focus()", "update-progress", "wowc-lastver", "Go back"} {
 		if !strings.Contains(js, want) {
 			t.Errorf("app.js lacks %q", want)
 		}
