@@ -46,6 +46,7 @@ type Recipe struct {
 	YellowSkill *int
 	GreySkill   *int
 	LearnedFrom string // trainer, item or both; empty when the column is absent
+	LearnSource string // trainer, recipe_item, client or estimate; empty when the column is absent
 }
 
 // Reagent is one reagent of a planned recipe. Have counts bags and, when captured, bank.
@@ -136,7 +137,8 @@ func Recipes(ds store.DataStore, profession string) ([]Recipe, error) {
 			continue
 		}
 		rc := Recipe{SpellID: id, Name: asText(r["name"]), LearnSkill: asInt(r["learn_skill"]),
-			YellowSkill: asInt(r["yellow_skill"]), GreySkill: asInt(r["grey_skill"]), LearnedFrom: asText(r["learned_from"])}
+			YellowSkill: asInt(r["yellow_skill"]), GreySkill: asInt(r["grey_skill"]), LearnedFrom: asText(r["learned_from"]),
+			LearnSource: asText(r["learn_skill_source"])}
 		if n := asInt(r["creates_item_id"]); n != nil {
 			rc.CreatesItem = int64(*n)
 		}
