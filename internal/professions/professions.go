@@ -177,11 +177,20 @@ func difficulty(r Recipe, skill int) string {
 // 30 below the yellow start, so a recipe only a guess puts at its learn skill is held back to this.
 const estimateMargin = 10
 
+// estimateApprentice is the highest estimated learn skill that still means "taught to a new
+// apprentice": the dataset puts such a recipe a few points above 1 (Alchemy's first elixirs at 5).
+const estimateApprentice = 5
+
 // estimateFloor is the learn skill a recipe is planned at: the dataset's when it is a trainer's, a
 // recipe item's or the client's, and for an estimate no lower than estimateMargin under its yellow
 // skill, so a plan never uses a recipe far below the skill it is really learnt at. An estimate of
-// 30 or less is the first recipes of a rank, taught at the start, and is left alone.
+// 30 or less is the first recipes of a rank, taught at the start, and is left alone; one of 5 or
+// less is a recipe the trainer teaches a new apprentice, so it is planned from skill 1.
 func estimateFloor(r Recipe) *int {
+	if r.LearnSource == "estimate" && r.LearnSkill != nil && *r.LearnSkill > 1 && *r.LearnSkill <= estimateApprentice {
+		one := 1
+		return &one
+	}
 	if r.LearnSource != "estimate" || r.LearnSkill == nil || r.YellowSkill == nil || *r.LearnSkill <= 30 {
 		return r.LearnSkill
 	}
