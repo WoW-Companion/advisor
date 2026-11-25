@@ -118,12 +118,12 @@ func TestDocsPointAtReleaseInstaller(t *testing.T) {
 	}
 }
 
-// The setup order is ForeverScribe (required), the overlay (recommended), then the addon (optional);
+// The setup order is the addon (required; ForeverScribe is no longer needed), the overlay (recommended), then the in-game extras;
 // the in-game /ask flow is legacy and the in-game /ask flow is gone.
 func TestDocsOverlayFirstOrder(t *testing.T) {
 	doc := read(t, "../../docs/quickstart.md")
 	last := -1
-	for _, h := range []string{"## 1. Install ForeverScribe (required)", "## 2. Get WoW Companion (the overlay, recommended)", "## 5. Optional: the WoW Companion addon"} {
+	for _, h := range []string{"## 1. Install the WoW Companion addon", "## 2. Get WoW Companion (the overlay, recommended)", "## 5. In the game: the plan, tracker and tooltips"} {
 		i := strings.Index(doc, h)
 		if i < 0 || i < last {
 			t.Errorf("quickstart heading %q is missing or out of order", h)
@@ -156,13 +156,13 @@ func TestGettingStartedMatchesOverlay(t *testing.T) {
 		t.Fatalf("found %d checklist titles in gamesetup.go", len(titles))
 	}
 	words := map[string]string{
-		"WoW: Forever found":             "game found",
-		"ForeverScribe installed":        "ForeverScribe installed",
-		"ForeverScribe has data":         "ForeverScribe has data",
-		"WoW Companion addon (optional)": "WoW Companion addon (optional",
-		"Display mode":                   "display mode",
-		"Questie (optional)":             "Questie (optional",
-		"Game data":                      "game data",
+		"WoW: Forever found":       "game found",
+		"ForeverScribe (optional)": "ForeverScribe (optional",
+		"Characters captured":      "characters captured",
+		"WoW Companion addon":      "WoW Companion addon",
+		"Display mode":             "display mode",
+		"Questie (optional)":       "Questie (optional",
+		"Game data":                "game data",
 	}
 	seen := map[string]bool{}
 	for _, m := range titles {
@@ -179,11 +179,8 @@ func TestGettingStartedMatchesOverlay(t *testing.T) {
 			t.Errorf("getting-started does not name checklist item %q", m[1])
 		}
 	}
-	if !strings.Contains(setup, `Label = "Open ForeverScribe page"`) && !strings.Contains(setup, `"Open ForeverScribe page"`) {
-		t.Error("the checklist has no \"Open ForeverScribe page\" button")
-	}
-	if !strings.Contains(doc, "Open ForeverScribe page") {
-		t.Error("getting-started does not name the \"Open ForeverScribe page\" button")
+	if !strings.Contains(doc, "You can remove ForeverScribe once WoW Companion 0.6.N+ is installed.") {
+		t.Error("getting-started does not say ForeverScribe can be removed")
 	}
 
 	// Settings and controls the page names exist in the overlay UI.

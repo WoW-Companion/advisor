@@ -114,7 +114,7 @@ func (p DungeonPick) describe(b *strings.Builder, n int) {
 		for _, q := range p.Pickups {
 			line := "         " + q.Title
 			if q.Giver != "" {
-				line += " (from " + q.Giver + ")"
+				line += " (from " + q.Giver + giverMark(q) + ")"
 			}
 			if q.Questie {
 				line += " [from your Questie database]"
@@ -158,7 +158,7 @@ func Render(c character.Character, r Result, limit int) string {
 			for _, q := range f.Pickups {
 				line := "  " + q.Title
 				if q.Giver != "" {
-					line += " (from " + q.Giver + ")"
+					line += " (from " + q.Giver + giverMark(q) + ")"
 				}
 				b.WriteString(line + "\n")
 			}
@@ -243,4 +243,11 @@ func capList(l []string) []string {
 		return l[:12]
 	}
 	return l
+}
+
+func giverMark(q Pickup) string {
+	if q.GiverSeen {
+		return ", seen by you"
+	}
+	return ""
 }

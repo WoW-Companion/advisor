@@ -3,6 +3,7 @@ package quests
 import (
 	"strings"
 
+	"github.com/WoW-Companion/advisor/internal/character"
 	"github.com/WoW-Companion/advisor/internal/questie"
 	"github.com/WoW-Companion/advisor/internal/store"
 )
@@ -133,4 +134,16 @@ func GiverName(ds store.DataStore, id int64) string {
 		return strings.TrimSpace(strings.SplitN(f.Giver, " (", 2)[0])
 	}
 	return ""
+}
+
+// GiverNameSeen is GiverName, falling back to the NPC the player saw give the quest (the addon's
+// own record); seen is true only for that fallback, so the caller can mark it "seen by you".
+func GiverNameSeen(ds store.DataStore, seen *character.Observed, id int64) (name string, fromSeen bool) {
+	if n := GiverName(ds, id); n != "" {
+		return n, false
+	}
+	if g, ok := seen.GiverOf(int(id)); ok && g.NPC != "" {
+		return g.NPC, true
+	}
+	return "", false
 }

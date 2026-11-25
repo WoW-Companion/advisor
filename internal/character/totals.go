@@ -1,7 +1,6 @@
 package character
 
 import (
-	"os"
 	"strings"
 
 	"github.com/WoW-Companion/advisor/internal/lua"
@@ -48,6 +47,10 @@ func ParseTotals(text, key, name string) *Totals {
 	if err != nil {
 		return nil
 	}
+	return totalsOf(vars, key, name)
+}
+
+func totalsOf(vars map[string]any, key, name string) *Totals {
 	db, _ := vars["WoWCompanionDB"].(lua.Table)
 	all, _ := db["stats"].(lua.Table)
 	var e lua.Table
@@ -71,18 +74,6 @@ func ParseTotals(text, key, name string) *Totals {
 		Parry: num(e["parry"]), Block: num(e["block"])}
 }
 
-// AttachTotals returns c with its recorded stat totals read from the addon's SavedVariables file;
-// c is unchanged when the file is unreadable or holds none.
-func AttachTotals(addonSV string, c Character) Character {
-	if addonSV == "" {
-		return c
-	}
-	raw, err := os.ReadFile(addonSV)
-	if err != nil {
-		return c
-	}
-	if t := ParseTotals(string(raw), c.Key, c.Name); t != nil {
-		c.Totals = t
-	}
-	return c
-}
+// AttachTotals returns c with what the addon recorded in its SavedVariables file: its stat totals
+// and what the player saw (Seen). c is unchanged when the file is unreadable or holds none.
+func AttachTotals(addonSV string, c Character) Character { return AttachAddon(addonSV, c) }

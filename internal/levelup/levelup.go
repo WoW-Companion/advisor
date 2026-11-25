@@ -30,6 +30,7 @@ type Spell struct {
 	Level int   // the level it is learned at
 	New   bool  // false when it upgrades a known rank
 	Cost  int64 // copper; 0 when no corroborated offer carries one
+	Seen  bool  // the cost is the one a trainer showed the player
 }
 
 // Label is the spell as a player reads it: "Rend (Rank 2)".
@@ -65,6 +66,7 @@ func Spells(c character.Character, ds store.DataStore, from, to int) []Spell {
 		}
 	}
 	costs := costsOf(ds, lo, hi)
+	seenCost := seenCosts(c)
 	var out []Spell
 	seen := map[int64]bool{}
 	for _, r := range rows {
@@ -80,7 +82,11 @@ func Spells(c character.Character, ds store.DataStore, from, to int) []Spell {
 		seen[id] = true
 		rank, _ := r["rank"].(int64)
 		sup, _ := r["superseded_spell_id"].(int64)
-		out = append(out, Spell{ID: id, Name: name, Rank: int(rank), Level: int(lv), New: sup == 0, Cost: costs[id]})
+		sp := Spell{ID: id, Name: name, Rank: int(rank), Level: int(lv), New: sup == 0, Cost: costs[id]}
+		if sc := seenCost[id]; sc > 0 {
+			sp.Cost, sp.Seen = sc, true
+		}
+		out = append(out, sp)
 	}
 	sort.SliceStable(out, func(i, j int) bool {
 		if out[i].Level != out[j].Level {
@@ -89,6 +95,51 @@ func Spells(c character.Character, ds store.DataStore, from, to int) []Spell {
 		return out[i].Name < out[j].Name
 	})
 	return out
+}
+
+// seenCosts is the cost, by spell id, of what the trainers the player opened offered; a later sighting
+// wins. A trainer of the character's other faction is left out.
+func seenCosts(c character.Character) map[int64]int64 {
+	m := map[int64]int64{}
+	trs := c.Seen.TrainersFor(c.Faction)
+	for i := len(trs) - 1; i >= 0; i-- { // oldest last, so the newest overwrites
+		for _, o := range trs[i].Offers {
+			if o.Spell != 0 && o.Cost > 0 {
+				m[o.Spell] = o.Cost
+			}
+		}
+	}
+	return m
+}
+
+// SeenClassTrainer is the class trainer the player opened (one whose window carries no profession
+// skill gate), the newest on the character's own map first.
+func SeenClassTrainer(c character.Character) (Trainer, bool) {
+	var here *int
+	if c.Location != nil {
+		here = c.Location.MapID
+	}
+	var best *character.SeenTrainer
+	trs := c.Seen.TrainersFor(c.Faction)
+	for i := range trs {
+		t := &trs[i]
+		class := len(t.Offers) > 0
+		for _, o := range t.Offers {
+			if o.Skill != "" {
+				class = false
+			}
+		}
+		if !class {
+			continue
+		}
+		if best == nil || here != nil && t.Map == *here && best.Map != *here {
+			best = t
+		}
+	}
+	if best == nil {
+		return Trainer{}, false
+	}
+	return Trainer{Name: best.Name, Zone: c.ZoneOfMap(best.Map), X: best.X, Y: best.Y}, true
 }
 
 // costsOf is the lowest corroborated trainer cost of each spell, from trainer_spells.
@@ -170,6 +221,9 @@ func NearestTrainer(c character.Character, qx *questie.Index) (Trainer, bool) {
 }
 
 func (t Trainer) String() string {
+	if t.Zone == "" {
+		return fmt.Sprintf("%s (%.0f, %.0f)", t.Name, t.X, t.Y)
+	}
 	return fmt.Sprintf("%s, %s (%.0f, %.0f)", t.Name, t.Zone, t.X, t.Y)
 }
 
@@ -219,6 +273,9 @@ func Facts(c character.Character, ds store.DataStore, qx *questie.Index, from, t
 			cost := "cost not known"
 			if s.Cost > 0 {
 				cost = "costs " + vendors.Money(s.Cost)
+				if s.Seen {
+					cost += ", " + character.SeenByYou
+				}
 			}
 			fmt.Fprintf(&b, "- Level %d: %s (%s, %s)\n", s.Level, s.Label(), kind, cost)
 		}
@@ -244,7 +301,9 @@ func Facts(c character.Character, ds store.DataStore, qx *questie.Index, from, t
 	} else {
 		fmt.Fprintf(&b, "The dataset lists no spells for a %s to train at levels %d to %d (or the character already knows them).\n", class, from, to)
 	}
-	if t, ok := NearestTrainer(c, qx); ok && spells {
+	if t, ok := SeenClassTrainer(c); ok && spells {
+		b.WriteString("Class trainer the player has visited: " + t.String() + " (" + character.SeenByYou + ").\n")
+	} else if t, ok := NearestTrainer(c, qx); ok && spells {
 		b.WriteString("Nearest class trainer for the character's faction: " + t.String() + ".\n")
 	}
 	if cq := ClassQuests(c, qx, 5); len(cq) > 0 {

@@ -15,6 +15,7 @@ import (
 	"github.com/WoW-Companion/advisor/internal/character"
 	"github.com/WoW-Companion/advisor/internal/dataset"
 	"github.com/WoW-Companion/advisor/internal/digest"
+	"github.com/WoW-Companion/advisor/internal/gamesetup"
 	"github.com/WoW-Companion/advisor/internal/setup"
 	"github.com/WoW-Companion/advisor/internal/svfind"
 )
@@ -32,7 +33,7 @@ const StaleAfter = time.Hour
 // Addons are the folders the player installs under Interface/AddOns.
 var Addons = []string{"WoWCompanion", digest.SlotAddon, ask.SlotAddon}
 
-const gamePathHint = "use a SavedVariables path like <game>/WTF/Account/<account>/SavedVariables/ForeverScribe.lua"
+const gamePathHint = "use a SavedVariables path like <game>/WTF/Account/<account>/SavedVariables/WoWCompanion.lua"
 
 // Options says what to check; Now and Env make it testable.
 type Options struct {
@@ -89,22 +90,34 @@ func (r *run) capture() (character.File, bool) {
 	const name = "SavedVariables"
 	sv := r.opt.SavedVariables
 	if sv == "" {
-		r.fail(name, "no SavedVariables file configured: "+svfind.Detect().NotFound("WOWC_SAVEDVARIABLES"), "pass --savedvariables PATH or set WOWC_SAVEDVARIABLES to your ForeverScribe.lua")
+		r.fail(name, "no SavedVariables file configured: "+svfind.Detect().NotFound("WOWC_SAVEDVARIABLES"), "pass --savedvariables PATH or set WOWC_SAVEDVARIABLES to your WoWCompanion.lua")
 		return character.File{}, false
 	}
 	f, err := character.LoadFile(sv)
 	switch {
 	case os.IsNotExist(err):
-		r.fail(name, "file not found: "+sv, "log in once with ForeverScribe installed, then log out, so it writes "+filepath.Base(sv))
+		r.fail(name, "file not found: "+sv, "log in once with the WoW Companion addon installed, then log out, so it writes "+filepath.Base(sv))
 	case err != nil:
-		r.fail(name, "could not read "+sv+": "+err.Error(), "log in and out once so ForeverScribe rewrites the file, or fix the path")
+		r.fail(name, "could not read "+sv+": "+err.Error(), "log in and out once so the addon rewrites the file, or fix the path")
 	case len(f.Characters) == 0:
-		r.fail(name, sv+" lists no characters", "log in with a character and log out so ForeverScribe captures it")
+		r.fail(name, sv+" lists no characters", "log in with a character and log out so the WoW Companion addon captures it")
 	default:
 		r.pass(name, fmt.Sprintf("%s parses, %d character(s)%s", sv, len(f.Characters), r.sourceNote()))
+		r.sources(f)
 		return f, true
 	}
 	return f, false
+}
+
+// sources says which capture each character came from, and, when ForeverScribe is the only
+// source, once, that it is no longer needed.
+func (r *run) sources(f character.File) {
+	for _, c := range f.Characters {
+		r.add("Source "+c.Key, Info, c.Source, "")
+	}
+	if f.HasFS && !f.HasWoWC {
+		r.add("ForeverScribe", Info, gamesetup.RemoveScribeNote, "")
+	}
 }
 
 // sourceNote says where the path came from, for the SavedVariables check.
@@ -135,7 +148,7 @@ func (r *run) freshness(f character.File, ok bool) character.Client {
 	}
 	t := f.CapturedAt()
 	if t == nil {
-		r.fail(name, "the capture has no time", "/reload in game so ForeverScribe stamps a capture")
+		r.fail(name, "the capture has no time", "/reload in game so the addon stamps a capture")
 		return client
 	}
 	age := r.opt.Now.Sub(time.Unix(*t, 0)).Round(time.Minute)
@@ -199,7 +212,7 @@ func (r *run) dataset(client character.Client) {
 	}
 	r.pass(name, fmt.Sprintf("%d verified build(s) in %s, newest %s", len(good), root, good[0]))
 	if client.Build == "" {
-		r.fail(match, "the capture names no client build to match", "/reload in game with a current ForeverScribe")
+		r.fail(match, "the capture names no client build to match", "/reload in game with the WoW Companion addon")
 		return
 	}
 	for _, b := range good {

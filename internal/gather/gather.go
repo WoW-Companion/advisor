@@ -37,6 +37,7 @@ type Node struct {
 // Gatherer holds the classified nodes of one QuestieDB. A nil Gatherer knows no nodes.
 type Gatherer struct {
 	qx    *questie.Index
+	ds    store.DataStore
 	nodes []Node
 }
 
@@ -155,7 +156,7 @@ func kindOfProfession(p string) string {
 // skill_required, else the lowest required level of what it yields. A nil index, or one with no
 // object rows, gives a Gatherer with no nodes.
 func New(qx *questie.Index, ds store.DataStore) *Gatherer {
-	g := &Gatherer{qx: qx}
+	g := &Gatherer{qx: qx, ds: ds}
 	if qx == nil || len(qx.Nodes) == 0 {
 		return g
 	}
@@ -231,6 +232,7 @@ type Zone struct {
 	Spots  []questie.Spot `json:"-"`
 	Coords [][2]float64   `json:"coordinates,omitempty" jsonschema:"sample places, map percent"`
 	Nodes  []string       `json:"nodes" jsonschema:"the node or school names that spawn there"`
+	Seen   bool           `json:"seen_by_you,omitempty" jsonschema:"the player gathered here themselves (the addon's own record)"`
 	Skill  int            `json:"skill,omitempty" jsonschema:"the lowest skill a node there needs; 0 when unknown"`
 }
 
@@ -298,6 +300,9 @@ func describe(z Zone) string {
 	if sp := spots(z); sp != "" {
 		s += " " + sp
 	}
+	if z.Seen {
+		s += " (" + character.SeenByYou + ")"
+	}
 	return s
 }
 
@@ -362,6 +367,21 @@ func inKinds(k string, kinds []string) bool {
 // or schools that yield the item, each with sample coordinates.
 func (g *Gatherer) Find(c character.Character, item, verb string) Result {
 	res := Result{Query: strings.TrimSpace(item), Zones: []Zone{}}
+	if seen, name, kind := g.seenFind(c, res.Query, verb); len(seen) > 0 {
+		var rest []Zone
+		if g.Count() > 0 {
+			rest = g.questieFind(c, res.Query, verb).Zones
+		}
+		res.Zones = mergeZones(seen, rest)
+		res.Item, res.Kind, res.FromQuestie = name, kind, len(res.Zones) > len(seen) || hasQuestie(res.Zones)
+		res.Text = zonesText(verbPhrase(kind)+" "+name, res.Zones)
+		return res
+	}
+	return g.questieFind(c, item, verb)
+}
+
+func (g *Gatherer) questieFind(c character.Character, item, verb string) Result {
+	res := Result{Query: strings.TrimSpace(item), Zones: []Zone{}}
 	if g.Count() == 0 {
 		res.Text = fmt.Sprintf("No gathering spots are known for %s.", res.Query)
 		return res
@@ -410,11 +430,7 @@ func (g *Gatherer) Find(c character.Character, item, verb string) Result {
 		res.Text = fmt.Sprintf("No place is known for %s.", best.name)
 		return res
 	}
-	var parts []string
-	for _, z := range res.Zones {
-		parts = append(parts, describe(z))
-	}
-	res.Text = fmt.Sprintf("%s %s: %s (%s).", verbPhrase(res.Kind), best.name, strings.Join(parts, "; "), FromQuestie)
+	res.Text = zonesText(verbPhrase(res.Kind)+" "+best.name, res.Zones)
 	return res
 }
 
@@ -465,7 +481,7 @@ func (g *Gatherer) ForLevel(c character.Character, kind string) Result {
 			top = max(top, n.Skill)
 		}
 	}
-	if len(ok) == 0 {
+	if len(ok) == 0 && len(seenLevel(c, kind, rank)) == 0 {
 		res.Text = fmt.Sprintf("No %s spot suits %s %d yet.", strings.ToLower(sk), sk, rank)
 		return res
 	}
@@ -482,18 +498,17 @@ func (g *Gatherer) ForLevel(c character.Character, kind string) Result {
 			}
 		}
 	}
-	zs := g.zones(good, whereOf(c))
-	res.Zones = zs[:min(MaxZones, len(zs))]
-	res.FromQuestie = len(res.Zones) > 0
+	var zs []Zone
+	if len(good) > 0 {
+		zs = g.zones(good, whereOf(c))
+	}
+	res.Zones = mergeZones(seenLevel(c, kind, rank), zs)
+	res.FromQuestie = hasQuestie(res.Zones)
 	if len(res.Zones) == 0 {
 		res.Text = fmt.Sprintf("No %s spot is known.", strings.ToLower(sk))
 		return res
 	}
-	var parts []string
-	for _, z := range res.Zones {
-		parts = append(parts, describe(z))
-	}
-	res.Text = fmt.Sprintf("At %s %d: %s (%s).", sk, rank, strings.Join(parts, "; "), FromQuestie)
+	res.Text = zonesText(fmt.Sprintf("At %s %d", sk, rank), res.Zones)
 	return res
 }
 

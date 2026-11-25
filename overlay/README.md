@@ -37,7 +37,7 @@ protected your PC": click **More info**, then **Run anyway**.
 In WoW, set **Display Mode** to **Windowed (Fullscreen)** (System, Graphics). A true fullscreen game
 cannot show anything above it; Windowed (Fullscreen) looks the same and lets the overlay appear on top.
 
-The app needs ForeverScribe installed (required); the WoW Companion addon is optional, for in-game extras
+The app needs the WoW Companion addon (ForeverScribe is optional; it is read too when present). The addon also gives in-game extras
 (panel, tracker, tooltips, right-click "Ask about this"). Questions are asked here in the
 overlay; in-game question chips copy the question for pasting. Nothing is written to the game folder. A leftover
 `WoWCompanion_Answers` folder can be deleted. It finds your SavedVariables itself, and shows your characters and NEXT list without an AI
@@ -152,7 +152,7 @@ pinned version; bump the version in the workflow when the `tauri` crate's minor 
 ## Setup checklist
 
 On first run, and whenever a row is red, the overlay shows a checklist (Settings › Setup reopens it):
-WoW folder found, ForeverScribe installed, ForeverScribe has data, the optional WoW Companion addon
+WoW folder found, ForeverScribe (optional), characters captured, the WoW Companion addon
 (Install/Update from the addon's latest GitHub release, SHA256-verified), display mode (read-only
 look at `WTF/Config.wtf`; exclusive fullscreen cannot be drawn over) and the AI client (Test sends
 one tiny prompt). The checks and the install are Go code in `internal/gamesetup`, served by the

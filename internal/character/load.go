@@ -2,7 +2,6 @@ package character
 
 import (
 	"fmt"
-	"os"
 	"sort"
 	"strconv"
 	"strings"
@@ -377,20 +376,15 @@ func Load(vars map[string]any) (File, error) {
 	}
 	sort.Strings(keys)
 	for _, k := range keys {
-		f.Characters = append(f.Characters, LoadCharacter(k, byKey[k]))
+		c := LoadCharacter(k, byKey[k])
+		c.Source = SourceFS
+		f.Characters = append(f.Characters, c)
 	}
 	return f, nil
 }
 
-// LoadFile reads and parses a ForeverScribe.lua file. A malformed file is a *lua.ParseError.
-func LoadFile(path string) (File, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return File{}, err
-	}
-	vars, err := lua.Parse(string(data))
-	if err != nil {
-		return File{}, err
-	}
-	return Load(vars)
-}
+// Source names for Character.Source.
+const (
+	SourceWoWC = "WoW Companion addon"
+	SourceFS   = "ForeverScribe"
+)

@@ -363,7 +363,7 @@ func ComputePath(c character.Character, ds store.DataStore, profession string, t
 // nodes and fishing schools name where to gather the materials still missing.
 func ComputePathWith(c character.Character, ds store.DataStore, qx *questie.Index, profession string, target, part int) Path {
 	var gz *gather.Gatherer
-	if qx != nil {
+	if qx != nil || c.Seen != nil {
 		gz = gather.New(qx, ds)
 	}
 	return computePath(c, ds, profession, target, part, false, func(p *planner) { p.gather = gz })

@@ -1,6 +1,10 @@
 package vendors
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/WoW-Companion/advisor/internal/character"
+)
 
 func TestMoneyAndCheap(t *testing.T) {
 	for _, tc := range []struct {
@@ -26,5 +30,20 @@ func TestLineLimited(t *testing.T) {
 	o := Offer{Vendor: "Dree", Zone: "Dunemark", Price: "4s", Limited: true}
 	if got := o.Line(); got != "Buy from Dree in Dunemark for 4s (limited stock)" {
 		t.Fatal(got)
+	}
+}
+
+func TestSeenVendorBeatsTheDatasetAndIsMarked(t *testing.T) {
+	c := character.Character{Faction: "Alliance", Seen: &character.Observed{Vendors: []character.SeenVendor{
+		{NPC: 1, Name: "Dear", Faction: "Alliance", Items: []character.SeenStock{{ItemID: 5, Price: 9000}}},
+		{NPC: 2, Name: "Cheap", Faction: "Alliance", Items: []character.SeenStock{{ItemID: 5, Price: 500}}},
+		{NPC: 3, Name: "Enemy", Faction: "Horde", Items: []character.SeenStock{{ItemID: 5, Price: 1}}},
+	}}}
+	o, ok := BestFor(c, nil, 5)
+	if !ok || o.Vendor != "Cheap" || o.PriceCopper != 500 || !o.Seen() || o.Line() != "Buy from Cheap for 5s (seen by you)" {
+		t.Errorf("%+v %q", o, o.Line())
+	}
+	if _, ok := BestFor(character.Character{}, nil, 5); ok {
+		t.Error("an offer from nowhere")
 	}
 }

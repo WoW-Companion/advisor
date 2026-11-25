@@ -175,6 +175,8 @@ type Character struct {
 	Client     Client
 	Location   *Location // nil when the capture holds none
 	Hearth     string    // the hearthstone's bind location name
+	// Source says which capture the character came from: SourceWoWC, SourceFS or both joined.
+	Source string
 
 	Equipment    map[string]EquippedItem // nil when not captured
 	Bags         []ItemStack
@@ -201,6 +203,9 @@ type Character struct {
 	// Totals are the stat totals the addon records (WoWCompanionDB.stats), attached with AttachTotals;
 	// nil when none.
 	Totals *Totals
+	// Seen is what the player saw in game (WoWCompanionDB.observed): trainers, vendors, gathering and
+	// quest givers; nil when nothing was recorded. These "seen by you" facts come before the dataset.
+	Seen *Observed
 }
 
 // Profile is a character's play style: role (tank, healer, damage or balanced), focus (leveling,
@@ -219,6 +224,8 @@ type File struct {
 	Schema     *int
 	Client     Client
 	Characters []Character
+	// HasWoWC and HasFS say which capture files were read (WoWCompanionDB.characters, ForeverScribeDB).
+	HasWoWC, HasFS bool
 }
 
 // CapturedAt is the newest capture time over all characters.

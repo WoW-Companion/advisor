@@ -94,7 +94,7 @@ func digestCmd(ctx context.Context, args []string, stdout, stderr io.Writer) err
 	fs.SetOutput(stderr)
 	var cfg server.Config
 	fs.StringVar(&cfg.Dataset, "dataset", "", "dataset directory (default: $"+server.DatasetEnv+", else the cached dataset)")
-	fs.StringVar(&cfg.SavedVariables, "savedvariables", "", "ForeverScribe.lua file (default: $"+server.SavedVariablesEnv+")")
+	fs.StringVar(&cfg.SavedVariables, "savedvariables", "", "WoWCompanion.lua (or ForeverScribe.lua) file (default: $"+server.SavedVariablesEnv+")")
 	fs.StringVar(&cfg.DigestPath, "digest-path", "", "Digest.lua to write (default: derived from the SavedVariables path)")
 	cache := fs.String("cache", "", "dataset cache directory (default: per-user cache)")
 	// The name may come before or after the flags.
@@ -132,7 +132,7 @@ func serve(ctx context.Context, args []string, stderr io.Writer) error {
 	port := fs.Int("port", 8000, "HTTP port")
 	var cfg server.Config
 	fs.StringVar(&cfg.Dataset, "dataset", "", "dataset directory (default: $"+server.DatasetEnv+")")
-	fs.StringVar(&cfg.SavedVariables, "savedvariables", "", "ForeverScribe.lua file (default: $"+server.SavedVariablesEnv+")")
+	fs.StringVar(&cfg.SavedVariables, "savedvariables", "", "WoWCompanion.lua (or ForeverScribe.lua) file (default: $"+server.SavedVariablesEnv+")")
 	cache := fs.String("cache", "", "dataset cache directory (default: per-user cache)")
 	knowledgeOnly := fs.Bool("knowledge-only", false, "serve game data only, read from --dataset-url; no character tools (needs --http)")
 	datasetURL := fs.String("dataset-url", "", "base URL of a published dataset (manifest.json and <table>.parquet)")
