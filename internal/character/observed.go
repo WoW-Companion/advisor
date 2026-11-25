@@ -434,3 +434,38 @@ func (c Character) WithRecipeProfessions() Character {
 	c.Professions = append(append([]Skill{}, c.Professions...), add...)
 	return c
 }
+
+// Knowledge says whether the character knows a recipe.
+type Knowledge int
+
+const (
+	// RecipeUnknown: nothing recorded decides it (no known spells and no recorded list for the profession).
+	RecipeUnknown Knowledge = iota
+	// RecipeKnown: the spell is a known spell, or the recipe is in the recorded list for the profession.
+	RecipeKnown
+	// RecipeNotKnown: the character has a spell list or a recorded recipe list and the recipe is in neither.
+	RecipeNotKnown
+)
+
+// KnowsRecipe decides whether the character knows a recipe, by its spell id, its name and the item it
+// creates. Known spells and the recorded recipes for the profession both count as known; when either
+// source exists and the recipe is in neither, it is not known (even if the other source is empty).
+func (c Character) KnowsRecipe(profession string, spell int64, name string, creates int64) Knowledge {
+	if spell != 0 && c.KnownSpells[spell] {
+		return RecipeKnown
+	}
+	rs, listed := c.Recipes[strings.ToLower(strings.TrimSpace(profession))]
+	listed = listed && len(rs.Entries) > 0
+	for _, r := range rs.Entries {
+		switch {
+		case spell != 0 && r.ID == spell,
+			name != "" && strings.EqualFold(r.Name, strings.TrimSpace(name)),
+			creates != 0 && r.Makes == creates:
+			return RecipeKnown
+		}
+	}
+	if listed || len(c.KnownSpells) > 0 {
+		return RecipeNotKnown
+	}
+	return RecipeUnknown
+}

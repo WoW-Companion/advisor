@@ -91,10 +91,12 @@ assert.strictEqual(U.noticeView({ available: false }, at).button, '');
 assert.strictEqual(U.noticeView(null, at), null);
 
 // The note after a relaunch: upgrade, go-back, first ever start and no change.
-assert.deepStrictEqual(U.updatedNote('0.7.54', '0.7.55'), { kind: 'up', version: '0.7.55', from: '0.7.54', text: '✓ Updated to 0.7.55', whatsNew: true });
+assert.deepStrictEqual(U.updatedNote('0.7.54', '0.7.55'), { kind: 'up', version: '0.7.55', from: '0.7.54', text: '✓ Updated: app 0.7.55', addon: '', whatsNew: true });
 assert.deepStrictEqual(U.updatedNote('0.7.55', '0.7.54'), { kind: 'back', version: '0.7.54', text: '✓ Went back to 0.7.54', whatsNew: false });
 assert.strictEqual(U.updatedNote('0.7.55', '0.7.54', 'it loses plans.').text, '✓ Went back to 0.7.54: it loses plans');
-assert.strictEqual(U.updatedNote('0.7.54', '0.7.55', 'ignored').text, '✓ Updated to 0.7.55');
+assert.strictEqual(U.updatedNote('0.7.54', '0.7.55', 'ignored').text, '✓ Updated: app 0.7.55');
+assert.strictEqual(U.updatedNote('0.7.73', '0.7.74', '', '0.6.46').text, '✓ Updated: app 0.7.74 and addon 0.6.46');
+assert.strictEqual(U.updatedNote('0.7.74', '0.7.74', '', '0.6.46').text, '✓ Updated: addon 0.6.46');
 assert.strictEqual(U.updatedNote('', '0.7.55'), null);
 assert.strictEqual(U.updatedNote('0.7.55', '0.7.55'), null);
 assert.strictEqual(U.updatedNote('0.7.9', '0.7.10').kind, 'up');

@@ -209,13 +209,14 @@
   // The note at the top of the chat on the first start of a different version than the last one.
   // last is the version seen at the previous start ("" the first time ever: no note).
   // reason is why an automatic go-back happened ("" when the player went back themselves).
-  function updatedNote(last, running, reason) {
-    const a = bare(last), b = bare(running);
-    if (!a || !b || a === b || cmp(a, b) === 0) return null;
-    return cmp(b, a) < 0 ? { kind: 'up', version: b, from: a, text: '✓ Updated to ' + b, whatsNew: true }
-                         : { kind: 'back', version: b, text: '✓ Went back to ' + b + (reason ? ': ' + String(reason).replace(/[.\s]+$/, '') : ''), whatsNew: false };
+  // addon is the addon version installed with this update ("" when none was): the line then names
+  // the app, the addon or both.
+  function updatedNote(last, running, reason, addon) {
+    const a = bare(last), b = bare(running), d = bare(addon || '');
+    if (!a || !b || a === b || cmp(a, b) === 0) return d ? { kind: 'up', version: '', addon: d, text: '✓ Updated: addon ' + d, whatsNew: false } : null;
+    if (cmp(b, a) >= 0) return { kind: 'back', version: b, text: '✓ Went back to ' + b + (reason ? ': ' + String(reason).replace(/[.\s]+$/, '') : ''), whatsNew: false };
+    return { kind: 'up', version: b, from: a, addon: d, text: '✓ Updated: app ' + b + (d ? ' and addon ' + d : ''), whatsNew: true };
   }
-
   // When to look again: on start, every CHECK_EVERY, after the PC slept (a late one-minute tick), and
   // when the window gains focus more than CHECK_EVERY after the last look. now() is the clock.
   function createSchedule(deps) {

@@ -746,7 +746,11 @@ async function installAddon(goback) {
 async function installBoth(s) {
   upd.retry = () => installBoth(s);
   if (!(await installAddon(''))) { upd.retry = () => installBoth(s); return; }
-  if (s.kind === 'offer') installVersion(s.version);
+  if (s.kind === 'offer') {
+    // The app restarts: keep the addon version so the note after the restart names both.
+    if (upd.addon && upd.addon.installed) localStorage.setItem('wowc-addonver', upd.addon.installed);
+    installVersion(s.version);
+  }
 }
 function doInstall(s) { return s.kind === 'addon' ? installAddon('') : s.addon ? installBoth(s) : installVersion(s.version); }
 function showAddonDone(message) {
@@ -754,7 +758,7 @@ function showAddonDone(message) {
   bar.hidden = false;
   const x = Object.assign(document.createElement('button'), { type: 'button', textContent: 'Dismiss' });
   x.onclick = () => { bar.hidden = true; };
-  bar.replaceChildren(Object.assign(document.createElement('span'), { className: 'upd-text', textContent: '\u2713 ' + message }), x);
+  bar.replaceChildren(Object.assign(document.createElement('span'), { className: 'upd-text', textContent: '\u2713 ' + (upd.addon && upd.addon.installed && upd.addon.installed !== 'unknown' ? 'Updated: addon ' + upd.addon.installed : message) }), x);
 }
 // "Install updates automatically" covers the addon: it installs when nothing is being written or
 // typed, and a pulled addon goes back by itself. One failed try is not repeated until the next check.
@@ -935,10 +939,12 @@ function renderVersionList() {
 async function showUpdatedNote(running) {
   const last = localStorage.getItem('wowc-lastver') || '';
   localStorage.setItem('wowc-lastver', running);
-  const first = WowcUpdates.updatedNote(last, running);
+  const addonVer = localStorage.getItem('wowc-addonver') || '';
+  localStorage.removeItem('wowc-addonver');
+  const first = WowcUpdates.updatedNote(last, running, '', addonVer);
   // An automatic go-back keeps its reason in the shell: "✓ Went back to <v>: <reason>".
   const reason = first && first.kind === 'back' ? await invoke('take_went_back', { version: running }).catch(() => '') : '';
-  const n = WowcUpdates.updatedNote(last, running, reason);
+  const n = WowcUpdates.updatedNote(last, running, reason, addonVer);
   const bar = $('updated-note');
   if (!n) return;
   bar.hidden = false;
@@ -948,7 +954,7 @@ async function showUpdatedNote(running) {
     const b = Object.assign(document.createElement('button'), { type: 'button', textContent: 'What’s new' });
     b.onclick = async () => {
       if (!body.hasChildNodes() && !body.textContent) {
-        try { const r = await api('/api/whats-new' + WowcUpdates.whatsNewQuery(n)); const l = r.ok ? (await r.json())[0].lines : []; body.replaceChildren(drawNotes(WowcUpdates.noteView(l.join('\n')), true) || 'No notes were published for this version.'); } catch { body.textContent = 'No notes were published for this version.'; }
+        try { const r = await api('/api/whats-new' + WowcUpdates.whatsNewQuery(n)); const l = r.ok ? (await r.json())[0].lines : []; if (n.addon) l.unshift('## App ' + n.version, '', '(The addon, now ' + n.addon + ', is covered by these notes too.)', ''); body.replaceChildren(drawNotes(WowcUpdates.noteView(l.join('\n')), true) || 'No notes were published for this version.'); } catch { body.textContent = 'No notes were published for this version.'; }
       }
       body.hidden = !body.hidden;
     };
