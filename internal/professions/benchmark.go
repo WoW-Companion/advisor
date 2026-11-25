@@ -293,6 +293,9 @@ func NewBenchmark(ds store.DataStore, o BenchOptions) Benchmark {
 		b.fishing(ds, tiers)
 	}
 	b.GuideCheck = guideCheck(b.Bands)
+	if b.GuideCheck != "" && strings.EqualFold(name, "First Aid") {
+		b.GuideCheck += firstAidNote(b.Bands)
+	}
 	return b
 }
 
@@ -521,7 +524,11 @@ func RenderBenchmark(b Benchmark) string {
 			}
 			fmt.Fprintf(&w, "%d. %d→%d %s: %s", i+1, x.From, x.To, x.Recipe, learnWords(x.LearnSkill, x.LearnSkillSource))
 			if x.Learn != "" {
-				w.WriteString("; learnt from " + x.Learn)
+				if strings.HasPrefix(x.Learn, "probably") {
+					w.WriteString("; " + x.Learn)
+				} else {
+					w.WriteString("; learnt from " + x.Learn)
+				}
 			}
 			w.WriteString("\n")
 		}
@@ -624,6 +631,12 @@ func learnWhere(o Option) string {
 	case "known":
 		return "known"
 	case "trainer":
+		switch li.Confidence {
+		case "confirmed":
+			return "trainer, confirmed"
+		case "unconfirmed":
+			return "trainer, unconfirmed: ask your trainer"
+		}
 		return "trainer"
 	case "item":
 		switch li.Source {
@@ -652,4 +665,14 @@ func guideCheck(bands []BenchBand) string {
 		parts = append(parts, fmt.Sprintf("%d-%d %s (%s)", x.From, x.To, x.Recipe, x.Source))
 	}
 	return "Guide check: " + strings.Join(parts, "; ") + "."
+}
+
+// firstAidNote says why First Aid lists the healing potions: the client does, and the trainer offers agree.
+func firstAidNote(bands []BenchBand) string {
+	for _, x := range bands {
+		if x.Recipe == "Minor Healing Potion" || x.Recipe == "Lesser Healing Potion" {
+			return " First Aid lists Minor and Lesser Healing Potion on WoW Forever (the client and the trainer data agree): keep them."
+		}
+	}
+	return ""
 }

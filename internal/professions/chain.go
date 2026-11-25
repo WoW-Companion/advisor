@@ -9,6 +9,11 @@ import (
 // maxChain is how many recipes deep a material is followed back to its own reagents.
 const maxChain = 3
 
+// maxLeavesPerUnit is the most raw materials one unit of a made material may take. A recipe that
+// grinds more than this into one unit (light leather up to medium, heavy and thick, each several
+// times over) is a conversion no plan should count on: the material is bought instead.
+const maxLeavesPerUnit = 10
+
 type makeKey struct {
 	item  int64
 	skill int
@@ -24,6 +29,7 @@ type makeChoice struct {
 	rec      Recipe
 	line     string
 	reagents []reagentUse
+	leaves   int // raw materials one unit takes, the made reagents followed down
 }
 
 type resolved struct {
@@ -129,7 +135,7 @@ func (p *planner) resolve(id int64, skill, depth int) (source, *makeChoice) {
 			continue
 		}
 		var rs []reagentUse
-		unit := 0
+		unit, leaves := 0, 0
 		for _, rr := range reagentsOf(p.ds, rc.SpellID) {
 			rid := asI64(rr["reagent_item_id"])
 			per := 1
@@ -139,17 +145,23 @@ func (p *planner) resolve(id int64, skill, depth int) (source, *makeChoice) {
 			rs = append(rs, reagentUse{rid, per})
 			if p.making[rid] {
 				unit += per * p.sourceOf(rid).effort
+				leaves += per
 				continue
 			}
-			s, _ := p.resolve(rid, skill, depth+1)
+			s, sub := p.resolve(rid, skill, depth+1)
 			unit += per * s.effort
+			if sub != nil {
+				leaves += per * sub.leaves
+			} else {
+				leaves += per
+			}
 		}
-		if len(rs) == 0 {
+		if len(rs) == 0 || leaves > maxLeavesPerUnit {
 			continue
 		}
 		if bestUnit < 0 || unit < bestUnit {
 			bestUnit = unit
-			res.ch = &makeChoice{rec: rc, line: line, reagents: rs}
+			res.ch = &makeChoice{rec: rc, line: line, reagents: rs, leaves: leaves}
 		}
 	}
 	if res.ch != nil {

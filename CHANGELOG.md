@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.49
+
+- Profession plans prefer recipes trainers are known to sell, and say when to double-check with your trainer. Each stretch of a plan now says whether its recipe is confirmed by trainer data, sold by a vendor or a quest reward, or only probably from your trainer ("check when you visit"), and a confirmed recipe wins over an unconfirmed one at a similar cost. Recipes whose pattern only drops inside a dungeon, like the Gordok Ogre Suit, are no longer treated as trainer recipes. Leatherworking no longer counts tens of thousands of materials by turning light leather into heavier grades. First Aid keeps Minor and Lesser Healing Potion, which the game lists under First Aid.
+
 ## 0.7.48
 
 - Profession leveling plans now follow cheaper, common recipes all the way to 300, including vendor patterns, quest recipes and enchanting materials, and skip specialist or cooldown recipes. Where no trainer or vendor recipe covers a stretch of skill, the plan says so and names a pattern or quest to look for instead of stopping. Alchemy plans no longer come up empty, and Leatherworking no longer counts hundreds of thousands of materials.

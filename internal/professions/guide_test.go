@@ -25,18 +25,35 @@ type guideSet struct {
 	quests   []pQuest
 	de       []pDE
 	trainers []pTrainerSpell
+	// dungeonBoss, when set, is a creature that is a boss of the one test dungeon.
+	dungeonBoss int64
+}
+
+type pBoss struct {
+	Creature int64 `parquet:"creature_id"`
+	Map      int64 `parquet:"map_id"`
+}
+
+type pInstance struct {
+	Map  int64  `parquet:"map_id"`
+	Name string `parquet:"name"`
 }
 
 func (g guideSet) build(t *testing.T) store.DataStore {
 	t.Helper()
-	return store.New(store.ReaderSource{
+	src := store.ReaderSource{
 		"items": table(t, g.items), "recipes": table(t, g.recipes), "recipe_reagents": table(t, g.reagents),
 		"vendor_sources": table(t, append(g.vendors, pVendor{99, 9999, 1})), "recipe_items": table(t, append(g.rItems, pRecipeItem{9999, 9999, 0, "x"})),
 		"loot_sources": table(t, append(g.loot, pLoot{9999, "creature", 1, 1, 1})), "quests": table(t, append(g.quests, pQuest{1, "x", 1, ""})),
 		"disenchant_yields": table(t, append(g.de, pDE{"weapon", "uncommon", 1, 2, "none", 9999})),
 		"trainer_spells":    table(t, append(g.trainers, pTrainerSpell{1, 9999, 1})),
 		"profession_notes":  table(t, rankTiers()),
-	})
+	}
+	if g.dungeonBoss != 0 {
+		src["instance_bosses"] = table(t, []pBoss{{g.dungeonBoss, 429}})
+		src["instances"] = table(t, []pInstance{{429, "Dire Maul"}})
+	}
+	return store.New(src)
 }
 
 func benchBands(t *testing.T, g guideSet, o BenchOptions) Benchmark {
@@ -62,8 +79,8 @@ func TestExpansionSurvivesRecipeCycle(t *testing.T) {
 		items: []pItem{{1, "Fine Leather", 1, 1, 0}, {2, "Rough Leather", 1, 1, 0}, {3, "Thread", 1, 1, 0}},
 		recipes: []pRecipe{
 			pr(10, "Leatherworking", "Vest", nil, 1, 150, 300, "trainer"),
-			pr(11, "Leatherworking", "Refine Fine", i32(1), 1, 150, 300, "trainer"),
-			pr(12, "Leatherworking", "Refine Rough", i32(2), 1, 150, 300, "trainer"),
+			pr(11, "Leatherworking", "Refine Fine", i32(1), 1, 1, 2, "trainer"),
+			pr(12, "Leatherworking", "Refine Rough", i32(2), 1, 1, 2, "trainer"),
 		},
 		reagents: []reagentRow{{10, 1, 3}, {11, 2, 3}, {12, 1, 3}, {11, 3, 1}},
 		vendors:  []pVendor{{1, 3, 10}},
@@ -213,4 +230,74 @@ func TestAlchemyMakesBandsDespiteTransmuteCycle(t *testing.T) {
 
 func benchChar(profession string, skill, level int) character.Character {
 	return character.Character{Name: "Benchmark", Class: "None", Level: &level, Professions: []character.Skill{{Name: profession, Rank: &skill}}}
+}
+
+func TestLeatherConversionChainDoesNotBlowUp(t *testing.T) {
+	// Medium Leather is made from 4 Light Leather, Light from 3 Scraps, Heavy from 5 Medium and
+	// Thick from 6 Heavy: each step multiplies, so the made forms are bought, not expanded.
+	g := guideSet{
+		items: []pItem{{1, "Ruined Leather Scraps", 1, 1, 0}, {2, "Light Leather", 1, 1, 0}, {3, "Medium Leather", 1, 1, 0},
+			{4, "Heavy Leather", 1, 1, 0}, {5, "Thick Leather", 1, 1, 0}},
+		recipes: []pRecipe{
+			pr(10, "Leatherworking", "Thick Vest", nil, 1, 150, 300, "trainer"),
+			pr(11, "Leatherworking", "Refine Light", i32(2), 1, 1, 2, "trainer"),
+			pr(12, "Leatherworking", "Refine Medium", i32(3), 1, 1, 2, "trainer"),
+			pr(13, "Leatherworking", "Refine Heavy", i32(4), 1, 1, 2, "trainer"),
+			pr(14, "Leatherworking", "Refine Thick", i32(5), 1, 1, 2, "trainer"),
+		},
+		reagents: []reagentRow{{10, 5, 6}, {11, 1, 3}, {12, 2, 4}, {13, 3, 5}, {14, 4, 6}},
+		trainers: []pTrainerSpell{{1, 10, 0}, {1, 11, 0}, {1, 12, 0}, {1, 13, 0}, {1, 14, 0}},
+		vendors:  []pVendor{{1, 1, 1}},
+	}
+	b := benchBands(t, g, BenchOptions{Profession: "Leatherworking", To: 100})
+	if n := b.Efficiency.TotalMaterials; n > 5000 {
+		t.Errorf("%d materials: the conversion chain blew up", n)
+	}
+}
+
+func TestConfirmedTrainerBeatsUnconfirmed(t *testing.T) {
+	g := guideSet{
+		items: []pItem{{1, "Linen Cloth", 1, 1, 0}},
+		recipes: []pRecipe{
+			pr(10, "Tailoring", "Unproven Cape", nil, 1, 100, 200, "trainer"),
+			pr(11, "Tailoring", "Proven Cape", nil, 1, 100, 200, "trainer"),
+		},
+		reagents: []reagentRow{{10, 1, 1}, {11, 1, 1}},
+		trainers: []pTrainerSpell{{1, 11, 0}},
+	}
+	b := benchBands(t, g, BenchOptions{Profession: "Tailoring", To: 50})
+	if got := b.Bands[0].Recipe; got != "Proven Cape" {
+		t.Errorf("picked %s, want the trainer-confirmed recipe", got)
+	}
+	if got := b.Bands[0].Source; got != "trainer, confirmed" {
+		t.Errorf("source %q", got)
+	}
+	g.recipes = g.recipes[:1]
+	g.trainers = []pTrainerSpell{{1, 99, 0}}
+	b = benchBands(t, g, BenchOptions{Profession: "Tailoring", To: 50})
+	if got := b.Bands[0].Source; !strings.Contains(got, "ask your trainer") {
+		t.Errorf("source %q, want an ask-your-trainer mark", got)
+	}
+	if !strings.Contains(b.Bands[0].Learn, "probably from your trainer") {
+		t.Errorf("learn %q", b.Bands[0].Learn)
+	}
+}
+
+func TestDungeonOnlyPatternIsNotATrainerRecipe(t *testing.T) {
+	g := guideSet{
+		items: []pItem{{1, "Linen Cloth", 1, 1, 0}, {7, "Pattern: Dungeon Suit", 1, 1, 0}},
+		recipes: []pRecipe{
+			pr(10, "Tailoring", "Dungeon Suit", nil, 1, 100, 200, "trainer"),
+			pr(11, "Tailoring", "Plain Cape", nil, 1, 100, 200, "trainer"),
+		},
+		reagents:    []reagentRow{{10, 1, 1}, {11, 1, 3}},
+		trainers:    []pTrainerSpell{{1, 11, 0}},
+		rItems:      []pRecipeItem{{7, 10, 1, "Tailoring"}},
+		loot:        []pLoot{{7, "creature", 500, 1, 1}},
+		dungeonBoss: 500,
+	}
+	b := benchBands(t, g, BenchOptions{Profession: "Tailoring", To: 50})
+	if got := b.Bands[0].Recipe; got != "Plain Cape" {
+		t.Errorf("picked %s, want the trainer recipe over the dungeon pattern", got)
+	}
 }

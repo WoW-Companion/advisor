@@ -22,6 +22,9 @@ const (
 	effortAH     = 150
 	effortDrop   = 3000 // a recipe item that drops
 	effortQuest  = 2000 // a recipe item from a quest
+	// effortUnconfirmed is added to a trainer recipe no trainer offer confirms, so a confirmed trainer
+	// or a vendor recipe at a similar cost wins.
+	effortUnconfirmed = 1500
 )
 
 // Need is one material of a band: what it takes, what is held, and where the rest comes from.
@@ -65,6 +68,10 @@ type learnInfo struct {
 	Item   string
 	Source string
 	Where  string
+	// Confidence says how sure a trainer recipe is: "confirmed" when the dataset's trainer offers (or
+	// the player's own sighting) list the spell, "unconfirmed" when it only says no recipe item teaches
+	// it; empty for other ways to learn, and when the dataset has no trainer offers to check against.
+	Confidence string
 	// QuestOK is set for a quest recipe the character can take now: the quest's level and faction fit.
 	QuestOK bool
 }
@@ -121,6 +128,8 @@ type planner struct {
 	// made caches how each material is best made, by item and skill.
 	made   map[makeKey]*resolved
 	making map[int64]bool
+	// trainerOffers caches whether the dataset lists trainer offers at all: 0 unknown, 1 yes, -1 no.
+	trainerOffers int
 	// expanding holds the recipes being laid out, so a recipe is never expanded inside itself.
 	expanding map[int64]bool
 }
@@ -218,20 +227,40 @@ func (p *planner) learnDetail(r Recipe, from string, skill int) (effort int, tex
 	var tInfo, iInfo learnInfo
 	if from != "item" && !p.patterns {
 		t := source{0, "trainer"}
-		if rows := rowsBy(p.ds, "trainer_spells", "spell_id", r.SpellID); len(rows) > 0 {
-			cost := int64(-1)
-			for _, row := range rows {
-				if c := asI64(row["cost_copper"]); c > 0 && (cost < 0 || c < cost) {
-					cost = c
-				}
-			}
-			if cost > 0 {
-				t = source{int(cost), "trainer, " + Money(cost)}
-				tInfo.Copper = cost
+		rows := rowsBy(p.ds, "trainer_spells", "spell_id", r.SpellID)
+		cost := int64(-1)
+		for _, row := range rows {
+			if c := asI64(row["cost_copper"]); c > 0 && (cost < 0 || c < cost) {
+				cost = c
 			}
 		}
+		if cost > 0 {
+			t = source{int(cost), "trainer, " + Money(cost)}
+			tInfo.Copper = cost
+		}
 		tInfo.Via = "trainer"
-		byTrainer = &t
+		switch {
+		case len(rows) > 0 || p.seenOffer(r):
+			tInfo.Confidence = "confirmed"
+		case p.hasTrainerOffers():
+			tInfo.Confidence = "unconfirmed"
+			if _, dungeon := p.dungeonOnly(r); dungeon {
+				t = source{}
+				tInfo.Via = ""
+			} else {
+				t.text = "probably from your trainer; check when you visit"
+				t.effort += effortUnconfirmed
+			}
+		}
+		if tInfo.Via != "" {
+			byTrainer = &t
+		}
+	}
+	if p.patterns && from != "item" {
+		if where, ok := p.dungeonOnly(r); ok {
+			s := source{effortDrop, "a pattern that drops in " + where}
+			byItem, iInfo = &s, learnInfo{Via: "item", Source: "drop", Where: where}
+		}
 	}
 	if from == "item" || from == "both" {
 		for _, ri := range rowsBy(p.ds, "recipe_items", "teaches_spell_id", r.SpellID) {
@@ -351,7 +380,7 @@ func (p *planner) price(r Recipe, from string, skill, target int, left map[int64
 	if !p.known[r.SpellID] {
 		s.learned = r.SpellID
 	}
-	if !p.fresh && len(p.known) == 0 && ltext == "trainer" || strings.HasPrefix(ltext, "trainer, ") && !p.fresh && len(p.known) == 0 {
+	if !p.fresh && len(p.known) == 0 && linfo.Via == "trainer" && linfo.Confidence != "unconfirmed" {
 		s.opt.Learn = "" // the capture does not list known recipes, so a trainer recipe may already be known
 	}
 	for _, row := range reagentsOf(p.ds, r.SpellID) {
