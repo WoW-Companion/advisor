@@ -70,9 +70,10 @@ type Objective struct {
 // Line is one digest line; Item and Quest are zero when absent. Text is clipped to MaxText for older
 // addons; every field after Quest is optional, never clipped, and left out when empty.
 type Line struct {
-	Text  string
-	Item  int
-	Quest int
+	trainAt string // the "Train at:" fact of a training entry
+	Text    string
+	Item    int
+	Quest   int
 
 	Kind       string // one of the Kind constants
 	Title      string // the full quest title

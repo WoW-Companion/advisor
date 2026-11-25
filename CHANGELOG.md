@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.7.70
+
+- Training advice sends you to the nearest class trainer city, using flight paths.
+- Gear advice lists only crafts your skill can make now, and says what skill the others need.
+
 ## 0.7.69
 
 - See all changes now opens the release list.
