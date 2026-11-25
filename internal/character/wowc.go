@@ -149,6 +149,7 @@ func LoadWoWCharacter(key string, rec lua.Table) Character {
 			}
 		}
 	}
+	c.Recipes = wowcRecipes(rec["recipes"])
 	return c
 }
 

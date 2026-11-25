@@ -200,6 +200,9 @@ type Character struct {
 	// KnownSpells are the spell ids the character knows (a recipe's spell id included), when a capture
 	// lists them; nil when it does not.
 	KnownSpells map[int64]bool
+	// Recipes are the recipes the client's own trade skill window listed, by profession (lower-case);
+	// nil when none were recorded. A recipe listed here is known.
+	Recipes map[string]SeenRecipes
 	// Totals are the stat totals the addon records (WoWCompanionDB.stats), attached with AttachTotals;
 	// nil when none.
 	Totals *Totals

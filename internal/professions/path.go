@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/WoW-Companion/advisor/internal/character"
 	"github.com/WoW-Companion/advisor/internal/gather"
@@ -74,6 +75,8 @@ type learnInfo struct {
 	Confidence string
 	// QuestOK is set for a quest recipe the character can take now: the quest's level and faction fit.
 	QuestOK bool
+	// SeenOffer is set when the trainer the player opened listed the recipe for sale: it is not known yet.
+	SeenOffer bool
 }
 
 // Band is one stretch of skill, from From to To, with the recipe to make and an alternative.
@@ -187,7 +190,17 @@ func (p *planner) sourceOf(id int64) source {
 			best = s
 		}
 	}
+	seenVendor := false
+	if p.c.Seen != nil {
+		if v, st, ok := p.nearestVendor(id); ok {
+			seenVendor = true
+			offer(source{int(max(st.Price, 1)), p.vendorText(v, st, time.Now())})
+		}
+	}
 	for _, v := range rowsBy(p.ds, "vendor_sources", "item_id", id) {
+		if seenVendor {
+			break // the player's own sighting replaces the dataset's price
+		}
 		price := asI64(v["price_copper"])
 		offer(source{int(max(price, 1)), "a vendor, " + Money(price) + " each"})
 	}
@@ -245,8 +258,13 @@ func (p *planner) learnDetail(r Recipe, from string, skill int) (effort int, tex
 			tInfo.Copper = cost
 		}
 		tInfo.Via = "trainer"
+		offer, trainer, seenIt := p.seenOfferOf(r)
 		switch {
-		case len(rows) > 0 || p.seenOffer(r):
+		case seenIt:
+			tInfo.Confidence = "confirmed"
+			t = source{int(max(offer.Cost, 0)), offerText(offer, trainer, time.Now())}
+			tInfo.Copper, tInfo.SeenOffer = offer.Cost, offer.State != "used"
+		case len(rows) > 0:
 			tInfo.Confidence = "confirmed"
 		case p.hasTrainerOffers():
 			tInfo.Confidence = "unconfirmed"
@@ -386,7 +404,7 @@ func (p *planner) price(r Recipe, from string, skill, target int, left map[int64
 	if !p.known[r.SpellID] {
 		s.learned = r.SpellID
 	}
-	if !p.fresh && len(p.known) == 0 && linfo.Via == "trainer" && linfo.Confidence != "unconfirmed" {
+	if !p.fresh && len(p.known) == 0 && linfo.Via == "trainer" && linfo.Confidence != "unconfirmed" && !linfo.SeenOffer {
 		s.opt.Learn = "" // the capture does not list known recipes, so a trainer recipe may already be known
 	}
 	for _, row := range reagentsOf(p.ds, r.SpellID) {
@@ -443,6 +461,7 @@ func computePath(c character.Character, ds store.DataStore, profession string, t
 		pa.Notes = append(pa.Notes, "Open your "+profession+" window in the game once so I can read your skill, then ask again.")
 		return pa
 	}
+	ds, _ = withObserved(ds, c, sk.Name)
 	p := &planner{c: c, ds: ds, notes: LoadNotes(ds), prof: sk.Name, skill: *sk.Rank, stock: map[int64]int{}, known: c.KnownSpells,
 		learnt: map[int64]bool{}, names: map[int64]string{}, srcs: map[int64]source{}, short: map[int64]bool{}}
 	if setup != nil {
@@ -482,6 +501,8 @@ func computePath(c character.Character, ds store.DataStore, profession string, t
 		pa.Notes = append(pa.Notes, "I have no recipes listed for "+sk.Name+" yet.")
 		return pa
 	}
+	var observedOnly map[string]bool
+	p.known, observedOnly = p.applyObserved(recipes)
 	var bands []Band
 	shortSeen := map[int64]bool{}
 	used := map[int64]int{} // raw materials the bands chosen so far take
@@ -545,6 +566,12 @@ func computePath(c character.Character, ds store.DataStore, profession string, t
 		}
 		bands = append(bands, b)
 		skill = best.reach
+	}
+	for _, b := range bands {
+		if observedOnly[strings.ToLower(b.Best.Recipe)] {
+			pa.Notes = append(pa.Notes, b.Best.Recipe+" is on your own recipe list but not in my data, so its skill range is a guess from its colour in your window.")
+			break
+		}
 	}
 	start := (pa.Part - 1) * MaxBands
 	if start >= len(bands) {

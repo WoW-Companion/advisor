@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.52
+
+- Plans and answers use what your own game recorded: your recipes, your trainer's prices and your vendors. A recipe in your own recipe list is known, so a plan never tells you to learn it again, and its reagents and product come from your window ahead of the game data (a recipe only your list has is still planned, by the name your game showed). When you have opened your trainer, plans and the next-level spells say "your trainer teaches it" with the cost and level your trainer showed, not an estimate, and a spell your trainer shows as not yet available says what it needs. A vendor you opened sets the price and is named with where it stands (the nearest one to you first), and anything older than 30 days says its prices may have changed. Flight masters you opened are listed as flight points you know. Each of these says when it was seen.
+
 ## 0.7.51
 
 - Tailoring plans no longer ask for mountains of cloth. When one recipe would take more than 600 of a cloth you don't gather (Mageweave, Silk, Runecloth), the plan now stops it short at 600 and moves to another recipe, and a recipe that needs a few bars still beats hundreds of extra cloth when you don't mine, because the bars are simply bought. Where no recipe avoids the pile, the plan says which material it still asks too much of. The Tailoring plan's Mageweave Cloth drops from 1,350 to 930, and Blacksmithing is unchanged.
