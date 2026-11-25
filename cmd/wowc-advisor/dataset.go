@@ -38,6 +38,19 @@ func autoDataset(ctx context.Context, cache, savedVariables string, stderr io.Wr
 		return ""
 	}
 	reportEnsure(stderr, res)
+	if !res.Downloaded && res.Offline == nil {
+		// A cached dataset is used as it is by Ensure, so a republish (new levels, entrances) would
+		// never reach a player whose companion is not running. Check once, briefly, and keep the
+		// cache on any error.
+		rctx, rcancel := context.WithTimeout(ctx, 15*time.Second)
+		defer rcancel()
+		if build, updated, err := st.Refresh(rctx, server.CaptureClient(savedVariables).Build); err != nil {
+			fmt.Fprintln(stderr, "wowc-advisor: dataset update check failed (keeping the cached dataset):", err)
+		} else if updated {
+			fmt.Fprintf(stderr, "wowc-advisor: dataset %s was republished; using the new copy\n", build)
+			return st.Dir(build)
+		}
+	}
 	return res.Dir
 }
 

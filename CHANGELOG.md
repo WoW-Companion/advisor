@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.43
+
+- Ask how to beat a dungeon, play your class or work a profession and get real tactics, built around the bosses, quests and drops in your game, even if you're not there yet; a Check Icy Veins button refines it from the WoW Forever guide. A dungeon you are too low for gets one line ("You're 10; it opens around 13.") and then the full plan, with its level range, entrance, bosses, quests to bring and the drops for your class. Under the answer a small line says what it is built from, and the button appears when your AI client can read web pages. Your game data is also re-checked each time the advisor starts, so a republished level range reaches you without opening the companion, and map rows that are not dungeons (such as Ruins of Lordaeron) are no longer suggested.
+
 ## 0.7.42
 
 - Play Style changes save as you make them, with a Saved tick; Not set clears a choice. Set Role and Focus to Not set and the character's play style is cleared, so the next talent or stat question shows the play-style buttons again; set just one to Not set and only that one is asked for. Spec "Not sure yet" clears the spec. A small "Saved ✓" shows after each change, and if a save is refused, the reason appears under the section and the dropdowns go back to what is really saved. Done still just closes the panel. The AI client can now forget a single choice when you ask it to.

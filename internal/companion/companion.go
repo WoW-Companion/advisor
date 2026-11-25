@@ -102,7 +102,13 @@ type Entry struct {
 	Streamed  bool   `json:"streamed"`
 	UsageTip  string `json:"usage_tip,omitempty"` // the usage line's tooltip: cached tokens are cheaper but may still count
 	Usage     string `json:"usage,omitempty"`     // "≈3.1k tokens · haiku": tokens when the CLI reported them, and the model; only with the setting on
-	Notice    string `json:"notice,omitempty"`    // a one-line notice, e.g. the reasoning setting was dropped
+	// Footer is the small line under a know-how answer, built by the server from what grounded it;
+	// SourceURL is the Icy Veins page when the answer was checked against it (the line's last part
+	// links there). IcyOffer shows the Check Icy Veins button.
+	Footer    string `json:"footer,omitempty"`
+	SourceURL string `json:"source_url,omitempty"`
+	IcyOffer  bool   `json:"icy_offer,omitempty"`
+	Notice    string `json:"notice,omitempty"` // a one-line notice, e.g. the reasoning setting was dropped
 	At        int64  `json:"at"`
 	// Needs is set, with Status "needs", when the question needs a play style the character has not
 	// saved: the choices to show as buttons. No AI call was made. Saving the choice (POST /api/profile)
@@ -604,6 +610,9 @@ type askRequest struct {
 	// the advisor expands it into the entry's facts. A question that exactly matches one of the
 	// character's suggested asks gets that entry's ref without it.
 	Ref string `json:"ref,omitempty"`
+	// Icy asks the same question again with the AI client allowed to read the matching Icy Veins
+	// WoW Forever guide (the Check Icy Veins button).
+	Icy bool `json:"icy,omitempty"`
 }
 
 func (s *Server) ask(w http.ResponseWriter, r *http.Request) {
@@ -671,8 +680,9 @@ func (s *Server) answer(id, client string, t *turn, req askRequest, history stri
 		t.emit("done", e, true)
 		return
 	}
-	q := ask.Question{ID: id, Character: req.Character, Text: history + req.Text, Ref: plain.Ref}
-	text, streamed, usage, err := ask.RespondUsage(s.ctx, ac, q, ac.Prompt(q), s.cfg.Stream, func(chunk string) {
+	q := ask.Question{ID: id, Character: req.Character, Text: history + req.Text, Ref: plain.Ref, Icy: req.Icy && ask.CanBrowse(ac)}
+	prompt, ground := ac.PromptGround(q)
+	text, streamed, usage, err := ask.RespondUsage(s.ctx, ac, q, prompt, s.cfg.Stream, func(chunk string) {
 		t.emit("chunk", map[string]string{"text": chunk}, false)
 	})
 	e.Answer, e.Streamed, e.Status = ask.WithSaved(text, usage.Saved), streamed, "done"
@@ -683,6 +693,11 @@ func (s *Server) answer(id, client string, t *turn, req askRequest, history stri
 		}
 	}
 	e.Notice = usage.Notice
+	if err == nil && ground.KnowHow {
+		ground.IcyURL = ask.IcyPage(usage.Pages)
+		e.Footer, e.SourceURL = ground.Footer(), ground.IcyURL
+		e.IcyOffer = ground.Offer() && ask.CanBrowse(ac)
+	}
 	if err != nil {
 		e.Answer, e.Status = err.Error(), "error"
 	}

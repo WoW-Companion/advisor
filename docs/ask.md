@@ -107,6 +107,26 @@ roles damage, tank, healer, balanced; activities leveling, dungeons, PvP, mixed;
 Saving the choice with `POST /api/profile` asks the original question once more automatically and sends a
 `reask` event (`{ id, character, question }`) on `/api/events`; stream that `id` as usual.
 
+## Know-how questions and Check Icy Veins
+
+A question is **personal** ("what should I do", "my gear", "can I make X": answered strictly from the
+player's data) or **game know-how** (strategy, tactics, boss mechanics, rotations, how a profession works,
+lore, "thinking ahead"). A know-how word wins, then a personal phrase; when unsure it is know-how.
+
+For know-how the model uses its own WoW knowledge, framed by a grounding pack: for a named dungeon, its
+level range, entrance, bosses and creatures, quests with givers and the drops for the saved class and
+spec (no level gate); for a class, its spells at the character's level; for a profession, the curated
+notes. Tactics attach only to bosses and creatures in the pack, and where our facts differ from the
+model's memory, ours win. The server, not the model, adds a footer line from what grounded the answer
+("Tactics: general WoW knowledge · Levels, bosses, quests and drops: your game"); each part shows only
+when present.
+
+**Check Icy Veins** (overlay button, opt-in) asks the same question again and lets the player's own AI
+client read the matching Icy Veins WoW Forever guide at runtime; nothing is stored or shipped. API
+clients get a fetch tool limited to `https://www.icy-veins.com/wow-forever/` pages; Claude Code gets its
+own WebFetch, pre-approved for that site; other CLI clients can't browse, so the button is hidden. The
+footer then ends with "Icy Veins", linked to the page that was read.
+
 ## Limits
 
 stdout is the answer, cut to 1,500 characters (at most 64 KB is read). Each run has a timeout

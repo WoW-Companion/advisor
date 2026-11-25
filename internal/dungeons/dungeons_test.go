@@ -114,9 +114,9 @@ func synth(t *testing.T) store.DataStore {
 		"instances": table(t, []instRow{
 			{1, "Deadmines", "dungeon", i16(5), i16(15), i16(21), "client", "Westfall"},
 			{2, "Wailing Caverns", "dungeon", i16(5), i16(17), i16(23), "curated", "The Barrens"},
-			{3, "Shadowfang Keep", "dungeon", nil, i16(24), i16(30), "curated", ""},
-			{4, "Mystery Hold", "dungeon", nil, nil, nil, "", ""},
-			{5, "Far Keep", "dungeon", nil, i16(40), i16(45), "curated", ""},
+			{3, "Shadowfang Keep", "dungeon", i16(5), i16(24), i16(30), "curated", ""},
+			{4, "Mystery Hold", "dungeon", i16(5), nil, nil, "", ""},
+			{5, "Far Keep", "dungeon", i16(5), i16(40), i16(45), "curated", ""},
 			{6, "Big Raid", "raid", nil, i16(18), i16(20), "curated", ""},
 			{7, "Ember Chasm", "dungeon", i16(5), i16(5), i16(10), "curated", "Orgrimmar"},
 			{8, "Stone Stockade", "dungeon", i16(5), i16(30), i16(34), "curated", "Stormwind City"},
@@ -404,5 +404,43 @@ func TestPlanWithoutQuestieMatchesPlan(t *testing.T) {
 	b, _ := PlanWith(priest(25), synth(t), nil)
 	if Render(priest(25), a, 5) != Render(priest(25), b, 5) {
 		t.Error("nil Questie changed the plan")
+	}
+}
+
+func TestNamedHasNoLevelGate(t *testing.T) {
+	c := warrior(10, "Horde")
+	p, togo, err := Named(c, synth(t), questieIndex(), "wailing caverns")
+	if err != nil || p == nil || p.Name != "Wailing Caverns" || togo != 7 {
+		t.Fatalf("named = %+v, togo %d, %v", p, togo, err)
+	}
+	if len(p.Bosses) != 1 || p.Bosses[0] != "Boss C" {
+		t.Errorf("bosses %v", p.Bosses)
+	}
+	if len(p.Pickups) == 0 || p.Pickups[0].Title != "Wailing Errand" {
+		t.Errorf("pickups %+v", p.Pickups)
+	}
+	text := RenderNamed(c, *p, togo)
+	for _, want := range []string{"You're 10; it opens around 17.", "Boss C", "Wailing Errand"} {
+		if !strings.Contains(text, want) {
+			t.Errorf("missing %q in:\n%s", want, text)
+		}
+	}
+	// The other side's dungeon is still described.
+	if p, _, _ := Named(c, synth(t), nil, "Stone Stockade"); p == nil {
+		t.Error("an Alliance dungeon was hidden from a Horde player")
+	}
+	if p, _, _ := Named(c, synth(t), nil, "Nowhere"); p != nil {
+		t.Errorf("unknown dungeon found: %+v", p)
+	}
+}
+
+func TestEntranceLessGroupLessRowIsNotADungeon(t *testing.T) {
+	row := store.Row{"instance_type": "dungeon", "map_id": int64(2999), "name": "Ruins of Lordaeron", "min_level": int64(27), "max_level": int64(30)}
+	if _, ok := pickOf(row, nil); ok {
+		t.Error("a row with no entrance and no group size counted as a dungeon")
+	}
+	row["max_players"] = int64(5)
+	if _, ok := pickOf(row, nil); !ok {
+		t.Error("a row with a group size was dropped")
 	}
 }

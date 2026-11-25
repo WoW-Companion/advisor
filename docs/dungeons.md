@@ -13,6 +13,8 @@ that are upgrades for their spec, and the open quests that lead there.
   hides it from the other side.
 - **Dungeon quests**: `instance_quests` rows for the map, minus quests already in the log, the
   other side's, and any more than 3 levels above the character; at most 3, with their givers.
+- **Not dungeons**: an `instances` row typed dungeon with no `entrance_zone_name`, no `max_players` and no Questie entrance (the client's Ruins of Lordaeron) is not a dungeon players run, and is never listed.
+- **Plan ahead**: `dungeon_plan(dungeon="Ragefire Chasm")` describes that one dungeon whatever the character's level or side: level range, entrance, every boss (the dataset's, plus the creatures Questie lists), up to 8 quests with givers (not held to the level window) and the drops for the class and spec. Under its minimum it opens with one line, "You're 10; it opens around 13. Here's the plan for when you're ready." Level filtering stays for "which dungeons should I do now?".
 - **Level unknown**: a dungeon with no level range is named apart, unranked.
 - **Wording**: the text never narrates data gaps or sources; one short clause ("Drops not known
   yet") only where a gap changes the advice.

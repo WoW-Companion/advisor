@@ -196,3 +196,51 @@ func Render(c character.Character, r Result, limit int) string {
 	}
 	return b.String()
 }
+
+// RenderNamed is the plan for one named dungeon, whatever the character's level: one line when it
+// is not open yet, then everything about it (all its bosses, quests and drops).
+func RenderNamed(c character.Character, p DungeonPick, togo int) string {
+	var b strings.Builder
+	if togo > 0 && p.MinLevel != nil && c.Level != nil {
+		fmt.Fprintf(&b, "You're %d; it opens around %d. Here's the plan for when you're ready.\n", *c.Level, *p.MinLevel)
+	}
+	p.describe(&b, 0)
+	if len(p.Bosses) > 0 {
+		b.WriteString("       All bosses: " + strings.Join(p.Bosses, ", ") + "\n")
+	}
+	if len(p.Inside) > 0 {
+		var bosses, elites, rest []string
+		for _, in := range p.Inside {
+			switch {
+			case in.Boss:
+				bosses = append(bosses, in.Name)
+			case in.Elite:
+				elites = append(elites, in.Name)
+			default:
+				rest = append(rest, in.Name)
+			}
+		}
+		bosses, elites, rest = capList(bosses), capList(elites), capList(rest)
+		if len(bosses) > 0 {
+			b.WriteString("       Bosses (Questie): " + strings.Join(bosses, ", ") + "\n")
+		}
+		if len(elites) > 0 {
+			b.WriteString("       Elites: " + strings.Join(elites, ", ") + "\n")
+		}
+		if len(rest) > 0 {
+			b.WriteString("       Other creatures: " + strings.Join(rest, ", ") + "\n")
+		}
+	}
+	if p.Faction != "" {
+		b.WriteString("       Side: " + p.Faction + "\n")
+	}
+	return b.String()
+}
+
+// capList keeps the first 12 names.
+func capList(l []string) []string {
+	if len(l) > 12 {
+		return l[:12]
+	}
+	return l
+}

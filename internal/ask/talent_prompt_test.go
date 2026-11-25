@@ -23,6 +23,11 @@ func TestTalentAnswerNeedsNoFetch(t *testing.T) {
 	}
 }
 
+// icyFiles are the only files that name a guide site: the opt-in Check Icy Veins button (the player's
+// own AI client reads the page at runtime; nothing is stored or shipped). Talent answers never use it.
+var icyFiles = map[string]bool{"../ask/icy.go": true, "../ask/knowhow.go": true, "../ask/stream.go": true, "../ask/api.go": true, "../ask/ask.go": true,
+	"../companion/companion.go": true, "../../overlay/ui/asking.js": true, "../../overlay/ui/asking_logic_test.js": true, "../../docs/ask.md": true}
+
 func TestNoGuideLookupTextAnywhere(t *testing.T) {
 	var files []string
 	for _, root := range []string{"../../clients", "../../docs", "../../overlay"} {
@@ -36,7 +41,7 @@ func TestNoGuideLookupTextAnywhere(t *testing.T) {
 	goFiles, _ := filepath.Glob("../*/*.go")
 	files = append(files, goFiles...)
 	for _, f := range files {
-		if strings.HasSuffix(f, "_test.go") || strings.HasSuffix(f, ".png") || strings.HasSuffix(f, ".ico") {
+		if icyFiles[f] || strings.HasSuffix(f, "_test.go") || strings.HasSuffix(f, ".png") || strings.HasSuffix(f, ".ico") {
 			continue
 		}
 		b, err := os.ReadFile(f)

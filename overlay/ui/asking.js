@@ -276,7 +276,34 @@
     const rest = t.replace(/^I(?:'|’)?m an? (?:level \d+ )?[^.?!]*\.\s+/i, '');
     return rest || t;
   }
-  const api = { entryList, fit, insertText, wirePaste, applyEditKey, wireEditKeys, EDIT_KEYS, onAskKey, needsCard, specCard, workingLine, SPEC_NOTE, shortQuestion, NEEDS_LINE };
+  // sourceLine: the small line under a know-how answer (the server built it from what grounded the
+  // answer) and the Check Icy Veins button. A line's last part, "Icy Veins", links to the guide page when
+  // it is an Icy Veins WoW Forever page. The button shows only when the server offers it (the client can
+  // browse, the answer is about a dungeon, class or profession, and it was not checked already).
+  const ICY = /^https:\/\/(www\.)?icy-veins\.com\/wow-forever\//;
+  function sourceLine(doc, e, onIcy) {
+    const out = [];
+    if (e && e.footer) {
+      const s = doc.createElement('small');
+      s.className = 'source-line';
+      const i = e.footer.lastIndexOf('Icy Veins');
+      if (e.source_url && ICY.test(e.source_url) && i >= 0 && i + 9 === e.footer.length) {
+        s.textContent = e.footer.slice(0, i);
+        const a = doc.createElement('a');
+        a.href = e.source_url; a.target = '_blank'; a.rel = 'noopener noreferrer'; a.textContent = 'Icy Veins';
+        s.append(a);
+      } else s.textContent = e.footer;
+      out.push(s);
+    }
+    if (e && e.icy_offer) {
+      const b = doc.createElement('button');
+      b.className = 'icy-btn'; b.type = 'button'; b.textContent = 'Check Icy Veins';
+      b.onclick = () => { b.disabled = true; onIcy(); };
+      out.push(b);
+    }
+    return out;
+  }
+  const api = { sourceLine, entryList, fit, insertText, wirePaste, applyEditKey, wireEditKeys, EDIT_KEYS, onAskKey, needsCard, specCard, workingLine, SPEC_NOTE, shortQuestion, NEEDS_LINE };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.WowcAsking = api;
 })(typeof window !== 'undefined' ? window : globalThis);
