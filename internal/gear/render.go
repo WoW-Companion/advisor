@@ -158,6 +158,9 @@ func Render(c character.Character, r Result) string {
 	for _, l := range levels {
 		fmt.Fprintf(&b, "Soon (level %d):\n%s", l, strings.Join(soon[l], ""))
 	}
+	if len(reach) > 0 || hasCraft(r) {
+		b.WriteString("Call an item craftable only when its line says you can make it now.\n")
+	}
 	for _, l := range beyondReach(reach) {
 		b.WriteString(l + "\n")
 	}
@@ -171,4 +174,16 @@ func Render(c character.Character, r Result) string {
 // never listed as craftable.
 func (c Candidate) outOfReach() bool {
 	return c.Craft != nil && c.Craft.Status != CraftNow && len(c.Sources) == 0 && c.Vendor == nil
+}
+
+// hasCraft is true when a ranked candidate is made by a profession.
+func hasCraft(r Result) bool {
+	for _, cs := range r.Slots {
+		for _, cd := range cs {
+			if cd.Craft != nil {
+				return true
+			}
+		}
+	}
+	return false
 }

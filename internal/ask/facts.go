@@ -342,11 +342,7 @@ func professionPlanFacts(cc loaded, text string) string {
 	return "The character HAS " + prof + " (it is one of their professions); never say they lack it. Their " + prof + " leveling plan from profession_plan; answer from it, not from general tips:\n" + capRunes(body, planRunes)
 }
 
-// NamingRule tells the agent to name only what the facts name.
-const NamingRule = "Name NPCs, coordinates, prices and skill levels only from these facts. When a fact is missing, say what kind of place to look (\"your class trainer in Undercity\") and never guess a name or a position."
-
-// trainFacts is the nearest place to train class spells, when the character has spells to train, with
-// the naming rule; "" otherwise.
+// trainFacts is the nearest place to train class spells, when the character has spells to train, ; "" otherwise.
 func trainFacts(cc loaded) string {
 	c := cc.c
 	if cc.ds == nil || c.Level == nil {
@@ -363,5 +359,5 @@ func trainFacts(cc loaded) string {
 	if !ok {
 		return ""
 	}
-	return p.Line(c.Class) + ".\n" + NamingRule
+	return p.Line(c.Class) + "."
 }
