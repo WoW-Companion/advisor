@@ -249,16 +249,20 @@ func NewBenchmark(ds store.DataStore, o BenchOptions) Benchmark {
 		for _, n := range opt.Needs {
 			bb.Materials = append(bb.Materials, benchMaterial(n))
 			if n.Make != nil {
-				// the part held in stock is a leaf of its own; the rest is counted as what it is made from
-				if n.Have > 0 {
-					add(Need{ID: n.ID, Item: n.Item, Total: n.Have})
-				}
+				// the part held in stock was crafted by an earlier band (the bags are empty): it is not a
+				// leaf to fetch; the rest is counted as what it is made from
 				for _, l := range n.Make.Leaves() {
 					add(l)
 				}
 				continue
 			}
-			add(n)
+			// a part held in stock was crafted by an earlier band: only the rest is fetched
+			if n.Have > 0 {
+				n.Total -= n.Have
+			}
+			if n.Total > 0 {
+				add(n)
+			}
 		}
 		bb.Source = learnWhere(opt)
 		b.Bands = append(b.Bands, bb)

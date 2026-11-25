@@ -16,6 +16,8 @@ func TestEstimateFloor(t *testing.T) {
 		{"runecloth belt", 195, 225, "estimate", 215},
 		{"estimate near yellow is kept", 180, 185, "estimate", 180},
 		{"first recipes of a rank are kept", 1, 25, "estimate", 1},
+		{"a new apprentice's recipe is planned from skill 1", 5, 10, "estimate", 1},
+		{"a trainer row at 5 is kept", 5, 10, "trainer", 5},
 		{"trainer row is never moved", 105, 125, "trainer", 105},
 		{"recipe item is never moved", 80, 105, "recipe_item", 80},
 	}
