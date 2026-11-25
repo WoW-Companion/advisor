@@ -1,6 +1,7 @@
 package ask
 
 import (
+	"github.com/WoW-Companion/advisor/internal/character"
 	"github.com/WoW-Companion/advisor/internal/digest"
 	"strings"
 	"testing"
@@ -104,5 +105,20 @@ func TestPathStepsRule(t *testing.T) {
 	}
 	if PathStepsRule("") != "" {
 		t.Error("a rule for no path")
+	}
+}
+
+// A quest's readiness is a fact, so an answer never says to turn in an unfinished quest.
+func TestSubjectFactsCarryQuestReadiness(t *testing.T) {
+	no := false
+	have, need := 0, 3
+	c := character.Character{Quests: []character.Quest{{QuestID: 999002, Title: "Test Vials", Complete: &no,
+		Objectives: []character.Objective{{Text: "Test vial placed", Have: &have, Need: &need, Done: &no}}}}}
+	line := digest.Line{Text: "Finish Test Vials", Quest: 999002, Kind: digest.KindProgress, Title: "Test Vials", Ref: "quest:999002"}
+	d := digest.Digest{Sections: []digest.Section{{ID: digest.NextQuests, Lines: []digest.Line{line}}}}
+	sub, _ := d.Subject("quest:999002")
+	got := entryFacts(Config{}, loaded{c: c}, sub)
+	if !strings.Contains(got, "Quest status: 0 of 1 objectives done") {
+		t.Errorf("facts lack readiness:\n%s", got)
 	}
 }

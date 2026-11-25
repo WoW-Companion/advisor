@@ -281,6 +281,9 @@ func Build(c character.Character, ds store.DataStore, opt Options) Digest {
 		if s.Progress != "" {
 			text = oneObjective(s.Progress)
 		}
+		if s.Kind == advice.KindQuest && !strings.HasPrefix(s.Title, advice.PickUpPrefix) {
+			text = "Finish " + text // a step's first line is an action; the level fit goes below it
+		}
 		if s.Zone != "" {
 			text += " (" + s.Zone + ")"
 		}
