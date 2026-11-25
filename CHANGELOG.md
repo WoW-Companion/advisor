@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.82
+
+- In town, a dungeon quest at your level (The Book of Ur) is a pick-up step, first on the route.
+- A dungeon far above you, and holiday quests, stay under later.
+- With a nearly full quest log, only as many pick-ups as free slots are planned.
+
 ## 0.7.81
 
 - Unspent talent points come first: "Spend 1 talent point: Shadow Focus (Shadow)".
