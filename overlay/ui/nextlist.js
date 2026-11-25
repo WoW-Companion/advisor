@@ -22,7 +22,7 @@
   function describe(line, charLevel) {
     if (typeof line === 'string') line = { text: line };
     const text = (line && line.text) || '';
-    if (line.kind === 'talent' && line.points > 0) {
+    if (line.kind === 'talent' && line.points > 0 && !/^Spend /.test(text)) {
       return [{ cls: 'nx-head nx-talent', parts: [{ text: plural(line.points, 'unspent talent point', 'unspent talent points') }] }];
     }
     const structured = (line.kind === 'pickup' || line.kind === 'turnin' || line.kind === 'progress') && line.title;

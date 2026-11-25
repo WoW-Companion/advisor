@@ -1,11 +1,17 @@
 # Changelog
 
-## 0.7.81
+## 0.7.82
 
 - The NEXT line names the item in your bags to equip, instead of only saying you have an upgrade.
 - Rune abilities (engravings) are no longer listed as spells to train.
 - Spell lists show each spell once, at its highest rank.
 - With no trainer visit on record, training points you to your trainer's list.
+
+## 0.7.81
+
+- Unspent talent points come first: "Spend 1 talent point: Shadow Focus (Shadow)".
+- If your picks can't be seen yet, it says to open your talents instead of naming a talent.
+- "What next" answers mention unspent points first; the line clears once you spend them.
 
 ## 0.7.80
 
