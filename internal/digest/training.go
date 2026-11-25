@@ -62,6 +62,11 @@ func trainingLine(c character.Character, ds store.DataStore, opt Options) (Line,
 		from = 1
 	}
 	sp := levelup.Spells(c, ds, from, level)
+	if known && opt.PrevLevel > 0 && opt.PrevLevel < level && len(sp) > 0 && sp[0].Usually {
+		// No trainer capture: the dataset's list is a guess, so keep to the levels reached since the last training.
+		from = opt.PrevLevel + 1
+		sp = levelup.Spells(c, ds, from, level)
+	}
 	var rs []row
 	for _, x := range sp {
 		rs = append(rs, row{TrainSpell{ID: int(x.ID), Name: x.Name, Rank: x.Rank, New: x.New, Cost: x.Cost}, x.Level})
@@ -93,7 +98,10 @@ func trainingLine(c character.Character, ds store.DataStore, opt Options) (Line,
 		when += " (if you don't have them yet)"
 	}
 	l.Text = clip(when + ": " + strings.Join(names, ", "))
-	if known { // the player has untrained spells now: the NEXT bar says it is time to visit the trainer
+	usual := len(sp) > 0 && sp[0].Usually
+	if known && usual { // no trainer capture: the dataset's list is a guess, so point at the trainer's own
+		l.Text = clip("Check the trainer's list: " + strings.Join(names[:min(2, len(names))], ", "))
+	} else if known { // the player has untrained spells now: the NEXT bar says it is time to visit the trainer
 		l.Text = clip("New spells to train: " + strings.Join(names[:min(2, len(names))], ", "))
 	}
 	l.trainer(c)
@@ -108,7 +116,11 @@ func trainingLine(c character.Character, ds store.DataStore, opt Options) (Line,
 	if hasPlace {
 		l.trainAt = place.Line(c.Class)
 		if known { // the NEXT bar names the same place the card does
-			l.Text = clip(l.Text + " at " + place.City)
+			if usual && l.NPC != "" {
+				l.Text = clip(l.Text + " with " + l.NPC + " at " + place.City)
+			} else {
+				l.Text = clip(l.Text + " at " + place.City)
+			}
 		}
 	}
 	l.Details = trainingDetails(l, from, c, ds, sp)
@@ -200,7 +212,11 @@ func trainingDetails(l Line, from int, c character.Character, ds store.DataStore
 		d = append(d, cost)
 	}
 	if from < l.Level {
-		d = append(d, fmt.Sprintf("Unlocked between levels %d and %d", from, l.Level))
+		if usually { // the dataset's guess, not the trainer's word: never claim a level range
+			d = append(d, "Check the trainer's list for what you can train")
+		} else {
+			d = append(d, fmt.Sprintf("Unlocked between levels %d and %d", from, l.Level))
+		}
 	} else {
 		d = append(d, "Available at your level")
 	}

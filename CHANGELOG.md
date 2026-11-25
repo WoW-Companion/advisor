@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.7.81
+
+- The NEXT line names the item in your bags to equip, instead of only saying you have an upgrade.
+- Rune abilities (engravings) are no longer listed as spells to train.
+- Spell lists show each spell once, at its highest rank.
+- With no trainer visit on record, training points you to your trainer's list.
+
 ## 0.7.80
 
 - Gear upgrades now weigh how much of each stat an item has, not only which stats.
