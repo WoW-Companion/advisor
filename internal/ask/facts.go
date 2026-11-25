@@ -210,7 +210,14 @@ func styleLine(c character.Character) string {
 	if c.Profile == nil {
 		return "Play style: not saved yet (ask once before talent advice)."
 	}
-	s := "Play style: " + c.Profile.Role + ", " + c.Profile.Focus
+	role, focus := c.Profile.Role, c.Profile.Focus
+	if role == "" {
+		role = "role not set"
+	}
+	if focus == "" {
+		focus = "focus not set"
+	}
+	s := "Play style: " + role + ", " + focus
 	if c.Profile.Spec != "" {
 		s += ", " + c.Profile.Spec
 	}

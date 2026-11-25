@@ -88,3 +88,21 @@ assert.strictEqual(L.planLine('23 stops, about 4120 map units'), '23 stops');
 assert.strictEqual(L.planLine('23 stops'), '23 stops');
 assert.strictEqual(L.planLine(undefined), '');
 console.log('ok');
+
+// Play Style saves: "Not set" is sent as empty, never dropped; a refusal gives its reason and the
+// advisor is re-read either way.
+(async () => {
+  const sent = [], reads = [];
+  const deps = res => ({ post: async b => { sent.push(b); return res; }, reread: async () => { reads.push(1); } });
+  let r = await L.saveStyleFlow(deps({ ok: true }), 'Aria', { role: '', focus: '', spec: ' ', stat_pref: 'balanced' });
+  assert.deepStrictEqual(r, { ok: true });
+  assert.deepStrictEqual(sent[0], { character: 'Aria', role: '', focus: '', spec: '', stat_pref: 'balanced' });
+  r = await L.saveStyleFlow(deps({ ok: true }), 'Aria', { role: 'tank', focus: '' });
+  assert.strictEqual(sent[1].role, 'tank'); assert.strictEqual(sent[1].focus, '');
+  r = await L.saveStyleFlow(deps({ ok: false, text: 'role must be one of damage\n' }), 'Aria', { role: 'x', focus: '' });
+  assert.deepStrictEqual(r, { ok: false, error: 'Not saved: role must be one of damage' });
+  r = await L.saveStyleFlow({ post: async () => { throw new Error('down'); }, reread: async () => { reads.push(1); } }, 'Aria', {});
+  assert.strictEqual(r.ok, false); assert.ok(/^Not saved: /.test(r.error));
+  assert.strictEqual(reads.length, 4);
+  console.log('ok styles');
+})().catch(e => { console.error(e); process.exit(1); });

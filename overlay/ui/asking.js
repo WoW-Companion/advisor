@@ -184,12 +184,12 @@
   // onSave({ role, focus, spec }). set(style) syncs the card with a saved play style.
   function needsCard(doc, needs, onSave, style) {
     const card = el(doc, 'div', 'style-card');
-    const pick = { role: (style && style.role) || '', focus: (style && style.focus) || '', spec: (style && style.spec) || '' };
+    const pick = { role: (style && style.role) || needs.role || '', focus: (style && style.focus) || needs.focus || '', spec: (style && style.spec) || '' };
     const save = el(doc, 'button', 'style-save', 'Save');
     save.type = 'button';
     const rows = {};
     const sync = () => {
-      for (const k of ['role', 'focus']) for (const b of rows[k]) b.className = 'opt' + (b.value === pick[k] ? ' on' : '');
+      for (const k of ['role', 'focus']) for (const b of rows[k] || []) b.className = 'opt' + (b.value === pick[k] ? ' on' : '');
       save.disabled = !(pick.role && pick.focus);
     };
     const group = (key, label, opts) => {
@@ -204,8 +204,9 @@
       });
       card.append(r);
     };
-    group('role', 'Role', needs.roles);
-    group('focus', 'Activity', needs.activities);
+    // A saved play style with one of the two "Not set" asks only for the missing one.
+    if (needs.roles && needs.roles.length) group('role', 'Role', needs.roles);
+    if (needs.activities && needs.activities.length) group('focus', 'Activity', needs.activities);
     let sel = null;
     if (needs.specs && needs.specs.length) {
       const r = el(doc, 'div', 'style-row');

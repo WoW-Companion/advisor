@@ -1017,7 +1017,7 @@ func New(cfg Config) *mcp.Server {
 			name = c.Key
 		}
 		text := talents.Render(plan)
-		if c.Profile == nil {
+		if profile.Incomplete(c.Profile) {
 			text = profile.Ask() + "\n\n" + text
 		} else {
 			text = renderProfile(c) + "\nThe advisor's curated build, for comparison:\n" + text

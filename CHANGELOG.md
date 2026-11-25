@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.41
+
+- Play Style changes save as you make them, with a Saved tick; Not set clears a choice. Set Role and Focus to Not set and the character's play style is cleared, so the next talent or stat question shows the play-style buttons again; set just one to Not set and only that one is asked for. Spec "Not sure yet" clears the spec. A small "Saved ✓" shows after each change, and if a save is refused, the reason appears under the section and the dropdowns go back to what is really saved. Done still just closes the panel. The AI client can now forget a single choice when you ask it to.
+
 ## 0.7.40
 
 - Spec buttons appear whenever no spec is chosen; gear advice includes quest rewards and goes by the level you need to wear it. Set Spec to "Not sure yet" in Settings, press Talents, and you get one button per spec instead of a question in text. The chip under an answer follows talents and a spec you just chose ("Following up on: Cruelty"). Gear advice names a quest reward with its quest, even one you have not picked up, ranks and labels by the level needed to wear it, puts anything above your level under "Soon (level N)" and leaves out items your spec can't use, such as a shield for a Fury warrior. A heads-up line closes only a What next? answer, and talent answers talk about your next pick and the one or two after it, not point totals.

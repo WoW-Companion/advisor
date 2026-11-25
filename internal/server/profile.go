@@ -2,7 +2,8 @@ package server
 
 import (
 	"context"
-	"fmt"
+	"errors"
+	"slices"
 	"strings"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -15,11 +16,12 @@ import (
 
 // ProfileInput is the set_character_profile argument.
 type ProfileInput struct {
-	Character string `json:"character,omitempty" jsonschema:"character name; omit when only one was captured"`
-	Role      string `json:"role,omitempty" jsonschema:"damage, tank, healer or balanced; required the first time"`
-	Focus     string `json:"focus,omitempty" jsonschema:"leveling, dungeons, pvp or mixed; required the first time"`
-	Spec      string `json:"spec,omitempty" jsonschema:"the spec tree the player chose, for example Fury"`
-	StatPref  string `json:"stat_pref,omitempty" jsonschema:"optional stat preference: balanced, damage (more damage) or survival (more survivability)"`
+	Character string   `json:"character,omitempty" jsonschema:"character name; omit when only one was captured"`
+	Role      string   `json:"role,omitempty" jsonschema:"damage, tank, healer or balanced; required the first time"`
+	Focus     string   `json:"focus,omitempty" jsonschema:"leveling, dungeons, pvp or mixed; required the first time"`
+	Spec      string   `json:"spec,omitempty" jsonschema:"the spec tree the player chose, for example Fury"`
+	StatPref  string   `json:"stat_pref,omitempty" jsonschema:"optional stat preference: balanced, damage (more damage) or survival (more survivability)"`
+	Clear     []string `json:"clear,omitempty" jsonschema:"fields to forget when the player says so: any of role, focus, spec, stat_pref. An omitted field keeps its value; only clear forgets it. Clearing both role and focus removes the saved play style"`
 }
 
 // ProfileOutput is the get_character_profile and set_character_profile result.
@@ -55,7 +57,14 @@ func renderProfile(c character.Character) string {
 		b.WriteString(profile.Ask() + "\n")
 	} else {
 		p := c.Profile
-		fmt.Fprintf(&b, "Play style: %s, %s", p.Role, p.Focus)
+		var parts []string
+		for _, v := range [][2]string{{"role", p.Role}, {"focus", p.Focus}} {
+			if v[1] == "" {
+				v[1] = "not set"
+			}
+			parts = append(parts, v[0]+" "+v[1])
+		}
+		b.WriteString("Play style: " + strings.Join(parts, ", "))
 		if p.Spec != "" {
 			b.WriteString(", spec " + p.Spec)
 		}
@@ -77,7 +86,7 @@ func SavedNote(spec string) string {
 }
 
 func profileOutput(c character.Character) ProfileOutput {
-	return ProfileOutput{Character: displayName(c), Profile: c.Profile, NeedsProfile: c.Profile == nil, Text: renderProfile(c)}
+	return ProfileOutput{Character: displayName(c), Profile: c.Profile, NeedsProfile: profile.Incomplete(c.Profile), Text: renderProfile(c)}
 }
 
 func addProfileTools(s *mcp.Server, cfg Config) {
@@ -99,7 +108,7 @@ func addProfileTools(s *mcp.Server, cfg Config) {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "set_character_profile",
-		Description: "Save the character's play style after asking the player (role and focus are required the first time; omitted fields keep their saved value; spec must name one of the class's trees, such as Fury, and anything else is refused with the valid names), " +
+		Description: "Save the character's play style after asking the player (role and focus are required the first time; omitted fields keep their saved value, and to forget a choice the player asks to drop, list it in clear (clearing both role and focus removes the play style); spec must name one of the class's trees, such as Fury, and anything else is refused with the valid names), " +
 			"and optionally a talent plan built from the player's chosen guide: node names (exactly as talent_tree lists them) and target ranks only, never guide text. " +
 			"Nodes not in the captured tree are dropped and listed. Saved locally on the player's PC.",
 	}, func(_ context.Context, _ *mcp.CallToolRequest, in ProfileInput) (*mcp.CallToolResult, ProfileOutput, error) {
@@ -121,22 +130,42 @@ func addProfileTools(s *mcp.Server, cfg Config) {
 				return toolError("Not saved: " + err.Error()), ProfileOutput{}, nil
 			}
 		}
+		clearing := make([]string, 0, len(in.Clear))
+		for _, f := range in.Clear {
+			f = strings.ToLower(strings.TrimSpace(f))
+			if !slices.Contains([]string{"role", "focus", "spec", "stat_pref"}, f) {
+				return toolError("Not saved: clear can only name role, focus, spec or stat_pref"), ProfileOutput{}, nil
+			}
+			clearing = append(clearing, f)
+		}
 		saved, err := profile.Update(cfg.profilesPath(), c.Key, func(e *profile.Entry) error {
 			p := character.Profile{}
 			if e.Profile != nil {
 				p = *e.Profile
 			}
+			had := e.Profile != nil
 			for _, v := range []struct {
+				name string
 				to   *string
 				from string
-			}{{&p.Role, in.Role}, {&p.Focus, in.Focus}, {&p.Spec, spec}, {&p.StatPref, in.StatPref}} {
-				if strings.TrimSpace(v.from) != "" {
+			}{{"role", &p.Role, in.Role}, {"focus", &p.Focus, in.Focus}, {"spec", &p.Spec, spec}, {"stat_pref", &p.StatPref, in.StatPref}} {
+				switch {
+				case strings.TrimSpace(v.from) != "":
 					*v.to = v.from
+				case slices.Contains(clearing, v.name):
+					*v.to = ""
 				}
 			}
 			p, err := profile.Clean(p)
 			if err != nil {
 				return err
+			}
+			if !had && (p.Role == "" || p.Focus == "") {
+				return errors.New("role and focus are both needed the first time")
+			}
+			if p.Role == "" && p.Focus == "" {
+				e.Profile = nil // both cleared: no play style is saved
+				return nil
 			}
 			e.Profile = &p
 			return nil
@@ -147,6 +176,9 @@ func addProfileTools(s *mcp.Server, cfg Config) {
 		c.Profile = saved.Profile
 		out := profileOutput(c)
 		out.SavedNote = SavedNote(spec)
+		if saved.Profile == nil {
+			out.SavedNote = "Cleared: no play style is saved for this character. Set it any time in Settings → Play Style."
+		}
 		out.Text += out.SavedNote + "\n"
 		return nil, out, nil
 	})

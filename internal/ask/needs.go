@@ -40,7 +40,7 @@ type Needs struct {
 	Activities []Option `json:"activities"`
 	Specs      []string `json:"specs,omitempty"` // the class's trees, optional
 	Note       string   `json:"note,omitempty"`  // NeedsSpec: the line under the buttons
-	Role       string   `json:"role,omitempty"`  // NeedsSpec: the saved role and focus the choice is saved with
+	Role       string   `json:"role,omitempty"`  // the saved role and focus the choice is saved with; an empty one is still to be asked
 	Focus      string   `json:"focus,omitempty"`
 }
 
@@ -82,10 +82,20 @@ func PlayStyleNeeded(cfg Config, q Question) (Needs, bool) {
 	if !ok {
 		return Needs{}, false
 	}
-	if p := cc.c.Profile; p != nil {
+	p := cc.c.Profile
+	if p != nil && !profile.Incomplete(p) {
 		return specNeeded(cc, q, p)
 	}
 	n := NeedsFor(cc.c, q)
+	if p != nil { // one of role and focus is "Not set": ask for only that one
+		n.Role, n.Focus = p.Role, p.Focus
+		if p.Role != "" {
+			n.Roles = nil
+		}
+		if p.Focus != "" {
+			n.Activities = nil
+		}
+	}
 	if specs := talents.Specs(cc.ds, cc.c); len(specs) > 0 {
 		n.Specs = specs
 	}
