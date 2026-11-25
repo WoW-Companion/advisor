@@ -146,7 +146,7 @@ type Item struct {
 	StatTypes     []int64
 	// Stats is the amount of each stat (type id to amount) from the dataset's stat values; nil when the
 	// dataset has types only.
-	Stats      map[int64]int
+	Stats      map[int64]int `json:"-"`
 	StatsKnown bool
 }
 
