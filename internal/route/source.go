@@ -270,7 +270,8 @@ func (s *questieSource) quests(c character.Character, at *questie.Where) []*ques
 	}
 
 	// Quests not in the log that could be picked up now, whose giver stands on the player's map.
-	if at != nil && curMap != 0 {
+	// Without the quest log nothing says what is already in it, so no pick-up is offered.
+	if at != nil && curMap != 0 && (c.QuestsCaptured || len(c.Quests) > 0) {
 		who := advice.WhoOf(c)
 		ids := make([]int, 0, len(s.qx.Quests))
 		for id := range s.qx.Quests {

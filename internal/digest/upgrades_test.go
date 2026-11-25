@@ -212,3 +212,16 @@ func TestShoppingListsWithTheSameRangeAndSuffixesBecomeOneLine(t *testing.T) {
 		t.Errorf("lone line = %+v", got[1])
 	}
 }
+
+func TestNamedUpgradesAreNotGrouped(t *testing.T) {
+	shops := []shopAt{}
+	lines := []Line{{Text: "Big Named Staff", Item: 1}}
+	for _, slot := range []string{"head", "chest"} {
+		shops = append(shops, shopAt{len(lines), slot, paths.Shopping{Slot: slot, Armor: "cloth", MinLevel: 20, MaxLevel: 24, Suffixes: []string{"of the Eagle (x)"}}})
+		lines = append(lines, Line{})
+	}
+	got := groupShopping(character.Character{}, lines, shops)
+	if len(got) != 2 || got[0].Text != "Big Named Staff" || got[1].Text != "Green cloth gear, level 20–24, 'of the Eagle': helm, chest" {
+		t.Fatalf("lines %+v", got)
+	}
+}

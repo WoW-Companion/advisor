@@ -236,7 +236,7 @@ func hubIsle() *questie.Index {
 func hero() character.Character {
 	lvl, mp := 9, 7001
 	x, y := 48.0, 49.0
-	return character.Character{Name: "Hero", Level: &lvl, Location: &character.Location{Zone: "Testisle", MapID: &mp, X: &x, Y: &y}}
+	return character.Character{Name: "Hero", QuestsCaptured: true, Level: &lvl, Location: &character.Location{Zone: "Testisle", MapID: &mp, X: &x, Y: &y}}
 }
 
 func TestPlanClustersAndOrders(t *testing.T) {
@@ -515,5 +515,52 @@ func TestNeverRouteTurnInForUnfinishedQuest(t *testing.T) {
 				}
 			}
 		}
+	}
+}
+
+func hasKind(p Plan, kind string, q int) bool { return stepIndex(p, kind, q) >= 0 }
+
+func TestQuestsInTheLogHaveNoPickupAndNumberingStartsAtOne(t *testing.T) {
+	c := hero()
+	c.Quests = []character.Quest{{QuestID: 10, Title: "Quest 10", Objectives: []character.Objective{{Text: "Test Boar slain: 0/8"}}}}
+	p := Build(c, hubIsle())
+	if hasKind(p, KindPickup, 10) || !hasKind(p, KindObjective, 10) || !hasKind(p, KindTurnIn, 10) {
+		t.Fatalf("a logged quest is routed from its objectives: %+v", p.Steps)
+	}
+	for i, s := range p.Steps {
+		if s.N != i+1 || s.Done {
+			t.Errorf("step %d is numbered %d, done=%v", i, s.N, s.Done)
+		}
+	}
+}
+
+func TestAbandonedQuestKeepsItsPickup(t *testing.T) {
+	c := hero() // quest 10 is not in the log: it was abandoned, or never taken
+	if p := Build(c, hubIsle()); !hasKind(p, KindPickup, 10) {
+		t.Fatalf("an abandoned quest needs its pick-up: %+v", p.Steps)
+	}
+}
+
+func TestNoPickupsWhenTheQuestLogIsUnknown(t *testing.T) {
+	c := hero()
+	c.QuestsCaptured = false
+	p := Build(c, hubIsle())
+	if hasKind(p, KindPickup, 10) || len(p.Notes) == 0 {
+		t.Fatalf("pick-ups without a quest log, notes %v: %+v", p.Notes, p.Steps)
+	}
+}
+
+func TestPlanBasisIsTheCaptureItWasBuiltFrom(t *testing.T) {
+	c := hero()
+	at := int64(1795363000)
+	c.CapturedAt = &at
+	c.Quests = []character.Quest{{QuestID: 12, Title: "Quest 12"}, {QuestID: 10, Title: "Quest 10"}}
+	p := Build(c, hubIsle())
+	if p.Basis.Captured != at || len(p.Basis.InLog) != 2 || p.Basis.InLog[0] != 10 {
+		t.Fatalf("basis %+v", p.Basis)
+	}
+	lua := Envelope{Generated: at + 5, Plans: []Plan{p}}.Lua()
+	if !strings.Contains(lua, "basis = { captured = 1795363000, inLog = { 10, 12 } },") {
+		t.Errorf("Plan.lua lacks the basis:\n%s", lua)
 	}
 }

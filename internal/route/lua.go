@@ -59,6 +59,7 @@ func (e Envelope) Lua() string {
 		if p.Start != nil {
 			fmt.Fprintf(&b, "      start = { map = %d, x = %.1f, y = %.1f },\n", p.Start.Map, p.Start.X, p.Start.Y)
 		}
+		fmt.Fprintf(&b, "      basis = { captured = %d, inLog = %s },\n", p.Basis.Captured, idList(p.Basis.InLog))
 		fmt.Fprintf(&b, "      zone = %s,\n      distance = %.1f,\n      steps = {\n", digest.Quote(p.Zone), p.Distance)
 		stops(&b, "        ", p.Steps)
 		b.WriteString("      },\n      later = {\n")

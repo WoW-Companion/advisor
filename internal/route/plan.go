@@ -99,6 +99,14 @@ type Plan struct {
 	Total     int          `json:"total"`          // stops on the route, a travel stop included
 	Notes     []string     `json:"notes,omitempty"`
 	Follow    []FollowNote `json:"follow_ups,omitempty"` // the locked follow-ups on the route, one per quest
+	Basis     Basis        `json:"basis"`                // what the plan was built from
+}
+
+// Basis is the state a plan starts from. "Done" in a plan means done after Captured: a reader judges
+// steps against it, and never counts what was already true (a quest in InLog) as progress.
+type Basis struct {
+	Captured int64 `json:"captured,omitempty"` // capture time, unix seconds; 0 when unknown
+	InLog    []int `json:"in_log,omitempty"`   // quest ids in the log when the plan was built, sorted
 }
 
 // FollowNote describes one follow-up quest on the route, for the digest's "Unlocks:" line.
@@ -217,6 +225,13 @@ func plan(c character.Character, src source) Plan { return planWith(c, src, Opti
 
 func planWith(c character.Character, src source, opt Options) Plan {
 	p := Plan{Character: nameOf(c), Steps: []Stop{}}
+	if c.CapturedAt != nil {
+		p.Basis.Captured = *c.CapturedAt
+	}
+	for _, lq := range c.Quests {
+		p.Basis.InLog = append(p.Basis.InLog, lq.QuestID)
+	}
+	sort.Ints(p.Basis.InLog)
 	pos := c.LastKnownPosition()
 	lvl := *c.Level
 	var at *questie.Where
@@ -227,6 +242,9 @@ func planWith(c character.Character, src source, opt Options) Plan {
 	var later []*spot
 	var use []*quest
 	var findSpots []*spot
+	if !c.QuestsCaptured && len(c.Quests) == 0 {
+		p.Notes = append(p.Notes, "The quest log is not in the capture yet, so no pick-ups are planned (a quest you already have would show as one).")
+	}
 	for _, q := range src.quests(c, at) {
 		// The invariant: a turn-in is routed only when every unfinished objective has a stop before it.
 		// An objective with no location is listed under Find and its quest's turn-in is withheld.
