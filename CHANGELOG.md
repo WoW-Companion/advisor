@@ -1,40 +1,70 @@
 # Changelog
 
+## 0.7.67
+
+- Update notes are now short bullets, one change each.
+- The update notice shows the first few changes, with a See all changes link for the rest.
+
 ## 0.7.66
 
-- Tailoring plans follow the proven path: cloth bolts, the right recipes at the right skill, and when to visit your trainer. A recipe whose learn skill the data only guesses is no longer used far below the skill it turns yellow at (Black Mageweave Vest and Runecloth Belt were planned some 30 skill points too early), cloth bolts you make for the skill-ups are counted as kept for the recipes that use them later, and Tailoring plans name the trainer: Josef Gregorian in Undercity or Georgio Bolero in Stormwind, who teach Expert at Tailoring 125 and level 20.
+- Tailoring plans follow the proven path more closely, with cloth bolts and the right recipes.
+- Recipes are no longer planned far too early for your skill.
+- Cloth bolts you make for skill-ups now count for the recipes that use them later.
+- Tailoring plans name your trainer, in Undercity or Stormwind, and when to visit.
 
 ## 0.7.65
 
-- Profession plans count skill-ups the way the game does, and gathering professions say what to gather. A craft now gives a skill point for sure while a recipe is orange, three times in four while yellow and one in four once it turns green (it fits the craft counts of the Forever guides far better than the old flat one in two), so a plan leaves a recipe when it turns green unless nothing else is better, and needs fewer crafts. Herbalism, Mining and Skinning no longer send you to the Auction House for a pattern: they name the herbs and ores your skill opens and where they grow, and Fishing shows its catches again. Suffix advice no longer offers a suffix with a stat your build ignores (no "of the Owl" for a Destruction Warlock or an Elemental Shaman), and a trainer the dataset has no name for is shown as its id, not "trainer trainer".
+- Profession plans need fewer crafts and match the Forever guides more closely.
+- Plans now leave a recipe once it turns green, unless nothing else is better.
+- Herbalism, Mining and Skinning tell you what to gather and where, not what to buy.
+- Fishing shows its catches again.
+- Gear advice no longer suggests suffixes with a stat your build ignores.
+- A trainer the data has no name for is shown by its number, not "trainer trainer".
 
 ## 0.7.64
 
-- Gear advice names the right item suffixes, and the app knows your professions from your recipes. A priest who wants survivability now gets "of the Eagle" before "of the Owl" (the suffixes are checked against the game's own suffix list, not against item names like elixirs), and the stat text no longer adds a contradicting "wants more Stamina" line. A profession whose recipes the app has recorded counts as yours even when your skill levels were not captured, so "How do I level tailoring?" gets your real plan instead of "you don't have Tailoring".
+- Gear advice names the right item suffixes, like "of the Eagle" for survivability.
+- The stat text no longer adds a line that contradicts the advice.
+- The app knows your professions from your recipes, even if your skill levels were missed.
+- "How do I level tailoring?" now gives your real plan.
 
 ## 0.7.63
 
-- Stat advice shows what each point is worth for your character. The stat check and gear advice now work out what a point of Intellect (mana and spell crit) and Stamina (health) gives you from your own numbers, and show it only when it matches your mana and crit. If it does not match, you still get the stat priority and no number. Stats from older addon versions now show the right unmodified value too.
+- Stat advice shows what each point of Intellect and Stamina is worth for your character.
+- The worth is shown only when it matches your own mana and crit.
+- Stats from older addon versions now show the right value.
 
 ## 0.7.62
 
-- You can let the app install updates by itself. Settings > Updates has a new "Install updates automatically" switch (off by default), and the update notice has an "Always update automatically" button that turns it on and installs now. The app installs a ready update when it starts or after five quiet minutes, never while an answer is being written, and shows "Updating to…" first. It follows the same rules as the notice: a day after release unless "Get updates right away" is on, never a pulled or skipped version. If your version is pulled, it goes back by itself and tells you why. A failed download is tried again at the next check, up to three times, then the notice is all that is left.
+- New "Install updates automatically" switch in Settings > Updates, off by default.
+- The update notice has an "Always update automatically" button.
+- Updates install when the app starts or after a quiet while, never while an answer is written.
+- If your version is pulled, the app goes back by itself and tells you why.
+- A failed download is tried again at the next check.
 
 ## 0.7.61
 
-- What's new now lists everything since your last version. If you skipped a few updates, the notes show every version after the one you're running, newest first (up to three versions and about eight lines, then "…and N more changes"), and there is a See all changes button that opens the full list. After going back to an older version it only says so, with no list.
+- What's new now lists everything since the version you last ran, newest first.
+- A See all changes button opens the full list.
+- After going back to an older version, the app only says so.
 
 ## 0.7.60
 
-- Stat advice now explains itself with your own character's numbers. The stat check and gear advice now read what the game addon records about your character (your stats, health, mana, crit and what a point of Intellect, Agility or Spirit does for you), so the advice quotes your own numbers instead of general words.
+- Stat advice now explains itself with your own character's numbers.
+- It uses what the game addon records: your stats, health, mana and crit.
+- It also shows what a point of Intellect, Agility or Spirit does for you.
 
 ## 0.7.59
 
-- Plans start from where you are, and the in-game upgrade list is tidier. A new plan no longer begins with pick-up steps for quests already in your log, so it starts at step 1 and nothing shows as completed until you finish it after the plan was made. A quest you abandoned still gets its pick-up. The in-game upgrade list shows one line for many slots of the same green gear.
+- New plans start from where you are, with no pick-ups for quests already in your log.
+- A quest you abandoned still gets its pick-up.
+- The in-game upgrade list shows one line for many slots of the same green gear.
 
 ## 0.7.58
 
-- Clearer updates: newest first, plain Update and Go back buttons, and a note after each update. Settings now says when an update is ready, with an Update now button, and what's new shows only the changes for that version.
+- Updates are clearer: newest first, with plain Update and Go back buttons.
+- Settings says when an update is ready, with an Update now button.
+- You get a note after each update, and What's new shows only that version's changes.
 
 ## 0.7.57
 

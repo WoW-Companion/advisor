@@ -80,6 +80,26 @@ func plain(s string) string {
 	return s
 }
 
+// boundary is where a sentence ends and the next begins: ". " (or ! ?) before a capital or digit.
+var boundary = regexp.MustCompile(`([.!?])\s+([A-Z0-9"“(])`)
+
+// Split turns one paragraph-style note into one bullet per sentence, so notes written before the
+// one-change-per-bullet rule still read as a list. Nothing is dropped: joining the parts with a
+// space gives back the text. A note with a single sentence comes back as is.
+func Split(s string) []string {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return nil
+	}
+	var out []string
+	start := 0
+	for _, m := range boundary.FindAllStringSubmatchIndex(s, -1) {
+		out = append(out, s[start:m[3]]) // up to and including the punctuation
+		start = m[4]
+	}
+	return append(out, s[start:])
+}
+
 // Section is one version's part of a changelog, as markdown bullets ("- text" per line, the marks
 // removed), or "" when the changelog has no such version. It is the only text a player sees as
 // that version's notes: never a release body or a commit message.
@@ -96,7 +116,7 @@ func Section(md, version string) string {
 			continue
 		}
 		if in && strings.HasPrefix(line, "- ") {
-			if t := strings.TrimSpace(markup.ReplaceAllString(line[2:], "")); t != "" {
+			for _, t := range Split(strings.TrimSpace(markup.ReplaceAllString(line[2:], ""))) {
 				out = append(out, "- "+t)
 			}
 		}
@@ -173,7 +193,7 @@ func Range(md, from, to string, skip []string) string {
 		if len(secs) == 0 || secs[len(secs)-1].version == "" || !strings.HasPrefix(line, "- ") {
 			continue
 		}
-		if t := strings.TrimSpace(markup.ReplaceAllString(line[2:], "")); t != "" {
+		for _, t := range Split(strings.TrimSpace(markup.ReplaceAllString(line[2:], ""))) {
 			s := &secs[len(secs)-1]
 			s.bullets = append(s.bullets, "- "+t)
 		}

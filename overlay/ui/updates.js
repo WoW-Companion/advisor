@@ -53,7 +53,7 @@
       text: s.failure ? 'The update did not install: ' + s.failure : 'Update ' + s.version + ' is ready',
       actions: s.failure
         ? [...err, { id: 'later', label: 'Later' }]
-        : [{ id: 'notes', label: 'What’s new' }, { id: 'changes', label: 'See all changes' }, { id: 'install', label: 'Install' }, ...(s.auto ? [] : [{ id: 'always', label: 'Always update automatically' }]), { id: 'later', label: 'Later' }, { id: 'skip', label: 'Skip this version' }],
+        : [{ id: 'install', label: 'Install' }, ...(s.auto ? [] : [{ id: 'always', label: 'Always update automatically' }]), { id: 'later', label: 'Later' }, { id: 'skip', label: 'Skip this version' }],
     };
   }
 
@@ -72,6 +72,8 @@
     cfg.later = { [bare(version)]: now + LATER_MS }; // only the latest "Later" is kept
   }
 
+  const NOTICE_BULLETS = 4; // the notice shows this many bullets, then a See all changes link
+
   // The page "See all changes" opens: the CHANGELOG on GitHub.
   const CHANGELOG_URL = 'https://github.com/WoW-Companion/advisor/blob/main/CHANGELOG.md';
   // The note's request: everything after the version left, up to the new one.
@@ -83,6 +85,31 @@
       .replace(/^#{1,6}\s*/, '').replace(/^\s*[-*]\s+/, '• ').replace(/[`*_]{1,3}/g, '').replace(/\[([^\]]+)\]\([^)]*\)/g, '$1').trimEnd());
     const text = lines.join('\n').replace(/\n{3,}/g, '\n\n').trim();
     return text || 'No notes were published for this version.';
+  }
+
+  // Notes as a list to draw: groups of bullets, one per version ("## 0.7.58" headings; a single
+  // version has none, version ""). max caps the bullets in all (the notice shows 4); more says
+  // something was left out, by the cap or by the server's "…and N more changes" line, so the
+  // "See all changes" link shows. Marks and the leading dash are removed; no text is rewritten.
+  function noteView(md, max) {
+    const cap = max > 0 ? max : Infinity;
+    const groups = [];
+    let shown = 0, hidden = 0;
+    for (const raw of String(md || '').replace(/\r/g, '').split('\n')) {
+      const line = raw.trim();
+      const h = /^##\s+(\S+)/.exec(line);
+      if (h) { groups.push({ version: h[1], bullets: [] }); continue; }
+      if (/^…\s*and \d+ more/.test(line)) { hidden += 1; continue; }
+      const m = /^[-*•]\s+(.*)$/.exec(line);
+      if (!m) continue;
+      const t = m[1].replace(/[`*_]{1,3}/g, '').replace(/\[([^\]]+)\]\([^)]*\)/g, '$1').trim();
+      if (!t) continue;
+      if (shown >= cap) { hidden += 1; continue; }
+      if (!groups.length) groups.push({ version: '', bullets: [] });
+      groups[groups.length - 1].bullets.push(t);
+      shown++;
+    }
+    return { groups: groups.filter(g => g.bullets.length), more: hidden > 0 };
   }
 
   // Versions as numbers, for ordering: 0.7.58 > 0.7.9. Anything that is not x.y.z sorts last.
@@ -149,7 +176,7 @@
     };
   }
 
-  const api = { CHECK_EVERY, LATER_MS, WAKE_GAP, TICK, updateQuery, bannerState, bannerView, turnOnAuto, autoArgs, skip, later, plainNotes, versionRows, noticeView, updatedNote, whatsNewQuery, CHANGELOG_URL, cmp, createSchedule };
+  const api = { CHECK_EVERY, LATER_MS, WAKE_GAP, TICK, updateQuery, bannerState, bannerView, turnOnAuto, autoArgs, skip, later, plainNotes, noteView, NOTICE_BULLETS, versionRows, noticeView, updatedNote, whatsNewQuery, CHANGELOG_URL, cmp, createSchedule };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.WowcUpdates = api;
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -12,6 +12,22 @@ newest release that:
 
 The 24 hours is the settle delay: a bad release can be pulled before most players are offered it.
 
+## Writing release notes
+
+Every release adds a `## <version>` section to `CHANGELOG.md`, the next version after the one on `main`
+(the same number as `VERSION`). Players read it in the update notice and in What's new, so it is a list of
+short bullets:
+
+- One change per bullet, at most 100 characters.
+- Plain player words: say what the player notices ("Profession plans need fewer crafts and match the
+  Forever guides more closely"), not how it works.
+- No numbers or odds unless the player needs them, and no mission ids, file names or developer words.
+
+The update notice shows the first 4 bullets and a "See all changes" link. `internal/whatsnew`'s `Lint`
+(run by its tests) fails a bullet over the limit or one with a mission id, file name, developer word or
+odds, for every version from 0.7.58. Older paragraph-style notes are split into one bullet per sentence
+when shown.
+
 ## Pulling a version
 
 Edit [`updates/updates.json`](../updates/updates.json) on `main`. The overlay reads it from

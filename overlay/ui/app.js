@@ -14,7 +14,7 @@ const save = () => { localStorage.setItem('wowc', JSON.stringify(cfg)); if (type
 const chats = WowcLaunch.chatStore(localStorage); // each character's last 50 turns, on this PC only
 
 let conn = null, state = null, busy = false, events = null;
-const upd = { status: null, busy: '', failure: '', notesOpen: false, last: '', fresh: false, ok: false, checkedAt: 0, confirm: '' }; // the update banner's state
+const upd = { status: null, busy: '', failure: '', last: '', fresh: false, ok: false, checkedAt: 0, confirm: '' }; // the update banner's state
 
 // --- connection to the sidecar -------------------------------------------------------------
 
@@ -694,7 +694,7 @@ const versionLine = WowcVersion.createVersionLine({
     return n;
   },
   checked: () => schedule.checked(),
-  openPage: () => { cfg.later = {}; save(); upd.notesOpen = false; renderUpdates(); },
+  openPage: () => { cfg.later = {}; save(); renderUpdates(); },
   setTimeout: (f, ms) => setTimeout(f, ms),
   setInterval: (f, ms) => setInterval(f, ms),
 });
@@ -739,6 +739,25 @@ listen('auto-update-note', ev => {
 });
 listen('update-progress', ev => { if (upd.busy) { upd.busy = String(ev.payload); renderUpdates(); } });
 
+// Notes as a bulleted list, grouped by version when the text has headings. link adds the
+// "See all changes" link (opens the full list) when more than is shown exists. null for no notes.
+function drawNotes(view, link) {
+  if (!view.groups.length) return null;
+  const box = Object.assign(document.createElement('div'), { className: 'upd-notes' });
+  for (const g of view.groups) {
+    if (g.version) box.append(Object.assign(document.createElement('div'), { className: 'upd-ver', textContent: g.version }));
+    const ul = document.createElement('ul');
+    for (const b of g.bullets) ul.append(Object.assign(document.createElement('li'), { textContent: b }));
+    box.append(ul);
+  }
+  if (link && view.more) {
+    const a = Object.assign(document.createElement('a'), { textContent: 'See all changes', href: '#', role: 'button' });
+    a.onclick = ev => { ev.preventDefault(); invoke('open_install_page', { url: WowcUpdates.CHANGELOG_URL }).catch(e => notice(String(e))); };
+    box.append(a);
+  }
+  return box;
+}
+
 function renderUpdates() {
   const bar = $('update-bar');
   const s = WowcUpdates.bannerState(upd.status, cfg, Date.now(), upd.busy, upd.failure);
@@ -751,14 +770,12 @@ function renderUpdates() {
   t.className = 'upd-text'; t.textContent = view.text;
   bar.append(t);
   const act = {
-    notes: () => { upd.notesOpen = !upd.notesOpen; renderUpdates(); },
     install: () => installVersion(s.version),
     always: () => { WowcUpdates.turnOnAuto(cfg); $('auto-update').checked = true; save(); syncAuto(); installVersion(s.version); },
     back: () => installVersion(s.backTo),
     retry: () => installVersion(upd.last),
     later: () => { WowcUpdates.later(cfg, s.version || upd.last, Date.now()); upd.failure = ''; save(); renderUpdates(); },
     skip: () => { WowcUpdates.skip(cfg, s.version); save(); renderUpdates(); },
-    changes: () => invoke('open_install_page', { url: WowcUpdates.CHANGELOG_URL }).catch(e => notice(String(e))),
     details: () => invoke('open_install_page', { url: RELEASES_URL }).catch(e => notice(String(e))),
     dismiss: () => { upd.failure = ''; renderUpdates(); },
   };
@@ -767,10 +784,9 @@ function renderUpdates() {
     b.type = 'button'; b.textContent = a.label; b.onclick = act[a.id];
     bar.append(b);
   }
-  if (s.kind === 'offer' && upd.notesOpen && !s.busy && !s.failure) {
-    const n = document.createElement('div');
-    n.className = 'upd-notes'; n.textContent = WowcUpdates.plainNotes(s.notes);
-    bar.append(n);
+  if (s.kind === 'offer' && !s.busy && !s.failure) {
+    const n = drawNotes(WowcUpdates.noteView(s.notes, WowcUpdates.NOTICE_BULLETS), true);
+    if (n) bar.append(n);
   }
 }
 
@@ -826,12 +842,12 @@ async function showUpdatedNote(running) {
   if (!n) return;
   bar.hidden = false;
   bar.replaceChildren(Object.assign(document.createElement('span'), { className: 'upd-text', textContent: n.text }));
-  const body = Object.assign(document.createElement('div'), { className: 'upd-notes', hidden: true });
+  const body = Object.assign(document.createElement('div'), { hidden: true });
   if (n.whatsNew) {
     const b = Object.assign(document.createElement('button'), { type: 'button', textContent: 'What’s new' });
     b.onclick = async () => {
-      if (!body.textContent) {
-        try { const r = await api('/api/whats-new' + WowcUpdates.whatsNewQuery(n)); const l = r.ok ? (await r.json())[0].lines : []; body.textContent = WowcUpdates.plainNotes(l.join('\n')); } catch { body.textContent = 'No notes were published for this version.'; }
+      if (!body.hasChildNodes() && !body.textContent) {
+        try { const r = await api('/api/whats-new' + WowcUpdates.whatsNewQuery(n)); const l = r.ok ? (await r.json())[0].lines : []; body.replaceChildren(drawNotes(WowcUpdates.noteView(l.join('\n')), true) || 'No notes were published for this version.'); } catch { body.textContent = 'No notes were published for this version.'; }
       }
       body.hidden = !body.hidden;
     };
