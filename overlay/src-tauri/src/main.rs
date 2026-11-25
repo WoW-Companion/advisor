@@ -648,20 +648,6 @@ fn read_clipboard(window: tauri::Window) -> Result<String, String> {
     clipboard_text()
 }
 
-/// The native line of the keyboard test: whether the window is focused and what could be eating keys.
-#[tauri::command]
-fn key_native_state(app: AppHandle) -> String {
-    let Some(w) = main_window(&app) else { return "native: no window".into() };
-    let ui = app.state::<Ui>();
-    let style = ex_style(&w).map(|s| format!("{s:#x}")).unwrap_or_else(|| "n/a".into());
-    format!(
-        "native: focused={} click-through={} ex-style={} (the host does not intercept keys itself)",
-        w.is_focused().unwrap_or(false),
-        ui.click_through.load(Ordering::Relaxed),
-        style
-    )
-}
-
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
@@ -688,7 +674,6 @@ fn main() {
             quit,
             set_shortcuts,
             read_clipboard,
-            key_native_state,
             recover::recovery_state,
             recover::recovery_do
         ])

@@ -670,22 +670,9 @@ text.oninput = fitBox;
 const pasting = WowcAsking.wirePaste(text, () => invoke('read_clipboard'), fitBox);
 $('paste').onclick = () => pasting.paste();
 fitBox();
-// No native focus call on click: the ask box takes focus like the Keyboard test field does.
+// No native focus call on click: the web view gives the ask box focus itself.
 // Safety net: an editing key the web view drops is applied by the page itself (see asking.js).
 WowcAsking.wireEditKeys(text, fitBox);
-// Keyboard test (Settings → Updates): the page's last key events plus Rust's view of the window.
-{
-  const out = $('key-test-log'), field = $('key-test');
-  let native = '';
-  const show = lines => { out.textContent = lines.join('\n') + (native ? '\n' + native : ''); };
-  const kl = WowcKeyDiag.log(show);
-  WowcKeyDiag.attach(field, kl, 'test');
-  field.addEventListener('keydown', () => { invoke('key_native_state').then(s => { native = s; show(kl.lines); }).catch(() => {}); }, true);
-  WowcKeyDiag.attach(text, kl, 'ask');
-  text.addEventListener('keydown', () => { invoke('key_native_state').then(s => { native = s; show(kl.lines); }).catch(() => {}); }, true);
-  text.addEventListener('focus', () => kl.add('ask: focus'));
-  text.addEventListener('blur', () => kl.add('ask: blur'));
-}
 setInterval(() => showBadge(), 30000);
 
 // --- version line, update banner and version list --------------------------------------------
