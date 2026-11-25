@@ -24,21 +24,6 @@ func (p *planner) hasTrainerOffers() bool {
 	return p.trainerOffers > 0
 }
 
-// seenOffer says a trainer the player opened offered the recipe (by spell id, else by name).
-func (p *planner) seenOffer(r Recipe) bool {
-	if p.c.Seen == nil {
-		return false
-	}
-	for _, t := range p.c.Seen.TrainersFor(p.c.Faction) {
-		for _, o := range t.Offers {
-			if r.SpellID != 0 && o.Spell == r.SpellID || r.Name != "" && strings.EqualFold(strings.TrimSpace(o.Name), strings.TrimSpace(r.Name)) {
-				return true
-			}
-		}
-	}
-	return false
-}
-
 // dungeonOnly says a recipe no trainer offer confirms is taught by a pattern that comes only from an
 // instance: a recipe item whose only sources are instance bosses, or a known dungeon-only craft. It
 // returns the dungeon's name.

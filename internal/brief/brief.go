@@ -385,6 +385,9 @@ func Character(c character.Character, client character.Client, now time.Time) st
 	if pos := c.LastKnownPosition(); pos != nil {
 		lines = append(lines, "Last known position: "+pos.Label())
 	}
+	if fl := flightLine(c, now); fl != "" {
+		lines = append(lines, fl)
+	}
 	cl := ClientLine(client)
 	if cl == "" {
 		cl = "client not captured"
@@ -416,4 +419,21 @@ func TopGroups(t *character.Talents) (names []string, points int) {
 		}
 	}
 	return names, points
+}
+
+// flightLine lists the flight masters the player opened, for travel hints; "" when none were seen.
+func flightLine(c character.Character, now time.Time) string {
+	fs := c.Seen.FlightsFor(c.Faction)
+	if len(fs) == 0 {
+		return ""
+	}
+	var parts []string
+	for _, f := range fs {
+		s := f.Name
+		if z := c.ZoneOfMap(f.Map); z != "" {
+			s += " (" + z + ")"
+		}
+		parts = append(parts, s)
+	}
+	return "Flight points you know (" + character.SeenByYou + ", " + character.SeenAgo(fs[0].T, now) + "): " + strings.Join(parts, "; ")
 }

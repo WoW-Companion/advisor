@@ -99,3 +99,12 @@ The skill gate is the trainer's required skill when the dataset has it. Where th
 ## Trainer confidence
 
 `recipes.learned_from = trainer` only means no recipe item teaches the spell. A plan therefore checks `trainer_spells` (and the trainers the player opened): a trainer recipe is **confirmed** when an offer lists its spell and **unconfirmed** otherwise, shown as "probably from your trainer; check when you visit". Order of preference at a similar cost: confirmed trainer, vendor, quest the character can take, unconfirmed trainer, drops (an unconfirmed trainer recipe costs a fixed surcharge). A recipe with no trainer offer whose pattern only drops from an instance boss (or is known to, like the Gordok Ogre Suit) is a drop, not a trainer recipe. A made material that would take more than 10 raw materials per unit (light leather ground up to heavier grades) is bought instead. The guide-check line names the confidence per band. First Aid keeps Minor and Lesser Healing Potion: the client lists them there and the trainer data confirms them.
+
+**Seen by you.** What the addon recorded comes before the dataset. A recipe in the character's
+own recipe list (`recipes[<profession>]`) is known, is never "learned" again, and keeps its observed
+reagents and product; a recipe only that list has is planned by its observed name, with a skill range
+estimated from its colour. An offer from a trainer the player opened (matched by name) gives
+"your trainer teaches it" with the observed cost and level, replacing the estimate; an offer shown as
+unavailable says what it needs. An opened vendor's price replaces `vendor_sources` for the item and
+names the vendor, nearest first. Every observed fact says when it was seen, and one older than 30
+days says its prices may have changed.

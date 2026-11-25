@@ -7,8 +7,11 @@ package levelup
 
 import (
 	"fmt"
+	"regexp"
 	"sort"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/WoW-Companion/advisor/internal/advice"
 	"github.com/WoW-Companion/advisor/internal/character"
@@ -31,6 +34,10 @@ type Spell struct {
 	New   bool  // false when it upgrades a known rank
 	Cost  int64 // copper; 0 when no corroborated offer carries one
 	Seen  bool  // the cost is the one a trainer showed the player
+	// SeenAt is when that trainer window was read (unix s); NeedLevel is the level its window said, 0 when none.
+	SeenAt    int64
+	NeedLevel int
+	Blocked   bool // the trainer showed it as not yet available
 }
 
 // Label is the spell as a player reads it: "Rend (Rank 2)".
@@ -67,6 +74,7 @@ func Spells(c character.Character, ds store.DataStore, from, to int) []Spell {
 	}
 	costs := costsOf(ds, lo, hi)
 	seenCost := seenCosts(c)
+	offers := seenOffers(c)
 	var out []Spell
 	seen := map[int64]bool{}
 	for _, r := range rows {
@@ -85,6 +93,15 @@ func Spells(c character.Character, ds store.DataStore, from, to int) []Spell {
 		sp := Spell{ID: id, Name: name, Rank: int(rank), Level: int(lv), New: sup == 0, Cost: costs[id]}
 		if sc := seenCost[id]; sc > 0 {
 			sp.Cost, sp.Seen = sc, true
+		}
+		if o, ok := offers.find(name, int(rank)); ok { // the client links no spell: match by name and rank
+			if o.State == "used" {
+				continue // the trainer lists it as already learned
+			}
+			if o.Cost > 0 {
+				sp.Cost = o.Cost
+			}
+			sp.Seen, sp.SeenAt, sp.NeedLevel, sp.Blocked = true, o.T, o.Level, o.State == "unavailable"
 		}
 		out = append(out, sp)
 	}
@@ -110,6 +127,43 @@ func seenCosts(c character.Character) map[int64]int64 {
 		}
 	}
 	return m
+}
+
+type timedOffer struct {
+	character.SeenOffer
+	T int64
+}
+
+type offerSet []timedOffer // newest first
+
+// seenOffers lists every offer the trainers the player opened made, newest sighting first.
+func seenOffers(c character.Character) offerSet {
+	var out offerSet
+	for _, t := range c.Seen.TrainersFor(c.Faction) {
+		for _, o := range t.Offers {
+			out = append(out, timedOffer{o, t.T})
+		}
+	}
+	return out
+}
+
+var rankDigits = regexp.MustCompile(`\d+`)
+
+// find matches an offer to a spell by name and rank; an offer with no rank text matches an unranked spell.
+func (s offerSet) find(name string, rank int) (timedOffer, bool) {
+	for _, o := range s {
+		if !strings.EqualFold(strings.TrimSpace(o.Name), strings.TrimSpace(name)) {
+			continue
+		}
+		r := 0
+		if m := rankDigits.FindString(o.Rank); m != "" {
+			r, _ = strconv.Atoi(m)
+		}
+		if r == rank {
+			return o, true
+		}
+	}
+	return timedOffer{}, false
 }
 
 // SeenClassTrainer is the class trainer the player opened (one whose window carries no profession
@@ -274,7 +328,19 @@ func Facts(c character.Character, ds store.DataStore, qx *questie.Index, from, t
 			if s.Cost > 0 {
 				cost = "costs " + vendors.Money(s.Cost)
 				if s.Seen {
-					cost += ", " + character.SeenByYou
+					cost = "your trainer teaches it for " + vendors.Money(s.Cost) + ", " + character.SeenByYou
+				}
+			} else if s.Seen {
+				cost = "your trainer teaches it, " + character.SeenByYou
+			}
+			if s.Seen {
+				if s.Blocked && s.NeedLevel > 0 {
+					cost += fmt.Sprintf(", not yet available: needs level %d", s.NeedLevel)
+				} else if s.NeedLevel > 1 {
+					cost += fmt.Sprintf(", needs level %d", s.NeedLevel)
+				}
+				if n := character.SeenNote(s.SeenAt, time.Now()); n != "" {
+					cost += ", " + n
 				}
 			}
 			fmt.Fprintf(&b, "- Level %d: %s (%s, %s)\n", s.Level, s.Label(), kind, cost)

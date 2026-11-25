@@ -83,6 +83,9 @@ func MergeCharacters(a, b Character) Character {
 	if out.KnownSpells == nil {
 		out.KnownSpells = b.KnownSpells
 	}
+	if out.Recipes == nil {
+		out.Recipes = b.Recipes
+	}
 	if a.Source != b.Source && b.Source != "" && a.Source != "" {
 		out.Source = SourceWoWC + " + " + SourceFS
 	}

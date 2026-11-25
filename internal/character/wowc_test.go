@@ -155,3 +155,26 @@ func TestAttachAddonReadsObservations(t *testing.T) {
 		t.Error("observations from a missing file")
 	}
 }
+
+func TestRecipesAndFlightMastersAreRead(t *testing.T) {
+	vars, err := lua.Parse(`WoWCompanionDB = { characters = { ["R:Smith"] = { name = "Smith", recipes = { Blacksmithing = { seenAt = 5, entries = {
+	  { name = "Copper Rod", id = 9, difficulty = "Orange", makes = { item = 7, count = 1 }, reagents = { { item = 3, count = 2 } } } } } } } },
+	  observed = { flightmasters = { { npc = 1, name = "Wing Wen", map = 12, x = 1, y = 2, faction = "Alliance", t = 10 } } } }`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f, _ := LoadWoWC(vars)
+	r, ok := f.Characters[0].Recipe("blacksmithing", "copper rod")
+	if !ok || r.Difficulty != "orange" || r.Makes != 7 || len(r.Reagents) != 1 || r.Reagents[0].Count != 2 {
+		t.Errorf("recipe %+v %v", r, ok)
+	}
+	if fl := ParseObserved(vars).FlightsFor("Alliance"); len(fl) != 1 || fl[0].Name != "Wing Wen" {
+		t.Errorf("flights %+v", fl)
+	}
+	if ParseObserved(vars).FlightsFor("Horde") != nil {
+		t.Error("other faction's flight master listed")
+	}
+	if got := ParseObserved(map[string]any{}); got.FlightsFor("") != nil {
+		t.Error("absent sections must be empty")
+	}
+}

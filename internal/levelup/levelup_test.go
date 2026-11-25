@@ -192,3 +192,26 @@ func TestSeenTrainerCostsOverrideTheDatasetAndNameTheTrainer(t *testing.T) {
 		t.Errorf("a cost nobody saw was marked: %+v", got[0])
 	}
 }
+
+func TestSeenOfferMatchedByNameAndRankReplacesCost(t *testing.T) {
+	c := warrior(12, nil)
+	c.Seen = &character.Observed{Trainers: []character.SeenTrainer{{Name: "Trainer Tam", Faction: "Alliance", T: 1,
+		Offers: []character.SeenOffer{
+			{Name: "Rend", Rank: "Rank 2", State: "available", Cost: 4200, Level: 10},
+			{Name: "Shield Bash", Rank: "Rank 1", State: "unavailable", Cost: 9500, Level: 14},
+			{Name: "Taunt", State: "used"},
+		}}}}
+	by := map[string]Spell{}
+	for _, s := range Spells(c, ds(t, true), 1, 12) {
+		by[s.Label()] = s
+	}
+	if r := by["Rend (Rank 2)"]; r.Cost != 4200 || !r.Seen || r.NeedLevel != 10 {
+		t.Errorf("rend %+v", r)
+	}
+	if s := by["Shield Bash (Rank 1)"]; !s.Blocked || s.NeedLevel != 14 {
+		t.Errorf("bash %+v", s)
+	}
+	if _, ok := by["Taunt"]; ok {
+		t.Error("a spell the trainer lists as used is known")
+	}
+}
