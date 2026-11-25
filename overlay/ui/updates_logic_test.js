@@ -78,7 +78,7 @@ assert.strictEqual(U.noticeView({ available: false }, at).button, '');
 assert.strictEqual(U.noticeView(null, at), null);
 
 // The note after a relaunch: upgrade, go-back, first ever start and no change.
-assert.deepStrictEqual(U.updatedNote('0.7.54', '0.7.55'), { kind: 'up', version: '0.7.55', text: '✓ Updated to 0.7.55', whatsNew: true });
+assert.deepStrictEqual(U.updatedNote('0.7.54', '0.7.55'), { kind: 'up', version: '0.7.55', from: '0.7.54', text: '✓ Updated to 0.7.55', whatsNew: true });
 assert.deepStrictEqual(U.updatedNote('0.7.55', '0.7.54'), { kind: 'back', version: '0.7.54', text: '✓ Went back to 0.7.54', whatsNew: false });
 assert.strictEqual(U.updatedNote('', '0.7.55'), null);
 assert.strictEqual(U.updatedNote('0.7.55', '0.7.55'), null);
