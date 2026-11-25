@@ -165,6 +165,18 @@ func rowsBy(ds store.DataStore, table, col string, id int64) []store.Row {
 	return rows
 }
 
+// basePrice is what a character with no reputation pays a vendor for an item: the item's own buy price.
+// A price a vendor was reported to charge can be lower (a reputation discount the reporter had), so it is
+// only used when the dataset has no buy price for the item.
+func basePrice(ds store.DataStore, id, listed int64) int64 {
+	if it, err := ds.Get("items", id); err == nil {
+		if base := asI64(it["buy_price"]); base > 0 {
+			return base
+		}
+	}
+	return listed
+}
+
 // Money writes copper as gold, silver and copper.
 func Money(c int64) string {
 	switch {
@@ -204,7 +216,7 @@ func (p *planner) sourceOf(id int64) source {
 		if seenVendor {
 			break // the player's own sighting replaces the dataset's price
 		}
-		price := asI64(v["price_copper"])
+		price := basePrice(p.ds, id, asI64(v["price_copper"]))
 		offer(source{int(max(price, 1)), "a vendor, " + Money(price) + " each"})
 	}
 	for _, y := range rowsBy(p.ds, "gathering_yields", "item_id", id) {
@@ -298,7 +310,7 @@ func (p *planner) learnDetail(r Recipe, from string, skill int) (effort int, tex
 			s := source{effortAH, p.name(id) + " from the Auction House"}
 			info := learnInfo{Via: "item", ItemID: id, Item: p.name(id), Source: "auction", Where: "the Auction House"}
 			for _, v := range rowsBy(p.ds, "vendor_sources", "item_id", id) {
-				if price := asI64(v["price_copper"]); int(price) < s.effort || s.effort == effortAH {
+				if price := basePrice(p.ds, id, asI64(v["price_copper"])); int(price) < s.effort || s.effort == effortAH {
 					s = source{int(price), p.name(id) + " from a vendor, " + Money(price)}
 					info.Copper, info.Source, info.Where = price, "vendor", "a vendor"
 				}
