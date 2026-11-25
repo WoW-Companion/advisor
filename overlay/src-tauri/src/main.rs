@@ -397,11 +397,20 @@ const INSTALL_PAGES: [&str; 13] = [
     "https://lmstudio.ai/download",
 ];
 
+/// What the page is told when a link is refused: a plain sentence, never the internal reason.
+const LINK_REFUSED: &str = "That link can't be opened from the app.";
+
+/// True when the page may open this address: exactly one of the listed pages, nothing else.
+fn link_allowed(url: &str) -> bool {
+    INSTALL_PAGES.contains(&url)
+}
+
 #[tauri::command]
 #[allow(deprecated)]
 fn open_install_page(app: AppHandle, url: String) -> Result<(), String> {
-    if !INSTALL_PAGES.contains(&url.as_str()) {
-        return Err("not an install page".into());
+    if !link_allowed(&url) {
+        eprintln!("refused link (not on the allowed pages list): {url}");
+        return Err(LINK_REFUSED.into());
     }
     app.shell().open(url, None).map_err(|e| e.to_string())
 }
@@ -725,6 +734,26 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn link_guard_allows_the_releases_page_only() {
+        assert!(super::link_allowed("https://github.com/WoW-Companion/advisor/releases"));
+        for u in [
+            "https://github.com/WoW-Companion/advisor/blob/main/CHANGELOG.md",
+            "https://github.com/WoW-Companion/advisor/releases/tag/v0.7.1",
+            "https://github.com/WoW-Companion/advisor/issues",
+            "https://github.com/WoW-Companion/advisor/releases/",
+            "https://github.com/other/repo/releases",
+        ] {
+            assert!(!super::link_allowed(u), "{u}");
+        }
+    }
+
+    #[test]
+    fn refusal_text_has_no_internal_reason() {
+        assert!(!super::LINK_REFUSED.contains("install page"));
+        assert!(super::LINK_REFUSED.ends_with('.'));
+    }
+
     use super::{ansi_to_string, cf_text_bytes, click_through_styles, shortcut_is_safe, version_line, WS_EX_LAYERED, WS_EX_NOACTIVATE, WS_EX_TRANSPARENT};
 
     #[test]

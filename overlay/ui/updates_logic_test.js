@@ -16,10 +16,14 @@ let s = U.bannerState(offer, cfg(), NOW, '', '');
 assert.deepStrictEqual([s.kind, s.version], ['offer', '0.7.54']);
 let v = U.bannerView(s);
 assert.strictEqual(v.text, 'Update 0.7.54 is ready');
-assert.deepStrictEqual(v.actions.map(a => a.label), ['Install', 'Always update automatically', 'Later', 'Skip this version']);
-assert.strictEqual(v.actions.find(a => a.label === 'Always update automatically').id, 'always');
+assert.deepStrictEqual(v.actions.map(a => a.label), ['Install', 'What’s new', 'Later']);
+// One row: three short buttons fit the default 340 px window (about 7 px a letter at 11 px, 16 px padding, 6 px gaps).
+const rowPx = v.actions.reduce((n, a) => n + a.label.length * 7 + 16, 0) + 6 * (v.actions.length - 1);
+assert.ok(v.actions.length <= 3 && rowPx <= 340 - 16 - 18, 'the buttons fit one row at the default width: ' + rowPx);
+assert.strictEqual(v.always, true, 'Always update automatically is a line under the buttons');
 // With the setting already on, the button is gone.
-assert.deepStrictEqual(U.bannerView(U.bannerState(offer, cfg({ autoUpdate: true }), NOW, '', '')).actions.map(a => a.id), ['install', 'later', 'skip']);
+assert.deepStrictEqual(U.bannerView(U.bannerState(offer, cfg({ autoUpdate: true }), NOW, '', '')).actions.map(a => a.id), ['install', 'whatsnew', 'later']);
+assert.strictEqual(U.bannerView(U.bannerState(offer, cfg({ autoUpdate: true }), NOW, '', '')).always, false);
 // The button turns the setting on, and the shell is told with the banner's own switches.
 const on = cfg({ updateNow: true, skipped: ['v0.7.52'] });
 assert.strictEqual(U.turnOnAuto(on).autoUpdate, true);
@@ -126,4 +130,4 @@ assert.strictEqual(nv.groups[0].bullets.length, 4);
 nv = U.noteView('## 0.7.62\n- a\n- b\n## 0.7.61\n- c\n…and 3 more changes');
 assert.deepStrictEqual(nv, { groups: [{ version: '0.7.62', bullets: ['a', 'b'] }, { version: '0.7.61', bullets: ['c'] }], more: true });
 assert.deepStrictEqual(U.noteView(''), { groups: [], more: false });
-assert.ok(/^https:\/\/github\.com\/WoW-Companion\/advisor\/.*CHANGELOG\.md$/.test(U.CHANGELOG_URL));
+assert.strictEqual(U.CHANGELOG_URL, 'https://github.com/WoW-Companion/advisor/releases');
