@@ -483,6 +483,7 @@ func computePath(c character.Character, ds store.DataStore, profession string, t
 		return pa
 	}
 	var bands []Band
+	shortSeen := map[int64]bool{}
 	used := map[int64]int{} // raw materials the bands chosen so far take
 	skill := p.skill
 	for len(bands) < 400 && skill < target {
@@ -511,10 +512,14 @@ func computePath(c character.Character, ds store.DataStore, profession string, t
 			skill = next
 			continue
 		}
-		all = p.withinUnitCap(withinCap(all), used)
+		var fellBack bool
+		all, fellBack = p.withinUnitCap(withinCap(all), recipes, used, skill)
 		sortScored(all)
 		best := all[0]
-		for id, n := range leafUnits(best.opt) {
+		if fellBack {
+			p.noteShortfall(&pa, best.opt, used, skill, shortSeen)
+		}
+		for id, n := range p.leafUnits(best.opt) {
 			used[id] += n
 		}
 		b := Band{From: skill, To: best.reach, Best: best.opt}

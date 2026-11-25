@@ -21,20 +21,22 @@ Bands:
 4. Skill 110→140: 50 × Fine Belt (10 orange, 40 yellow; expected skill-ups 30); learn: trainer, 15s
    Materials: 300 × Medium Leather
    Alternative: Dark Tunic
-5. Skill 140→150: 15 × Dark Tunic (5 orange, 10 yellow; expected skill-ups 10); learn: Pattern: Dark Tunic from a vendor, 60s
-   Materials: 30 × Coarse Thread, 120 × Medium Leather
-6. Skill 150→205: 75 × Heavy Armor Kit (35 orange, 40 yellow; expected skill-ups 55); learn: trainer, 90s
+5. Skill 140→147: 9 × Dark Tunic (5 orange, 4 yellow; expected skill-ups 7); learn: Pattern: Dark Tunic from a vendor, 60s
+   Materials: 18 × Coarse Thread, 72 × Medium Leather
+6. Skill 147→150: 6 × Dark Tunic (0 orange, 6 yellow; expected skill-ups 3)
+   Materials: 12 × Coarse Thread, 48 × Medium Leather
+7. Skill 150→205: 75 × Heavy Armor Kit (35 orange, 40 yellow; expected skill-ups 55); learn: trainer, 90s
    First train Expert at the trainer (character level 20).
    Materials: 375 × Heavy Leather
-7. Skill 205→225: 35 × Rugged Gloves (5 orange, 30 yellow; expected skill-ups 20); learn: trainer, 2g
+8. Skill 205→225: 35 × Rugged Gloves (5 orange, 30 yellow; expected skill-ups 20); learn: trainer, 2g
    Materials: 210 × Rugged Leather, 70 × Rune Thread
-8. Skill 225→230: 10 × Rugged Gloves (0 orange, 10 yellow; expected skill-ups 5)
+9. Skill 225→230: 10 × Rugged Gloves (0 orange, 10 yellow; expected skill-ups 5)
    First train Artisan at the trainer (character level 35).
    Materials: 60 × Rugged Leather, 20 × Rune Thread
    Alternative: Hide Cloak
-9. Skill 230→270: 60 × Hide Cloak (20 orange, 40 yellow; expected skill-ups 40); learn: trainer, 4g
+10. Skill 230→270: 60 × Hide Cloak (20 orange, 40 yellow; expected skill-ups 40); learn: trainer, 4g
    Materials: 480 × Rugged Leather, 60 × Rune Thread
-10. Skill 270→300: 50 × Core Cuirass (10 orange, 40 yellow; expected skill-ups 30); learn: trainer, 8g
+11. Skill 270→300: 50 × Core Cuirass (10 orange, 40 yellow; expected skill-ups 30); learn: trainer, 8g
    Materials: 150 × Rune Thread, 200 × Core Hide
 
 Check (recipe, learn skill and where it comes from):
@@ -42,14 +44,15 @@ Check (recipe, learn skill and where it comes from):
 2. 45→75 Leather Boots: learn skill 1; probably from your trainer; check when you visit
 3. 75→110 Embossed Vest: learn skill 40; learnt from trainer, 2s
 4. 110→140 Fine Belt: learn skill 75; learnt from trainer, 15s
-5. 140→150 Dark Tunic: learn skill 100; learnt from Pattern: Dark Tunic from a vendor, 60s
-6. 150→205 Heavy Armor Kit: learn skill 150; learnt from trainer, 90s
-7. 205→225 Rugged Gloves: learn skill 175; learnt from trainer, 2g
-8. 225→230 Rugged Gloves: learn skill 175
-9. 230→270 Hide Cloak: learn skill 225; learnt from trainer, 4g
-10. 270→300 Core Cuirass: learn skill 250; learnt from trainer, 8g
+5. 140→147 Dark Tunic: learn skill 100; learnt from Pattern: Dark Tunic from a vendor, 60s
+6. 147→150 Dark Tunic: learn skill 100
+7. 150→205 Heavy Armor Kit: learn skill 150; learnt from trainer, 90s
+8. 205→225 Rugged Gloves: learn skill 175; learnt from trainer, 2g
+9. 225→230 Rugged Gloves: learn skill 175
+10. 230→270 Hide Cloak: learn skill 225; learnt from trainer, 4g
+11. 270→300 Core Cuirass: learn skill 250; learnt from trainer, 8g
 
-Guide check: 1-45 Light Armor Kit (trainer, unconfirmed: ask your trainer); 45-75 Leather Boots (trainer, unconfirmed: ask your trainer); 75-110 Embossed Vest (trainer, confirmed); 110-140 Fine Belt (trainer, confirmed); 140-150 Dark Tunic (vendor pattern Pattern: Dark Tunic); 150-205 Heavy Armor Kit (trainer, confirmed); 205-225 Rugged Gloves (trainer, confirmed); 225-230 Rugged Gloves (known); 230-270 Hide Cloak (trainer, confirmed); 270-300 Core Cuirass (trainer, confirmed).
+Guide check: 1-45 Light Armor Kit (trainer, unconfirmed: ask your trainer); 45-75 Leather Boots (trainer, unconfirmed: ask your trainer); 75-110 Embossed Vest (trainer, confirmed); 110-140 Fine Belt (trainer, confirmed); 140-147 Dark Tunic (vendor pattern Pattern: Dark Tunic); 147-150 Dark Tunic (known); 150-205 Heavy Armor Kit (trainer, confirmed); 205-225 Rugged Gloves (trainer, confirmed); 225-230 Rugged Gloves (known); 230-270 Hide Cloak (trainer, confirmed); 270-300 Core Cuirass (trainer, confirmed).
 
 Material totals:
 - 159 × Light Leather: a vendor, 25c each = 39s 75c
@@ -65,3 +68,4 @@ Recipes to buy or find:
 
 Efficiency: 2614 materials in all, 7 distinct, vendor cost 37g 75s, 1 rare (200 units), 1125 gathered, 0 bought; score 60889 (lower is better).
 score = total materials + vendor silver + 250 per rare unit (no vendor, no gathering, fishing or disenchant source, no drop of 5% or more) + 4 per gathered unit (farming time) + 20 per unit bought at the Auction House (bars you could smelt yourself).
+No recipe from skill 147 avoids going past 600 × Medium Leather over the plan; this plan takes the cheapest and asks for more.

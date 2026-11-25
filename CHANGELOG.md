@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.51
+
+- Tailoring plans no longer ask for mountains of cloth. When one recipe would take more than 600 of a cloth you don't gather (Mageweave, Silk, Runecloth), the plan now stops it short at 600 and moves to another recipe, and a recipe that needs a few bars still beats hundreds of extra cloth when you don't mine, because the bars are simply bought. Where no recipe avoids the pile, the plan says which material it still asks too much of. The Tailoring plan's Mageweave Cloth drops from 1,350 to 930, and Blacksmithing is unchanged.
+
 ## 0.7.50
 
 - Blacksmithing plans now smelt your own bars and use sensible recipes. If you mine, every bar (Bronze, Iron, Steel, Mithril, Truesilver, Thorium and the rest) is smelted from ore, and the plan says which Mining skill each smelt needs; without Mining the bars are bought at the Auction House and no longer counted as rare. Pieces a recipe needs first, like a Shining Silver Breastplate, are crafted on the way and their skill-ups count. A rare material now costs the same for each unit you need, not once per kind, and gathered materials carry a small per-unit cost for the time spent farming. Items the game data has no name for show as "unnamed item N".
