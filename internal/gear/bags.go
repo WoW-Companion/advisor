@@ -1,0 +1,227 @@
+package gear
+
+import (
+	"sort"
+	"strings"
+
+	"github.com/WoW-Companion/advisor/internal/character"
+	"github.com/WoW-Companion/advisor/internal/stats"
+	"github.com/WoW-Companion/advisor/internal/store"
+)
+
+// BagUpgrade is an item already in the character's bags that beats what they wear in a slot: free,
+// and usable now.
+type BagUpgrade struct {
+	Slot string
+	Item Item
+	// Name is the item's name with its random suffix ("of the Tiger") when the capture has one.
+	Name string
+	// Likely is true when the item is better only by quality, item level and required level, not
+	// by weighed stats: the advice says "likely better" and gives no number.
+	Likely bool
+	Empty  bool // the slot is empty
+	Delta  float64
+	// Replaces is the worn item's name; empty for an empty slot.
+	Replaces string
+}
+
+// equipLocs maps the addon's equipLoc strings to inventory types.
+var equipLocs = map[string]int8{
+	"INVTYPE_HEAD": 1, "INVTYPE_NECK": 2, "INVTYPE_SHOULDER": 3, "INVTYPE_CHEST": 5, "INVTYPE_ROBE": 20,
+	"INVTYPE_WAIST": 6, "INVTYPE_LEGS": 7, "INVTYPE_FEET": 8, "INVTYPE_WRIST": 9, "INVTYPE_HAND": 10,
+	"INVTYPE_FINGER": 11, "INVTYPE_TRINKET": 12, "INVTYPE_CLOAK": 16,
+}
+
+// bagItem is a bag stack resolved to an Item, from the dataset or from the addon's own fields.
+func bagItem(st character.ItemStack, ds store.DataStore, rl classRules, level int) (Item, bool) {
+	if ds != nil {
+		if row, err := ds.Get("items", int64(st.ItemID)); err == nil && row != nil {
+			it := itemOf(row)
+			if it.ItemLevel <= 0 || it.Quality <= 0 || it.Quality == qualityArtifact || unequippableBonding(it.Bonding) {
+				return Item{}, false
+			}
+			if !rl.canUse(int8(i64(row["class_id"])), int8(i64(row["subclass_id"])), int8(it.Slot), level) ||
+				!allowsClass(int32(i64(row["allowable_class_mask"])), rl.ID) {
+				return Item{}, false
+			}
+			it.ReqLevel = it.RequiredLevel
+			if est := EstimateRequiredLevel(it.ItemLevel); it.RequiredLevel == 0 || est-it.RequiredLevel > EstimateGap {
+				it.ReqLevel, it.Estimated = est, true
+			}
+			return it, true
+		}
+	}
+	// Not in the dataset: only what the addon recorded, and only with every field present. The
+	// addon gives no armor or weapon type, so only the slots that no armor type restricts count.
+	if st.Quality == nil || st.ItemLevel == nil || st.ReqLevel == nil || st.EquipLoc == "" {
+		return Item{}, false
+	}
+	slot, ok := equipLocs[strings.ToUpper(st.EquipLoc)]
+	if !ok || !anyArmorSlot[slot] || *st.Quality <= 0 || *st.Quality == qualityArtifact || *st.ItemLevel <= 0 {
+		return Item{}, false
+	}
+	return Item{ID: int64(st.ItemID), Name: st.Name, ItemLevel: *st.ItemLevel, RequiredLevel: *st.ReqLevel,
+		ReqLevel: *st.ReqLevel, Quality: *st.Quality, Slot: int(slot)}, true
+}
+
+// tupleValue orders items without stats: quality first, then item level, then required level.
+func tupleValue(it Item) float64 {
+	return float64(it.Quality)*1e6 + float64(it.ItemLevel)*1e3 + float64(it.ReqLevel)
+}
+
+// BagUpgrades lists the items in the character's bags that beat what they wear, best first by slot
+// order. group is the top talent group name; empty when unknown. Items the dataset does not know
+// count only when the addon recorded their quality, level, required level and slot. A character
+// whose bags were not captured, or a class without rules, has none.
+func BagUpgrades(c character.Character, ds store.DataStore, group string) []BagUpgrade {
+	if c.Level == nil || len(c.Bags) == 0 {
+		return nil
+	}
+	rl, ok := rules[strings.ToUpper(c.Class)]
+	if !ok {
+		return nil
+	}
+	level := *c.Level
+	if ds != nil {
+		rl.DualWield = rl.DualWield && knowsDualWield(c, ds, strings.ToUpper(c.Class))
+	} else {
+		rl.DualWield = false
+	}
+	var w map[int64]float64
+	if p, ok := stats.For(c, group); ok {
+		w = idWeights(p.Weights)
+	} else if _, ww, _, ok := Weights(c.Class, group); ok {
+		w = ww
+	}
+	var lo loadout
+	if ds != nil {
+		lo = loadoutOf(c, ds, group)
+	}
+
+	type option struct {
+		up   BagUpgrade
+		gain float64
+	}
+	var opts []option
+	seen := map[int64]bool{}
+	for _, st := range c.Bags {
+		if seen[int64(st.ItemID)] {
+			continue
+		}
+		seen[int64(st.ItemID)] = true
+		it, ok := bagItem(st, ds, rl, level)
+		if !ok || it.ReqLevel > level {
+			continue
+		}
+		name := it.Name
+		if name == "" {
+			name = st.Name
+		}
+		if name == "" {
+			continue
+		}
+		if st.Suffix != "" && !strings.Contains(name, st.Suffix) {
+			name += " " + st.Suffix
+		}
+		for _, slot := range rl.fitsSlots(int8(it.Slot)) {
+			if ds != nil && !lo.allows(slot, it) {
+				continue
+			}
+			cur, worn, known := wornFor(c, ds, slot)
+			if worn && !known {
+				continue // something is worn there that we know nothing about
+			}
+			if worn && cur.ID == it.ID {
+				continue
+			}
+			up := BagUpgrade{Slot: slot, Item: it, Name: name, Empty: !worn, Likely: true}
+			if worn {
+				up.Replaces = c.Equipment[slot].Name
+				if up.Replaces == "" {
+					up.Replaces = cur.Name
+				}
+			}
+			var gain float64
+			switch {
+			case !worn:
+				if it.Slot == invTwoHand && lo.off != nil {
+					continue
+				}
+				gain = 1e9 + tupleValue(it)
+			case w != nil && it.StatsKnown && cur.StatsKnown:
+				gain = score(it, w, true) - score(cur, w, true)
+				up.Likely = false
+			default:
+				gain = tupleValue(it) - tupleValue(cur)
+			}
+			if worn && gain <= 0 {
+				continue
+			}
+			up.Delta = gain
+			opts = append(opts, option{up, gain})
+		}
+	}
+	sort.SliceStable(opts, func(i, j int) bool {
+		if opts[i].gain != opts[j].gain {
+			return opts[i].gain > opts[j].gain
+		}
+		return opts[i].up.Item.ID < opts[j].up.Item.ID
+	})
+	// Each item and each slot is used once, best first.
+	usedItem, usedSlot := map[int64]bool{}, map[string]bool{}
+	var out []BagUpgrade
+	for _, o := range opts {
+		if usedItem[o.up.Item.ID] || usedSlot[o.up.Slot] {
+			continue
+		}
+		usedItem[o.up.Item.ID], usedSlot[o.up.Slot] = true, true
+		out = append(out, o.up)
+	}
+	order := map[string]int{}
+	for i, s := range slotOrder {
+		order[s] = i + 1
+	}
+	sort.SliceStable(out, func(i, j int) bool {
+		a, b := order[out[i].Slot], order[out[j].Slot]
+		if a != b {
+			if a == 0 || b == 0 {
+				return a != 0
+			}
+			return a < b
+		}
+		return out[i].Slot < out[j].Slot
+	})
+	return out
+}
+
+// slotOrder is the capture's slot order, as the panel lists slots.
+var slotOrder = []string{"head", "neck", "shoulder", "back", "chest", "wrist", "hands", "waist", "legs", "feet",
+	"finger1", "finger2", "trinket1", "trinket2", "mainhand", "offhand", "ranged"}
+
+// wornFor is the item worn in slot: worn is false for an empty slot; known is false when something is
+// worn but neither the dataset nor the capture says enough about it.
+func wornFor(c character.Character, ds store.DataStore, slot string) (it Item, worn, known bool) {
+	eq, has := c.Equipment[slot]
+	if !has || (eq.ItemID == nil || *eq.ItemID == 0) && eq.ItemLevel == nil {
+		return Item{}, false, true
+	}
+	if ds != nil && eq.ItemID != nil && *eq.ItemID != 0 {
+		if row, err := ds.Get("items", int64(*eq.ItemID)); err == nil {
+			it = itemOf(row)
+		}
+	}
+	if eq.ItemID != nil {
+		it.ID = int64(*eq.ItemID)
+	}
+	if eq.ItemLevel != nil {
+		it.ItemLevel = *eq.ItemLevel
+	}
+	if eq.Quality != nil {
+		it.Quality = *eq.Quality
+	}
+	if it.Name == "" {
+		it.Name = eq.Name
+	}
+	it.ReqLevel = it.RequiredLevel
+	return it, true, it.ItemLevel > 0
+}

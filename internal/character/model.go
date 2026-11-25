@@ -23,6 +23,12 @@ type ItemStack struct {
 	Count  int
 	Name   string
 	Link   string
+	// The addon's optional per-item fields; nil or empty when it did not record them.
+	Quality   *int
+	ItemLevel *int
+	ReqLevel  *int
+	EquipLoc  string
+	Suffix    string
 }
 
 type Objective struct {

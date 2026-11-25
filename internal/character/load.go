@@ -123,7 +123,7 @@ func stack(e lua.Table) (ItemStack, bool) {
 	if c := asInt(e["count"]); c != nil && *c != 0 {
 		count = *c
 	}
-	return ItemStack{*id, count, asStr(e["name"]), asStr(e["link"])}, true
+	return ItemStack{ItemID: *id, Count: count, Name: asStr(e["name"]), Link: asStr(e["link"])}, true
 }
 
 func quest(e lua.Table) (Quest, bool) {

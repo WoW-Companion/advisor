@@ -42,7 +42,12 @@ level range. There is no object table and no zone on any of them, so object sour
   (Arms, Fury, Enhancement, Retribution and the like). A two-hander is offered over a one-hand and
   off hand only then, and its gain is weighed against both slots together. No off hand is offered
   beside a worn two-hander.
-- Shirts, tabards and bags are not considered. A class with no entry in `rules.go` (Death
+- Shirts, tabards and bag containers are not considered. Items already in the character's bags are:
+  `BagUpgrades` lists every usable one (class, armor type, required level at or below theirs) that beats
+  what is worn, first in every gear answer. Without stats it compares quality, then item level, then
+  required level, and says "likely better". An item missing from the dataset counts only when the
+  addon recorded its quality, item level, required level and slot, and only in slots no armor type
+  restricts (neck, rings, trinkets, cloak). A class with no entry in `rules.go` (Death
   Knight, Monk, Demon Hunter, Evoker) is reported as unsupported.
 
 ## Score and ranking
