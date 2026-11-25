@@ -4,6 +4,7 @@
 
 mod auto;
 mod guard;
+mod life;
 mod recover;
 mod update;
 
@@ -57,6 +58,16 @@ struct Sidecar {
     generation: AtomicU64,
     /// The last generation whose health check was reported to the crash check, so each start counts once.
     reported: AtomicU64,
+    /// When the helper was started after dying (for the restart backoff).
+    restarts: Mutex<Vec<u64>>,
+}
+
+/// What the shell knows about its own life: the notice for the next start after an unexpected end,
+/// and when the page last said it was alive.
+#[derive(Default)]
+struct Life {
+    unexpected: Mutex<Option<String>>,
+    page_alive: AtomicU64,
 }
 
 /// The crash-check record (`guard.rs`) and where it lives.
@@ -84,6 +95,48 @@ fn update_guard(app: &AppHandle, f: impl FnOnce(&guard::GuardState) -> guard::Gu
         }
     }
     *st = next;
+}
+
+/// Everything that records how the app ends, set up first at start: where the logs go, the panic
+/// hook, the OS shutdown handler, the minute heartbeat, and the page watchdog.
+fn start_lifecycle(app: &AppHandle, old: &guard::GuardState) {
+    if let Some(d) = recover::log_dir(app) {
+        life::set_log_dir(d);
+    }
+    life::install_panic_hook();
+    life::install_shutdown_handler();
+    let session = now_secs();
+    app.state::<Life>().page_alive.store(session, Ordering::Relaxed);
+    let hb = app.path().app_data_dir().ok().map(|d| d.join(life::HEARTBEAT_FILE));
+    // The session before: no clean exit recorded means it ended unexpectedly. Read its heartbeat now,
+    // before the first write below replaces it.
+    let last = hb.as_ref().and_then(|p| life::read_heartbeat(p));
+    if let Some((line, note)) = life::previous_session(old.open, last.as_ref(), life::offset_secs()) {
+        life::log(&line);
+        *app.state::<Life>().unexpected.lock().unwrap() = Some(note);
+    }
+    if let Some(path) = hb {
+        std::thread::spawn(move || loop {
+            let beat = life::heartbeat_for(env!("CARGO_PKG_VERSION"), session, now_secs(), life::offset_secs());
+            let _ = life::write_heartbeat(&path, &beat);
+            std::thread::sleep(Duration::from_secs(life::HEARTBEAT_SECS));
+        });
+    }
+    // The page pings every 20 s. A page that has been silent for three minutes (a crashed or hung
+    // renderer) is logged and reloaded, at most once in that time.
+    let watch = app.clone();
+    std::thread::spawn(move || loop {
+        std::thread::sleep(Duration::from_secs(30));
+        let last = watch.state::<Life>().page_alive.load(Ordering::Relaxed);
+        let now = now_secs();
+        if now.saturating_sub(last) >= 180 {
+            life::log(&format!("page silent for {}s: reloading the webview", now - last));
+            watch.state::<Life>().page_alive.store(now, Ordering::Relaxed);
+            if let Some(w) = main_window(&watch) {
+                let _ = w.eval("location.reload()");
+            }
+        }
+    });
 }
 
 /// "Keep trying" on the safe screen: this version is not checked again, and the app starts as usual.
@@ -272,6 +325,13 @@ fn stop_sidecar(app: &AppHandle) {
     *sc.conn.lock().unwrap() = None;
 }
 
+/// One line the helper printed, into its own log.
+fn helper_log(app: &AppHandle, stream: &str, text: &str) {
+    if let Some(d) = recover::log_dir(app) {
+        life::helper_line(&d, stream, text);
+    }
+}
+
 fn sidecar_down(app: &AppHandle, error: String) {
     recover::log(app, &format!("sidecar down: {error}"));
     *app.state::<Sidecar>().error.lock().unwrap() = error.clone();
@@ -321,7 +381,12 @@ fn start_sidecar(app: &AppHandle) {
         while let Some(ev) = rx.recv().await {
             match ev {
                 CommandEvent::Stdout(line) => {
-                    if let Ok(c) = serde_json::from_slice::<Conn>(&line) {
+                    let parsed = serde_json::from_slice::<Conn>(&line);
+                    if parsed.is_err() {
+                        helper_log(&app, "out", &String::from_utf8_lossy(&line));
+                    }
+                    // The handshake line carries the token: it is never written to a log.
+                    if let Ok(c) = parsed {
                         report_health(&app, mine, true);
                         set_tooltip(&app, &c.version);
                         *app.state::<Sidecar>().conn.lock().unwrap() = Some(c.clone());
@@ -330,12 +395,17 @@ fn start_sidecar(app: &AppHandle) {
                 }
                 CommandEvent::Stderr(line) => {
                     let t = String::from_utf8_lossy(&line).trim().to_string();
-                    if !t.is_empty() {
+                    helper_log(&app, "err", &t);
+                    // The advisor's own diagnostic lines are not the reason it stopped.
+                    if !t.is_empty() && !t.starts_with("[wowc] ") {
                         last_err = t;
                     }
                 }
                 CommandEvent::Error(e) => last_err = e,
-                CommandEvent::Terminated(_) => break,
+                CommandEvent::Terminated(p) => {
+                    life::log(&format!("sidecar exited: code {:?}, signal {:?}", p.code, p.signal));
+                    break;
+                }
                 _ => {}
             }
         }
@@ -344,7 +414,28 @@ fn start_sidecar(app: &AppHandle) {
             // Ended before it ever said hello: a failed health check (a no-op once it was reported).
             report_health(&app, mine, false);
             *sc.conn.lock().unwrap() = None;
-            sidecar_down(&app, last_err);
+            // It died while the app runs: start it again, a little later each time, and give up
+            // (with a plain notice) when it cannot stay up.
+            let wait = life::restart_delay(&mut sc.restarts.lock().unwrap(), now_secs());
+            match wait {
+                Some((try_no, delay)) => {
+                    sidecar_down(&app, last_err);
+                    life::log(&format!("sidecar restart try {try_no} of {} in {delay}s", life::RESTART_TRIES));
+                    let again = app.clone();
+                    std::thread::spawn(move || {
+                        std::thread::sleep(Duration::from_secs(delay));
+                        if again.state::<Sidecar>().generation.load(Ordering::SeqCst) == mine {
+                            life::log(&format!("sidecar restart try {try_no}: starting"));
+                            start_sidecar(&again);
+                        }
+                    });
+                }
+                None => {
+                    life::log("sidecar kept dying: giving up and telling the player");
+                    sidecar_down(&app, life::PLANNER_STOPPED.to_string());
+                    notice(&app, life::PLANNER_STOPPED);
+                }
+            }
         }
     });
 }
@@ -359,6 +450,7 @@ fn get_status(sc: State<Sidecar>) -> Status {
 
 #[tauri::command]
 fn restart_sidecar(app: AppHandle) {
+    app.state::<Sidecar>().restarts.lock().unwrap().clear();
     start_sidecar(&app);
 }
 
@@ -375,6 +467,7 @@ fn set_agent(app: AppHandle, agent: String) -> Result<(), String> {
         std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
     }
     std::fs::write(&path, agent.trim()).map_err(|e| e.to_string())?;
+    app.state::<Sidecar>().restarts.lock().unwrap().clear();
     start_sidecar(&app);
     Ok(())
 }
@@ -460,7 +553,44 @@ fn hide_window(app: AppHandle) {
 
 #[tauri::command]
 fn quit(app: AppHandle) {
+    life::set_reason("quit button");
     app.exit(0);
+}
+
+/// The page says it is alive; the shell reloads a page that goes quiet.
+#[tauri::command]
+fn page_alive(life: State<Life>) {
+    life.page_alive.store(now_secs(), Ordering::Relaxed);
+}
+
+/// The one-line notice for an unexpected end of the last session, given once.
+#[tauri::command]
+fn take_unexpected(life: State<Life>) -> Option<String> {
+    life.unexpected.lock().unwrap().take()
+}
+
+#[tauri::command]
+fn open_logs(window: tauri::Window, app: AppHandle) -> Result<(), String> {
+    if window.label() != "main" {
+        return Err("not allowed".into());
+    }
+    recover::open_logs(&app);
+    Ok(())
+}
+
+/// Settings > Updates "Copy diagnostics": a zip in Downloads with the logs, the crash-check record and
+/// the heartbeat, secrets replaced. Returns where it went.
+#[tauri::command]
+fn copy_diagnostics(window: tauri::Window, app: AppHandle) -> Result<String, String> {
+    if window.label() != "main" {
+        return Err("not allowed".into());
+    }
+    let logs = recover::log_dir(&app).ok_or("no log folder")?;
+    let data = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let dest = app.path().download_dir().map_err(|e| e.to_string())?;
+    let p = life::write_diagnostics(&logs, &data, &dest, now_secs())?;
+    life::log(&format!("diagnostics written to {}", p.display()));
+    Ok(p.display().to_string())
 }
 
 /// Registers the two global shortcuts, replacing any earlier ones. A key another program holds is
@@ -529,7 +659,10 @@ fn build_tray(app: &tauri::App) -> tauri::Result<()> {
                 "check" => recover::tray_check(app),
                 "goback" => recover::tray_go_back(app),
                 "logs" => recover::tray_logs(app),
-                "quit" => app.exit(0),
+                "quit" => {
+                    life::set_reason("tray quit");
+                    app.exit(0)
+                }
                 _ => {}
             }
         })
@@ -669,6 +802,7 @@ fn main() {
         )
         .manage(Sidecar::default())
         .manage(Guard::default())
+        .manage(Life::default())
         .manage(recover::Recovery::default())
         .manage(auto::Auto::default())
         .invoke_handler(tauri::generate_handler![
@@ -683,6 +817,10 @@ fn main() {
             set_click_through,
             hide_window,
             quit,
+            page_alive,
+            take_unexpected,
+            open_logs,
+            copy_diagnostics,
             set_shortcuts,
             read_clipboard,
             auto::auto_update_config,
@@ -691,12 +829,23 @@ fn main() {
             recover::recovery_state,
             recover::recovery_do
         ])
+        .on_window_event(|window, ev| {
+            if let tauri::WindowEvent::CloseRequested { .. } = ev {
+                let why = format!("window close ({})", window.label());
+                life::log(&why);
+                // Closing the main window ends the app; the secondary windows do not.
+                if window.label() == "main" {
+                    life::set_reason(&why);
+                }
+            }
+        })
         .setup(|app| {
             build_tray(app)?;
             let h = app.handle().clone();
+            let old = guard_path(&h).map(|p| guard::load(&p)).unwrap_or_default();
+            start_lifecycle(&h, &old);
             // The crash check: what the last run left, and whether this start is the one that shows the
             // safe screen instead of starting the sidecar.
-            let old = guard_path(&h).map(|p| guard::load(&p)).unwrap_or_default();
             let (st, decision) = guard::on_start(&old, env!("CARGO_PKG_VERSION"), update::previous_version(&h).as_deref(), now_secs());
             let previous = update::previous_version(&h); // the cached installer "Go back" would run
             *h.state::<Guard>().state.lock().unwrap() = st.clone();
@@ -725,9 +874,16 @@ fn main() {
         .build(tauri::generate_context!())
         .expect("error while building the WoW Companion app")
         .run(|app, ev| {
-            if let RunEvent::Exit = ev {
-                stop_sidecar(app);
-                update_guard(app, guard::on_clean_exit);
+            match ev {
+                RunEvent::ExitRequested { code, .. } => {
+                    life::log(&format!("exit requested: {}", life::exit_text(&life::reason(), code)));
+                }
+                RunEvent::Exit => {
+                    stop_sidecar(app);
+                    update_guard(app, guard::on_clean_exit);
+                    life::log(&life::exit_text(&life::reason(), None));
+                }
+                _ => {}
             }
         });
 }

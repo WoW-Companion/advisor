@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.7.85
+
+- The app now records why it ended: quit, window close, update restart, go back, shutdown and crashes.
+- After an unexpected end, the next start says "closed unexpectedly at <time>" with Open logs.
+- The helper's output has its own log, and it restarts itself if it dies.
+- Settings > Updates: Open logs folder and Copy diagnostics (a zip in Downloads, secrets left out).
+
 ## 0.7.84
 
 - Holiday event quests are opt-in, off by default. Turn them on in Settings, or just ask the AI.
