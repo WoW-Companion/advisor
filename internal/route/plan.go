@@ -170,6 +170,8 @@ type spot struct {
 	zoneOnly bool   // no position anywhere: the zone is all that is known, so no coordinates are shown
 	unplaced bool   // an objective with no known location: never routed, listed under Find
 	npc      int    // the NPC's id, on a pick-up or turn-in; 0 when unknown
+	ready    bool   // a turn-in for a quest in the log that is done: it can be handed in now
+	level    int    // the quest's level on a ready turn-in; 0 when unknown
 	place    string // where it is in words: the subzone, else the zone; empty when unknown
 
 	locked     bool // a follow-up's stop: never merged with an ordinary one
@@ -203,6 +205,18 @@ type source interface {
 	quests(c character.Character, at *questie.Where) []*quest
 	mapName(m int) string
 }
+
+// flightSource is a source that knows which maps the player can fly to, and names a travel target.
+type flightSource interface {
+	flights(c character.Character) (known map[int]bool, haveData bool)
+	travelName(m int, place string) string
+}
+
+// FlyMinGap is how far below the player's level a ready quest may be and still be worth a trip.
+const FlyMinGap = 10
+
+// FlyLegs is the most fly-and-turn-in legs a plan adds.
+const FlyLegs = 2
 
 func nameOf(c character.Character) string { return cmp.Or(c.Name, c.Key) }
 
@@ -361,6 +375,7 @@ func planWith(c character.Character, src source, opt Options) Plan {
 	order = adjacent(prob, nodes, order)
 	order = groupByPlace(prob, nodes, order)
 	order = prioritize(prob, nodes, order)
+	order = readyFirst(prob, nodes, order, cur)
 	p.Naive = round1(prob.Length(naive))
 	// The cap counts ordinary stops; a follow-up stays when everything it needs does.
 	reg := 0
@@ -437,10 +452,17 @@ func planWith(c character.Character, src source, opt Options) Plan {
 		p.Steps = append(p.Steps, st)
 	}
 
-	// Stops on other maps wait; the map with the most of them is named as the next place to travel to.
+	// A ready turn-in on another map is worth a trip when its town can be reached: one leg per town
+	// names every turn-in there. The generic travel step then goes to the map with the most other stops.
+	flown := map[int]bool{}
+	for _, leg := range flyLegs(c, src, later, cur, lvl) {
+		leg.N = len(p.Steps) + 1
+		flown[leg.Map] = true
+		p.Steps = append(p.Steps, leg)
+	}
 	counts := map[int]int{}
 	for _, s := range later {
-		if s.m != cur {
+		if s.m != cur && !flown[s.m] {
 			counts[s.m]++
 		}
 	}
@@ -453,7 +475,11 @@ func planWith(c character.Character, src source, opt Options) Plan {
 	if best > 0 {
 		for _, s := range later {
 			if s.m == next {
-				p.Steps = append(p.Steps, Stop{N: len(p.Steps) + 1, Kind: KindTravel, Label: "Travel to " + src.mapName(next), Map: next, X: round1(s.x), Y: round1(s.y)})
+				st := Stop{N: len(p.Steps) + 1, Kind: KindTravel, Label: "Travel to " + travelName(src, next, s.place), Map: next, X: round1(s.x), Y: round1(s.y)}
+				if s.zoneOnly {
+					st.X, st.Y, st.ZoneOnly = 0, 0, true
+				}
+				p.Steps = append(p.Steps, st)
 				break
 			}
 		}
@@ -802,6 +828,124 @@ func QuestOrder(p Plan) []int {
 			seen[s.QuestID] = true
 			out = append(out, s.QuestID)
 		}
+	}
+	return out
+}
+
+// travelName is the place a travel step names: never a bare map number.
+func travelName(src source, m int, place string) string {
+	if fs, ok := src.(flightSource); ok {
+		return fs.travelName(m, place)
+	}
+	n := src.mapName(m)
+	if strings.HasPrefix(n, "map ") {
+		return cmp.Or(place, "another area")
+	}
+	return n
+}
+
+// readyFirst puts the ready turn-ins on the player's map first, nearest first: what can be handed in
+// where the player stands comes before any pick-up or objective. Every precedence is kept.
+func readyFirst(p *Problem, nodes []*spot, order []int, cur int) []int {
+	var head []int
+	isHead := map[int]bool{}
+	for _, i := range order {
+		n := nodes[i]
+		if n.kind == KindTurnIn && n.ready && n.m == cur && !n.zoneOnly && len(p.Nodes[i].Pred) == 0 {
+			head = append(head, i)
+			isHead[i] = true
+		}
+	}
+	if len(head) == 0 {
+		return order
+	}
+	var out []int
+	px, py, have := 0.0, 0.0, p.Start != nil
+	if have {
+		px, py = p.Start[0], p.Start[1]
+	}
+	left := slices.Clone(head)
+	for len(left) > 0 {
+		bi := 0
+		if have {
+			for k, i := range left {
+				if math.Hypot(nodes[i].x-px, nodes[i].y-py) < math.Hypot(nodes[left[bi]].x-px, nodes[left[bi]].y-py) {
+					bi = k
+				}
+			}
+		}
+		i := left[bi]
+		out = append(out, i)
+		px, py, have = nodes[i].x, nodes[i].y, true
+		left = slices.Delete(left, bi, bi+1)
+	}
+	for _, i := range order {
+		if !isHead[i] {
+			out = append(out, i)
+		}
+	}
+	if !p.Feasible(out) {
+		return order
+	}
+	return out
+}
+
+// flyLegs are the fly-and-turn-in legs: ready turn-ins on other maps, grouped by town, for the towns
+// the player can reach. Without flight data the towns holding the most ready turn-ins qualify.
+func flyLegs(c character.Character, src source, later []*spot, cur, lvl int) []Stop {
+	type town struct {
+		m     int
+		spots []*spot
+	}
+	by := map[int]*town{}
+	var towns []*town
+	for _, s := range later {
+		if s.kind != KindTurnIn || !s.ready || s.m == cur || s.zoneOnly || (s.level > 0 && s.level < lvl-FlyMinGap) {
+			continue
+		}
+		t := by[s.m]
+		if t == nil {
+			t = &town{m: s.m}
+			by[s.m] = t
+			towns = append(towns, t)
+		}
+		t.spots = append(t.spots, s)
+	}
+	var known map[int]bool
+	haveData := false
+	if fs, ok := src.(flightSource); ok {
+		known, haveData = fs.flights(c)
+	}
+	var keep []*town
+	for _, t := range towns {
+		if !haveData || known[t.m] {
+			keep = append(keep, t)
+		}
+	}
+	sort.SliceStable(keep, func(i, j int) bool {
+		if len(keep[i].spots) != len(keep[j].spots) {
+			return len(keep[i].spots) > len(keep[j].spots)
+		}
+		return keep[i].m < keep[j].m
+	})
+	if len(keep) > FlyLegs {
+		keep = keep[:FlyLegs]
+	}
+	var out []Stop
+	for _, t := range keep {
+		var names []string
+		var ids []int
+		for _, s := range t.spots {
+			for k, id := range s.quests {
+				if !slices.Contains(ids, id) {
+					ids = append(ids, id)
+					names = append(names, s.names[k])
+				}
+			}
+		}
+		first := t.spots[0]
+		out = append(out, Stop{Kind: KindTravel, Label: "Fly to " + travelName(src, t.m, first.place) + ": turn in " + strings.Join(names, ", "),
+			Map: t.m, X: round1(first.x), Y: round1(first.y), QuestID: ids[0], Quest: strings.Join(names, ", "), QuestIDs: ids, Place: first.place})
 	}
 	return out
 }
