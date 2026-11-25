@@ -26,7 +26,7 @@ func doctor(ctx context.Context, args []string, stdout, stderr io.Writer, client
 	fs := flag.NewFlagSet("doctor", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	var cfg server.Config
-	fs.StringVar(&cfg.SavedVariables, "savedvariables", "", "ForeverScribe.lua file (default: $"+server.SavedVariablesEnv+")")
+	fs.StringVar(&cfg.SavedVariables, "savedvariables", "", "WoWCompanion.lua (or ForeverScribe.lua) file (default: $"+server.SavedVariablesEnv+")")
 	fs.StringVar(&cfg.Cache, "cache", "", "dataset cache directory (default: per-user cache)")
 	check := fs.Bool("check", false, "also ask GitHub whether a newer release exists (one unauthenticated request; nothing is downloaded)")
 	fixAddon := fs.Bool("fix-addon", false, "install or update the WoW Companion addon from its latest GitHub release (checksum verified; only writes under Interface/AddOns)")

@@ -70,7 +70,7 @@ func datasetCmd(ctx context.Context, args []string, stdout, stderr io.Writer) er
 	fs := flag.NewFlagSet("dataset "+args[0], flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	cache := fs.String("cache", "", "dataset cache directory (default: per-user cache)")
-	sv := fs.String("savedvariables", "", "ForeverScribe.lua file (default: $"+server.SavedVariablesEnv+")")
+	sv := fs.String("savedvariables", "", "WoWCompanion.lua (or ForeverScribe.lua) file (default: $"+server.SavedVariablesEnv+")")
 	build := fs.String("build", "", "game build to fetch (default: the capture's build, else the newest release)")
 	if err := fs.Parse(args[1:]); err != nil {
 		return err

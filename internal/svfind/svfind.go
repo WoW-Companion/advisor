@@ -1,4 +1,4 @@
-// Package svfind finds ForeverScribe.lua in the standard WoW: Forever install folders.
+// Package svfind finds WoWCompanion.lua and ForeverScribe.lua in the standard WoW: Forever install folders.
 package svfind
 
 import (
@@ -13,6 +13,10 @@ import (
 
 // Flavors are the game folders searched under a WoW root, in preference order.
 var Flavors = []string{"_forever_", "_classic_era_", "_retail_"}
+
+// Files are the SavedVariables files searched for: the WoW Companion addon's own capture and
+// ForeverScribe's (optional now). Either one finds the folder; the loader reads both.
+var Files = []string{"WoWCompanion.lua", "ForeverScribe.lua"}
 
 // Roots lists the WoW install folders to search, in order, for an OS. driveExists says whether a
 // Windows drive root such as `D:\` is present; it is not used on other systems.
@@ -44,14 +48,17 @@ type Result struct {
 }
 
 // Find looks under each root, game folder by game folder in Flavors order, for
-// WTF/Account/*/SavedVariables/ForeverScribe.lua. The first game folder with a match wins, and its
+// WTF/Account/*/SavedVariables/{WoWCompanion,ForeverScribe}.lua. The first game folder with a match wins, and its
 // most recently modified file is the pick.
 func Find(roots []string) Result {
 	res := Result{Tried: roots}
 	for _, root := range roots {
 		for _, flavor := range Flavors {
-			pattern := filepath.Join(root, flavor, "WTF", "Account", "*", "SavedVariables", "ForeverScribe.lua")
-			matches, _ := filepath.Glob(pattern)
+			var matches []string
+			for _, name := range Files {
+				m, _ := filepath.Glob(filepath.Join(root, flavor, "WTF", "Account", "*", "SavedVariables", name))
+				matches = append(matches, m...)
+			}
 			type cand struct {
 				path string
 				mod  time.Time
@@ -107,5 +114,5 @@ func (r Result) NotFound(envName string) string {
 	if len(r.Tried) == 0 {
 		return s + "; auto-detect knows no standard WoW folder on this system"
 	}
-	return fmt.Sprintf("%s; no ForeverScribe.lua found under %s", s, strings.Join(r.Tried, ", "))
+	return fmt.Sprintf("%s; no WoWCompanion.lua or ForeverScribe.lua found under %s", s, strings.Join(r.Tried, ", "))
 }

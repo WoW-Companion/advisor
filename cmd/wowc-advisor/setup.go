@@ -12,7 +12,7 @@ import (
 	"github.com/WoW-Companion/advisor/internal/setup"
 )
 
-const savedVariablesPlaceholder = "/path/to/ForeverScribe.lua"
+const savedVariablesPlaceholder = "/path/to/WoWCompanion.lua"
 
 func setupCmd(args []string, stdout, stderr io.Writer) error {
 	fs := flag.NewFlagSet("setup", flag.ContinueOnError)
@@ -21,7 +21,7 @@ func setupCmd(args []string, stdout, stderr io.Writer) error {
 	goos := fs.String("os", runtime.GOOS, "operating system to render for (windows, darwin, linux)")
 	binary := fs.String("binary", "", "path of the wowc-advisor binary (default: this one)")
 	var sv string
-	fs.StringVar(&sv, "savedvariables", "", "ForeverScribe.lua file (required with --write)")
+	fs.StringVar(&sv, "savedvariables", "", "WoWCompanion.lua (or ForeverScribe.lua) file (required with --write)")
 	// The client may come before or after the flags.
 	client := ""
 	if len(args) > 0 && !strings.HasPrefix(args[0], "-") {

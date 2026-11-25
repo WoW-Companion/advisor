@@ -39,8 +39,10 @@ type Way struct {
 	Questie bool    `json:"from_questie,omitempty" jsonschema:"the place comes from the player's own Questie database"`
 	Item    string  `json:"item,omitempty" jsonschema:"the recipe item, for a vendor, drop or quest"`
 	Price   string  `json:"price,omitempty"`
+	Seen    bool    `json:"seen_by_you,omitempty" jsonschema:"the player saw this trainer or vendor in game: it comes before the dataset"`
 	Line    string  `json:"line"`
 
+	req   int // the skill the trainer's own window gated the offer on; 0 when none
 	tier  int
 	dist  float64
 	ttier int // a Questie trainer's rank tier; 0 for a dataset trainer
@@ -158,6 +160,8 @@ func sortWays(ws []Way) {
 	sort.SliceStable(ws, func(i, j int) bool {
 		a, b := ws[i], ws[j]
 		switch {
+		case a.Seen != b.Seen:
+			return a.Seen
 		case a.miss != b.miss:
 			return a.miss < b.miss
 		case a.tier != b.tier:
@@ -219,6 +223,87 @@ func (f *finder) trainers(prof string, spell int64, from string, need int64) []W
 	}
 	if len(out) == 0 {
 		out = f.questieTrainers(prof, need)
+	}
+	return out
+}
+
+// seenZone names the zone of a place the player saw: the dataset's own row for the NPC, else the
+// zone of the character's own map; "" when neither knows (the answer then gives the coordinates only).
+func (f *finder) seenZone(mapID int, npc int64) string {
+	if f.ds != nil && npc != 0 {
+		if n, err := f.ds.Get("npcs", npc); err == nil {
+			if z := str(n["zone_name"]); z != "" {
+				return z
+			}
+		}
+	}
+	return f.c.ZoneOfMap(mapID)
+}
+
+// seenTrainers lists the trainers the player opened whose window offered the recipe (by spell id,
+// else by name), for the character's faction. Cost and the skill gate are the window's own.
+func (f *finder) seenTrainers(recipe string, spell int64) []Way {
+	var out []Way
+	for _, t := range f.c.Seen.TrainersFor(f.c.Faction) {
+		for _, o := range t.Offers {
+			if !(spell != 0 && o.Spell == spell || strings.EqualFold(strings.TrimSpace(o.Name), strings.TrimSpace(recipe))) {
+				continue
+			}
+			w := Way{Kind: Trainer, Name: t.Name, Zone: f.seenZone(t.Map, t.NPC), X: t.X, Y: t.Y, HasXY: t.X != 0 || t.Y != 0,
+				Seen: true, id: t.NPC, rank: t.T}
+			if o.Cost > 0 {
+				w.Price = vendors.Money(o.Cost)
+			}
+			if o.Skill != "" && o.SkillLevel > 1 {
+				w.req = o.SkillLevel
+			}
+			f.rank(&w, continentOf(w.Zone))
+			if f.c.Location != nil && f.c.Location.MapID != nil && *f.c.Location.MapID == t.Map {
+				w.tier = 0 // the same map
+			}
+			out = append(out, w)
+			break
+		}
+	}
+	return out
+}
+
+// seenVendors lists the vendors the player opened that sold the item, with the price they showed.
+func (f *finder) seenVendors(item int64, name string) []Way {
+	var out []Way
+	vs, stock := f.c.Seen.VendorsOf(item, f.c.Faction)
+	for i, v := range vs {
+		w := Way{Kind: Vendor, Name: v.Name, Item: name, Zone: f.seenZone(v.Map, v.NPC), X: v.X, Y: v.Y,
+			HasXY: v.X != 0 || v.Y != 0, Seen: true, id: v.NPC, rank: v.T}
+		if p := stock[i].Price; p > 0 {
+			w.Price = vendors.Money(p)
+		}
+		if stock[i].Ext {
+			if w.Price != "" {
+				w.Price += " and "
+			}
+			w.Price += "other items"
+		}
+		f.rank(&w, continentOf(w.Zone))
+		if f.c.Location != nil && f.c.Location.MapID != nil && *f.c.Location.MapID == v.Map {
+			w.tier = 0
+		}
+		out = append(out, w)
+	}
+	return out
+}
+
+// dropSeen removes the dataset's ways for NPCs the player has already seen: the sighting replaces them.
+func dropSeen(ways, seen []Way) []Way {
+	have := map[int64]bool{}
+	for _, w := range seen {
+		have[w.id] = true
+	}
+	var out []Way
+	for _, w := range ways {
+		if !have[w.id] {
+			out = append(out, w)
+		}
 	}
 	return out
 }
@@ -308,9 +393,19 @@ func line(w Way) string {
 	if w.Questie {
 		q = " (from your Questie database)"
 	}
+	if w.Seen {
+		q = " (" + character.SeenByYou + ")"
+	}
 	switch w.Kind {
 	case Trainer:
-		return "Learn it from " + where(w) + q
+		s := "Learn it from " + where(w)
+		if w.Price != "" {
+			s += " for " + w.Price
+		}
+		if w.req > 1 {
+			s += fmt.Sprintf(", needs %d skill", w.req)
+		}
+		return s + q
 	case Vendor:
 		s := "Buy the recipe from " + where(w)
 		if w.Price != "" {
@@ -382,6 +477,9 @@ func Recipe(c character.Character, ds store.DataStore, qx *questie.Index, r stor
 	byTrainer := from != "item"
 	if byTrainer {
 		ways = append(ways, f.trainers(prof, spell, from, f.need(r))...)
+		if seen := f.seenTrainers(str(r["name"]), spell); len(seen) > 0 {
+			ways = append(dropSeen(ways, seen), seen...)
+		}
 	}
 	if from == "item" || from == "both" {
 		for _, ri := range rows(ds, "recipe_items", "teaches_spell_id", spell) {
@@ -390,7 +488,11 @@ func Recipe(c character.Character, ds store.DataStore, qx *questie.Index, r stor
 			if it, err := ds.Get("items", id); err == nil {
 				name = str(it["name"])
 			}
-			ways = append(ways, f.vendorWays(id, name)...)
+			vw := f.vendorWays(id, name)
+			if seen := f.seenVendors(id, name); len(seen) > 0 {
+				vw = append(dropSeen(vw, seen), seen...)
+			}
+			ways = append(ways, vw...)
 			if len(ways) == 0 || from == "item" {
 				ways = append(ways, f.lootWays(id, name)...)
 			}
@@ -405,6 +507,9 @@ func Recipe(c character.Character, ds store.DataStore, qx *questie.Index, r stor
 	}
 	res.Ways = append(res.Ways, ways...)
 	res.Gate = f.gate(r, prof, byTrainer && from != "both" || from == "both" && len(ways) > 0 && ways[0].Kind == Trainer)
+	if len(ways) > 0 && ways[0].Seen && ways[0].Kind == Trainer && ways[0].req > 1 {
+		res.Gate = Gate{Skill: ways[0].req, Line: fmt.Sprintf("It needs %s %d (the trainer showed it to you).", prof, ways[0].req)}
+	}
 	res.Text = text(res)
 	return res
 }

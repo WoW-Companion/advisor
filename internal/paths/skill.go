@@ -2,6 +2,7 @@ package paths
 
 import (
 	"fmt"
+	"github.com/WoW-Companion/advisor/internal/character"
 	"strings"
 
 	"github.com/WoW-Companion/advisor/internal/learn"
@@ -110,7 +111,7 @@ func (f *finder) recipeSource(r store.Row, prof string) RecipeSource {
 		}
 		return RecipeSource{Kind: "trainer", Line: fmt.Sprintf("from a %s trainer", prof)}
 	}
-	if o, ok := vendors.Best(f.ds, id); ok {
+	if o, ok := vendors.BestFor(f.c, f.ds, id); ok {
 		l := fmt.Sprintf("buy the recipe %s from %s", name, o.Vendor)
 		if o.Zone != "" {
 			l += " in " + o.Zone
@@ -118,7 +119,10 @@ func (f *finder) recipeSource(r store.Row, prof string) RecipeSource {
 		if o.Price != "" {
 			l += " for " + o.Price
 		}
-		return RecipeSource{Kind: "vendor", Item: name, Line: l, Offer: &o, Source: vendors.Source}
+		if o.Seen() {
+			l += " (" + character.SeenByYou + ")"
+		}
+		return RecipeSource{Kind: "vendor", Item: name, Line: l, Offer: &o, Source: o.Source}
 	}
 	rows, _ := f.ds.Filter("loot_sources", store.Range{Column: "item_id", Min: id, Max: id})
 	for _, l := range rows {

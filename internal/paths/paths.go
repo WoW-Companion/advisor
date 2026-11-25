@@ -598,7 +598,7 @@ func (f *finder) reagents(spell int64) ([]Reagent, bool) {
 		}
 		if g.Missing > 0 {
 			g.How = f.getReagent(id, it)
-			if o, ok := vendors.Best(f.ds, id); ok {
+			if o, ok := vendors.BestFor(f.c, f.ds, id); ok {
 				buy := strings.ToLower(o.Line()[:1]) + o.Line()[1:]
 				switch {
 				case strings.HasPrefix(g.How, "gather"):
@@ -606,7 +606,7 @@ func (f *finder) reagents(spell int64) ([]Reagent, bool) {
 				default:
 					g.How = buy
 				}
-				g.Offer, g.Source = &o, vendors.Source
+				g.Offer, g.Source = &o, o.Source
 			}
 			if g.How == "" {
 				return nil, false
@@ -737,7 +737,7 @@ func (f *finder) auction(crs []creature) (Path, bool) {
 // (see vendors.Offer.Cheap) stands beside the Auction House, above quests not yet picked up, dungeons
 // and farming; a dearer one still ranks above farming a creature but below a dungeon or a craft.
 func (f *finder) vendor() (Path, bool) {
-	o, ok := vendors.Best(f.ds, f.itemID)
+	o, ok := vendors.BestFor(f.c, f.ds, f.itemID)
 	if !ok {
 		return Path{}, false
 	}
@@ -745,7 +745,11 @@ func (f *finder) vendor() (Path, bool) {
 	if o.Cheap(f.level) {
 		rank = rankAuction
 	}
-	return Path{Kind: Vendor, Line: o.Line() + ".", Offer: &o, Source: vendors.Source, Credit: vendors.Credit, rank: rank}, true
+	p := Path{Kind: Vendor, Line: o.Line() + ".", Offer: &o, Source: o.Source, Credit: vendors.Credit, rank: rank}
+	if o.Seen() {
+		p.Credit = ""
+	}
+	return p, true
 }
 
 // creatures lists the creatures that carry the item, one per creature, best chance first.

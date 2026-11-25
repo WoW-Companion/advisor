@@ -208,3 +208,59 @@ func TestItemZonesFeedsThePlanner(t *testing.T) {
 		t.Fatalf("line %q", got)
 	}
 }
+
+func seenChar(zone string) character.Character {
+	c := char(zone, 100, 100)
+	m := 84
+	c.NPCs = []character.NPC{{ID: 1, Name: "Greeter", MapID: &m, Zone: "Seenvale"}}
+	c.Seen = &character.Observed{Gather: []character.SeenGather{
+		{Kind: "mine", Map: 84, CX: 4, CY: 6, N: 5, SkillMin: 1, SkillMax: 60, Items: map[int64]int{10: 8}},
+		{Kind: "fish", Map: 84, CX: 1, CY: 1, N: 2, SkillMin: 1, SkillMax: 60, Items: map[int64]int{30: 2}},
+	}}
+	return c
+}
+
+func seenDataset(t *testing.T) store.DataStore {
+	type item struct {
+		ID   int64  `parquet:"id"`
+		Name string `parquet:"name"`
+	}
+	s1 := int16(1)
+	return store.New(store.ReaderSource{
+		"items":            table(t, []item{{10, "Copper Ore"}, {30, "Tinfish"}}),
+		"recipes":          table(t, []recipeRow{{1, "Mining"}}),
+		"recipe_reagents":  table(t, []reagentRow{{1, 10}}),
+		"profession_notes": table(t, []noteRow{{"nodes", "Copper Seam", &s1}}),
+	})
+}
+
+func TestSeenGatheringLeadsAndIsMarked(t *testing.T) {
+	g := New(index(), seenDataset(t))
+	res := g.Find(seenChar("Farland"), "Copper Ore", "mine")
+	if len(res.Zones) == 0 || !res.Zones[0].Seen || res.Zones[0].Zone != "Seenvale" {
+		t.Fatalf("%+v", res.Zones)
+	}
+	if !strings.Contains(res.Text, "Seenvale") || !strings.Contains(res.Text, "(seen by you)") || res.Zones[0].Coords[0] != [2]float64{22.5, 32.5} {
+		t.Errorf("text %q coords %v", res.Text, res.Zones[0].Coords)
+	}
+	// With no Questie index the player's own sightings still answer, for a fish at their level too.
+	bare := New(nil, seenDataset(t))
+	if r := bare.Find(seenChar(""), "Tinfish", ""); len(r.Zones) != 1 || !strings.Contains(r.Text, "seen by you") || strings.Contains(r.Text, FromQuestie) {
+		t.Errorf("bare %+v", r)
+	}
+	if r := bare.ForLevel(seenChar(""), Fish); len(r.Zones) != 1 || !r.Zones[0].Seen {
+		t.Errorf("level %+v", r)
+	}
+	// Nothing seen: the Questie answer is unmarked.
+	if r := g.Find(char("Farland", 100, 100), "Copper Ore", "mine"); strings.Contains(r.Text, "seen by you") {
+		t.Errorf("unmarked: %s", r.Text)
+	}
+}
+
+func TestSeenZonesFeedThePlannerFeeders(t *testing.T) {
+	g := New(nil, seenDataset(t))
+	kind, zs := g.ItemZonesFor(seenChar(""), 10, questie.Where{})
+	if kind != Ore || len(zs) != 1 || !zs[0].Seen || !strings.Contains(Line(zs), "seen by you") {
+		t.Errorf("%q %+v", kind, zs)
+	}
+}

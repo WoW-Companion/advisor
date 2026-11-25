@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/WoW-Companion/advisor/internal/character"
 	"github.com/WoW-Companion/advisor/internal/store"
 )
 
@@ -82,5 +83,18 @@ func TestFactsNoGiverAndUnknown(t *testing.T) {
 	}
 	if FactsOf(ds, nil, 12345) != nil || OfWith(ds, nil, 12345).Found {
 		t.Fatal("unknown quest must have no facts")
+	}
+}
+
+func TestGiverNameSeenFillsOnlyAMissingGiver(t *testing.T) {
+	seen := &character.Observed{Givers: []character.SeenGiver{{QuestID: 77, NPC: "Old Giver"}}}
+	if n, fromSeen := GiverNameSeen(nil, seen, 77); n != "Old Giver" || !fromSeen {
+		t.Errorf("%q %v", n, fromSeen)
+	}
+	if n, fromSeen := GiverNameSeen(nil, seen, 78); n != "" || fromSeen {
+		t.Errorf("an unseen quest got a giver: %q", n)
+	}
+	if n, _ := GiverNameSeen(nil, nil, 77); n != "" {
+		t.Errorf("nothing seen: %q", n)
 	}
 }

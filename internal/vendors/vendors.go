@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/WoW-Companion/advisor/internal/character"
 	"github.com/WoW-Companion/advisor/internal/store"
 )
 
@@ -27,8 +28,11 @@ type Offer struct {
 	PriceCopper int64  `json:"price_copper"`
 	Price       string `json:"price,omitempty" jsonschema:"the price in gold, silver and copper; empty when the price is unknown"`
 	Limited     bool   `json:"limited,omitempty" jsonschema:"the vendor has limited stock"`
-	Source      string `json:"source" jsonschema:"everloot"`
+	Source      string `json:"source" jsonschema:"everloot, or seen by you when the player saw this vendor in game"`
 }
+
+// Seen reports whether the offer is one the player saw in game.
+func (o Offer) Seen() bool { return o.Source == character.SeenByYou }
 
 // Cheap reports whether the price is modest for a character of the level: at or under CheapPerBand
 // copper for each band of ten levels. An unknown price is never cheap.
@@ -53,6 +57,9 @@ func (o Offer) Line() string {
 	}
 	if o.Limited {
 		s += " (limited stock)"
+	}
+	if o.Seen() {
+		s += " (" + character.SeenByYou + ")"
 	}
 	return s
 }
@@ -113,6 +120,27 @@ func Best(ds store.DataStore, itemID int64) (Offer, bool) {
 		}
 	}
 	return best, found
+}
+
+// BestFor is Best for a character: a vendor the player opened and saw sell the item (open to their
+// faction) comes first, at the price it showed, ahead of the dataset's offers.
+func BestFor(c character.Character, ds store.DataStore, itemID int64) (Offer, bool) {
+	vs, stock := c.Seen.VendorsOf(itemID, c.Faction)
+	best, found := Offer{}, false
+	for i, v := range vs {
+		o := Offer{NPCID: v.NPC, Vendor: v.Name, PriceCopper: stock[i].Price, Price: Money(stock[i].Price), Source: character.SeenByYou,
+			Zone: c.ZoneOfMap(v.Map)}
+		if stock[i].Ext {
+			o.PriceCopper, o.Price = 0, "" // it also costs tokens or items: no plain price to compare
+		}
+		if !found || better(o, best) {
+			best, found = o, true
+		}
+	}
+	if found {
+		return best, true
+	}
+	return Best(ds, itemID)
 }
 
 func better(a, b Offer) bool {

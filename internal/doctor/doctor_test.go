@@ -79,6 +79,13 @@ func TestRun(t *testing.T) {
 		{"sv unparsable", func(t *testing.T, w *world) { write(t, w.sv, "ForeverScribeDB = {") }, "SavedVariables", Fail, "could not read", "log in"},
 		{"sv no characters", func(t *testing.T, w *world) { write(t, w.sv, "ForeverScribeDB = {}") }, "SavedVariables", Fail, "no characters", "log out"},
 
+		{"scribe alone says it can go", func(*testing.T, *world) {}, "ForeverScribe", Info, "You can remove ForeverScribe once WoW Companion 0.6.N+ is installed.", ""},
+		{"source of each character", func(*testing.T, *world) {}, "Source Testpriest", Info, "ForeverScribe", ""},
+		{"addon file alone passes", func(t *testing.T, w *world) {
+			os.Remove(w.sv)
+			write(t, filepath.Join(filepath.Dir(w.sv), "WoWCompanion.lua"), `WoWCompanionDB = { characters = { [":Testpriest"] = { name = "Testpriest", capturedAt = 1700100000, level = 12 } } }`)
+		}, "SavedVariables", Pass, "1 character", ""},
+
 		{"fresh capture", func(*testing.T, *world) {}, "Capture age", Pass, "10m0s ago", ""},
 		{"stale capture", func(_ *testing.T, w *world) { w.opt.Now = time.Unix(captured+2*3600, 0) }, "Capture age", Fail, "2h0m0s ago", "/reload in game"},
 		{"no capture", func(t *testing.T, w *world) { os.Remove(w.sv) }, "Capture age", Fail, "no capture", "SavedVariables check"},
@@ -159,5 +166,23 @@ func TestReport(t *testing.T) {
 	rep = Run(w.opt)
 	if rep.OK || !strings.Contains(rep.Text, "FAIL  Capture age") || !strings.Contains(rep.Text, "fix: /reload in game") {
 		t.Errorf("stale report:\n%s", rep.Text)
+	}
+}
+
+func TestAddonCapturePresentMeansNoRemoveNote(t *testing.T) {
+	w := build(t)
+	write(t, filepath.Join(filepath.Dir(w.sv), "WoWCompanion.lua"), `WoWCompanionDB = { characters = { [":Testpriest"] = { name = "Testpriest", capturedAt = 1700100000, level = 12 } } }`)
+	rep := Run(w.opt)
+	var source string
+	for _, c := range rep.Checks {
+		if c.Name == "ForeverScribe" {
+			t.Errorf("the remove note shows although the addon captured: %+v", c)
+		}
+		if strings.HasPrefix(c.Name, "Source ") {
+			source += c.Name + "=" + c.Detail + ";"
+		}
+	}
+	if !strings.Contains(source, "WoW Companion addon + ForeverScribe") {
+		t.Errorf("sources: %q", source)
 	}
 }

@@ -131,6 +131,7 @@ func TestFooterIsBuiltFromTheGrounding(t *testing.T) {
 		{Grounding{KnowHow: true, Levels: true, Bosses: true}, "Tactics: general WoW knowledge · Levels and bosses: your game"},
 		{Grounding{KnowHow: true}, "Tactics: general WoW knowledge"},
 		{Grounding{KnowHow: true, Bosses: true, IcyURL: "https://www.icy-veins.com/wow-forever/x"}, "Tactics: general WoW knowledge · Bosses: your game · Icy Veins"},
+		{Grounding{KnowHow: true, Quests: true, Seen: true}, "Tactics: general WoW knowledge · Quests: your game · Trainers, vendors, gathering and quest givers: seen by you"},
 		{Grounding{}, ""},
 	} {
 		if got := tc.g.Footer(); got != tc.want {
