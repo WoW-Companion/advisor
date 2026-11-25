@@ -170,6 +170,8 @@ type Options struct {
 	// Unlocks is, per turn-in quest id, the follow-ups the plan says it unlocks, as "Quest (from NPC,
 	// here)"; a turn-in entry then says "Unlocks: ..." and its prompt names the first.
 	Unlocks map[int][]string
+	// Order is the quest ids in route order; Next quests follows it, so the panel and the route agree.
+	Order []int
 }
 
 // NoDataText is what NEXT says when no game dataset has downloaded.
@@ -323,6 +325,7 @@ func Build(c character.Character, ds store.DataStore, opt Options) Digest {
 	}
 	notes = append(notes, captureNotes(c, ds, opt)...)
 
+	quests = routeOrder(quests, opt.Order)
 	for _, s := range []Section{
 		{NextQuests, capLines(quests, MaxQuests), ""},
 		{Upgrades, capLines(ups, MaxUpgrades), upgradesSummary(len(capLines(ups, MaxUpgrades)))},
@@ -508,6 +511,27 @@ func PlanNPCs(steps []advice.Step) map[string]bool {
 	for _, s := range steps {
 		if s.NPC != "" && (strings.HasPrefix(s.Title, advice.PickUpPrefix) || advice.IsClassQuest(s)) {
 			out[s.NPC] = true
+		}
+	}
+	return out
+}
+
+// routeOrder puts the quest lines in route order. A line that moves ahead of where it stood and has no
+// reason of its own says why: it is where the route goes first.
+func routeOrder(lines []Line, order []int) []Line {
+	if len(order) == 0 {
+		return lines
+	}
+	was := map[int]int{}
+	for i, l := range lines {
+		if l.Quest != 0 {
+			was[l.Quest] = i
+		}
+	}
+	out := advice.ByQuestOrder(lines, func(l Line) int { return l.Quest }, order)
+	for i := range out {
+		if q := out[i].Quest; q != 0 && i < was[q] && out[i].Why == "" {
+			out[i].Why = "First on your route"
 		}
 	}
 	return out

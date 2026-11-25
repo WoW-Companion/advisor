@@ -22,8 +22,13 @@ the player's local files. Nothing Questie-derived is stored in this repo.
   already in the log are planned; failed quests and finished objectives are skipped.
 - Objectives: kills, objects, item objectives (the nearest cluster of the NPCs that drop the item and the
   objects that hold it) and kill-credit objectives are placed from Questie. An unfinished objective with no
-  location is not routed: it is listed under `find` as "<text> (location unknown)", and its quest's
-  turn-in is withheld (a pick-up still goes on the route). Item vendors are not resolved.
+  location is not routed for a quest not yet in the log: it is listed under `find` as "<text> (location unknown)",
+  and its quest's turn-in is withheld. For a quest in the log every open objective is a step: area objectives
+  ("reach this place") are placed from the player's Questie database and labelled "(from your Questie
+  database)"; with no position anywhere the step reads "(somewhere in <zone>)" and carries x = 0, y = 0
+  (no position). Item vendors are not resolved.
+- Priority: a class quest's objectives come early, after whatever can be done at the player's current
+  spot; the panel's Next quests and the answers' facts follow the same order.
 - Order: a quest's pick-up comes before its objectives, and they come before its turn-in. Identical
   stops are merged (several turn-ins at one NPC, objectives within 3 map percent of each other).
 - Quests more than 1 level above the character, stops on another map, and stops past the 20th go to `later`.
