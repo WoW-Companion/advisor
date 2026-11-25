@@ -133,3 +133,11 @@ priority of every class and spec and its suffixes against the dataset's `random_
 (`internal/stats/benchmark_test.go`). A difference from the dataset fails the run; a difference from a guide is
 listed in the table (`BENCH_REPORT=<file>`), since a guide's route is one good route and the planner picks its own by
 cost. `BENCH_DATASET=<dir>` names a dataset; without it the latest release is downloaded.
+
+The run ends with one summary line, `advice-benchmark: 231 checks, 186 same, 45 differ (professions 81/32,
+tailoring-guide 6/13, stats 99/0)`: every table row counts as same ("match") or differ, by area. Each area prints
+`advice-benchmark-count <area> same=N differ=M`, and `internal/benchsummary` adds them up. The share of
+same rows is how closely the advice agrees with the game data and the Forever guides, and is read per run. The rows
+that stay differ are choices, not errors: the planner picks the cheapest recipe per skill point where a guide picks
+the easiest, a stretch whose patterns have no vendor, quest or trainer in the dataset is a gap that names the
+patterns and sends you to the Auction House, and the dataset's trainer list lacks some trainer recipes.
