@@ -192,6 +192,8 @@ type Result struct {
 	Spec          string // spec the weights are for; empty when none apply
 	Rationale     string
 	Reason        string // why scoring fell back to item level, when it did
+	// Bags are the items already in the bags that beat what is worn: free, so they come first.
+	Bags []BagUpgrade `json:"bags,omitempty"`
 }
 
 // Upgrades returns, per capture slot, the items the character can use that beat what they wear,
@@ -263,6 +265,11 @@ func Find(c character.Character, ds store.DataStore, group string, opt Options) 
 	}
 
 	level := *c.Level
+	for _, b := range BagUpgrades(c, ds, group) {
+		if opt.Slot == "" || opt.Slot == b.Slot {
+			res.Bags = append(res.Bags, b)
+		}
+	}
 	rows, err := ds.Filter("items", store.Range{Column: "required_level", Min: 0, Max: level + EquipWindow})
 	if err != nil {
 		return res, fmt.Errorf("items table: %w", err)

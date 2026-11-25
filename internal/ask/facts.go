@@ -10,6 +10,7 @@ import (
 	"github.com/WoW-Companion/advisor/internal/brief"
 	"github.com/WoW-Companion/advisor/internal/character"
 	"github.com/WoW-Companion/advisor/internal/digest"
+	"github.com/WoW-Companion/advisor/internal/gear"
 	"github.com/WoW-Companion/advisor/internal/levelup"
 	"github.com/WoW-Companion/advisor/internal/professions"
 	"github.com/WoW-Companion/advisor/internal/profile"
@@ -51,7 +52,7 @@ func Facts(cfg Config, q Question) string {
 	if g, ok := digest.FindGiver(c, cc.qx, digest.PlanQuests(all), digest.PlanNPCs(all)); ok {
 		giver = "Quest giver with something for the character now (not in the plan): " + g.Text() + "."
 	}
-	return capRunes(subjectFacts(cfg, cc, q)+brief.Character(c, f.ClientOf(c), time.Now())+"\n\n"+styleLine(c)+join(professionPlanFacts(cc, q.Text))+"\n\n"+next+join(trainFacts(cc))+join(giver), FactsBudget)
+	return capRunes(subjectFacts(cfg, cc, q)+brief.Character(c, f.ClientOf(c), time.Now())+"\n\n"+styleLine(c)+join(bagFacts(c, cc.ds))+join(professionPlanFacts(cc, q.Text))+"\n\n"+next+join(trainFacts(cc))+join(giver), FactsBudget)
 }
 
 func join(s string) string {
@@ -360,4 +361,21 @@ func trainFacts(cc loaded) string {
 		return ""
 	}
 	return p.Line(c.Class) + "."
+}
+
+// bagFacts lists the items already in the bags that beat what is worn, for gear answers to put first;
+// "" when there are none.
+func bagFacts(c character.Character, ds store.DataStore) string {
+	group := ""
+	if names, _ := brief.TopGroups(c.Talents); len(names) == 1 {
+		group = names[0]
+	}
+	var lines []string
+	for _, u := range gear.BagUpgrades(c, ds, group) {
+		lines = append(lines, "- "+u.Line())
+	}
+	if len(lines) == 0 {
+		return ""
+	}
+	return "Equip these now (already in the character's bags, free; for any gear or upgrade question list them first, before quest rewards, crafts, vendor and Auction House):\n" + strings.Join(lines, "\n")
 }

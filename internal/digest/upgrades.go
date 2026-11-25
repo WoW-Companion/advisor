@@ -61,9 +61,15 @@ func upgradeLines(c character.Character, ds store.DataStore, planQuests map[int]
 		return nil, nil, link // captureNotes says so
 	}
 	group := groupOf(c)
+	bags := gear.BagUpgrades(c, ds, group)
+	covered := map[string]bool{}
+	for _, b := range bags {
+		covered[b.Slot] = true
+		lines = append(lines, bagLine(c, b))
+	}
 	res, err := gear.Find(c, ds, group, gear.Options{NoSources: true})
 	if err != nil {
-		return nil, []Line{{Text: "No gear upgrades: " + err.Error(), Kind: KindNote, Asks: asksOf("Why are there no gear upgrades?", "Why are there no gear upgrades?"), Ref: noteRef("no-upgrades")}}, link
+		return lines, []Line{{Text: "No gear upgrades: " + err.Error(), Kind: KindNote, Asks: asksOf("Why are there no gear upgrades?", "Why are there no gear upgrades?"), Ref: noteRef("no-upgrades")}}, link
 	}
 	slots := make([]string, 0, len(res.Slots))
 	for s := range res.Slots {
@@ -87,6 +93,9 @@ func upgradeLines(c character.Character, ds store.DataStore, planQuests map[int]
 	taken := map[int64]bool{}
 	var shops []shopAt
 	for _, slot := range slots {
+		if covered[slot] {
+			continue // an item in the bags already covers this slot
+		}
 		var (
 			found    bool
 			foundCd  gear.Candidate
@@ -163,6 +172,54 @@ func upgradeLine(c character.Character, slot string, cd gear.Candidate, best pat
 	l.Asks, l.Ref = upgradeAsks(cd.Item.Name, name, whoOf(c), best, mats), itemRef(int(cd.Item.ID))
 	l.Why = upgradeWhy(c, slot, cd, short)
 	return l
+}
+
+// bagLine is an item already in the bags that beats what is worn: free, so it leads the section.
+func bagLine(c character.Character, b gear.BagUpgrade) Line {
+	name := wording.SlotName(b.Slot, b.Item.Slot)
+	l := Line{Text: clip(b.Name), Item: int(b.Item.ID), Slot: name, ILvl: b.Item.ItemLevel, Wear: "Wear now",
+		Replaces: b.Replaces, How: "In your bags; equip it now", PathKind: PathBags}
+	switch {
+	case b.Empty:
+		l.Gain = "Big upgrade"
+	case !b.Likely:
+		l.Gain = GainWord(gear.Candidate{Delta: b.Delta})
+	}
+	details := []string{name + ": " + b.Name + ", in your bags; equip it now"}
+	if b.Replaces != "" {
+		l.Why = firstWhy("Beats your " + b.Replaces)
+		details = append(details, "Replaces "+b.Replaces)
+	}
+	if b.Likely && !b.Empty {
+		details = append(details, "Likely better: higher quality or item level")
+	}
+	l.Details = finishDetails(details)
+	l.Asks, l.Ref = asksOf("Should I equip "+b.Name+" now?", "Should I equip "+b.Name+" now?"), itemRef(int(b.Item.ID))
+	return l
+}
+
+// bagNextLine is the NEXT line for n upgrades in the bags.
+func bagNextLine(n int) Line {
+	text := "You have an upgrade in your bags"
+	if n > 1 {
+		text = fmt.Sprintf("You have %d upgrades in your bags", n)
+	}
+	q := "Which items in my bags should I equip now?"
+	return Line{Text: text, Kind: KindNote, Details: []string{"Equip them now; they are free"}, Asks: asksOf(q, q), Ref: noteRef("bag-upgrades"), Why: "Free upgrades, already yours"}
+}
+
+// PathBags is the path kind of an upgrade that is already in the bags.
+const PathBags = "bags"
+
+// bagCount is how many of the lines are bag upgrades.
+func bagCount(lines []Line) int {
+	n := 0
+	for _, l := range lines {
+		if l.PathKind == PathBags {
+			n++
+		}
+	}
+	return n
 }
 
 // shoppingLine is a slot's Auction House shopping list as one entry: a kind of item, a level range and
@@ -335,12 +392,20 @@ func groupShopping(c character.Character, lines []Line, shops []shopAt) []Line {
 // groupLine is one line for several slots' shopping lists that share a level range and suffixes.
 func groupLine(c character.Character, shops []shopAt, idx []int) Line {
 	first := shops[idx[0]].sh
+	for _, i := range idx { // the cloak may sort first, and has no armor word of its own
+		if shops[i].sh.Armor != "" {
+			first = shops[i].sh
+			break
+		}
+	}
 	var names []string
+	cloak := false
 	best := first.Best
 	empty := false
 	for _, i := range idx {
 		sa := shops[i]
 		names = append(names, groupSlotWord(sa.slot))
+		cloak = cloak || sa.slot == "back"
 		if sa.sh.Best.Delta > best.Delta {
 			best = sa.sh.Best
 		}
@@ -355,7 +420,15 @@ func groupLine(c character.Character, shops []shopAt, idx []int) Line {
 	if len(quoted) > 0 {
 		head += ", " + joinOr(quoted)
 	}
-	text := head + ": " + strings.Join(names, ", ")
+	shown := append([]string(nil), names...)
+	if cloak { // a cloak is cloth for everyone, whatever the rest wear
+		for i, n := range shown {
+			if n == slotWords["back"] {
+				shown[i] = n + " (any cloth)"
+			}
+		}
+	}
+	text := head + ": " + strings.Join(shown, ", ")
 	if utf8.RuneCountInString(text) > MaxText {
 		text = head
 	}

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.73
+
+- Gear you already carry that beats what you wear now comes first, as "Equip these now".
+- The panel, the NEXT line and gear answers list those bag items before anything to buy.
+- Grouped Auction House lines say "Green mail gear" correctly and note that cloaks are cloth.
+
 ## 0.7.72
 
 - Profession plans show vendor prices as a new character pays them.

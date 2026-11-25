@@ -8,6 +8,7 @@ import (
 	"github.com/WoW-Companion/advisor/internal/brief"
 	"github.com/WoW-Companion/advisor/internal/character"
 	"github.com/WoW-Companion/advisor/internal/vendors"
+	"github.com/WoW-Companion/advisor/internal/wording"
 )
 
 func (s Source) String() string {
@@ -98,12 +99,21 @@ func Render(c character.Character, r Result) string {
 		fmt.Fprintf(&b, " (level %d %s)", *c.Level, strings.ToLower(c.Class))
 	}
 	b.WriteString(":\n")
+	if len(r.Bags) > 0 {
+		b.WriteString("Equip these now (already in your bags, free):\n")
+		for _, u := range r.Bags {
+			fmt.Fprintf(&b, "- %s\n", u.Line())
+		}
+	}
 	if r.ItemLevelOnly {
 		fmt.Fprintf(&b, "Ranked by the level needed to wear it only (quality breaks ties): %s.\n", r.Reason)
 	} else {
 		fmt.Fprintf(&b, "Ranked by the gain over what is worn, weighted by %s stat types and listed by the level needed to wear it; advisor defaults, not authoritative (%s).\n", r.Spec, r.Rationale)
 	}
 	if len(r.Slots) == 0 {
+		if len(r.Bags) > 0 {
+			return b.String()
+		}
 		b.WriteString("No upgrades found for the items the dataset holds.\n")
 		return b.String()
 	}
@@ -186,4 +196,21 @@ func hasCraft(r Result) bool {
 		}
 	}
 	return false
+}
+
+// Line is the upgrade in a sentence: "Feet: Copper Chain Boots, in your bags; equip it now (replaces
+// Hiking Boots; likely better)".
+func (u BagUpgrade) Line() string {
+	s := wording.SlotName(u.Slot, u.Item.Slot) + ": " + u.Name + ", in your bags; equip it now"
+	var more []string
+	if u.Replaces != "" {
+		more = append(more, "replaces "+u.Replaces)
+	}
+	if u.Likely && !u.Empty {
+		more = append(more, "likely better")
+	}
+	if len(more) > 0 {
+		s += " (" + strings.Join(more, "; ") + ")"
+	}
+	return s
 }

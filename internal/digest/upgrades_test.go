@@ -204,7 +204,7 @@ func TestShoppingListsWithTheSameRangeAndSuffixesBecomeOneLine(t *testing.T) {
 	if len(got) != 2 {
 		t.Fatalf("lines = %d: %+v", len(got), got)
 	}
-	want := "Green cloth gear, level 20–24, 'of the Eagle' or 'of the Owl': helm, shoulders, cloak, chest"
+	want := "Green cloth gear, level 20–24, 'of the Eagle' or 'of the Owl': helm, shoulders, cloak (any cloth), chest"
 	if got[0].Text != want || got[0].Gain != "Big upgrade" || got[0].PathKind != paths.Auction {
 		t.Errorf("group line = %+v", got[0])
 	}
@@ -223,5 +223,16 @@ func TestNamedUpgradesAreNotGrouped(t *testing.T) {
 	got := groupShopping(character.Character{}, lines, shops)
 	if len(got) != 2 || got[0].Text != "Big Named Staff" || got[1].Text != "Green cloth gear, level 20–24, 'of the Eagle': helm, chest" {
 		t.Fatalf("lines %+v", got)
+	}
+}
+
+func TestGroupedLineNamesTheArmorEvenWhenTheCloakSortsFirst(t *testing.T) {
+	mk := func(slot, armor string) paths.Shopping {
+		return paths.Shopping{Slot: slot, Armor: armor, MinLevel: 6, MaxLevel: 10, Suffixes: []string{"of the Tiger (Strength + Stamina)"}}
+	}
+	shops := []shopAt{{0, "head", mk("head", "mail")}, {1, "back", mk("back", "")}, {2, "chest", mk("chest", "mail")}}
+	got := groupShopping(character.Character{}, make([]Line, 3), shops)
+	if len(got) != 1 || !strings.HasPrefix(got[0].Text, "Green mail gear, level 6–10, 'of the Tiger'") || strings.Contains(got[0].Text, "  ") {
+		t.Fatalf("line = %+v", got)
 	}
 }
