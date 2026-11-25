@@ -307,6 +307,9 @@ func NewBenchmark(ds store.DataStore, o BenchOptions) Benchmark {
 		b.Tiers = append(b.Tiers, BenchTier{Name: t.Name, SkillMin: t.SkillMin, SkillCap: t.SkillCap, MinLevel: t.MinLevel,
 			Trainer: trainer, TrainerCopper: trainerCost[i], TrainerSpells: trainerN[i], Reachable: t.MinLevel <= o.Level && t.SkillMin < allowed})
 	}
+	if n := expertEarly(name, o.Faction, o.Level); n != "" && b.From < 125 && b.To > 125 {
+		b.Notes = append(b.Notes, n)
+	}
 	if strings.EqualFold(name, "Fishing") && onlyGaps(b.Bands) {
 		b.Bands = b.Bands[:0]
 		b.fishing(ds, tiers)

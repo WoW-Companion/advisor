@@ -35,6 +35,11 @@ craft one time in four, a grey craft none. A band ends where its recipe turns gr
 fits, and the same recipe carries on in one band when nothing does. These chances fit the craft counts of the
 wow-professions.com Forever guides (mean error 8% over 106 steps; the old flat one in two was 17%).
 
+**Learn skills.** Where the dataset's learn skill is only an estimate (its `learn_skill_source` says `estimate`),
+a recipe is not planned before 10 skill points under its yellow start, whatever the estimate says. Cloth bolts
+a band makes for their own skill-ups are kept, priced low and counted as held for the later bands that use
+them. Tailoring plans also say when to train Expert (Tailoring 125, level 20) and name the trainer.
+
 **Gathering professions.** Herbalism, Mining and Skinning level by gathering, not crafting. Where no recipe
 covers a stretch, the plan names the best herbs or ores the dataset's `gathering_nodes` say the skill opens, and
 where they grow, or says that the dataset lists none; Fishing lists its catches by zone.

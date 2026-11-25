@@ -88,3 +88,33 @@ func TestNonMinerBuysBarsInsteadOfCloth(t *testing.T) {
 		}
 	}
 }
+
+// boltData is a Tailoring world where a Bolt of Wool is a skill-up worth making early for the gloves
+// that take it later.
+func TestBoltsAreKeptForLaterRecipes(t *testing.T) {
+	ds := store.New(store.ReaderSource{
+		"items": table(t, []pItem{{1, "Wool Cloth", 1, 1, 7}, {2, "Bolt of Woolen Cloth", 1, 1, 7}, {20, "Bolt of Woolen Cloth", 1, 1, 7}, {21, "Woolen Cape", 1, 1, 4}}),
+		"recipes": table(t, []pRecipeSrc{
+			rs(500, "Tailoring", "Bolt of Woolen Cloth", i32(2), 1, "trainer", 70, 85, "trainer"),
+			rs(501, "Tailoring", "Woolen Cape", i32(21), 1, "trainer", 70, 90, "trainer"),
+		}),
+		"recipe_reagents":  table(t, []reagentRow{{500, 1, 3}, {501, 2, 2}}),
+		"profession_notes": table(t, rankTiers()),
+	})
+	p := &planner{ds: ds, prof: "Tailoring", names: map[int64]string{}, stock: map[int64]int{}}
+	recipes, err := Recipes(ds, "Tailoring")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !p.keptProduct(recipes[0]) || p.keptProduct(recipes[1]) {
+		t.Fatalf("only the bolt is a kept product")
+	}
+	p.keep(500, recipes, 12)
+	if p.stock[2] != 12 {
+		t.Errorf("stock %v, want 12 bolts kept", p.stock)
+	}
+	p.keep(501, recipes, 5)
+	if p.stock[21] != 0 {
+		t.Errorf("a cape is not kept: %v", p.stock)
+	}
+}
