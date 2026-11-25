@@ -292,3 +292,59 @@ func (ix *Index) NpcFaction(id int) string {
 	}
 	return ix.Npcs[id].Faction
 }
+
+// ClassOffer is a quest limited to one class (or a few) that the character can take now or soon:
+// StartLevel is the character level it opens at (0 when it is open to the character's level now).
+type ClassOffer struct {
+	Quest      *Quest
+	Giver      Place
+	StartLevel int
+	Now        bool
+}
+
+// ClassQuests lists the class-restricted quests the character's class can take now or within ahead
+// levels, with the nearest giver on any map (the character's map first). Race, prerequisites, done
+// and in-log quests follow Eligible; the band below the character's level is w.Below. Available
+// now first, then by level.
+func (ix *Index) ClassQuests(w Who, at Where, ahead int, skip func(name string) bool) []ClassOffer {
+	if ix == nil || w.ClassID <= 0 {
+		return nil
+	}
+	look := w
+	look.Level, look.Above, look.Below = w.Level+ahead, 0, w.Below+ahead
+	var out []ClassOffer
+	for _, q := range ix.Quests {
+		if !q.ClassQuest() || !q.Eligible(look) || (skip != nil && skip(q.Name)) {
+			continue
+		}
+		p, ok := ix.nearest(q.Starters, at)
+		if !ok {
+			for _, r := range q.Starters {
+				if !r.Object {
+					if p, ok = ix.NpcPlace(r.ID, at); ok {
+						break
+					}
+				}
+			}
+		}
+		if !ok {
+			continue
+		}
+		o := ClassOffer{Quest: q, Giver: p, Now: q.MinLevel <= w.Level}
+		if !o.Now {
+			o.StartLevel = q.MinLevel
+		}
+		out = append(out, o)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		a, b := out[i], out[j]
+		if a.Now != b.Now {
+			return a.Now
+		}
+		if a.Quest.Level != b.Quest.Level {
+			return a.Quest.Level < b.Quest.Level
+		}
+		return a.Quest.ID < b.Quest.ID
+	})
+	return out
+}

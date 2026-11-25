@@ -74,3 +74,20 @@ func (ix *Index) ProfessionTrainers(profession string) []Trainer {
 	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
 	return out
 }
+
+// ClassTrainers lists the NPCs whose subname names the class's trainer ("Warrior Trainer"), by id.
+func (ix *Index) ClassTrainers(class string) []Trainer {
+	class = strings.ToLower(strings.TrimSpace(class))
+	if ix == nil || class == "" {
+		return nil
+	}
+	var out []Trainer
+	for id, e := range ix.Npcs {
+		sub := " " + strings.ToLower(strings.Join(strings.Fields(e.Sub), " "))
+		if strings.Contains(sub, " "+class+" trainer") {
+			out = append(out, Trainer{ID: id, Name: e.Name, Sub: e.Sub})
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
+	return out
+}

@@ -135,3 +135,9 @@ the next pass. A failure or timeout becomes a short "Could not answer: ..." answ
 valid. If the output names one of the advisor's tools, it is listed on the answer's sources line.
 Answers already in the file are kept while their question is still queued. The file is checked against
 the slot rule (one data-only assignment) before an atomic replace.
+
+## What's new at my next level
+
+"What's new at my next level?", "What do I get at level 12?" and "what will I learn in the next two levels" are answered from the dataset's `class_spells` for the saved character's class: the new spells and ranks in the window (spells the capture lists as known, ranks a higher rank in the window replaces, and abilities granted without a trainer are left out), the trainer cost from `trainer_spells` where a corroborated offer carries one (unknown costs are said to be unknown and never added to the total), the nearest class trainer for the character's faction from the player's QuestieDB ("Warrior Trainer" subnames), a money check against the character's gold with a pointer to the Bags review, and the class quests (Questie quests restricted to the class) available now or within five levels, with giver, zone and coordinates. The "what it does" lines follow the know-how rules.
+
+The NEXT bar shows "New spells to train: <first two>" with the trainer when the capture lists known spells and some trainable spell at or below the character's level is still untrained. Class quests open now lead What next?, wherever their giver stands.

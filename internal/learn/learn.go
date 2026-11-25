@@ -501,3 +501,7 @@ func CountsText(m map[string]int) string {
 	}
 	return b.String()
 }
+
+// FactionOK reports whether an NPC's faction ("A", "H", "Alliance", "Horde", neutral or empty) serves
+// the character's faction.
+func FactionOK(npc, char string) bool { return factionOK(npc, char) }

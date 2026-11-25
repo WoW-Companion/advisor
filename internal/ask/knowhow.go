@@ -2,12 +2,15 @@ package ask
 
 import (
 	"fmt"
+	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/WoW-Companion/advisor/internal/advice"
 	"github.com/WoW-Companion/advisor/internal/character"
 	"github.com/WoW-Companion/advisor/internal/dungeons"
+	"github.com/WoW-Companion/advisor/internal/levelup"
 	"github.com/WoW-Companion/advisor/internal/professions"
 	"github.com/WoW-Companion/advisor/internal/store"
 )
@@ -32,6 +35,7 @@ const (
 	TopicDungeon    Topic = "dungeon"
 	TopicClass      Topic = "class"
 	TopicProfession Topic = "profession"
+	TopicLevelUp    Topic = "levelup"
 )
 
 // currentMarker precedes the player's own question when a chat history is prepended.
@@ -73,6 +77,10 @@ func Classify(text string, ds store.DataStore, c *character.Character) Class {
 	default:
 		cl.Kind = KindKnowHow
 	}
+	if subj, ok := levelUpSubject(t); ok {
+		cl.Kind, cl.Topic, cl.Subject = KindKnowHow, TopicLevelUp, subj
+		return cl
+	}
 	if d := dungeons.Mentioned(ds, nil, text); d != "" {
 		cl.Topic, cl.Subject = TopicDungeon, d
 		if cl.Kind == KindState && !hasAny(t, []string{"my ", "can i ", "what should i do", "where do i get", "how do i get"}) {
@@ -96,6 +104,29 @@ func Classify(text string, ds store.DataStore, c *character.Character) Class {
 		cl.Topic, cl.Subject = TopicClass, strings.ToLower(c.Class)
 	}
 	return cl
+}
+
+var atLevel = regexp.MustCompile(`\b(?:level|lvl)\s*(\d{1,2})\b`)
+var nextLevels = []string{"next level", "next lvl", "level up", "levelling up", "leveling up", "level after", "new at level", "get at level", "learn at level", "train at level", "next two levels", "next 2 levels"}
+
+// levelUpSubject reports a "what's new at my next level?" question: Subject is "next", "next2" (the
+// next two levels) or the level asked about. It must ask for what the level brings, not how to level.
+func levelUpSubject(t string) (string, bool) {
+	asks := hasAny(t, []string{"what's new", "whats new", "what is new", "what do i get", "what will i get", "what do i learn", "what will i learn",
+		"what can i train", "what spells", "what abilities", "what new", "what comes", "what does", "what's coming", "whats coming", "what to train", "worth training"})
+	if !asks {
+		return "", false
+	}
+	if hasAny(t, []string{"next two levels", "next 2 levels", "two levels"}) {
+		return "next2", true
+	}
+	if m := atLevel.FindStringSubmatch(t); m != nil {
+		return m[1], true
+	}
+	if hasAny(t, nextLevels) {
+		return "next", true
+	}
+	return "", false
 }
 
 func hasAny(t string, words []string) bool {
@@ -157,7 +188,7 @@ func (g Grounding) Footer() string {
 // Offer reports whether the answer may carry the Check Icy Veins button: a know-how answer about a
 // dungeon, class or profession that has not already been checked.
 func (g Grounding) Offer() bool {
-	return g.KnowHow && !g.Browsing && g.Topic != TopicNone
+	return g.KnowHow && !g.Browsing && g.Topic != TopicNone && g.Topic != TopicLevelUp
 }
 
 // GroundFor classifies q and, for a know-how question, builds the grounding pack. State questions
@@ -201,6 +232,21 @@ func ground(cc loaded, q Question) Grounding {
 	case TopicClass:
 		if s := classFacts(cc.c, cc.ds); s != "" {
 			g.Spells = true
+			b.WriteString(s)
+		}
+	case TopicLevelUp:
+		if c := cc.c; c.Level != nil {
+			from, to := *c.Level+1, *c.Level+1
+			switch n, err := strconv.Atoi(cl.Subject); {
+			case cl.Subject == "next2":
+				to++
+			case err == nil && n > *c.Level:
+				to = min(n, *c.Level+10)
+			case err == nil:
+				from, to = n, n
+			}
+			s, spells, quests := levelup.Facts(c, cc.ds, cc.qx, from, to)
+			g.Spells, g.Quests = spells, quests
 			b.WriteString(s)
 		}
 	case TopicProfession:

@@ -58,3 +58,14 @@ func TestWhatsNextWithoutQuestieHasNoPickUps(t *testing.T) {
 		}
 	}
 }
+
+func TestClassQuestOnAnotherMapLeadsThePlan(t *testing.T) {
+	ix := fakeIndex()
+	ix.Areas[903] = questie.Area{UIMap: 7002, Zone: "Faraway"}
+	ix.Npcs[101] = questie.Entity{Name: "Old Veteran", Spawns: []questie.Spawn{{Area: 903, X: 10, Y: 20}}}
+	ix.Quests[9] = &questie.Quest{ID: 9, Name: "Mage Rite", Level: 9, MinLevel: 8, Classes: 128, Starters: []questie.Ref{{ID: 101}}}
+	steps := WhatsNextWith(questieChar(), nil, ix)
+	if len(steps) == 0 || !IsClassQuest(steps[0]) || steps[0].QuestID != 9 || steps[0].Zone != "Faraway" {
+		t.Fatalf("first step = %+v", steps)
+	}
+}

@@ -54,23 +54,40 @@ func questieAvailable(c character.Character, qx *questie.Index) (Available, bool
 		return Available{}, false
 	}
 	var out Available
+	have := map[int]bool{}
+	step := func(o questie.Offer) {
+		if have[o.Quest.ID] {
+			return
+		}
+		have[o.Quest.ID] = true
+		out.Quests = append(out.Quests, offerStep(c, qx, o))
+	}
 	for _, o := range qx.Available(whoOf(c), at, items.Unobtainable) {
-		q := o.Quest
-		g := o.Giver
-		reason := fmt.Sprintf("level %d quest, you are %d (band %d to %d); not in your log, prerequisites done", q.Level, *c.Level, *c.Level-AvailBelow, *c.Level+AvailAbove)
-		if g.Dist >= 0 {
-			reason += fmt.Sprintf("; giver is %.0f map units away", g.Dist)
-		}
-		title := fmt.Sprintf("%s%s (level %d) from %s", PickUpPrefix, q.Name, q.Level, g)
-		if o.Class {
-			title = fmt.Sprintf("%s%s from %s", ClassQuestPrefix, q.Name, g)
-			reason += ". " + ClassQuestNote // the reward is never named: no local source gives it
-		}
-		out.Quests = append(out.Quests, Step{Kind: KindQuest, Title: title, Reason: reason,
-			Zone: g.Zone, QuestID: q.ID, Location: g.String(), Name: q.Name, Level: q.Level, NPC: g.Name,
-			Sources: []string{fmt.Sprintf("questie: QuestieDB %s quest %d", qx.DB, q.ID)}})
+		step(o)
+	}
+	// A class quest open to the character now leads the plan wherever its giver stands, not only on
+	// the map they are on.
+	for _, o := range qx.ClassQuests(whoOf(c), at, 0, items.Unobtainable) {
+		step(questie.Offer{Quest: o.Quest, Giver: o.Giver, Diff: o.Quest.Level - *c.Level, Class: true})
 	}
 	return out, true
+}
+
+func offerStep(c character.Character, qx *questie.Index, o questie.Offer) Step {
+	q := o.Quest
+	g := o.Giver
+	reason := fmt.Sprintf("level %d quest, you are %d (band %d to %d); not in your log, prerequisites done", q.Level, *c.Level, *c.Level-AvailBelow, *c.Level+AvailAbove)
+	if g.Dist >= 0 {
+		reason += fmt.Sprintf("; giver is %.0f map units away", g.Dist)
+	}
+	title := fmt.Sprintf("%s%s (level %d) from %s", PickUpPrefix, q.Name, q.Level, g)
+	if o.Class {
+		title = fmt.Sprintf("%s%s from %s", ClassQuestPrefix, q.Name, g)
+		reason += ". " + ClassQuestNote // the reward is never named: no local source gives it
+	}
+	return Step{Kind: KindQuest, Title: title, Reason: reason,
+		Zone: g.Zone, QuestID: q.ID, Location: g.String(), Name: q.Name, Level: q.Level, NPC: g.Name,
+		Sources: []string{fmt.Sprintf("questie: QuestieDB %s quest %d", qx.DB, q.ID)}}
 }
 
 // locate adds the nearest objective or turn-in place from Questie to the first MaxLocated quests

@@ -2,7 +2,6 @@ package digest
 
 import (
 	"fmt"
-	"sort"
 	"strings"
 	"unicode/utf8"
 
@@ -10,7 +9,9 @@ import (
 	"github.com/WoW-Companion/advisor/internal/character"
 	"github.com/WoW-Companion/advisor/internal/dungeons"
 	"github.com/WoW-Companion/advisor/internal/gear"
+	"github.com/WoW-Companion/advisor/internal/levelup"
 	"github.com/WoW-Companion/advisor/internal/store"
+	"github.com/WoW-Companion/advisor/internal/vendors"
 	"github.com/WoW-Companion/advisor/internal/wording"
 )
 
@@ -29,19 +30,24 @@ const (
 type TrainSpell struct {
 	ID   int
 	Name string
-	Rank int  // 0 when the ability has no rank
-	New  bool // false when it upgrades a known rank
+	Rank int   // 0 when the ability has no rank
+	New  bool  // false when it upgrades a known rank
+	Cost int64 // copper; 0 when not known
 }
 
 // classIDs maps the capture's class token to the dataset's class_id.
 var classIDs = map[string]int64{"WARRIOR": 1, "PALADIN": 2, "HUNTER": 3, "ROGUE": 4, "PRIEST": 5, "SHAMAN": 7, "MAGE": 8, "WARLOCK": 9, "DRUID": 11}
 
+type row struct {
+	TrainSpell
+	level int
+}
+
 // trainingLine is the class-training entry for the levels after opt.PrevLevel up to the character's
 // level, or for exactly the character's level when the earlier level is unknown. ok is false when
 // the dataset has no class_spells table or nothing unlocks.
 func trainingLine(c character.Character, ds store.DataStore, opt Options) (Line, bool) {
-	cid, known := classIDs[strings.ToUpper(c.Class)]
-	if ds == nil || !known || c.Level == nil {
+	if ds == nil || c.Level == nil {
 		return Line{}, false
 	}
 	level := *c.Level
@@ -49,34 +55,20 @@ func trainingLine(c character.Character, ds store.DataStore, opt Options) (Line,
 	if opt.PrevLevel > 0 && opt.PrevLevel < level {
 		from = opt.PrevLevel + 1
 	}
-	rows, err := ds.Filter("class_spells", store.Range{Column: "class_id", Min: cid, Max: cid}, store.Range{Column: "level", Min: int64(from), Max: int64(level)})
-	if err != nil || len(rows) == 0 {
+	// With the known spells in the capture the entry is everything still untrained up to the
+	// character's level; without them only the window of levels just reached.
+	known := c.KnownSpells != nil
+	if known {
+		from = 1
+	}
+	sp := levelup.Spells(c, ds, from, level)
+	var rs []row
+	for _, x := range sp {
+		rs = append(rs, row{TrainSpell{ID: int(x.ID), Name: x.Name, Rank: x.Rank, New: x.New, Cost: x.Cost}, x.Level})
+	}
+	if len(rs) == 0 {
 		return Line{}, false
 	}
-	type row struct {
-		TrainSpell
-		level int
-	}
-	var rs []row
-	seen := map[int]bool{}
-	for _, r := range rows {
-		id, _ := r["spell_id"].(int64)
-		name, _ := r["name"].(string)
-		lv, _ := r["level"].(int64)
-		if id == 0 || name == "" || seen[int(id)] {
-			continue
-		}
-		seen[int(id)] = true
-		rank, _ := r["rank"].(int64)
-		sup, _ := r["superseded_spell_id"].(int64)
-		rs = append(rs, row{TrainSpell{ID: int(id), Name: name, Rank: int(rank), New: sup == 0}, int(lv)})
-	}
-	sort.SliceStable(rs, func(i, j int) bool {
-		if rs[i].level != rs[j].level {
-			return rs[i].level < rs[j].level
-		}
-		return rs[i].Name < rs[j].Name
-	})
 	l := Line{Kind: KindTraining, Level: level}
 	for _, r := range rs {
 		if len(l.Spells) < MaxTrainSpells {
@@ -95,8 +87,16 @@ func trainingLine(c character.Character, ds store.DataStore, opt Options) (Line,
 		names = append(names, spellLabel(s))
 	}
 	l.Text = clip(when + ": " + strings.Join(names, ", "))
+	if known { // the player has untrained spells now: the NEXT bar says it is time to visit the trainer
+		l.Text = clip("New spells to train: " + strings.Join(names[:min(2, len(names))], ", "))
+	}
 	l.trainer(c)
-	l.Details = trainingDetails(l, from)
+	if l.NPC == "" {
+		if t, ok := levelup.NearestTrainer(c, opt.Questie); ok {
+			l.NPC, l.Zone, l.X, l.Y, l.HasXY = t.Name, t.Zone, t.X, t.Y, true
+		}
+	}
+	l.Details = trainingDetails(l, from, c, sp)
 	l.Asks, l.Ref = trainingAsks(l.Spells), trainingRef(level)
 	l.Why = trainingWhy(l.Spells)
 	return l, true
@@ -138,7 +138,7 @@ func (l *Line) trainer(c character.Character) {
 	}
 }
 
-func trainingDetails(l Line, from int) []string {
+func trainingDetails(l Line, from int, c character.Character, sp []levelup.Spell) []string {
 	var d []string
 	var fresh, up []string
 	for _, s := range l.Spells {
@@ -163,6 +163,13 @@ func trainingDetails(l Line, from int) []string {
 			w += fmt.Sprintf(" (%.0f, %.0f)", l.X, l.Y)
 		}
 		d = append(d, w)
+	}
+	if total, _ := levelup.Total(sp); total > 0 {
+		cost := "Bring about " + vendors.Money(total)
+		if m := levelup.MoneyLine(c, total); m != "" {
+			cost += "; you are short, sell from the Bags review"
+		}
+		d = append(d, cost)
 	}
 	if from < l.Level {
 		d = append(d, fmt.Sprintf("Unlocked between levels %d and %d", from, l.Level))
