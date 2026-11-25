@@ -598,7 +598,7 @@ async function load() {
 }
 
 // Streaming text is painted at most once per frame, so a fast stream stays smooth.
-function ask(question, ref) {
+function ask(question, ref, icy) {
   busy = true; send.disabled = true;
   scrollDown(true);
   put(null, 'q', question);
@@ -606,6 +606,7 @@ function ask(question, ref) {
   a.wowc = { q: question, char: who.value };
   const body = { character: who.value, text: question };
   if (ref) body.ref = ref;
+  if (icy) body.icy = true;
   api('/api/ask', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
     .then(r => r.ok ? r.json() : r.text().then(t => { throw new Error(t); }))
     .then(({ id }) => follow(id, a))
@@ -628,6 +629,7 @@ function follow(id, a) {
     if (e.status === 'done' && a.wowc && e.answer) chats.add(a.wowc.char, { id: 't' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), q: a.wowc.q, a: e.answer, at: Math.floor(Date.now() / 1000) });
     if (e.status === 'error') a.classList.add('err');
     for (const t of [e.usage, e.notice]) if (t) { const s = document.createElement('small'); s.textContent = t; if (t === e.usage && e.usage_tip) s.title = e.usage_tip; a.appendChild(s); }
+    for (const el of WowcAsking.sourceLine(document, e, () => { if (!busy && conn && a.wowc) ask(a.wowc.q, '', true); })) a.appendChild(el);
     if (e.status === 'done') { followCtx = e.context || null; showFollow(); }
     // Last, once the text, usage and notice lines and the chip are all in: the whole answer comes into view.
     WowcFollow.answerDone(log, stick, requestAnimationFrame, newAnswer);

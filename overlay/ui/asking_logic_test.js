@@ -209,3 +209,25 @@ console.log('ok');
   assert.strictEqual(A.workingLine(undefined, ''), 'Looking that up…');
   console.log('working line ok');
 }
+
+// The source line and the Check Icy Veins button: the line is the server's, the link only for an Icy
+// Veins WoW Forever page, and the button only when offered.
+{
+  const url = 'https://www.icy-veins.com/wow-forever/ragefire-chasm';
+  const asked = [];
+  const plain = A.sourceLine(doc, { footer: 'Tactics: general WoW knowledge · Levels and bosses: your game', icy_offer: true }, () => asked.push(1));
+  assert.strictEqual(plain.length, 2);
+  assert.strictEqual(plain[0].textContent, 'Tactics: general WoW knowledge · Levels and bosses: your game');
+  assert.strictEqual(plain[1].textContent, 'Check Icy Veins');
+  plain[1].onclick();
+  assert.deepStrictEqual(asked, [1]);
+  assert(plain[1].disabled, 'one press only');
+  assert.strictEqual(A.sourceLine(doc, { footer: 'x', icy_offer: false }, () => {}).length, 1, 'no button when the client cannot browse');
+  assert.strictEqual(A.sourceLine(doc, { footer: '', icy_offer: false }, () => {}).length, 0);
+  const checked = A.sourceLine(doc, { footer: 'Tactics: general WoW knowledge · Icy Veins', source_url: url }, () => {});
+  assert.strictEqual(checked.length, 1);
+  assert.strictEqual(checked[0].children[0].href, url);
+  assert.strictEqual(checked[0].textContent, 'Tactics: general WoW knowledge · Icy Veins');
+  const evil = A.sourceLine(doc, { footer: 'a · Icy Veins', source_url: 'https://evil.example/wow-forever/x' }, () => {});
+  assert.strictEqual(evil[0].children.length, 0, 'a link only to Icy Veins');
+}

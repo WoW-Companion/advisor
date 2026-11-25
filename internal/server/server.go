@@ -407,6 +407,7 @@ type DungeonInput struct {
 	Character string `json:"character,omitempty" jsonschema:"character name; omit when only one was captured"`
 	Limit     int    `json:"limit,omitempty" jsonschema:"how many ranked dungeons to list (default 3, or 2 with brief)"`
 	Brief     bool   `json:"brief,omitempty" jsonschema:"compact answer: the text rendering only, not the same data again as fields"`
+	Dungeon   string `json:"dungeon,omitempty" jsonschema:"a dungeon by name, to plan ahead: it is described whatever the character's level, with its level range, entrance, bosses, quests and drops"`
 }
 
 // DungeonOutput is the dungeon_plan result.
@@ -1028,9 +1029,10 @@ func New(cfg Config) *mcp.Server {
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "dungeon_plan",
 		Description: "Which dungeons suit one captured character (by name; omit if only one; optional limit, default 3). " +
+			"Pass dungeon (a name) to describe that one dungeon whatever the character's level (planning ahead): level range, entrance, every boss, the quests and the drops. " +
 			"Below every dungeon it says so, names the first one with its level range and entrance zone, and the levels to go. " +
 			"In range it lists up to 3 dungeons ranked by level fit and upgrade value, each with level range, entrance zone, the dungeon quests to pick up first (with givers) and the boss drops that are upgrades for the class and spec. " +
-			"Answer from its text directly: lead with the answer; ranges marked \"about\" are typical ranges; do not talk about the dataset or missing data.",
+			"Answer from its text directly: lead with the answer; ranges marked \"about\" are typical ranges.",
 	}, func(_ context.Context, _ *mcp.CallToolRequest, in DungeonInput) (*mcp.CallToolResult, DungeonOutput, error) {
 		none := DungeonOutput{}
 		f, errResult := load(cfg.SavedVariables)
@@ -1050,6 +1052,20 @@ func New(cfg Config) *mcp.Server {
 			if in.Brief {
 				limit = 2
 			}
+		}
+		if strings.TrimSpace(in.Dungeon) != "" {
+			p, togo, err := dungeons.Named(c, store.NewDir(cfg.Dataset), questie.ForSavedVariables(cfg.SavedVariables), in.Dungeon)
+			if err != nil {
+				return toolError("Could not plan dungeons: " + err.Error()), none, nil
+			}
+			if p == nil {
+				return toolError("No dungeon is named '" + in.Dungeon + "'."), none, nil
+			}
+			name := c.Name
+			if name == "" {
+				name = c.Key
+			}
+			return nil, DungeonOutput{name, []dungeons.DungeonPick{*p}, nil, dungeons.RenderNamed(c, *p, togo)}, nil
 		}
 		res, err := dungeons.PlanWith(c, store.NewDir(cfg.Dataset), questie.ForSavedVariables(cfg.SavedVariables))
 		if err != nil {

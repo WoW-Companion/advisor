@@ -246,15 +246,37 @@ func PromptWithFacts(q Question, length, facts string) string {
 
 // Prompt is what the agent is asked for q under cfg: PromptFor with the pre-fetched facts.
 func (c Config) Prompt(q Question) string {
+	p, _ := c.PromptGround(q)
+	return p
+}
+
+// PromptGround is Prompt and the grounding of a know-how question (the zero Grounding for any other).
+func (c Config) PromptGround(q Question) (string, Grounding) {
 	p := PromptWithFacts(q, c.Options.Length, Facts(c, q))
-	if !TalentQuestion(q.Text) {
-		return p
+	g := GroundFor(c, q)
+	if TalentQuestion(q.Text) {
+		if i := strings.Index(p, " Plain text, under "); i >= 0 {
+			p = p[:i] + talentRule() + p[i+1:]
+		}
+		return p, Grounding{}
 	}
-	i := strings.Index(p, " Plain text, under ")
-	if i < 0 {
-		return p
+	if !g.KnowHow {
+		return p, g
 	}
-	return p[:i] + talentRule() + p[i+1:]
+	p = strings.Replace(p, "; do not guess.", ". Facts about the character come only from the tools.", 1)
+	rule := KnowHowRule
+	if q.Icy {
+		rule += IcyRule
+	}
+	if i := strings.Index(p, " Plain text, under "); i >= 0 {
+		p = p[:i] + rule + p[i+1:]
+	}
+	if g.Pack != "" {
+		if i := strings.LastIndex(p, "\n\nQuestion: "); i >= 0 {
+			p = p[:i] + "\n\nFacts about what the question asks (ours; they win over your memory):\n---\n" + strings.TrimRight(g.Pack, "\n") + "\n---" + p[i:]
+		}
+	}
+	return p, g
 }
 
 // PathStepsRule is added when the player asks an upgrade's first question, the one that follows the

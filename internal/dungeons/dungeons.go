@@ -84,6 +84,10 @@ type DungeonPick struct {
 	Upgrades int
 	Drops    []Drop
 	Quests   []Quest
+	// Bosses are the dungeon's encounters by name, from the dataset.
+	Bosses []string
+	// ahead is set by Named: the pickups are not held to the character's level.
+	ahead bool
 	// UnlinkedBosses are the encounters the dataset cannot tie to a creature, so their drops are
 	// unknown.
 	UnlinkedBosses []string
@@ -102,6 +106,95 @@ type Result struct {
 	// ItemLevelOnly is true when upgrades were scored without stat weights.
 	ItemLevelOnly bool
 	Reason        string // why scoring fell back to item level, when it did
+}
+
+// candidates is the best upgrade candidate per item id.
+func candidates(gr gear.Result) map[int64]gear.Candidate {
+	cands := map[int64]gear.Candidate{}
+	for _, list := range gr.Slots {
+		for _, cd := range list {
+			if old, ok := cands[cd.Item.ID]; !ok || cd.Delta > old.Delta {
+				cands[cd.Item.ID] = cd
+			}
+		}
+	}
+	return cands
+}
+
+// pickOf is the dungeon an instances row describes; ok is false for a row that is not a dungeon
+// players run: not typed dungeon, or with neither an entrance (the dataset's zone or Questie's) nor
+// a group size (the client has map rows such as Ruins of Lordaeron that are neither).
+func pickOf(row store.Row, qx *questie.Index) (DungeonPick, bool) {
+	if row["instance_type"] != "dungeon" {
+		return DungeonPick{}, false
+	}
+	p := DungeonPick{MapID: i64(row["map_id"]), MinLevel: optInt(row["min_level"]), MaxLevel: optInt(row["max_level"]), MaxPlayers: optInt(row["max_players"])}
+	p.Name, _ = row["name"].(string)
+	p.EntranceZone, _ = row["entrance_zone_name"].(string)
+	if p.EntranceZone == "" && p.MaxPlayers == nil && qx.FindDungeon(int(p.MapID), p.Name) == nil {
+		return DungeonPick{}, false
+	}
+	src, _ := row["level_source"].(string)
+	p.Curated = src == "curated"
+	p.Faction, _ = row["faction"].(string)
+	if p.Faction == "" {
+		p.Faction = capitalFaction[strings.ToLower(p.EntranceZone)]
+	}
+	return p, true
+}
+
+// Named is the dungeon the player asked about by name (exactly, else by containment either way),
+// described whatever the character's level or side: it is for planning ahead, so nothing is
+// filtered. The int is how many levels the character is under its minimum (0 when open). It returns
+// nil when no dungeon has that name.
+func Named(c character.Character, ds store.DataStore, qx *questie.Index, name string) (*DungeonPick, int, error) {
+	if ds == nil {
+		return nil, 0, errors.New("no dataset configured")
+	}
+	rows, err := ds.Filter("instances", store.Range{Column: "map_id", Min: int64(0)})
+	if err != nil {
+		return nil, 0, errors.New("instances table: " + err.Error())
+	}
+	want := strings.ToLower(strings.TrimSpace(name))
+	if want == "" {
+		return nil, 0, nil
+	}
+	var best *DungeonPick
+	for _, row := range rows {
+		p, ok := pickOf(row, qx)
+		if !ok {
+			continue
+		}
+		n := strings.ToLower(p.Name)
+		if n == want {
+			best = &p
+			break
+		}
+		if best == nil && n != "" && (strings.Contains(n, want) || strings.Contains(want, n)) {
+			best = &p
+		}
+	}
+	if best == nil {
+		return nil, 0, nil
+	}
+	group := ""
+	if names, _ := brief.TopGroups(c.Talents); len(names) == 1 {
+		group = names[0]
+	}
+	cands := map[int64]gear.Candidate{}
+	if c.Level != nil {
+		if gr, err := gear.Find(c, ds, group, gear.Options{}); err == nil {
+			cands = candidates(gr)
+		}
+	}
+	best.ahead = true
+	fill(best, c, ds, cands, qx)
+	best.LevelUnknown = best.MinLevel == nil || best.MaxLevel == nil
+	togo := 0
+	if best.MinLevel != nil && c.Level != nil && *c.Level < *best.MinLevel {
+		togo = *best.MinLevel - *c.Level
+	}
+	return best, togo, nil
 }
 
 func i64(v any) int64 { n, _ := v.(int64); return n }
@@ -142,14 +235,7 @@ func PlanWith(c character.Character, ds store.DataStore, qx *questie.Index) (Res
 		return res, err
 	}
 	res.Spec, res.ItemLevelOnly, res.Reason = gr.Spec, gr.ItemLevelOnly, gr.Reason
-	cands := map[int64]gear.Candidate{} // best candidate per item id
-	for _, list := range gr.Slots {
-		for _, cd := range list {
-			if old, ok := cands[cd.Item.ID]; !ok || cd.Delta > old.Delta {
-				cands[cd.Item.ID] = cd
-			}
-		}
-	}
+	cands := candidates(gr)
 
 	rows, err := ds.Filter("instances", store.Range{Column: "map_id", Min: int64(0)})
 	if err != nil {
@@ -157,17 +243,9 @@ func PlanWith(c character.Character, ds store.DataStore, qx *questie.Index) (Res
 	}
 	var all []DungeonPick // every ranged dungeon the character's side may enter
 	for _, row := range rows {
-		if row["instance_type"] != "dungeon" {
+		p, ok := pickOf(row, qx)
+		if !ok {
 			continue
-		}
-		p := DungeonPick{MapID: i64(row["map_id"]), MinLevel: optInt(row["min_level"]), MaxLevel: optInt(row["max_level"]), MaxPlayers: optInt(row["max_players"])}
-		p.Name, _ = row["name"].(string)
-		p.EntranceZone, _ = row["entrance_zone_name"].(string)
-		src, _ := row["level_source"].(string)
-		p.Curated = src == "curated"
-		p.Faction, _ = row["faction"].(string)
-		if p.Faction == "" {
-			p.Faction = capitalFaction[strings.ToLower(p.EntranceZone)]
 		}
 		if p.Faction != "" && c.Faction != "" && !strings.EqualFold(p.Faction, c.Faction) {
 			continue
@@ -240,6 +318,11 @@ func meanwhile(c character.Character) string {
 // fill adds the boss drops that are upgrades, and the linked open quests, to a pick.
 func fill(p *DungeonPick, c character.Character, ds store.DataStore, cands map[int64]gear.Candidate, qx *questie.Index) {
 	bosses, _ := ds.Filter("instance_bosses", store.Range{Column: "map_id", Min: p.MapID, Max: p.MapID})
+	for _, b := range bosses {
+		if name, _ := b["name"].(string); name != "" {
+			p.Bosses = append(p.Bosses, name)
+		}
+	}
 	seen := map[[2]int64]bool{}
 	items := map[int64]bool{}
 	for _, b := range bosses {
@@ -286,6 +369,16 @@ func fill(p *DungeonPick, c character.Character, ds store.DataStore, cands map[i
 // maxPickups is how many dungeon quests a pick lists.
 const maxPickups = 3
 
+// maxAhead is how many dungeon quests a named dungeon lists.
+const maxAhead = 8
+
+func (p *DungeonPick) limit() int {
+	if p.ahead {
+		return maxAhead
+	}
+	return maxPickups
+}
+
 // pickups are the dungeon's quests from instance_quests that the character can take now: not
 // already in the log, not above their level by more than the window, and not the other side's.
 func pickups(p *DungeonPick, c character.Character, ds store.DataStore) []Pickup {
@@ -316,14 +409,14 @@ func pickups(p *DungeonPick, c character.Character, ds store.DataStore) []Pickup
 		if f.Faction != "" && c.Faction != "" && !strings.EqualFold(f.Faction, c.Faction) && !strings.EqualFold(f.Faction, "both") {
 			continue
 		}
-		if f.Level > level+LevelWindow {
+		if f.Level > level+LevelWindow && !p.ahead {
 			continue
 		}
 		out = append(out, Pickup{ID: id, Title: f.Name, Giver: quests.GiverName(ds, id)})
 	}
 	sort.SliceStable(out, func(i, j int) bool { return out[i].ID < out[j].ID })
-	if len(out) > maxPickups {
-		out = out[:maxPickups]
+	if n := p.limit(); len(out) > n {
+		out = out[:n]
 	}
 	return out
 }
@@ -399,15 +492,53 @@ func (p *DungeonPick) questiePickups(qx *questie.Index, in questie.Inside, c cha
 		level = *c.Level
 	}
 	for _, q := range in.Quests {
-		if len(p.Pickups) >= maxPickups {
+		if len(p.Pickups) >= p.limit() {
 			return
 		}
 		if have[int64(q.ID)] || titles[strings.ToLower(q.Name)] || q.Restricted || q.Parent != 0 || len(q.Starters) == 0 {
 			continue
 		}
-		if level > 0 && (q.Level > level+LevelWindow || q.MinLevel > level) {
+		if level > 0 && !p.ahead && (q.Level > level+LevelWindow || q.MinLevel > level) {
 			continue
 		}
 		p.Pickups = append(p.Pickups, Pickup{ID: int64(q.ID), Title: q.Name, Giver: qx.Describe(q.Starters), Questie: true})
 	}
+}
+
+// Mentioned is the name of the one dungeon a text names: its full name, else (when it has several
+// words and the first is distinctive) that first word. "" when none matches or the word is shared by
+// several dungeons.
+func Mentioned(ds store.DataStore, qx *questie.Index, text string) string {
+	if ds == nil {
+		return ""
+	}
+	rows, err := ds.Filter("instances", store.Range{Column: "map_id", Min: int64(0)})
+	if err != nil {
+		return ""
+	}
+	hay := " " + strings.ToLower(strings.NewReplacer("'", "", "’", "", "?", " ", ",", " ", ".", " ", "!", " ").Replace(text)) + " "
+	word := map[string][]string{}
+	var longest string
+	for _, row := range rows {
+		p, ok := pickOf(row, qx)
+		if !ok || p.Name == "" {
+			continue
+		}
+		n := strings.ToLower(p.Name)
+		if strings.Contains(hay, " "+n+" ") && len(n) > len(longest) {
+			longest = p.Name
+		}
+		if f := strings.Fields(n); len(f) > 1 && len(f[0]) >= 6 {
+			word[f[0]] = append(word[f[0]], p.Name)
+		}
+	}
+	if longest != "" {
+		return longest
+	}
+	for w, ns := range word {
+		if len(ns) == 1 && strings.Contains(hay, " "+w+" ") {
+			return ns[0]
+		}
+	}
+	return ""
 }

@@ -86,6 +86,9 @@ type Question struct {
 	// Ref is the subject the question is about (a digest entry's ref, see docs/digest.md); empty for a
 	// free-typed question. The advisor expands it into the entry's facts.
 	Ref string
+	// Icy is set when the player pressed Check Icy Veins: the same question is asked again and the AI
+	// client may read the matching WoW Forever guide at runtime.
+	Icy bool
 }
 
 // Config is one pass's settings.
@@ -166,7 +169,11 @@ func execOnce(ctx context.Context, cfg Config, q Question, prompt string, extra 
 	}
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-	argv := append(WithModel(Argv(cfg.Command, prompt, cfg.MCPConfig), cfg.Command, cfg.Options), extra...)
+	argv := WithModel(Argv(cfg.Command, prompt, cfg.MCPConfig), cfg.Command, cfg.Options)
+	if q.Icy {
+		argv = WithBrowse(argv, cfg.Command)
+	}
+	argv = append(argv, extra...)
 	cmd, err := Launch(ctx, argv, "WOWC_QUESTION="+q.Text, "WOWC_CHARACTER="+q.Character, "WOWC_MCP_CONFIG="+cfg.MCPConfig)
 	if err != nil {
 		return false, &provider.StartError{Msg: err.Error()}

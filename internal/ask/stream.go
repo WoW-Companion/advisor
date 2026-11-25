@@ -33,6 +33,7 @@ type Usage struct {
 	Model    string   // the model that ran: reported by Claude, else the one the command line selected
 	Notice   string   // a one-line notice for the player, e.g. a rejected flag that was dropped
 	Saved    string   // the line a successful set_character_profile returned, for the end of the answer
+	Pages    []string // the web pages the client read for Check Icy Veins, in order
 	Entities []Entity // what the answer's tools touched, oldest first (empty when the client shows no tool trace)
 }
 
@@ -94,7 +95,7 @@ func RespondUsage(ctx context.Context, cfg Config, q Question, prompt string, st
 
 func respondOne(ctx context.Context, cfg Config, q Question, prompt string, stream bool, onText func(string)) (text string, streamed bool, usage Usage, err error) {
 	if cfg.API != nil {
-		return respondAPI(ctx, cfg, prompt, onText)
+		return respondAPI(ctx, cfg, prompt, q.Icy, onText)
 	}
 	usage.Model = ModelUsed(cfg.Command, cfg.Options)
 	cfg.Notice = func(n string) { usage.Notice = n }
@@ -112,6 +113,7 @@ func respondOne(ctx context.Context, cfg Config, q Question, prompt string, stre
 	var result string
 	var failed bool
 	var trace Trace
+	var pages []string
 	// The text of the assistant message being streamed is held until it ends: a message that stops to
 	// call a tool is the model thinking aloud and is dropped; only the last message is the answer.
 	var held []string
@@ -132,6 +134,7 @@ func respondOne(ctx context.Context, cfg Config, q Question, prompt string, stre
 					Type      string          `json:"type"`
 					ID        string          `json:"id"`
 					Name      string          `json:"name"`
+					Input     json.RawMessage `json:"input"`
 					ToolUseID string          `json:"tool_use_id"`
 					IsError   bool            `json:"is_error"`
 					Content   json.RawMessage `json:"content"`
@@ -181,6 +184,14 @@ func respondOne(ctx context.Context, cfg Config, q Question, prompt string, stre
 				case c.Type == "tool_use":
 					held = nil
 					trace.Use(c.ID, c.Name)
+					if c.Name == "WebFetch" {
+						var in struct {
+							URL string `json:"url"`
+						}
+						if json.Unmarshal(c.Input, &in) == nil && in.URL != "" {
+							pages = append(pages, in.URL)
+						}
+					}
 				case c.Type == "tool_result" && !c.IsError:
 					trace.Result(c.ToolUseID, rawText(c.Content))
 				}
@@ -208,7 +219,7 @@ func respondOne(ctx context.Context, cfg Config, q Question, prompt string, stre
 	if failed {
 		return "", false, usage, errors.New("the agent reported an error")
 	}
-	usage.Entities, usage.Saved = trace.Entities(), trace.Saved()
+	usage.Entities, usage.Saved, usage.Pages = trace.Entities(), trace.Saved(), pages
 	text = strings.TrimSpace(result)
 	if text == "" {
 		text = strings.TrimSpace(acc.String())

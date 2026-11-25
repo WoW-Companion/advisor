@@ -23,6 +23,8 @@ type API struct {
 	HasKey  bool
 	// MaxTurns, Timeout and MaxResult override the loop's defaults (zero: MaxTurns, Config.Timeout, the loop's).
 	MaxResult int
+	// HTTP is the client the Icy Veins fetch tool uses (nil: a default with a timeout).
+	HTTP *http.Client
 }
 
 // mcpTools serves the advisor's tools to the loop through an MCP client session.
@@ -97,7 +99,7 @@ func splitPrompt(p string) (system, user string) {
 }
 
 // respondAPI answers through a provider API.
-func respondAPI(ctx context.Context, cfg Config, prompt string, onText func(string)) (text string, streamed bool, usage Usage, err error) {
+func respondAPI(ctx context.Context, cfg Config, prompt string, icy bool, onText func(string)) (text string, streamed bool, usage Usage, err error) {
 	a := cfg.API
 	usage.Model = a.Model
 	if a.NeedKey && !a.HasKey {
@@ -114,6 +116,11 @@ func respondAPI(ctx context.Context, cfg Config, prompt string, onText func(stri
 	sys, user := splitPrompt(prompt)
 	var trace Trace
 	tools = tracedTools{tools, &trace}
+	var web *icyTools
+	if icy {
+		web = newIcyTools(tools, a.HTTP)
+		tools = web
+	}
 	n := 0
 	loop := provider.Loop{Adapter: a.Adapter, Model: a.Model, System: sys, Prompt: user, Tools: tools,
 		MaxTurns: MaxTurns, Timeout: cfg.Timeout, MaxResult: a.MaxResult, Stream: onText != nil,
@@ -125,6 +132,9 @@ func respondAPI(ctx context.Context, cfg Config, prompt string, onText func(stri
 		}}
 	text, u, err := loop.Run(ctx)
 	usage.Entities, usage.Saved = trace.Entities(), trace.Saved()
+	if web != nil {
+		usage.Pages = web.Pages()
+	}
 	usage.In, usage.Out, usage.Cached = u.In, u.Out, u.Cached
 	usage.Tokens = u.In + u.Out + u.Cached
 	if err != nil {
