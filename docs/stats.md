@@ -17,6 +17,24 @@ profile; else the class fallback.
 shown as Balanced, More damage, More survivability). "More damage" lifts the damage stats and eases Stamina and the
 defensive stats; "More survivability" does the reverse.
 
+## One priority, the primary stat first
+
+`Prof.Order()` is the one ordered priority (stats with weight 0.3 or more; armor too, for tanks). **The primary
+stat always leads**: Intellect for casters and healers, Strength or Agility for melee and hunters, Stamina plus
+armor for tanks. A stat preference moves the other weights next to it and never past it (`Adjust` caps them at
+95% of the primary's weight): "More survivability" adds Stamina, it never replaces Intellect.
+
+The stat check's first insight is that priority in a sentence ("Shadow: Intellect first (your mana and spell crit),
+then Stamina for safer pulls."); the second names the top two item suffixes that carry the lead stat, ranked by
+the weights of the stats they give (`internal/stats/suffix.go`: Eagle Sta+Int, Owl Int+Spi, Whale, Bear, Tiger,
+Monkey, Falcon, Wolf, Boar, Gorilla and the single-stat ones). The suffix table is curated (the dataset has item
+names and stat ids, not the suffix list); a suffix is only named when the dataset holds an item with that name
+and, where its stats are known, those stats. Gear advice (the Auction House shopping lists) uses the same list.
+
+When the addon records per-point effects in `WoWCompanionDB.stats[key].per` (`int_mana`, `int_crit`, `agi_crit`,
+`agi_ap`, `str_ap`, `spi_regen`, `sta_health`, all optional), the lead stat's words become the client's numbers
+("+15 mana, +0.06% spell crit a point"). Without them the general words stay.
+
 ## What the check reads
 
 1. The addon's recorded totals, `WoWCompanionDB.stats[<character key>] = { at, level, str, agi, sta, int, spi,

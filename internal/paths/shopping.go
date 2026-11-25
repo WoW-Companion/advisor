@@ -2,7 +2,6 @@ package paths
 
 import (
 	"fmt"
-	"sort"
 	"strings"
 
 	"github.com/WoW-Companion/advisor/internal/character"
@@ -24,40 +23,16 @@ type Shopping struct {
 	Examples []string `json:"examples,omitempty" jsonschema:"one to three base items that drop in this range"`
 	Line     string   `json:"line" jsonschema:"one line for the digest"`
 	// Desc is the list's kind of item, level range and suffixes alone: no slot, no gain.
-	Desc  string   `json:"-"`
+	Desc string `json:"-"`
+	// Armor is the armor material of an armor slot ("cloth"), empty for other slots.
+	Armor string   `json:"-"`
 	Steps []string `json:"search_steps" jsonschema:"the in-game search, step by step"`
 	// Best is the best upgrade among the items that fit the list.
 	Best gear.Candidate `json:"-"`
 }
 
-// suffix is a random stat suffix of world-drop gear: its name, the stats it gives (the client's stat
-// type ids) and the words for them. A curated game-fact table; a suffix is only offered when the
-// dataset holds an item with that name (see verified).
-type suffix struct {
-	Name  string
-	Stats []int64
-	Words string
-}
-
-// Stat type ids as the dataset holds them (see internal/gear).
-const (
-	statAgility, statStrength, statIntellect, statSpirit, statStamina = 3, 4, 5, 6, 7
-)
-
-var suffixes = map[string]suffix{
-	"bear":      {"of the Bear", []int64{statStrength, statStamina}, "Strength + Stamina"},
-	"tiger":     {"of the Tiger", []int64{statStrength, statAgility}, "Strength + Agility"},
-	"monkey":    {"of the Monkey", []int64{statAgility, statStamina}, "Agility + Stamina"},
-	"eagle":     {"of the Eagle", []int64{statStamina, statIntellect}, "Stamina + Intellect"},
-	"owl":       {"of the Owl", []int64{statIntellect, statSpirit}, "Intellect + Spirit"},
-	"falcon":    {"of the Falcon", []int64{statAgility, statIntellect}, "Agility + Intellect"},
-	"strength":  {"of Strength", []int64{statStrength}, "Strength"},
-	"agility":   {"of Agility", []int64{statAgility}, "Agility"},
-	"stamina":   {"of Stamina", []int64{statStamina}, "Stamina"},
-	"intellect": {"of Intellect", []int64{statIntellect}, "Intellect"},
-}
-
-// wantedSuffixes is what fits a class and role, best first. A role the table lacks falls back to the
+// wantedSuffixes is what fits a class and role, best first, for a character with no play style (with one,
+// the stat model ranks the suffixes, see stats.Prof.RankSuffixes). A role the table lacks falls back to the
 // class's damage list.
 var wantedSuffixes = map[string]map[string][]string{
 	"WARRIOR": {"damage": {"bear", "strength", "tiger"}, "tank": {"bear", "stamina", "monkey", "strength"}},
@@ -88,65 +63,15 @@ func roleOf(class string, p *character.Profile) string {
 	return "damage"
 }
 
-// orderSuffixes puts the suffixes in the order of the stat weights of the character's play style: the
-// one giving the most wanted stats first (the sum of the weights of its stats; a tie keeps the curated
-// order). Without a play style the curated order stands.
-func orderSuffixes(c character.Character, keys []string) []string {
-	p, ok := statcompass.For(c, "")
-	if !ok {
-		return keys
-	}
-	score := func(key string) float64 {
-		sum := 0.0
-		for _, id := range suffixes[key].Stats {
-			sum += p.Weights[statNames[id]]
-		}
-		return sum
-	}
-	out := append([]string(nil), keys...)
-	sort.SliceStable(out, func(i, j int) bool { return score(out[i]) > score(out[j]) })
-	return out
-}
-
-var statNames = map[int64]string{statAgility: statcompass.Agility, statStrength: statcompass.Strength, statIntellect: statcompass.Intellect, statSpirit: statcompass.Spirit, statStamina: statcompass.Stamina}
-
 // baseName is an item's name without a known stat suffix: "Striking Hammer of the Bear" is
 // "Striking Hammer".
 func baseName(name string) string {
-	for _, s := range suffixes {
+	for _, s := range statcompass.Suffixes {
 		if t := strings.TrimSuffix(name, " "+s.Name); t != name && t != "" {
 			return t
 		}
 	}
 	return name
-}
-
-// verified reports whether the dataset holds an item with the suffix in its name (and, where that
-// item's stats are known, the stats the suffix says). A suffix nothing in the dataset confirms is
-// left out rather than trusted.
-func verified(s suffix, rows []store.Row) bool {
-	for _, r := range rows {
-		if name := str(r["name"]); !strings.HasSuffix(name, " "+s.Name) {
-			continue
-		}
-		if r["stats_status"] != "known" {
-			return true
-		}
-		have := map[int64]bool{}
-		if l, ok := r["stat_types"].([]any); ok {
-			for _, v := range l {
-				have[i64(v)] = true
-			}
-		}
-		ok := true
-		for _, st := range s.Stats {
-			ok = ok && have[st]
-		}
-		if ok {
-			return true
-		}
-	}
-	return false
 }
 
 // itemNoun is what to call a slot's item when searching: "chest", "boots".
@@ -156,6 +81,9 @@ var itemNoun = map[string]string{
 }
 
 const shopTry = 60
+
+// MaxSuffixes is how many suffixes a shopping list names: the top two for the player's priority.
+const MaxSuffixes = 2
 
 // Shop builds the slot's shopping list from its upgrade candidates, best first. bestKind is the kind
 // of the best way already found for the slot ("" when none): a quest in reach or a craft is better
@@ -226,11 +154,19 @@ func Shop(c character.Character, ds store.DataStore, slot string, cands []gear.C
 
 	rows, _ := ds.Filter("items", store.Range{Column: "required_level", Min: 0, Max: int64(*c.Level + gear.EquipWindow)})
 	var quoted []string
-	for _, key := range orderSuffixes(c, wantedSuffixes[strings.ToUpper(c.Class)][roleOf(c.Class, c.Profile)]) {
-		if s := suffixes[key]; verified(s, rows) {
-			sh.Suffixes = append(sh.Suffixes, fmt.Sprintf("%s (%s)", s.Name, s.Words))
-			quoted = append(quoted, "'"+s.Name+"'")
+	var top []statcompass.Suffix
+	if p, ok := statcompass.For(c, ""); ok {
+		top = p.VerifiedTop(rows, MaxSuffixes)
+	} else {
+		for _, key := range wantedSuffixes[strings.ToUpper(c.Class)][roleOf(c.Class, c.Profile)] {
+			if s, ok := statcompass.SuffixByKey(key); ok && statcompass.Verified(s, rows) && len(top) < MaxSuffixes {
+				top = append(top, s)
+			}
 		}
+	}
+	for _, s := range top {
+		sh.Suffixes = append(sh.Suffixes, fmt.Sprintf("%s (%s)", s.Name, s.Words))
+		quoted = append(quoted, "'"+s.Name+"'")
 	}
 	name := wording.SlotName(slot, sh.Best.Item.Slot)
 	sh.Desc = fmt.Sprintf("any green %s, level %s", sh.Type, levelRange(lo, hi))
@@ -238,6 +174,9 @@ func Shop(c character.Character, ds store.DataStore, slot string, cands []gear.C
 		sh.Desc += ", " + joinOr(quoted)
 	}
 	sh.Line = name + ": " + sh.Desc + " — cheap on the Auction House"
+	if isArmorSlot {
+		sh.Armor = armor
+	}
 	sh.Steps = searchSteps(sh, isArmorSlot, armor)
 	return sh, true
 }

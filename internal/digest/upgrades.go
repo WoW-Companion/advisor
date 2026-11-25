@@ -85,6 +85,7 @@ func upgradeLines(c character.Character, ds store.DataStore, planQuests map[int]
 	})
 	opt := paths.Options{PlanQuests: planQuests, Questie: qx}
 	taken := map[int64]bool{}
+	var shops []shopAt
 	for _, slot := range slots {
 		var (
 			found    bool
@@ -112,7 +113,8 @@ func upgradeLines(c character.Character, ds store.DataStore, planQuests map[int]
 			bestKind = foundWay.Kind
 		}
 		if sh, ok := paths.Shop(c, ds, slot, res.Slots[slot], bestKind); ok {
-			lines = append(lines, shoppingLine(c, slot, sh))
+			shops = append(shops, shopAt{len(lines), slot, sh})
+			lines = append(lines, Line{}) // placeholder: groupShopping fills it
 			continue
 		}
 		if !found {
@@ -136,7 +138,7 @@ func upgradeLines(c character.Character, ds store.DataStore, planQuests map[int]
 			}
 		}
 	}
-	return lines, nil, link
+	return groupShopping(c, lines, shops), nil, link
 }
 
 // upgradeLine is one entry, in plain words: no item levels, no ids.
@@ -257,4 +259,149 @@ func oneLineHow(s string) string {
 func UpgradeQuests(c character.Character, ds store.DataStore, qx *questie.Index) map[int]string {
 	_, _, link := upgradeLines(c, ds, nil, qx, "")
 	return link.questWhy
+}
+
+// shopAt is a shopping list and where its placeholder sits among the lines.
+type shopAt struct {
+	idx  int
+	slot string
+	sh   paths.Shopping
+}
+
+// groupable are the slots whose shopping lists can be one line: the armor slots and the cloak.
+func groupable(sh paths.Shopping) bool { return sh.Armor != "" || sh.Slot == "back" }
+
+// groupShopping fills the placeholders: shopping lists with the same level range and suffixes (and the
+// same armor material; the cloak joins the first group with the same range and suffixes) become one
+// line, "Green cloth gear, level 20–24, 'of the Eagle' or 'of the Owl': helm, shoulders, ...". A list
+// that is alone keeps its own line. Specific upgrades (not shopping lists) are untouched.
+func groupShopping(c character.Character, lines []Line, shops []shopAt) []Line {
+	key := func(sh paths.Shopping, material string) string {
+		return fmt.Sprintf("%s|%d|%d|%s", material, sh.MinLevel, sh.MaxLevel, strings.Join(sh.Suffixes, ";"))
+	}
+	groups := map[string][]int{} // key -> indexes into shops
+	var order []string
+	for i, sa := range shops {
+		if !groupable(sa.sh) || sa.sh.Armor == "" {
+			continue
+		}
+		k := key(sa.sh, sa.sh.Armor)
+		if _, ok := groups[k]; !ok {
+			order = append(order, k)
+		}
+		groups[k] = append(groups[k], i)
+	}
+	for i, sa := range shops { // the cloak joins the first armor group of its range and suffixes
+		if sa.sh.Slot != "back" || sa.sh.Armor != "" {
+			continue
+		}
+		for _, k := range order {
+			first := shops[groups[k][0]].sh
+			if key(first, "") == key(sa.sh, "") {
+				groups[k] = append(groups[k], i)
+				break
+			}
+		}
+	}
+	drop, grouped := map[int]bool{}, map[int]bool{}
+	for _, k := range order {
+		idx := groups[k]
+		if len(idx) < 2 {
+			continue
+		}
+		sort.Ints(idx)
+		lines[shops[idx[0]].idx] = groupLine(c, shops, idx)
+		for _, i := range idx[1:] {
+			drop[shops[i].idx] = true
+		}
+		for _, i := range idx {
+			grouped[i] = true
+		}
+	}
+	for i, sa := range shops {
+		if !grouped[i] {
+			lines[sa.idx] = shoppingLine(c, sa.slot, sa.sh)
+		}
+	}
+	out := lines[:0:0]
+	for i, l := range lines {
+		if !drop[i] {
+			out = append(out, l)
+		}
+	}
+	return out
+}
+
+// groupLine is one line for several slots' shopping lists that share a level range and suffixes.
+func groupLine(c character.Character, shops []shopAt, idx []int) Line {
+	first := shops[idx[0]].sh
+	var names []string
+	best := first.Best
+	empty := false
+	for _, i := range idx {
+		sa := shops[i]
+		names = append(names, groupSlotWord(sa.slot))
+		if sa.sh.Best.Delta > best.Delta {
+			best = sa.sh.Best
+		}
+		empty = empty || sa.sh.Best.Empty
+	}
+	var quoted []string
+	for _, x := range first.Suffixes {
+		n, _, _ := strings.Cut(x, " (")
+		quoted = append(quoted, "'"+n+"'")
+	}
+	head := "Green " + first.Armor + " gear, level " + levelRangeWord(first)
+	if len(quoted) > 0 {
+		head += ", " + joinOr(quoted)
+	}
+	text := head + ": " + strings.Join(names, ", ")
+	if utf8.RuneCountInString(text) > MaxText {
+		text = head
+	}
+	best.Empty = best.Empty || empty
+	gain := GainWord(best)
+	l := Line{Text: text, Slot: wording.Upper(strings.Join(names, ", ")), Wear: "Wear now", Gain: gain, How: auctionHow(first), PathKind: paths.Auction}
+	details := []string{"Slots: " + strings.Join(names, ", ")}
+	if len(first.Suffixes) > 0 {
+		details = append(details, "Suffixes that fit: "+strings.Join(first.Suffixes, "; "))
+	}
+	if len(first.Examples) > 0 {
+		details = append(details, "Examples: "+strings.Join(first.Examples, ", "))
+	}
+	if len(first.Steps) > 0 {
+		details = append(details[:min(len(details), MaxDetails-1)], "Search steps: "+strings.Join(first.Steps, " "))
+	}
+	l.Details = finishDetails(details)
+	var sufs []string
+	for _, q := range quoted {
+		sufs = append(sufs, strings.Trim(q, "'"))
+	}
+	l.Asks, l.Ref = shoppingAsks(strings.ToLower(strings.Join(names, ", ")), sufs, ""), noteRef("auction-"+first.Slot)
+	return l
+}
+
+// slotWords are the slots as an item is called when shopping.
+var slotWords = map[string]string{"head": "helm", "shoulder": "shoulders", "back": "cloak", "chest": "chest",
+	"wrist": "bracers", "hands": "gloves", "waist": "belt", "legs": "legs", "feet": "boots"}
+
+func groupSlotWord(slot string) string {
+	if w, ok := slotWords[slot]; ok {
+		return w
+	}
+	return strings.ToLower(wording.SlotName(slot, 0))
+}
+
+func levelRangeWord(sh paths.Shopping) string {
+	if sh.MinLevel >= sh.MaxLevel {
+		return fmt.Sprint(sh.MaxLevel)
+	}
+	return fmt.Sprintf("%d–%d", sh.MinLevel, sh.MaxLevel)
+}
+
+func joinOr(l []string) string {
+	if len(l) < 2 {
+		return strings.Join(l, "")
+	}
+	return strings.Join(l[:len(l)-1], ", ") + " or " + l[len(l)-1]
 }

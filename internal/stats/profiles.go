@@ -260,8 +260,16 @@ func Lookup(class, spec, role string) (Profile, bool) {
 func ForClass(class string) (Profile, bool) { return Lookup(class, "", "") }
 
 // Adjust returns the weights with a stat preference applied: "damage" lifts the damage stats and
-// eases the survival ones, "survival" the reverse. Weights stay within 0 to 1.
+// eases the survival ones, "survival" the reverse. Weights stay within 0 to 1, and the primary stat
+// (the one the profile weights highest) always keeps the lead: a preference moves the other stats
+// up or down next to it but never past it.
 func Adjust(weights map[string]float64, pref string) map[string]float64 {
+	lead, lw := "", -1.0
+	for _, k := range append(append([]string{}, Primary...), Armor, Dodge, Parry, Block) {
+		if v, ok := weights[k]; ok && v > lw {
+			lead, lw = k, v
+		}
+	}
 	out := make(map[string]float64, len(weights))
 	for k, v := range weights {
 		f := 1.0
@@ -282,8 +290,19 @@ func Adjust(weights map[string]float64, pref string) map[string]float64 {
 		}
 		out[k] = min(v*f, 1)
 	}
+	if lead != "" {
+		out[lead] = weights[lead]
+		for k, v := range out {
+			if k != lead {
+				out[k] = min(v, weights[lead]*leadMargin)
+			}
+		}
+	}
 	return out
 }
+
+// leadMargin keeps every other weight at most this share of the primary stat's.
+const leadMargin = 0.95
 
 // specMatches: "test discipline" and "feral" both match their trees.
 func specMatches(spec, tree string) bool {

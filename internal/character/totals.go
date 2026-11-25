@@ -13,6 +13,14 @@ type Totals struct {
 	Level                                *int
 	Str, Agi, Sta, Int, Spi              *float64
 	Armor, AP, Crit, Dodge, Parry, Block *float64
+	// Per are what one point of a stat does for this character, as the client reports it (the addon's
+	// stats[key].per table); nil when the addon wrote none.
+	Per *PerPoint
+}
+
+// PerPoint are per-point effects, every field optional.
+type PerPoint struct {
+	IntMana, IntCrit, AgiCrit, AgiAP, StrAP, SpiRegen, StaHealth *float64
 }
 
 func num(v any) *float64 {
@@ -71,7 +79,21 @@ func totalsOf(vars map[string]any, key, name string) *Totals {
 	return &Totals{At: asInt64(e["at"]), Level: asInt(e["level"]),
 		Str: num(e["str"]), Agi: num(e["agi"]), Sta: num(e["sta"]), Int: num(e["int"]), Spi: num(e["spi"]),
 		Armor: num(e["armor"]), AP: num(e["ap"]), Crit: num(e["crit"]), Dodge: num(e["dodge"]),
-		Parry: num(e["parry"]), Block: num(e["block"])}
+		Parry: num(e["parry"]), Block: num(e["block"]), Per: perPoint(e["per"])}
+}
+
+// perPoint reads the optional per-point table; nil when absent or empty.
+func perPoint(v any) *PerPoint {
+	t, ok := v.(lua.Table)
+	if !ok {
+		return nil
+	}
+	p := &PerPoint{IntMana: num(t["int_mana"]), IntCrit: num(t["int_crit"]), AgiCrit: num(t["agi_crit"]),
+		AgiAP: num(t["agi_ap"]), StrAP: num(t["str_ap"]), SpiRegen: num(t["spi_regen"]), StaHealth: num(t["sta_health"])}
+	if *p == (PerPoint{}) {
+		return nil
+	}
+	return p
 }
 
 // AttachTotals returns c with what the addon recorded in its SavedVariables file: its stat totals
