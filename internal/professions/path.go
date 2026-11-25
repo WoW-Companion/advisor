@@ -32,15 +32,20 @@ type Need struct {
 	Have    int
 	Missing int
 	From    string // where to get the missing part; empty when nothing is missing
+	Make    *Make  // when the missing part is made from other materials: what it takes
 }
 
 // Option is one recipe that carries a band.
 type Option struct {
-	Recipe     string
-	Crafts     int
-	Difficulty string
-	Learn      string // how to learn it first; empty when known or no learning is needed
-	Needs      []Need
+	Recipe      string
+	Crafts      int
+	Difficulty  string
+	Learn       string  // how to learn it first; empty when known or no learning is needed
+	LearnSkill  *int    // the skill the recipe is learnt at, nil when the dataset has none
+	LearnFrom   string  // where LearnSkill came from: trainer, recipe_item, client or estimate
+	Around      bool    // LearnSkill is an estimate: say "around skill N"
+	SubSkillUps float64 // skill-ups the intermediate crafts of this option give on the way
+	Needs       []Need
 
 	// Detail for the benchmark: the recipe's spell, crafts that are orange and yellow at the band's
 	// start and the way it is learnt.
@@ -63,9 +68,12 @@ type learnInfo struct {
 
 // Band is one stretch of skill, from From to To, with the recipe to make and an alternative.
 type Band struct {
-	From, To int
-	Best     Option
-	Or       *Option
+	From, To  int
+	Best      Option
+	Or        *Option
+	Patterns  []Option // recipes learnt from drops, quests or reputation, for a player who has the pattern
+	Rank      string   // the rank to train before this band, when it starts one
+	RankLevel int      // the character level that rank needs
 }
 
 // Path is the computed skill-up path for one profession.
@@ -104,6 +112,11 @@ type planner struct {
 	gather *gather.Gatherer
 	// fresh marks a synthetic character: no recipe is known, and each one says how it is learnt.
 	fresh bool
+	// patterns plans only recipes learnt from items that drop, come from quests or the Auction House.
+	patterns bool
+	// made caches how each material is best made, by item and skill.
+	made   map[makeKey]*resolved
+	making map[int64]bool
 }
 
 func (p *planner) name(id int64) string {
@@ -174,6 +187,9 @@ func (p *planner) sourceOf(id int64) source {
 	if len(rowsBy(p.ds, "disenchant_yields", "material_item_id", id)) > 0 && len(p.disenchantable(id)) > 0 {
 		offer(source{effortDisenc, "disenchanting your own gear"})
 	}
+	if best.text == "the Auction House" {
+		best.text += p.materialHint(id)
+	}
 	p.srcs[id] = best
 	return best
 }
@@ -186,11 +202,11 @@ func (p *planner) learnCost(r Recipe, from string, skill int) (effort int, text 
 
 func (p *planner) learnDetail(r Recipe, from string, skill int) (effort int, text string, info learnInfo, ok bool) {
 	if p.known[r.SpellID] || p.learnt[r.SpellID] {
-		return 0, "", learnInfo{Via: "known"}, true
+		return 0, "", learnInfo{Via: "known"}, !p.patterns
 	}
 	var byTrainer, byItem *source
 	var tInfo, iInfo learnInfo
-	if from != "item" {
+	if from != "item" && !p.patterns {
 		t := source{0, "trainer"}
 		if rows := rowsBy(p.ds, "trainer_spells", "spell_id", r.SpellID); len(rows) > 0 {
 			cost := int64(-1)
@@ -246,6 +262,9 @@ func (p *planner) learnDetail(r Recipe, from string, skill int) (effort int, tex
 					}
 				}
 			}
+			if (info.Source == "vendor") == p.patterns {
+				continue // by default only trainer and vendor recipes; the rest only for a pattern the player has
+			}
 			if byItem == nil || s.effort < byItem.effort {
 				c := s
 				byItem = &c
@@ -269,6 +288,7 @@ type scored struct {
 	crafts  int
 	spell   int64
 	use     map[int64]int // stock consumed
+	from    int           // the skill the band starts at
 	learned int64
 }
 
@@ -297,8 +317,9 @@ func (p *planner) price(r Recipe, from string, skill, target int, left map[int64
 		name = fmt.Sprintf("spell %d", r.SpellID)
 	}
 	s := scored{opt: Option{Recipe: name, Crafts: crafts, Difficulty: d, Learn: ltext}, reach: reach, crafts: crafts,
-		spell: r.SpellID, effort: le, use: map[int64]int{}}
+		spell: r.SpellID, effort: le, use: map[int64]int{}, from: skill}
 	s.opt.Spell, s.opt.LearnInfo = r.SpellID, linfo
+	s.opt.LearnSkill, s.opt.LearnFrom, s.opt.Around = r.LearnSkill, r.LearnSource, r.LearnSource == "estimate"
 	s.opt.OrangeCrafts, s.opt.YellowCrafts = splitCrafts(r, skill, reach)
 	if !p.known[r.SpellID] {
 		s.learned = r.SpellID
@@ -317,9 +338,13 @@ func (p *planner) price(r Recipe, from string, skill, target int, left map[int64
 		s.use[id] += free
 		n := Need{ID: id, Item: p.name(id), Total: total, Have: free, Missing: total - free}
 		if n.Missing > 0 {
-			src := p.sourceOf(id)
+			src, ch := p.resolve(id, skill, 0)
 			n.From = src.text
 			s.effort += n.Missing * src.effort
+			if ch != nil {
+				n.Make = p.expand(ch, n.Missing, skill, 0)
+				s.opt.SubSkillUps += n.Make.skillUps()
+			}
 		}
 		s.opt.Needs = append(s.opt.Needs, n)
 	}
@@ -396,9 +421,11 @@ func computePath(c character.Character, ds store.DataStore, profession string, t
 	var bands []Band
 	skill := p.skill
 	for len(bands) < 400 && skill < target {
+		// A band never crosses a rank cap (75, 150, 225): the next rank is trained first.
+		stop := min(target, p.notes.TierAt(skill).SkillCap)
 		var all []scored
 		for _, r := range recipes {
-			if s, ok := p.price(r, r.LearnedFrom, skill, target, p.stock); ok {
+			if s, ok := p.price(r, r.LearnedFrom, skill, stop, p.stock); ok {
 				all = append(all, s)
 			}
 		}
@@ -406,19 +433,13 @@ func computePath(c character.Character, ds store.DataStore, profession string, t
 			pa.Notes = append(pa.Notes, fmt.Sprintf("No further recipe fits from skill %d: ask your trainer for the next ones.", skill))
 			break
 		}
-		sort.Slice(all, func(i, j int) bool {
-			a, b := all[i], all[j]
-			ai, bi := a.effort*(b.reach-skill), b.effort*(a.reach-skill) // cost per point, cross-multiplied
-			if ai != bi {
-				return ai < bi
-			}
-			if a.crafts != b.crafts {
-				return a.crafts < b.crafts
-			}
-			return a.spell < b.spell
-		})
+		sortScored(all)
 		best := all[0]
 		b := Band{From: skill, To: best.reach, Best: best.opt}
+		if t, ok := p.rankStarting(skill); ok {
+			b.Rank, b.RankLevel = t.Name, t.MinLevel
+		}
+		b.Patterns = p.patternAlternatives(recipes, skill, stop, best.opt.Recipe)
 		for _, alt := range all[1:] {
 			if alt.opt.Recipe != best.opt.Recipe {
 				o := alt.opt
@@ -463,4 +484,49 @@ func NextSkillUp(c character.Character, ds store.DataStore, profession string) s
 		return ""
 	}
 	return fmt.Sprintf("next skill-up: make %d × %s", pa.Bands[0].Best.Crafts, pa.Bands[0].Best.Recipe)
+}
+
+// sortScored orders options by cost per skill point, then fewer crafts, then spell id.
+func sortScored(all []scored) {
+	sort.Slice(all, func(i, j int) bool {
+		a, b := all[i], all[j]
+		ai, bi := a.effort*(b.reach-a.from), b.effort*(a.reach-b.from) // cost per point, cross-multiplied
+		if ai != bi {
+			return ai < bi
+		}
+		if a.crafts != b.crafts {
+			return a.crafts < b.crafts
+		}
+		return a.spell < b.spell
+	})
+}
+
+// rankStarting is the rank a band starting at skill needs trained first: the one whose range opens
+// exactly there (75, 150, 225), never the first rank.
+func (p *planner) rankStarting(skill int) (Tier, bool) {
+	for _, t := range p.notes.Tiers {
+		if t.SkillMin == skill && skill > 1 {
+			return t, true
+		}
+	}
+	return Tier{}, false
+}
+
+// patternAlternatives lists up to two recipes from drops, quests or the Auction House that fit the
+// band, for a player who has the pattern.
+func (p *planner) patternAlternatives(recipes []Recipe, skill, stop int, best string) []Option {
+	p.patterns = true
+	defer func() { p.patterns = false }()
+	var all []scored
+	for _, r := range recipes {
+		if s, ok := p.price(r, r.LearnedFrom, skill, stop, p.stock); ok && s.opt.Recipe != best {
+			all = append(all, s)
+		}
+	}
+	sortScored(all)
+	var out []Option
+	for _, s := range all[:min(2, len(all))] {
+		out = append(out, s.opt)
+	}
+	return out
 }

@@ -48,7 +48,7 @@ play style. Any pair is fine, and the answer says so.
 ## Benchmark command
 
 `wowc-advisor profession-plan --profession <name> [--from N] [--to N] [--level L] [--faction horde|alliance]
-[--gather <profession>] [--dataset <dir or URL>] [--json]` runs the same planner for a synthetic fresh
+[--gather <profession>] [--known <spell ids>] [--dataset <dir or URL>] [--json]` runs the same planner for a synthetic fresh
 character (level 60 by default, skill `--from` 1, empty bags and bank, no gathering profession unless
 `--gather` is given). It needs no game install and no capture; `--dataset` is a directory or the base URL of a
 published dataset (default `$WOWC_DATASET`).
@@ -60,6 +60,17 @@ gathering, fishing, disenchanting with the item class, quality and level range, 
 and an efficiency score. Model: an orange craft is 1 skill point, a yellow one 0.5; ties between recipes go
 to fewer crafts, then the lower spell id, so the same dataset always gives the same output. Fishing has no
 recipes: its bands are catches (one per skill point) with the catch list by zone.
+
+Plans follow the dataset's `learn_skill` and `learn_skill_source` (trainer, recipe_item, client or estimate): no
+recipe is planned before its learn skill, and an estimate is shown as "around skill N". A band never crosses a
+rank cap (75, 150, 225): it stops there and the next band names the rank and the character level it needs.
+By default only trainer and vendor recipes are planned; a recipe from a drop, quest or reputation is used only
+when the character knows it (`--known` takes spell ids), and up to two such recipes are listed per band as "if
+you have the pattern". A material made by a recipe the character can use (smelting for bars, the profession's
+own grinding stones, bolts and cured leather) is expanded to its own reagents, with the skill-ups the crafts
+give; ore, herbs, leather and cloth say how to gather them or that the Auction House sells them, and only a
+material with no source at all is "rare". The "Check" section lists each band's recipe with its learn skill
+and where it comes from.
 
 ## Where to learn a recipe
 

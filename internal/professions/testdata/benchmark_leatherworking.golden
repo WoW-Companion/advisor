@@ -15,27 +15,46 @@ Bands:
    Materials: 100 × Light Leather, 50 × Coarse Thread
    Alternative: Embossed Vest
 3. Skill 75→110: 55 × Embossed Vest (15 orange, 40 yellow; expected skill-ups 35); learn: trainer, 2s
+   First train Journeyman at the trainer (character level 10).
    Materials: 110 × Coarse Thread, 220 × Medium Leather
    Alternative: Fine Belt
 4. Skill 110→140: 50 × Fine Belt (10 orange, 40 yellow; expected skill-ups 30); learn: trainer, 15s
    Materials: 300 × Medium Leather
    Alternative: Dark Tunic
-5. Skill 140→165: 45 × Dark Tunic (5 orange, 40 yellow; expected skill-ups 25); learn: Pattern: Dark Tunic from a vendor, 60s
-   Materials: 90 × Coarse Thread, 360 × Medium Leather
-6. Skill 165→205: 60 × Heavy Armor Kit (20 orange, 40 yellow; expected skill-ups 40); learn: trainer, 90s
-   Materials: 300 × Heavy Leather
-7. Skill 205→230: 45 × Rugged Gloves (5 orange, 40 yellow; expected skill-ups 25); learn: trainer, 2g
-   Materials: 270 × Rugged Leather, 90 × Rune Thread
-8. Skill 230→270: 60 × Hide Cloak (20 orange, 40 yellow; expected skill-ups 40); learn: trainer, 4g
+5. Skill 140→150: 15 × Dark Tunic (5 orange, 10 yellow; expected skill-ups 10); learn: Pattern: Dark Tunic from a vendor, 60s
+   Materials: 30 × Coarse Thread, 120 × Medium Leather
+6. Skill 150→205: 75 × Heavy Armor Kit (35 orange, 40 yellow; expected skill-ups 55); learn: trainer, 90s
+   First train Expert at the trainer (character level 20).
+   Materials: 375 × Heavy Leather
+   Alternative: Dark Tunic
+7. Skill 205→225: 35 × Rugged Gloves (5 orange, 30 yellow; expected skill-ups 20); learn: trainer, 2g
+   Materials: 210 × Rugged Leather, 70 × Rune Thread
+8. Skill 225→230: 10 × Rugged Gloves (0 orange, 10 yellow; expected skill-ups 5)
+   First train Artisan at the trainer (character level 35).
+   Materials: 60 × Rugged Leather, 20 × Rune Thread
+   Alternative: Hide Cloak
+9. Skill 230→270: 60 × Hide Cloak (20 orange, 40 yellow; expected skill-ups 40); learn: trainer, 4g
    Materials: 480 × Rugged Leather, 60 × Rune Thread
-9. Skill 270→300: 50 × Core Cuirass (10 orange, 40 yellow; expected skill-ups 30); learn: trainer, 8g
+10. Skill 270→300: 50 × Core Cuirass (10 orange, 40 yellow; expected skill-ups 30); learn: trainer, 8g
    Materials: 150 × Rune Thread, 200 × Core Hide
+
+Check (recipe, learn skill and where it comes from):
+1. 1→45 Light Armor Kit: learn skill 1; learnt from trainer
+2. 45→75 Leather Boots: learn skill 1; learnt from trainer
+3. 75→110 Embossed Vest: learn skill 40; learnt from trainer, 2s
+4. 110→140 Fine Belt: learn skill 75; learnt from trainer, 15s
+5. 140→150 Dark Tunic: learn skill 100; learnt from Pattern: Dark Tunic from a vendor, 60s
+6. 150→205 Heavy Armor Kit: learn skill 150; learnt from trainer, 90s
+7. 205→225 Rugged Gloves: learn skill 175; learnt from trainer, 2g
+8. 225→230 Rugged Gloves: learn skill 175
+9. 230→270 Hide Cloak: learn skill 225; learnt from trainer, 4g
+10. 270→300 Core Cuirass: learn skill 250; learnt from trainer, 8g
 
 Material totals:
 - 159 × Light Leather: a vendor, 25c each = 39s 75c
-- 250 × Coarse Thread: a vendor, 40c each = 1g
-- 880 × Medium Leather: a vendor, 1s 50c each = 13g 20s
-- 300 × Heavy Leather: gathering (Skinning)
+- 190 × Coarse Thread: a vendor, 40c each = 76s
+- 640 × Medium Leather: a vendor, 1s 50c each = 9g 60s
+- 375 × Heavy Leather: gathering (Skinning)
 - 750 × Rugged Leather: gathering (Skinning)
 - 300 × Rune Thread: a vendor, 9s each = 27g
 - 200 × Core Hide: no vendor, gathering or common drop listed: the Auction House [rare]
@@ -43,5 +62,5 @@ Material totals:
 Recipes to buy or find:
 - Pattern: Dark Tunic for Dark Tunic: vendor (a vendor), 60s
 
-Efficiency: 2839 materials in all, 7 distinct, vendor cost 41g 59s, 1 rare; score 7248 (lower is better).
+Efficiency: 2614 materials in all, 7 distinct, vendor cost 37g 75s, 1 rare; score 6639 (lower is better).
 score = total materials + vendor silver + 250 per rare material (no vendor, no gathering, fishing or disenchant source, no drop of 5% or more).

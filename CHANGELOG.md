@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.41
+
+- Profession leveling plans now follow when each recipe can really be learned, stop at each trainer rank, and show the ore, cloth or leather behind every bar and bolt. No recipe is planned before the skill it is learned at, and a guessed learn skill is shown as "around skill N". A plan stops at 75, 150 and 225 and names the rank and character level you need to train next. By default only recipes from a trainer or vendor are planned; drop, quest and reputation patterns are used only if you already know them, and up to two are offered as "if you have the pattern". Bars, grinding stones, bolts and cured leather are followed back to smelting or crafting, with the skill-ups the crafts give, and ore, herbs, leather and cloth say where to gather or buy them instead of "rare".
+
 ## 0.7.40
 
 - Spec buttons appear whenever no spec is chosen; gear advice includes quest rewards and goes by the level you need to wear it. Set Spec to "Not sure yet" in Settings, press Talents, and you get one button per spec instead of a question in text. The chip under an answer follows talents and a spec you just chose ("Following up on: Cruelty"). Gear advice names a quest reward with its quest, even one you have not picked up, ranks and labels by the level needed to wear it, puts anything above your level under "Soon (level N)" and leaves out items your spec can't use, such as a shield for a Fury warrior. A heads-up line closes only a What next? answer, and talent answers talk about your next pick and the one or two after it, not point totals.

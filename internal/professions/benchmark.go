@@ -17,17 +17,31 @@ const BenchModel = "Skill-up model: an orange craft gives 1 skill point, a yello
 // BenchOptions describe the synthetic character of a benchmark.
 type BenchOptions struct {
 	Profession string
-	From, To   int    // skill to start at (default 1) and to reach (0: the most the level allows)
-	Level      int    // character level (default 60)
-	Faction    string // horde or alliance; empty for either
-	Gather     string // a gathering profession the character has, or empty
+	From, To   int     // skill to start at (default 1) and to reach (0: the most the level allows)
+	Level      int     // character level (default 60)
+	Faction    string  // horde or alliance; empty for either
+	Gather     string  // a gathering profession the character has, or empty
+	Known      []int64 // recipes (spell ids) the character already knows, drops and quest patterns included
 }
 
 // BenchMaterial is one material and how many of it.
 type BenchMaterial struct {
-	Item  string `json:"item"`
-	ID    int64  `json:"item_id"`
-	Count int    `json:"count"`
+	Item  string     `json:"item"`
+	ID    int64      `json:"item_id"`
+	Count int        `json:"count"`
+	Make  *BenchMake `json:"make,omitempty"` // set when the material is smelted or crafted from others
+}
+
+// BenchMake is how a material is made: the recipe, its learn skill and what it takes in turn.
+type BenchMake struct {
+	Recipe           string          `json:"recipe"`
+	Profession       string          `json:"profession"`
+	Verb             string          `json:"verb"`
+	Crafts           int             `json:"crafts"`
+	LearnSkill       *int            `json:"learn_skill,omitempty"`
+	LearnSkillSource string          `json:"learn_skill_source,omitempty"`
+	ExpectedSkillUps float64         `json:"expected_skill_ups,omitempty"`
+	Materials        []BenchMaterial `json:"materials"`
 }
 
 // BenchBand is one stretch of skill.
@@ -41,8 +55,22 @@ type BenchBand struct {
 	YellowCrafts     int             `json:"yellow_crafts"`
 	ExpectedSkillUps float64         `json:"expected_skill_ups"`
 	Learn            string          `json:"learn,omitempty"`
+	LearnSkill       *int            `json:"learn_skill,omitempty"`
+	LearnSkillSource string          `json:"learn_skill_source,omitempty"`
+	Rank             string          `json:"rank,omitempty"`       // the rank to train before this band
+	RankLevel        int             `json:"rank_level,omitempty"` // the character level that rank needs
+	SubSkillUps      float64         `json:"sub_skill_ups,omitempty"`
+	PatternOptions   []BenchPattern  `json:"if_you_have_the_pattern,omitempty"`
 	Materials        []BenchMaterial `json:"materials"`
 	Alternative      string          `json:"alternative,omitempty"`
+}
+
+// BenchPattern is a recipe from a drop, quest or reputation that fits a band, for a player who has it.
+type BenchPattern struct {
+	Recipe           string `json:"recipe"`
+	LearnSkill       *int   `json:"learn_skill,omitempty"`
+	LearnSkillSource string `json:"learn_skill_source,omitempty"`
+	Source           string `json:"source,omitempty"`
 }
 
 // BenchTotal is one material over the whole path with where it comes from.
@@ -139,6 +167,12 @@ func NewBenchmark(ds store.DataStore, o BenchOptions) Benchmark {
 	level, from := o.Level, o.From
 	c := character.Character{Name: "Benchmark", Class: "None", Level: &level, Faction: titleCase(o.Faction),
 		Professions: []character.Skill{{Name: name, Rank: &from}}}
+	if len(o.Known) > 0 {
+		c.KnownSpells = map[int64]bool{}
+		for _, id := range o.Known {
+			c.KnownSpells[id] = true
+		}
+	}
 	if o.Gather != "" && !strings.EqualFold(o.Gather, o.Profession) {
 		g := titleCase(o.Gather)
 		one := 1
@@ -180,8 +214,12 @@ func NewBenchmark(ds store.DataStore, o BenchOptions) Benchmark {
 		if band.Or != nil {
 			bb.Alternative = band.Or.Recipe
 		}
-		for _, n := range opt.Needs {
-			bb.Materials = append(bb.Materials, BenchMaterial{Item: n.Item, ID: n.ID, Count: n.Total})
+		bb.LearnSkill, bb.LearnSkillSource, bb.Rank, bb.RankLevel, bb.SubSkillUps = opt.LearnSkill, opt.LearnFrom, band.Rank, band.RankLevel, opt.SubSkillUps
+		for _, po := range band.Patterns {
+			bb.PatternOptions = append(bb.PatternOptions, BenchPattern{Recipe: po.Recipe, LearnSkill: po.LearnSkill,
+				LearnSkillSource: po.LearnFrom, Source: po.Learn})
+		}
+		add := func(n Need) {
 			t := totals[n.ID]
 			if t == nil {
 				t = &BenchTotal{Item: n.Item, ID: n.ID}
@@ -189,6 +227,20 @@ func NewBenchmark(ds store.DataStore, o BenchOptions) Benchmark {
 				totals[n.ID] = t
 			}
 			t.Count += n.Total
+		}
+		for _, n := range opt.Needs {
+			bb.Materials = append(bb.Materials, benchMaterial(n))
+			if n.Make != nil {
+				// the part held in stock is a leaf of its own; the rest is counted as what it is made from
+				if n.Have > 0 {
+					add(Need{ID: n.ID, Item: n.Item, Total: n.Have})
+				}
+				for _, l := range n.Make.Leaves() {
+					add(l)
+				}
+				continue
+			}
+			add(n)
 		}
 		b.Bands = append(b.Bands, bb)
 		li := opt.LearnInfo
@@ -233,6 +285,23 @@ func NewBenchmark(ds store.DataStore, o BenchOptions) Benchmark {
 		b.fishing(ds, tiers)
 	}
 	return b
+}
+
+func benchMaterial(n Need) BenchMaterial {
+	m := BenchMaterial{Item: n.Item, ID: n.ID, Count: n.Total}
+	if n.Make != nil {
+		mk := n.Make
+		bm := &BenchMake{Recipe: mk.Recipe, Profession: mk.Profession, Verb: mk.Verb, Crafts: mk.Crafts, LearnSkill: mk.LearnSkill,
+			ExpectedSkillUps: mk.SkillUps, Materials: []BenchMaterial{}}
+		if mk.Around {
+			bm.LearnSkillSource = "estimate"
+		}
+		for _, sub := range mk.Needs {
+			bm.Materials = append(bm.Materials, benchMaterial(sub))
+		}
+		m.Make = bm
+	}
+	return m
 }
 
 // classify says where one material comes from and whether it is rare.
@@ -283,6 +352,10 @@ func classify(p *planner, t *BenchTotal) {
 	}
 	if who, chance := bestDrop(ds, t.ID); who != "" && chance >= commonDrop {
 		t.Kind, t.Source = "drop", fmt.Sprintf("%s, about %.0f%%", who, chance)
+		return
+	}
+	if it, err := ds.Get("items", t.ID); err == nil && asI64(it["class_id"]) == 7 && asI64(it["subclass_id"]) == 5 {
+		t.Kind, t.Source = "drop", "drops from humanoids, or the Auction House"
 		return
 	}
 	t.Kind, t.Rare, t.Source = "rare", true, "no vendor, gathering or common drop listed: the Auction House"
@@ -406,15 +479,34 @@ func RenderBenchmark(b Benchmark) string {
 			w.WriteString("; learn: " + x.Learn)
 		}
 		w.WriteString("\n")
+		if x.Rank != "" {
+			fmt.Fprintf(&w, "   First train %s at the trainer (character level %d).\n", x.Rank, x.RankLevel)
+		}
 		if len(x.Materials) > 0 {
 			var ms []string
 			for _, m := range x.Materials {
-				ms = append(ms, fmt.Sprintf("%d × %s", m.Count, m.Item))
+				ms = append(ms, renderBenchMaterial(m))
 			}
 			w.WriteString("   Materials: " + strings.Join(ms, ", ") + "\n")
 		}
+		if x.SubSkillUps >= 1 {
+			fmt.Fprintf(&w, "   Making those materials also gives about %s skill-ups.\n", trimFloat(x.SubSkillUps))
+		}
 		if x.Alternative != "" {
 			w.WriteString("   Alternative: " + x.Alternative + "\n")
+		}
+		for _, po := range x.PatternOptions {
+			w.WriteString("   If you have the pattern: " + po.Recipe + " (" + learnWords(po.LearnSkill, po.LearnSkillSource) + ")\n")
+		}
+	}
+	if len(b.Bands) > 0 {
+		w.WriteString("\nCheck (recipe, learn skill and where it comes from):\n")
+		for i, x := range b.Bands {
+			fmt.Fprintf(&w, "%d. %d→%d %s: %s", i+1, x.From, x.To, x.Recipe, learnWords(x.LearnSkill, x.LearnSkillSource))
+			if x.Learn != "" {
+				w.WriteString("; learnt from " + x.Learn)
+			}
+			w.WriteString("\n")
 		}
 	}
 	if len(b.FishZones) > 0 {
@@ -458,6 +550,43 @@ func RenderBenchmark(b Benchmark) string {
 		w.WriteString(n + "\n")
 	}
 	return w.String()
+}
+
+// learnWords says at which skill a recipe is learnt and how the dataset knows: "around" for an estimate.
+func learnWords(skill *int, source string) string {
+	if skill == nil {
+		return "learn skill unknown"
+	}
+	switch source {
+	case "estimate":
+		return fmt.Sprintf("learn around skill %d, estimated", *skill)
+	case "":
+		return fmt.Sprintf("learn skill %d", *skill)
+	}
+	return fmt.Sprintf("learn skill %d, source %s", *skill, strings.ReplaceAll(source, "_", " "))
+}
+
+func renderBenchMaterial(m BenchMaterial) string {
+	s := fmt.Sprintf("%d × %s", m.Count, m.Item)
+	if m.Make == nil {
+		return s
+	}
+	var subs []string
+	for _, x := range m.Make.Materials {
+		subs = append(subs, renderBenchMaterial(x))
+	}
+	how := fmt.Sprintf("%s %d × %s, %s", m.Make.Verb, m.Make.Crafts, m.Make.Recipe, m.Make.Profession)
+	if m.Make.LearnSkill != nil {
+		if m.Make.LearnSkillSource == "estimate" {
+			how += fmt.Sprintf(", around skill %d", *m.Make.LearnSkill)
+		} else {
+			how += fmt.Sprintf(", skill %d", *m.Make.LearnSkill)
+		}
+	}
+	if m.Make.ExpectedSkillUps >= 1 {
+		how += ", about " + trimFloat(m.Make.ExpectedSkillUps) + " skill-ups"
+	}
+	return s + " (" + how + ": " + strings.Join(subs, ", ") + ")"
 }
 
 func trimFloat(f float64) string {
