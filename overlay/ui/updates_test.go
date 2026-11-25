@@ -26,12 +26,12 @@ func TestUpdateBannerAndSettingsWiring(t *testing.T) {
 	if bar < 0 || bar > log || log > form {
 		t.Error("the update banner must come right before the chat log and the input after it")
 	}
-	for _, want := range []string{`id="check-updates"`, `id="update-now"`, `id="check-now"`, `id="version-list"`, `Get updates right away`, `src="updates.js"`} {
+	for _, want := range []string{`id="check-updates"`, `id="update-now"`, `id="check-now"`, `id="version-list"`, `id="update-notice"`, `id="updated-note"`, `Get updates right away`, `src="updates.js"`} {
 		if !strings.Contains(html, want) {
 			t.Errorf("index.html lacks %s", want)
 		}
 	}
-	for _, want := range []string{"updateNow: false", "invoke('install_update'", "Install this version", "WowcUpdates.updateQuery", "schedule.focus()", "update-progress"} {
+	for _, want := range []string{"updateNow: false", "invoke('install_update'", "Update now", "WowcUpdates.updateQuery", "schedule.focus()", "update-progress", "wowc-lastver", "Go back"} {
 		if !strings.Contains(js, want) {
 			t.Errorf("app.js lacks %q", want)
 		}

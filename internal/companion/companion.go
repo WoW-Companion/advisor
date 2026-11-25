@@ -69,6 +69,7 @@ type Config struct {
 	HTTP          *http.Client                                                                // for the addon lookup and install (nil: the default client)
 	AddonAPI      string                                                                      // the addon's latest-release URL (empty: GitHub's)
 	Update        func(context.Context) (release.Result, error)                               // looks up the latest release for /api/update; nil answers no notice
+	Changelog     func(ctx context.Context, version string) (string, error)                   // CHANGELOG.md at a version's tag, for the offer's notes (nil: the bundled one)
 	Updates       func(ctx context.Context, fresh bool) ([]release.Rel, release.Pulls, error) // the published releases and the pull file for /api/update (nil: the older Update lookup)
 	Version       string                                                                      // the running version for /api/update (empty: the build's own)
 	Profiles      string                                                                      // the play-style store (empty: profile.Path())
@@ -909,7 +910,25 @@ func (s *Server) update(w http.ResponseWriter, r *http.Request) {
 	if v := q.Get("skip"); v != "" {
 		skipped = strings.Split(v, ",")
 	}
-	json.NewEncoder(w).Encode(release.Compute(rels, pulls, release.Options{Running: running, Skipped: skipped, Immediate: q.Get("now") == "1", Now: now}))
+	st := release.Compute(rels, pulls, release.Options{Running: running, Skipped: skipped, Immediate: q.Get("now") == "1", Now: now})
+	if st.Available {
+		st.Notes = s.notesFor(r.Context(), st.Latest)
+	}
+	json.NewEncoder(w).Encode(st)
+}
+
+// notesFor is the CHANGELOG section of a version: read from the repository at that version's tag
+// when the lookup is configured, else (or when that fails) from the changelog bundled in this binary.
+// The release body and commit messages are never used.
+func (s *Server) notesFor(ctx context.Context, version string) string {
+	if s.cfg.Changelog != nil {
+		if md, err := s.cfg.Changelog(ctx, version); err == nil {
+			if n := whatsnew.Section(md, version); n != "" {
+				return n
+			}
+		}
+	}
+	return whatsnew.BundledSection(version)
 }
 
 // planStaleFor reports whether the written Plan.lua is older than a capture or the dataset. The
@@ -926,5 +945,15 @@ func (s *Server) planStaleFor(capturedAt int64) bool {
 // CHANGELOG.md bundled into the binary (no network).
 func (s *Server) whatsNew(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
+	if v := r.URL.Query().Get("version"); v != "" { // one version's whole section, for the note after an update
+		rel := whatsnew.Release{Version: v, Lines: []string{}}
+		for _, l := range strings.Split(whatsnew.BundledSection(v), "\n") {
+			if l = strings.TrimPrefix(l, "- "); l != "" {
+				rel.Lines = append(rel.Lines, l)
+			}
+		}
+		json.NewEncoder(w).Encode([]whatsnew.Release{rel})
+		return
+	}
 	json.NewEncoder(w).Encode(whatsnew.Bundled())
 }

@@ -16,6 +16,8 @@ import (
 const (
 	// ListURL is the unauthenticated GitHub endpoint for the newest published releases.
 	ListURL = "https://api.github.com/repos/WoW-Companion/advisor/releases?per_page=30"
+	// ChangelogURL is the CHANGELOG.md at a release tag; %s is the bare version.
+	ChangelogURL = "https://raw.githubusercontent.com/WoW-Companion/advisor/v%s/CHANGELOG.md"
 	// PullsURL is the pulled-version file on the main branch.
 	PullsURL = "https://raw.githubusercontent.com/WoW-Companion/advisor/main/updates/updates.json"
 	// SettleDelay is how long a release must have been public before it is offered, unless the
@@ -172,7 +174,7 @@ type Status struct {
 	Available bool           `json:"available"`
 	Latest    string         `json:"latest"`
 	Published string         `json:"published,omitempty"`
-	Notes     string         `json:"notes,omitempty"`
+	Notes     string         `json:"notes,omitempty"` // that version's CHANGELOG section; the caller fills it, never the release body
 	Pulled    *PulledRunning `json:"pulled,omitempty"`
 	Versions  []Item         `json:"versions,omitempty"`
 }
@@ -181,7 +183,7 @@ type Status struct {
 func Compute(rels []Rel, pulls Pulls, o Options) Status {
 	var st Status
 	if r, ok := Pick(rels, pulls, o); ok {
-		st.Available, st.Latest, st.Published, st.Notes = true, r.Version, r.Published.UTC().Format(time.RFC3339), r.Body
+		st.Available, st.Latest, st.Published = true, r.Version, r.Published.UTC().Format(time.RFC3339)
 	}
 	if p, ok := pulls.Find(o.Running); ok {
 		pr := &PulledRunning{Version: bare(o.Running), Reason: p.Reason}
@@ -306,4 +308,10 @@ func (s *Source) Get(ctx context.Context, fresh bool) ([]Rel, Pulls, error) {
 	}
 	s.rels, s.pulls, s.at = rels, FetchPulls(ctx, s.Client, s.PullsURL), time.Now()
 	return s.rels, s.pulls, nil
+}
+
+// Changelog reads CHANGELOG.md as it stood at the tag of a version. url has one %s for the version.
+func Changelog(ctx context.Context, client *http.Client, url, version string) (string, error) {
+	b, err := get(ctx, client, fmt.Sprintf(url, bare(version)), "text/plain", 1<<20)
+	return string(b), err
 }

@@ -556,8 +556,11 @@ func TestUpdateEndpointOfferRule(t *testing.T) {
 	e.srv.cfg.Version = "0.7.50"
 	var feedErr error
 	e.srv.cfg.Updates = func(context.Context, bool) ([]release.Rel, release.Pulls, error) {
-		return []release.Rel{{Version: "0.7.52", Published: now.Add(-2 * time.Hour)}, {Version: "0.7.51", Published: now.Add(-48 * time.Hour), Body: "- Fixed things"}},
+		return []release.Rel{{Version: "0.7.52", Published: now.Add(-2 * time.Hour)}, {Version: "0.7.51", Published: now.Add(-48 * time.Hour), Body: "ADV-146: pass the guard record"}},
 			release.Pulls{Pulled: []release.Pull{{Version: "0.7.50", Reason: "bad", BackTo: "0.7.49"}}}, feedErr
+	}
+	e.srv.cfg.Changelog = func(_ context.Context, v string) (string, error) {
+		return "# Changelog\n\n## " + v + "\n\n- Fixed things.\n", nil
 	}
 	get := func(q string) release.Status {
 		var st release.Status
@@ -566,7 +569,7 @@ func TestUpdateEndpointOfferRule(t *testing.T) {
 		}
 		return st
 	}
-	if st := get(""); st.Latest != "0.7.51" || st.Notes != "- Fixed things" || st.Pulled == nil || st.Pulled.BackTo != "0.7.49" {
+	if st := get(""); st.Latest != "0.7.51" || st.Notes != "- Fixed things." || st.Pulled == nil || st.Pulled.BackTo != "0.7.49" {
 		t.Errorf("default: %+v", st)
 	}
 	if st := get("?now=1"); st.Latest != "0.7.52" {
