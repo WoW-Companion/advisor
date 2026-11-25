@@ -39,11 +39,15 @@ var gives = map[string]map[string]string{
 
 func (p Profile) gives(stat string) string { return gives[p.Arch][stat] }
 
-// Effects are the client's per-point numbers for a character, read from the addon's capture, one
-// phrase per stat ("+0.06% spell crit a point"). Empty for a stat the capture has none for.
-func Effects(t *character.Totals) map[string]string {
-	if t == nil || t.Per == nil {
+// Effects are the per-point numbers for a character, one phrase per stat ("+0.06% spell crit a
+// point"): the client's own when the capture has them, else derived from class rules and shown only when
+// they agree with the captured mana and spell crit (see CrossCheck). Empty when there are none to trust.
+func Effects(class string, t *character.Totals) map[string]string {
+	if t == nil {
 		return nil
+	}
+	if t.Per == nil {
+		return derivedEffects(class, t)
 	}
 	pp := t.Per
 	out := map[string]string{}

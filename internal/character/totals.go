@@ -46,6 +46,16 @@ func num(v any) *float64 {
 	return nil
 }
 
+// Total is the stat's total (0 when the capture has none), keyed like Base.
+func (t *Totals) Total(k string) float64 {
+	for key, p := range map[string]*float64{"str": t.Str, "agi": t.Agi, "sta": t.Sta, "int": t.Int, "spi": t.Spi} {
+		if key == k && p != nil {
+			return *p
+		}
+	}
+	return 0
+}
+
 // Any reports whether at least one total is present and positive.
 func (t *Totals) Any() bool {
 	if t == nil {
@@ -115,6 +125,10 @@ func totalsOf(vars map[string]any, key, name string) *Totals {
 			if f := num(st[field]); f != nil {
 				m[k] = *f
 			}
+		}
+		// Before addon 0.6.39 the capture's base equals the total; the unmodified value is total - pos + neg.
+		if b, ok := t.Base[k]; ok && t.Pos[k] > 0 && t.Total(k) == b {
+			t.Base[k] = b - t.Pos[k] + t.Neg[k]
 		}
 	}
 	return t
