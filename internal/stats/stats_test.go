@@ -167,7 +167,7 @@ func TestNoPlayStyleReturnsChoices(t *testing.T) {
 }
 
 func TestTotalsParse(t *testing.T) {
-	src := `WoWCompanionDB = { stats = { ["Realm:Tw"] = { at = 5, level = 10, str = 31, sta = 22.5, armor = 140 }, ["Other:Zz"] = "junk" } }`
+	src := `WoWCompanionDB = { characters = { ["Realm:Tw"] = { stats = { seenAt = 5, level = 10, armor = 140, stats = { str = { total = 31 }, sta = { total = 22.5 } } } }, ["Other:Zz"] = "junk" } }`
 	tt := character.ParseTotals(src, "Realm:Tw", "Tw")
 	if tt == nil || *tt.Str != 31 || *tt.Sta != 22.5 || tt.Agi != nil || !tt.Any() {
 		t.Errorf("%+v", tt)

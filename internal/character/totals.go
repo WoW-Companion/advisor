@@ -6,21 +6,33 @@ import (
 	"github.com/WoW-Companion/advisor/internal/lua"
 )
 
-// Totals are a character's stat totals as the WoW Companion addon records them read-only in
-// WoWCompanionDB.stats[<character key>] (every field optional; nil when the addon wrote none).
+// Totals are a character's stat numbers as the WoW Companion addon records them read-only in
+// WoWCompanionDB.characters[<character key>].stats (every field optional; nil when the addon wrote none).
 type Totals struct {
-	At                                   *int64
-	Level                                *int
-	Str, Agi, Sta, Int, Spi              *float64
-	Armor, AP, Crit, Dodge, Parry, Block *float64
-	// Per are what one point of a stat does for this character, as the client reports it (the addon's
-	// stats[key].per table); nil when the addon wrote none.
+	At    *int64 // stats.seenAt
+	Level *int   // stats.level
+	// The five stats, as the totals the player sees (stats.stats.<stat>.total); Base, Pos and Neg are the
+	// same stat's unmodified value and its gear/buff and penalty parts.
+	Str, Agi, Sta, Int, Spi *float64
+	Base, Pos, Neg          map[string]float64 // keyed "str", "agi", "sta", "int", "spi"
+	HealthMax, ManaMax      *float64
+	Armor, AttackPower      *float64
+	RangedAttackPower       *float64
+	// Crit is the melee crit chance (stats.meleeCrit); RangedCrit and SpellCrit (the best school) are percents.
+	Crit, RangedCrit, SpellCrit *float64
+	Dodge, Parry, Block         *float64
+	ManaRegenBase               *float64 // stats.manaRegen.base
+	ManaRegenCasting            *float64 // stats.manaRegen.casting
+	SpellDamage, SpellHealing   *float64
+	// Per are what the client's own per-point getters report for this character (stats.perPoint); nil when
+	// the addon wrote none.
 	Per *PerPoint
 }
 
-// PerPoint are per-point effects, every field optional.
+// PerPoint are the client's per-point getters, every field optional: stats.perPoint.spellCritFromInt,
+// critFromAgi, manaRegenFromSpi and healthRegenFromSpi.
 type PerPoint struct {
-	IntMana, IntCrit, AgiCrit, AgiAP, StrAP, SpiRegen, StaHealth *float64
+	SpellCritFromInt, CritFromAgi, ManaRegenFromSpi, HealthRegenFromSpi *float64
 }
 
 func num(v any) *float64 {
@@ -47,7 +59,7 @@ func (t *Totals) Any() bool {
 	return false
 }
 
-// ParseTotals reads WoWCompanionDB.stats[key] out of the addon's SavedVariables text, tolerantly: a
+// ParseTotals reads WoWCompanionDB.characters[key].stats out of the addon's SavedVariables text, tolerantly: a
 // missing table, entry or field gives nil or a nil field. The key is matched as captured, then
 // case-insensitively, then by character name alone.
 func ParseTotals(text, key, name string) *Totals {
@@ -60,26 +72,52 @@ func ParseTotals(text, key, name string) *Totals {
 
 func totalsOf(vars map[string]any, key, name string) *Totals {
 	db, _ := vars["WoWCompanionDB"].(lua.Table)
-	all, _ := db["stats"].(lua.Table)
-	var e lua.Table
+	all, _ := db["characters"].(lua.Table)
+	var rec lua.Table
 	if t, ok := all[key].(lua.Table); ok {
-		e = t
+		rec = t
 	} else {
 		for k, v := range all {
 			ks, _ := k.(string)
 			if t, ok := v.(lua.Table); ok && (strings.EqualFold(ks, key) || name != "" && strings.EqualFold(ks, name)) {
-				e = t
+				rec = t
 				break
 			}
 		}
 	}
+	e, _ := rec["stats"].(lua.Table)
 	if e == nil {
 		return nil
 	}
-	return &Totals{At: asInt64(e["at"]), Level: asInt(e["level"]),
-		Str: num(e["str"]), Agi: num(e["agi"]), Sta: num(e["sta"]), Int: num(e["int"]), Spi: num(e["spi"]),
-		Armor: num(e["armor"]), AP: num(e["ap"]), Crit: num(e["crit"]), Dodge: num(e["dodge"]),
-		Parry: num(e["parry"]), Block: num(e["block"]), Per: perPoint(e["per"])}
+	t := &Totals{At: asInt64(e["seenAt"]), Level: asInt(e["level"]),
+		HealthMax: num(e["healthMax"]), ManaMax: num(e["manaMax"]), Armor: num(e["armor"]),
+		AttackPower: num(e["attackPower"]), RangedAttackPower: num(e["rangedAttackPower"]),
+		Crit: num(e["meleeCrit"]), RangedCrit: num(e["rangedCrit"]),
+		Dodge: num(e["dodge"]), Parry: num(e["parry"]), Block: num(e["block"]), Per: perPoint(e["perPoint"])}
+	if sc, ok := e["spellCrit"].(lua.Table); ok {
+		t.SpellCrit = num(sc["max"])
+	}
+	if mr, ok := e["manaRegen"].(lua.Table); ok {
+		t.ManaRegenBase, t.ManaRegenCasting = num(mr["base"]), num(mr["casting"])
+	}
+	if sb, ok := e["spellBonus"].(lua.Table); ok {
+		t.SpellDamage, t.SpellHealing = num(sb["damage"]), num(sb["healing"])
+	}
+	five, _ := e["stats"].(lua.Table)
+	t.Base, t.Pos, t.Neg = map[string]float64{}, map[string]float64{}, map[string]float64{}
+	for k, dst := range map[string]**float64{"str": &t.Str, "agi": &t.Agi, "sta": &t.Sta, "int": &t.Int, "spi": &t.Spi} {
+		st, _ := five[k].(lua.Table)
+		if st == nil {
+			continue
+		}
+		*dst = num(st["total"])
+		for field, m := range map[string]map[string]float64{"base": t.Base, "pos": t.Pos, "neg": t.Neg} {
+			if f := num(st[field]); f != nil {
+				m[k] = *f
+			}
+		}
+	}
+	return t
 }
 
 // perPoint reads the optional per-point table; nil when absent or empty.
@@ -88,8 +126,8 @@ func perPoint(v any) *PerPoint {
 	if !ok {
 		return nil
 	}
-	p := &PerPoint{IntMana: num(t["int_mana"]), IntCrit: num(t["int_crit"]), AgiCrit: num(t["agi_crit"]),
-		AgiAP: num(t["agi_ap"]), StrAP: num(t["str_ap"]), SpiRegen: num(t["spi_regen"]), StaHealth: num(t["sta_health"])}
+	p := &PerPoint{SpellCritFromInt: num(t["spellCritFromInt"]), CritFromAgi: num(t["critFromAgi"]),
+		ManaRegenFromSpi: num(t["manaRegenFromSpi"]), HealthRegenFromSpi: num(t["healthRegenFromSpi"])}
 	if *p == (PerPoint{}) {
 		return nil
 	}

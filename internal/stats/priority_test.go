@@ -105,16 +105,33 @@ func TestChipTextShadowSurvivability(t *testing.T) {
 	}
 }
 
+// realStats is the addon's documented shape (capture-format.md), synthetic values.
+const realStats = `WoWCompanionDB = { characters = { ["Realm:Pw"] = { name = "Pw", stats = {
+  seenAt = 1700000000, level = 20,
+  stats = { int = { base = 50, total = 90, pos = 40, neg = 0 }, sta = { base = 40, total = 55, pos = 15, neg = 0 },
+    agi = { base = 20, total = 22, pos = 2, neg = 0 }, str = { base = 10, total = 10, pos = 0, neg = 0 },
+    spi = { base = 45, total = 60, pos = 15, neg = 0 } },
+  healthMax = 700, manaMax = 900, armor = 120, meleeCrit = 3.5, rangedCrit = 3.1, dodge = 4.2, parry = 5, block = 0,
+  spellCrit = { max = 4.8, schools = { [2] = 4.8 } }, manaRegen = { base = 6.5, casting = 2.1 },
+  attackPower = 40, rangedAttackPower = 30, spellBonus = { damage = 25, healing = 10 },
+  perPoint = { spellCritFromInt = 0.06, critFromAgi = 0.05, manaRegenFromSpi = 0.04, healthRegenFromSpi = 0.5 } } },
+  ["Realm:No"] = { stats = { stats = { int = { total = 5 } }, perPoint = {} } } } }`
+
+func realCharacter(pref string) character.Character {
+	c := shadow(pref)
+	c.Totals = character.ParseTotals(realStats, "Realm:Pw", "Pw")
+	return c
+}
+
 func TestClientNumbersExplainTheAdvice(t *testing.T) {
-	c := shadow(PrefSurvival)
-	mana, crit, hp := 15.0, 0.06, 10.0
-	c.Totals.Per = &character.PerPoint{IntMana: &mana, IntCrit: &crit, StaHealth: &hp}
+	c := realCharacter(PrefSurvival)
 	r := Check(c, nil, "")
-	if want := "Shadow: Intellect first (+15 mana, +0.06% spell crit a point), then Stamina for safer pulls."; r.Insights[0] != want {
+	if want := "Shadow: Intellect first (+0.06% spell crit a point), then Stamina for safer pulls."; r.Insights[0] != want {
 		t.Errorf("chip = %q", r.Insights[0])
 	}
-	if got := Effects(c.Totals)[Stamina]; got != "+10 health a point" {
-		t.Errorf("stamina effect = %q", got)
+	eff := Effects(c.Totals)
+	if eff[Agility] != "+0.05% crit a point" || eff[Spirit] != "+0.04 mana a second, +0.5 health a second a point" || eff[Intellect] != "+0.06% spell crit a point" {
+		t.Errorf("effects = %v", eff)
 	}
 	// Without the numbers the general words stay.
 	c.Totals.Per = nil
@@ -123,14 +140,25 @@ func TestClientNumbersExplainTheAdvice(t *testing.T) {
 	}
 }
 
-func TestPerPointParse(t *testing.T) {
-	src := `WoWCompanionDB = { stats = { ["R:Pw"] = { int = 90, per = { int_mana = 15, int_crit = 0.06 } }, ["R:No"] = { int = 5, per = {} } } }`
-	tt := character.ParseTotals(src, "R:Pw", "Pw")
-	if tt == nil || tt.Per == nil || *tt.Per.IntMana != 15 || tt.Per.AgiCrit != nil {
-		t.Errorf("%+v", tt)
+func TestStatsParseRealShape(t *testing.T) {
+	tt := character.ParseTotals(realStats, "Realm:Pw", "Pw")
+	if tt == nil || tt.Per == nil || *tt.Per.SpellCritFromInt != 0.06 || *tt.Per.CritFromAgi != 0.05 ||
+		*tt.Per.ManaRegenFromSpi != 0.04 || *tt.Per.HealthRegenFromSpi != 0.5 {
+		t.Fatalf("%+v", tt)
 	}
-	if no := character.ParseTotals(src, "R:No", "No"); no == nil || no.Per != nil {
-		t.Errorf("empty per table: %+v", no)
+	if *tt.Int != 90 || tt.Base["int"] != 50 || tt.Pos["int"] != 40 || tt.Neg["int"] != 0 || *tt.Spi != 60 || !tt.Any() {
+		t.Errorf("five stats: %+v", tt)
+	}
+	if *tt.HealthMax != 700 || *tt.ManaMax != 900 || *tt.Crit != 3.5 || *tt.RangedCrit != 3.1 || *tt.SpellCrit != 4.8 ||
+		*tt.ManaRegenBase != 6.5 || *tt.ManaRegenCasting != 2.1 || *tt.AttackPower != 40 || *tt.SpellHealing != 10 ||
+		*tt.At != 1700000000 || *tt.Level != 20 {
+		t.Errorf("rest: %+v", tt)
+	}
+	if no := character.ParseTotals(realStats, "Realm:No", "No"); no == nil || no.Per != nil || *no.Int != 5 {
+		t.Errorf("empty perPoint: %+v", no)
+	}
+	if character.ParseTotals(realStats, "Other:Zz", "Zz") != nil {
+		t.Error("unknown character")
 	}
 }
 
