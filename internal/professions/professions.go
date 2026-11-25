@@ -72,6 +72,7 @@ type Leveling struct {
 	Profession string
 	Skill      *int
 	Max        *int
+	Estimated  bool // Skill is estimated from the recipe colours, not captured: say "about"
 	Steps      []Step
 	BankKnown  bool     // false when the bank was never captured: Have counts bags only
 	Notes      []string // everything unknown or missing, in plain words
@@ -271,13 +272,16 @@ func skillOf(c character.Character, profession string) (character.Skill, bool) {
 // and how much of it the bags and bank hold.
 func Plan(c character.Character, ds store.DataStore, profession string) Leveling {
 	p := Leveling{Profession: profession, BankKnown: c.BankCaptured}
-	sk, ok := skillOf(c, profession)
+	sk, est, ok := skillFor(c, ds, profession)
 	if ok {
-		p.Profession, p.Skill, p.Max = sk.Name, sk.Rank, sk.Max
+		p.Profession, p.Skill, p.Max, p.Estimated = sk.Name, sk.Rank, sk.Max, est
 	}
 	if !ok || p.Skill == nil {
 		p.Notes = append(p.Notes, "Skill level not captured: cannot say which recipes still give skill-ups.")
 		return p
+	}
+	if est {
+		p.Notes = append(p.Notes, fmt.Sprintf("Your %s skill is about %d, estimated from the recipe colours in your trade skill window.", p.Profession, *p.Skill))
 	}
 	recipes, err := Recipes(ds, p.Profession)
 	if err != nil {

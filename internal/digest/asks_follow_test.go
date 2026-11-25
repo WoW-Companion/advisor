@@ -87,7 +87,7 @@ func cardsOf(t *testing.T) map[string][]card {
 			cs = append(cs, card{l.Ref, "talent", l.Asks, []string{l.Line}, append([]string{l.Why}, l.Details...)})
 		}
 		if d.Stats != nil {
-			cs = append(cs, card{"stats", "stats", d.Stats.Asks, append([]string{d.Stats.Profile}, d.Stats.Insights...), nil})
+			cs = append(cs, card{"stats", "stats", d.Stats.Asks, append([]string{"Stat check", "Stats that matter most", d.Stats.Profile}, d.Stats.Insights...), nil})
 		}
 		out[name] = cs
 	}

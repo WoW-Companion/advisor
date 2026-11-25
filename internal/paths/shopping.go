@@ -152,7 +152,7 @@ func Shop(c character.Character, ds store.DataStore, slot string, cands []gear.C
 		}
 	}
 
-	rows, _ := ds.Filter("items", store.Range{Column: "required_level", Min: 0, Max: int64(*c.Level + gear.EquipWindow)})
+	rows := statcompass.SuffixRows(ds)
 	var quoted []string
 	var top []statcompass.Suffix
 	if p, ok := statcompass.For(c, ""); ok {

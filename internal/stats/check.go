@@ -243,12 +243,6 @@ func Check(c character.Character, ds store.DataStore, group string) Result {
 	label := p.Label()
 	// Where the character stands: what to raise, what is wasted. The low-level note keeps its place.
 	var standing []string
-	if raise != "" {
-		standing = append(standing, fit(
-			fmt.Sprintf("%s wants more %s: %s.", label, Name(raise), p.Reason(raise)),
-			fmt.Sprintf("More %s would help: %s.", Name(raise), p.Reason(raise)),
-			fmt.Sprintf("%s wants more %s.", label, Name(raise))))
-	}
 	if len(wasted) > 0 {
 		sort.SliceStable(wasted, func(i, j int) bool { return share(wasted[i]) > share(wasted[j]) })
 		s := wasted[0]
@@ -260,9 +254,6 @@ func Check(c character.Character, ds store.DataStore, group string) Result {
 	room := MaxInsights - len(out)
 	if low {
 		room--
-	}
-	if len(standing) > room && raise != "" && raise == p.Lead() {
-		standing = standing[1:] // the lead line already puts it first; keep the room for what to swap
 	}
 	for _, l := range standing {
 		if room > 0 {
@@ -351,18 +342,7 @@ func sign(f float64) float64 {
 	return 1
 }
 
-// equipWindow is how far above the character's level the suffix check looks for items.
-const equipWindow = 10
-
-// suffixesFor is the top two suffixes for the priority that the dataset confirms; none without a
-// dataset or a level.
+// suffixesFor is the top two suffixes for the priority that the random_suffixes table confirms.
 func suffixesFor(p Prof, c character.Character, ds store.DataStore) []Suffix {
-	if ds == nil || c.Level == nil {
-		return nil
-	}
-	rows, err := ds.Filter("items", store.Range{Column: "required_level", Min: 0, Max: int64(*c.Level + equipWindow)})
-	if err != nil {
-		return nil
-	}
-	return p.VerifiedTop(rows, 2)
+	return p.VerifiedTop(SuffixRows(ds), 2)
 }

@@ -137,8 +137,8 @@ func TestUpgradeEntriesArePlainAndDependable(t *testing.T) {
 		t.Errorf("chest: %+v", c)
 	}
 	w := slots["Wrists"]
-	if w.PathKind != "auction" || w.Text != "any green mail bracers, level 8–10" ||
-		w.How != "Cheap on the Auction House: mail bracers, level 8–10" || !strings.Contains(strings.Join(w.Details, " "), "Set the level range to 8 to 10") || !strings.Contains(strings.Join(w.Asks, "|"), "What else should I pick up at the Auction House") {
+	if w.PathKind != "auction" || w.Text != "any green mail bracers, level 8–10, 'of the Bear' or 'of Strength'" ||
+		w.How != "Cheap on the Auction House: search 'of the Bear', level 8–10" || !strings.Contains(strings.Join(w.Details, " "), "Set the level range to 8 to 10") || !strings.Contains(strings.Join(w.Asks, "|"), "on the Auction House?") {
 		t.Errorf("wrists: %+v", w)
 	}
 	if m := regexp.MustCompile(`(?i)\bgold\b|\bsilver\b|\bprice|\d+[gsc]\b`).FindString(w.Text + w.How + strings.Join(w.Details, " ")); m != "" {

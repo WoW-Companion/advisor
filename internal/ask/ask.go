@@ -74,7 +74,7 @@ var Presets = map[string][]string{
 }
 
 // Tools are the advisor tool names; an answer that names one gets it in its sources line.
-var Tools = []string{"character_brief", "get_character_profile", "list_characters", "quest_plan", "server_info", "set_character_profile", "stat_check", "talent_tree", "update_digest", "upgrade_finder", "upgrade_paths", "whats_next"}
+var Tools = []string{"character_brief", "get_character_profile", "list_characters", "profession_plan", "quest_plan", "server_info", "set_character_profile", "stat_check", "talent_tree", "update_digest", "upgrade_finder", "upgrade_paths", "whats_next"}
 
 // Question is one queued question.
 type Question struct {

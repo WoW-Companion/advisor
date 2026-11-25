@@ -405,3 +405,32 @@ func (c Character) Recipe(profession, name string) (SeenRecipe, bool) {
 	}
 	return SeenRecipe{}, false
 }
+
+// WithRecipeProfessions adds a profession for each one the character has recorded recipes for and
+// the skills do not list: a recipe window only opens for a profession the character has. The skill
+// level of an added one is unknown. It returns c unchanged when nothing needs adding.
+func (c Character) WithRecipeProfessions() Character {
+	var add []Skill
+	for prof, rs := range c.Recipes {
+		if len(rs.Entries) == 0 {
+			continue
+		}
+		have := false
+		for _, p := range c.Professions {
+			have = have || strings.EqualFold(p.Name, prof)
+		}
+		if !have {
+			words := strings.Fields(prof)
+			for i, w := range words {
+				words[i] = strings.ToUpper(w[:1]) + w[1:]
+			}
+			add = append(add, Skill{Name: strings.Join(words, " "), Group: "Professions", FromRecipes: true})
+		}
+	}
+	if len(add) == 0 {
+		return c
+	}
+	sort.Slice(add, func(i, j int) bool { return add[i].Name < add[j].Name })
+	c.Professions = append(append([]Skill{}, c.Professions...), add...)
+	return c
+}

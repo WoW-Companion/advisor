@@ -150,7 +150,7 @@ func LoadWoWCharacter(key string, rec lua.Table) Character {
 		}
 	}
 	c.Recipes = wowcRecipes(rec["recipes"])
-	return c
+	return c.WithRecipeProfessions()
 }
 
 // LoadWoWC builds models from parsed variables holding WoWCompanionDB.characters. The result has

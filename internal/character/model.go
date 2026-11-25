@@ -136,6 +136,9 @@ type Skill struct {
 	Rank    *int
 	Max     *int
 	Group   string
+	// FromRecipes marks a profession known only because the character's recipes for it were recorded;
+	// its skill level is not captured.
+	FromRecipes bool
 }
 
 type Reputation struct {

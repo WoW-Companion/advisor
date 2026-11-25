@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.64
+
+- Gear advice names the right item suffixes, and the app knows your professions from your recipes. A priest who wants survivability now gets "of the Eagle" before "of the Owl" (the suffixes are checked against the game's own suffix list, not against item names like elixirs), and the stat text no longer adds a contradicting "wants more Stamina" line. A profession whose recipes the app has recorded counts as yours even when your skill levels were not captured, so "How do I level tailoring?" gets your real plan instead of "you don't have Tailoring".
+
 ## 0.7.63
 
 - Stat advice shows what each point is worth for your character. The stat check and gear advice now work out what a point of Intellect (mana and spell crit) and Stamina (health) gives you from your own numbers, and show it only when it matches your mana and crit. If it does not match, you still get the stat priority and no number. Stats from older addon versions now show the right unmodified value too.

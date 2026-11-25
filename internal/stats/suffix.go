@@ -2,7 +2,6 @@ package stats
 
 import (
 	"sort"
-	"strings"
 
 	"github.com/WoW-Companion/advisor/internal/store"
 )
@@ -14,8 +13,8 @@ const (
 
 // Suffix is a random stat suffix of world-drop gear: its name, the stats it gives (the client's stat
 // type ids) and the words for them. This is a curated game-fact table (the dataset holds item names
-// and stat ids, not the suffix list); a suffix is only offered when the dataset holds an item with that
-// name, and with those stats where the item's stats are known (see Verified).
+// and stat ids, not the suffix list); a suffix is checked against the dataset's random_suffixes table when
+// there is one (see Verified).
 type Suffix struct {
 	Key   string
 	Name  string
@@ -77,38 +76,65 @@ func (p Prof) RankSuffixes() []Suffix {
 	return out
 }
 
-// Verified reports whether the dataset rows hold an item with the suffix in its name (and, where that
-// item's stats are known, the stats the suffix says). A suffix nothing in the dataset confirms is left
-// out rather than trusted.
+// SuffixRows is the dataset's random_suffixes table, or nil when the dataset has none (or no dataset):
+// then the curated table above is trusted as it stands.
+func SuffixRows(ds store.DataStore) []store.Row {
+	if ds == nil {
+		return nil
+	}
+	rows, err := ds.Filter("random_suffixes", store.Range{Column: "suffix_id", Min: int64(0), Max: int64(1) << 31})
+	if err != nil {
+		return nil
+	}
+	return rows
+}
+
+func asInt(v any) (int64, bool) {
+	switch n := v.(type) {
+	case int64:
+		return n, true
+	case int32:
+		return int64(n), true
+	case int16:
+		return int64(n), true
+	case int:
+		return int64(n), true
+	}
+	return 0, false
+}
+
+// Verified reports whether the random_suffixes rows hold the suffix with the stats it says. With no
+// rows the curated table is trusted. Item names are never matched: elixirs and scrolls share the words.
 func Verified(s Suffix, rows []store.Row) bool {
+	if len(rows) == 0 {
+		return true
+	}
 	for _, r := range rows {
-		name, _ := r["name"].(string)
-		if !strings.HasSuffix(name, " "+s.Name) {
+		if name, _ := r["name"].(string); name != s.Name {
 			continue
 		}
-		if r["stats_status"] != "known" {
+		l, ok := r["stats"].([]any)
+		if !ok {
 			return true
 		}
 		have := map[int64]bool{}
-		if l, ok := r["stat_types"].([]any); ok {
-			for _, v := range l {
-				if n, ok := v.(int64); ok {
-					have[n] = true
-				}
+		for _, v := range l {
+			if n, ok := asInt(v); ok {
+				have[n] = true
 			}
 		}
-		ok := true
+		all := true
 		for _, st := range s.Stats {
-			ok = ok && have[st]
+			all = all && have[st]
 		}
-		if ok {
+		if all {
 			return true
 		}
 	}
 	return false
 }
 
-// VerifiedTop is the top n suffixes for the priority that the dataset rows confirm.
+// VerifiedTop is the top n suffixes for the priority that the random_suffixes rows confirm.
 func (p Prof) VerifiedTop(rows []store.Row, n int) []Suffix {
 	var out []Suffix
 	for _, s := range p.RankSuffixes() {

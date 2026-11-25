@@ -10,6 +10,7 @@ import (
 	"github.com/WoW-Companion/advisor/internal/brief"
 	"github.com/WoW-Companion/advisor/internal/character"
 	"github.com/WoW-Companion/advisor/internal/digest"
+	"github.com/WoW-Companion/advisor/internal/professions"
 	"github.com/WoW-Companion/advisor/internal/profile"
 	"github.com/WoW-Companion/advisor/internal/questie"
 	"github.com/WoW-Companion/advisor/internal/route"
@@ -49,7 +50,7 @@ func Facts(cfg Config, q Question) string {
 	if g, ok := digest.FindGiver(c, cc.qx, digest.PlanQuests(all), digest.PlanNPCs(all)); ok {
 		giver = "Quest giver with something for the character now (not in the plan): " + g.Text() + "."
 	}
-	return capRunes(subjectFacts(cfg, cc, q)+brief.Character(c, f.ClientOf(c), time.Now())+"\n\n"+styleLine(c)+"\n\n"+next+join(giver), FactsBudget)
+	return capRunes(subjectFacts(cfg, cc, q)+brief.Character(c, f.ClientOf(c), time.Now())+"\n\n"+styleLine(c)+join(professionPlanFacts(cc, q.Text))+"\n\n"+next+join(giver), FactsBudget)
 }
 
 func join(s string) string {
@@ -298,4 +299,44 @@ func PathStepsRule(kind string) string {
 		return "The player asks where to farm this item. Steps: which creature carries it, where it lives, and how often it drops." + shape
 	}
 	return ""
+}
+
+// planRunes is the most characters of a profession plan put in the facts.
+const planRunes = 2600
+
+var levelingWords = []string{"level", "leveling", "levelling", "skill", "train", "raise", "power", "grind", "get to", "from 1", "up my", "how do i get", "how to get", "plan", "recipes", "what should i make", "what do i make"}
+
+// professionAsked is the profession of the character that a leveling question names ("how do I level
+// tailoring?"), "" when the question is not about leveling one of their professions.
+func professionAsked(c character.Character, text string) string {
+	if i := strings.LastIndex(text, currentMarker); i >= 0 {
+		text = text[i+len(currentMarker):]
+	}
+	t := " " + strings.ToLower(text) + " "
+	if !hasAny(t, levelingWords) {
+		return ""
+	}
+	for _, p := range c.Professions {
+		n := strings.ToLower(p.Name)
+		if strings.Contains(t, " "+n+" ") || strings.Contains(t, " "+n+"?") || strings.Contains(t, " "+n+".") || strings.Contains(t, " "+n+",") || strings.Contains(t, " "+n+"'") {
+			return p.Name
+		}
+	}
+	return ""
+}
+
+// professionPlanFacts is the profession_plan result for the profession a leveling question is about
+// (bands, recipes, materials, trainer), so the answer is the real plan and not general tips; "" for any
+// other question.
+func professionPlanFacts(cc loaded, text string) string {
+	prof := professionAsked(cc.c, text)
+	if prof == "" || cc.ds == nil {
+		return ""
+	}
+	pa := professions.ComputePathWith(cc.c, cc.ds, cc.qx, prof, 0, 1)
+	body := professions.RenderPath(pa)
+	if strings.TrimSpace(body) == "" {
+		return ""
+	}
+	return "The character HAS " + prof + " (it is one of their professions); never say they lack it. Their " + prof + " leveling plan from profession_plan; answer from it, not from general tips:\n" + capRunes(body, planRunes)
 }

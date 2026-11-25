@@ -268,3 +268,21 @@ func TestPathNamesQuestieSchoolsToGather(t *testing.T) {
 		t.Errorf("dataset line should give way:\n%s", text)
 	}
 }
+
+func TestRecipesAloneGiveAnEstimatedSkillAndARealPlan(t *testing.T) {
+	c := character.Character{Name: "Ench", Class: "PRIEST", Level: ip(24), Faction: "Alliance",
+		Professions: []character.Skill{{Name: "Enchanting", FromRecipes: true}},
+		Recipes: map[string]character.SeenRecipes{"enchanting": {Entries: []character.SeenRecipe{
+			{Name: "Runed Copper Rod", Difficulty: "grey"}, {Name: "Enchant Bracer", Difficulty: "orange"}}}}}
+	ds := pathData(t)
+	if n, ok := estimateRank(c, ds, "Enchanting"); !ok || n != 20 {
+		t.Fatalf("estimate = %d %v", n, ok)
+	}
+	pa := ComputePath(c, ds, "Enchanting", 0, 1)
+	if len(pa.Bands) == 0 || !strings.Contains(strings.Join(pa.Notes, " "), "skill is about 20") {
+		t.Errorf("plan from recipes: %+v", pa)
+	}
+	if pl := Plan(c, ds, "Enchanting"); pl.Skill == nil || !pl.Estimated {
+		t.Errorf("Plan: %+v", pl)
+	}
+}

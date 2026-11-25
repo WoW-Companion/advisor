@@ -89,7 +89,7 @@ func MergeCharacters(a, b Character) Character {
 	if a.Source != b.Source && b.Source != "" && a.Source != "" {
 		out.Source = SourceWoWC + " + " + SourceFS
 	}
-	return out
+	return out.WithRecipeProfessions()
 }
 
 // mergeFiles combines the addon's file (a) with ForeverScribe's (b); a is empty when absent.
