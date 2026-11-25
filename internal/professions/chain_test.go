@@ -187,12 +187,12 @@ func TestEstimatedLearnSkillIsAround(t *testing.T) {
 	ds := chainData(t)
 	b := NewBenchmark(ds, BenchOptions{Profession: "Blacksmithing", From: 45, To: 75})
 	text := RenderBenchmark(b)
-	if !strings.Contains(text, "Guessed Sword: learn around skill 40, estimated") {
+	if !strings.Contains(text, "Guessed Sword: learn around skill 50, estimated") {
 		t.Errorf("estimate not shown as around:\n%s", text)
 	}
 	c := smith(45, 60, 999) // a captured known-recipe list, so every recipe says how to learn it
-	if !strings.Contains(RenderPath(ComputePath(c, ds, "Blacksmithing", 75, 1)), "around skill 40") {
-		t.Error("path does not say around skill 40")
+	if !strings.Contains(RenderPath(ComputePath(c, ds, "Blacksmithing", 75, 1)), "around skill 50") {
+		t.Error("path does not say around skill 50")
 	}
 	for _, x := range b.Bands {
 		if x.Recipe == "Guessed Sword" && x.LearnSkillSource != "estimate" {

@@ -143,6 +143,7 @@ func Recipes(ds store.DataStore, profession string) ([]Recipe, error) {
 		if n := asInt(r["creates_item_id"]); n != nil {
 			rc.CreatesItem = int64(*n)
 		}
+		rc.LearnSkill = estimateFloor(rc)
 		if rc.CreatesItem != 0 {
 			if it, err := ds.Get("items", rc.CreatesItem); err == nil && items.Unobtainable(asText(it["name"])) {
 				continue
@@ -169,6 +170,25 @@ func difficulty(r Recipe, skill int) string {
 		return Yellow
 	}
 	return ""
+}
+
+// estimateMargin is how far below its yellow skill an estimated recipe may be scheduled: an orange
+// recipe turns yellow 15 to 20 skill points after it is learnt, and the dataset's estimates sit up to
+// 30 below the yellow start, so a recipe only a guess puts at its learn skill is held back to this.
+const estimateMargin = 10
+
+// estimateFloor is the learn skill a recipe is planned at: the dataset's when it is a trainer's, a
+// recipe item's or the client's, and for an estimate no lower than estimateMargin under its yellow
+// skill, so a plan never uses a recipe far below the skill it is really learnt at. An estimate of
+// 30 or less is the first recipes of a rank, taught at the start, and is left alone.
+func estimateFloor(r Recipe) *int {
+	if r.LearnSource != "estimate" || r.LearnSkill == nil || r.YellowSkill == nil || *r.LearnSkill <= 30 {
+		return r.LearnSkill
+	}
+	if f := *r.YellowSkill - estimateMargin; f > *r.LearnSkill {
+		return &f
+	}
+	return r.LearnSkill
 }
 
 func learnOf(r Recipe) int {

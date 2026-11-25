@@ -136,6 +136,8 @@ type planner struct {
 	trainerOffers int
 	// expanding holds the recipes being laid out, so a recipe is never expanded inside itself.
 	expanding map[int64]bool
+	// intermediates caches the items other recipes of the profession take as a reagent.
+	intermediates map[int64]bool
 }
 
 func (p *planner) name(id int64) string {
@@ -431,7 +433,53 @@ func (p *planner) price(r Recipe, from string, skill, target int, left map[int64
 		s.mats += n.leaves()
 		s.opt.Needs = append(s.opt.Needs, n)
 	}
+	if p.keptProduct(r) {
+		// The bolts are kept for the recipes that use them later, so they are not an extra cost:
+		// the plan would make them then anyway, at a skill where they give nothing.
+		s.effort = s.effort * keptBoltPercent / 100
+	}
 	return s, true
+}
+
+// keptBoltPercent is the share of its cost a craft of a kept intermediate (a cloth bolt) is priced at.
+const keptBoltPercent = 40
+
+// keptProduct says a recipe makes a cloth bolt other recipes of the profession take as a reagent, such
+// as a Bolt of Woolen Cloth (not a smelted bar or a leather grade: those stay a conversion to avoid). Its crafts give skill-ups and the bolts are kept for later.
+func (p *planner) keptProduct(r Recipe) bool {
+	if r.CreatesItem == 0 || !strings.HasPrefix(strings.ToLower(p.name(r.CreatesItem)), "bolt of ") {
+		return false
+	}
+	if p.intermediates == nil {
+		p.intermediates = map[int64]bool{}
+		recs, _ := Recipes(p.ds, p.prof)
+		mine := map[int64]bool{}
+		for _, x := range recs {
+			mine[x.SpellID] = true
+		}
+		for _, x := range recs {
+			if x.CreatesItem == 0 {
+				continue
+			}
+			for _, rr := range rowsBy(p.ds, "recipe_reagents", "reagent_item_id", x.CreatesItem) {
+				if sp := asI64(rr["spell_id"]); mine[sp] && sp != x.SpellID {
+					p.intermediates[x.CreatesItem] = true
+					break
+				}
+			}
+		}
+	}
+	return p.intermediates[r.CreatesItem]
+}
+
+// keep puts the pieces a band of an intermediate recipe makes into the stock, for the bands after it.
+func (p *planner) keep(spell int64, recipes []Recipe, crafts int) {
+	for _, r := range recipes {
+		if r.SpellID == spell && p.keptProduct(r) {
+			p.stock[r.CreatesItem] += crafts
+			return
+		}
+	}
 }
 
 // ComputePath is the whole skill-up path for one profession from the character's skill to target
@@ -495,6 +543,9 @@ func computePath(c character.Character, ds store.DataStore, profession string, t
 		target = allowed
 	}
 	pa.Target = target
+	if n := expertEarly(sk.Name, c.Faction, level); n != "" && p.skill < 125 && target > 125 {
+		pa.Notes = append(pa.Notes, n)
+	}
 	p.where(&pa, sk, allowed, allowedTier)
 	if p.skill >= target {
 		pa.Notes = append(pa.Notes, fmt.Sprintf("You are at %d, the most your level allows for now; nothing left to climb until you level.", p.skill))
@@ -548,6 +599,7 @@ func computePath(c character.Character, ds store.DataStore, profession string, t
 				if m, ok := p.extend(recipes, bands[n-1], best, prevStock, prevUsed); ok {
 					bands[n-1] = m.band
 					p.stock, used, skill = m.stock, m.used, m.band.To
+					p.keep(m.band.Best.Spell, recipes, m.band.Best.Crafts)
 					continue
 				}
 			}
@@ -580,6 +632,7 @@ func computePath(c character.Character, ds store.DataStore, profession string, t
 		for _, row := range reagentsOf(ds, best.spell) {
 			p.short[asI64(row["reagent_item_id"])] = true
 		}
+		p.keep(best.spell, recipes, best.crafts)
 		bands = append(bands, b)
 		skill = best.reach
 	}

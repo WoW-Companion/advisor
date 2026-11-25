@@ -415,3 +415,66 @@ func writeBenchTable(t *testing.T, title string, rows []benchRow) {
 		t.Fatal(err)
 	}
 }
+
+// TestTailoringGuideBands lines the Tailoring plan up with the Forever Tailoring guide, step by step: the
+// advisor's recipe at the start of each guide step, the guide's, and whether they match. The advisor
+// picks its recipes by cost, so a difference is listed, not a failure; a recipe used before the skill it
+// can be learnt at (the dataset's learn skill, or for an estimate its yellow start less estimateMargin) is.
+func TestTailoringGuideBands(t *testing.T) {
+	dir := os.Getenv("WOWC_BENCH_DATASET")
+	if dir == "" {
+		t.Skip("WOWC_BENCH_DATASET is not set: run make advice-benchmark")
+	}
+	ds := store.NewDir(dir)
+	ref := &refData{ds: ds, recipes: map[string]map[int64]store.Row{}}
+	var guide *guideProf
+	for _, g := range loadGuides(t).Professions {
+		if g.Profession == "Tailoring" {
+			g := g
+			guide = &g
+		}
+	}
+	if guide == nil {
+		t.Fatal("no Tailoring guide recorded")
+	}
+	b := NewBenchmark(ds, BenchOptions{Profession: "Tailoring", Level: 60, Faction: "horde", From: 1, To: 300})
+	var out []benchRow
+	for _, s := range guide.Steps {
+		got := "no step"
+		for _, x := range b.Bands {
+			if x.From <= s.From && s.From < x.To {
+				got = x.Recipe
+				if x.Gap != "" {
+					got = "gap"
+				}
+			}
+		}
+		res := "match"
+		if !strings.EqualFold(got, s.Recipe) {
+			res = "differ"
+		}
+		out = append(out, benchRow{fmt.Sprintf("Tailoring %d→%d", s.From, s.To), got, s.Recipe, guide.Source, res})
+	}
+	for _, x := range b.Bands {
+		if x.Gap != "" {
+			continue
+		}
+		row := ref.byName("Tailoring", x.Recipe)
+		if row == nil {
+			continue
+		}
+		learn, ok := intOf(*row, "learn_skill")
+		if !ok {
+			continue
+		}
+		if asText((*row)["learn_skill_source"]) == "estimate" && learn > 30 {
+			if y, ok := intOf(*row, "yellow_skill"); ok {
+				learn = max(learn, y-estimateMargin)
+			}
+		}
+		if x.From < learn {
+			t.Errorf("%s is planned at %d, before its learn skill %d", x.Recipe, x.From, learn)
+		}
+	}
+	writeBenchTable(t, "Tailoring plan against the Forever guide", out)
+}

@@ -59,6 +59,9 @@ func (p *planner) trainer() string {
 		z := asText(r["zone_name"])
 		name := asText(r["name"])
 		if name == "" {
+			name = curatedTrainers[asI64(r["npc_id"])]
+		}
+		if name == "" {
 			name = fmt.Sprintf("npc %d (name not in the dataset)", asI64(r["npc_id"]))
 		}
 		cs = append(cs, cand{name, z, zone != "" && strings.EqualFold(z, zone), asI64(r["recipes"]), asI64(r["npc_id"])})
@@ -267,4 +270,31 @@ func (p *planner) gatherLine(id int64, name string) (string, bool) {
 		line += "; needs " + skill
 	}
 	return line + ".", true
+}
+
+// curatedTrainers names the profession trainers the dataset lists by id only, from the WoW: Forever guides:
+// the Tailoring trainers in Undercity (Horde) and Stormwind (Alliance).
+var curatedTrainers = map[int64]string{
+	4576: "Josef Gregorian",
+	1346: "Georgio Bolero",
+}
+
+// expertEarly is what the Forever Tailoring guide does that a rank cap alone does not say: it trains
+// Expert at Tailoring 125 and character level 20, for 50 silver, long before the 150 cap needs it.
+func expertEarly(profession, faction string, level int) string {
+	if !strings.EqualFold(profession, "Tailoring") {
+		return ""
+	}
+	who := "Josef Gregorian in Undercity (Horde) or Georgio Bolero in Stormwind (Alliance)"
+	switch strings.ToLower(faction) {
+	case "horde":
+		who = "Josef Gregorian in Undercity"
+	case "alliance":
+		who = "Georgio Bolero in Stormwind"
+	}
+	s := "Train Journeyman before skill 75, Expert as soon as you have Tailoring 125 and character level 20 (about 50s, " + who + "), and Artisan at 225."
+	if level > 0 && level < 20 {
+		s += " Expert needs character level 20, so you are not there yet."
+	}
+	return s
 }

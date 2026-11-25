@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.66
+
+- Tailoring plans follow the proven path: cloth bolts, the right recipes at the right skill, and when to visit your trainer. A recipe whose learn skill the data only guesses is no longer used far below the skill it turns yellow at (Black Mageweave Vest and Runecloth Belt were planned some 30 skill points too early), cloth bolts you make for the skill-ups are counted as kept for the recipes that use them later, and Tailoring plans name the trainer: Josef Gregorian in Undercity or Georgio Bolero in Stormwind, who teach Expert at Tailoring 125 and level 20.
+
 ## 0.7.65
 
 - Profession plans count skill-ups the way the game does, and gathering professions say what to gather. A craft now gives a skill point for sure while a recipe is orange, three times in four while yellow and one in four once it turns green (it fits the craft counts of the Forever guides far better than the old flat one in two), so a plan leaves a recipe when it turns green unless nothing else is better, and needs fewer crafts. Herbalism, Mining and Skinning no longer send you to the Auction House for a pattern: they name the herbs and ores your skill opens and where they grow, and Fishing shows its catches again. Suffix advice no longer offers a suffix with a stat your build ignores (no "of the Owl" for a Destruction Warlock or an Elemental Shaman), and a trainer the dataset has no name for is shown as its id, not "trainer trainer".
