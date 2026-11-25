@@ -569,7 +569,7 @@ func TestUpdateEndpointOfferRule(t *testing.T) {
 		}
 		return st
 	}
-	if st := get(""); st.Latest != "0.7.51" || st.Notes != "- Fixed things." || st.Pulled == nil || st.Pulled.BackTo != "0.7.49" {
+	if st := get(""); st.Latest != "0.7.51" || st.Notes != "## 0.7.51\n- Fixed things." || st.Pulled == nil || st.Pulled.BackTo != "0.7.49" {
 		t.Errorf("default: %+v", st)
 	}
 	if st := get("?now=1"); st.Latest != "0.7.52" {

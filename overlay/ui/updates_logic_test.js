@@ -16,7 +16,7 @@ let s = U.bannerState(offer, cfg(), NOW, '', '');
 assert.deepStrictEqual([s.kind, s.version], ['offer', '0.7.54']);
 let v = U.bannerView(s);
 assert.strictEqual(v.text, 'Update 0.7.54 is ready');
-assert.deepStrictEqual(v.actions.map(a => a.label), ['What’s new', 'Install', 'Later', 'Skip this version']);
+assert.deepStrictEqual(v.actions.map(a => a.label), ['What’s new', 'See all changes', 'Install', 'Later', 'Skip this version']);
 assert.strictEqual(v.cls, 'ok');
 assert.strictEqual(U.bannerState(offer, cfg({ checkUpdates: false }), NOW, '', ''), null, 'the master switch hides it');
 assert.strictEqual(U.bannerState(null, cfg(), NOW, '', ''), null);

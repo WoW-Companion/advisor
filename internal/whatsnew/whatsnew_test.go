@@ -114,7 +114,7 @@ func TestRangeCapsVersionsAndBullets(t *testing.T) {
 	if n := strings.Count(got, "## "); n != RangeVersions {
 		t.Errorf("%d versions, want %d:\n%s", n, RangeVersions, got)
 	}
-	if n := strings.Count(got, "\n- ") + 1; n != RangeBullets {
+	if n := strings.Count(got, "\n- "); n != RangeBullets {
 		t.Errorf("%d bullets, want %d:\n%s", n, RangeBullets, got)
 	}
 	if !strings.HasSuffix(got, "…and 19 more changes") || !strings.HasPrefix(got, "## 0.1.9\n") {
