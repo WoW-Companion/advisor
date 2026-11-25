@@ -86,3 +86,12 @@ The skill gate is the trainer's required skill when the dataset has it. Where th
 - **Level answer.** The character's skill comes from their profession. A node suits them when it needs no more than that skill; the best are those within 50 points under it, else the highest they can take. The skill a node needs is the curated `profession_notes` figure for its name (sections `nodes` or `gathering`, `skill_min`), else the dataset's `skill_required`, else the lowest required level of what it yields.
 - **Planner.** `profession_plan` uses the same zones in the "Mine/Pick/Fish X: Zone: Node (x, y)" lines for the materials a path still needs.
 - Every place read from Questie is marked "from your Questie database". Without Questie, or when its object rows are missing or unreadable, nothing is guessed: the answer says no place is known and the planner keeps its dataset lines.
+
+## How a skill-up plan chooses (cost model)
+
+- **Material cost.** A vendor-sold material costs its price; a gathered one 20 plus twice its node's skill; dust, essence and shard from disenchanting 100 ("disenchant level-N greens or buy"); anything else is weighted by tier (copper < tin < iron < mithril < thorium; linen < wool < silk < mageweave < runecloth; light < medium < heavy < thick < rugged leather). Gems and elemental, rare-drop or cooldown materials weigh 3000. A crafted material costs what its reagents cost; the expansion never follows a recipe inside itself.
+- **Choice.** Each band takes the recipe with the lowest cost per expected skill point, counting the skill-ups the intermediate crafts give. A band over 25 raw materials per skill point is rejected when another recipe fits.
+- **Recipe sources, in order:** trainer; vendor-sold recipe items; quest-reward recipes whose quest level and faction fit the character, named with the quest; drops and other patterns only as "if you have the pattern".
+- **Left out by default:** specialisation recipes (Dragonscale, Elemental and Tribal Leatherworking, Armorsmith, Weaponsmith, Goblin and Gnomish Engineering) unless the character knows them, and recipes that make or use a cooldown material (Mooncloth, Salt Shaker, Arcanite, transmutes).
+- **Gaps.** When no recipe covers a stretch, the band says "No trainer or vendor recipe covers 285–300", names the patterns or quests that would, and the plan goes on to the target.
+- **Guide check.** The benchmark ends its band list with one "Guide check:" line: each band's recipe and how it is learnt (trainer, vendor pattern, quest recipe, known, or GAP).

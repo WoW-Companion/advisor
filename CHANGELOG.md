@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.48
+
+- Profession leveling plans now follow cheaper, common recipes all the way to 300, including vendor patterns, quest recipes and enchanting materials, and skip specialist or cooldown recipes. Where no trainer or vendor recipe covers a stretch of skill, the plan says so and names a pattern or quest to look for instead of stopping. Alchemy plans no longer come up empty, and Leatherworking no longer counts hundreds of thousands of materials.
+
 ## 0.7.47
 
 - The app now reads the WoW Companion addon directly, so ForeverScribe is no longer needed, and its advice uses the trainers, vendors and gathering spots you've seen yourself. If you still have ForeverScribe, the app reads it too and, for each character, uses whichever capture is newer. The setup checklist and the doctor say where each character came from, and tell you once that you can remove ForeverScribe once WoW Companion 0.6.N+ is installed. What you see in the game now comes first, marked "seen by you": the trainer you visited, with its cost and the skill it asks for, answers "Who trains that?"; the vendors you opened give their stock and prices; the herbs, ore and fish you gathered give the places to gather and fish; and a quest giver you met fills in a giver the game data lacks.
