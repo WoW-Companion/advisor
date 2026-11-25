@@ -237,6 +237,17 @@ func TestProfessionCostsBenchmark(t *testing.T) {
 		add(row)
 		fail(row)
 	}
+	// the guide-check line each plan ends its bands with is readable for every profession, Fishing included
+	for _, prof := range append(append([]string{}, benchProfessions...), "Herbalism", "Mining", "Skinning", "Fishing") {
+		b := benchPlan(ds, BenchOptions{Profession: prof})
+		res := "match"
+		if strings.Contains(b.GuideCheck, "()") || b.GuideCheck == "" {
+			res = "differ: the guide-check line is empty or has an empty source: " + b.GuideCheck
+		}
+		row := benchRow{prof + " 1→300: guide-check line", fmt.Sprintf("%d bands, %d characters", len(b.Bands), len(b.GuideCheck)), "each band's recipe and how it is learnt, no empty brackets", "the plan's own bands", res}
+		add(row)
+		fail(row)
+	}
 	printCounts("costs", out)
 	writeBenchTable(t, "Profession costs and places", out)
 }

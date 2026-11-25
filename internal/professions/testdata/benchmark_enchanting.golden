@@ -2,7 +2,7 @@ Profession plan: Enchanting 1→120, level 20, empty bags and bank.
 Skill-up model: an orange craft gives 1 skill point, a yellow craft 0.75, a green craft 0.25 (green starts halfway between the dataset's yellow and grey skill), a grey craft none. Each band picks the recipe with the lowest cost per point; ties go to fewer crafts, then the lower spell id. Nothing is held: every material is bought or gathered.
 
 Gates:
-- Apprentice: skill 1-75, character level 5, trainer Ench Eli in Darkshire; trainer recipes on this path: 1 for 0c
+- Apprentice: skill 1-75, character level 5, trainer Ench Eli in Darkshire; trainer recipes on this path: 1, price not in the dataset (see the trainer)
 - Journeyman: skill 75-150, character level 10, trainer Ench Eli in Darkshire; trainer recipes on this path: 1 for 7s
 
 Bands:

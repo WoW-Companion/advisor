@@ -721,6 +721,10 @@ func guideCheck(bands []BenchBand) string {
 			parts = append(parts, fmt.Sprintf("%d-%d GAP", x.From, x.To))
 			continue
 		}
+		if x.Source == "" {
+			parts = append(parts, fmt.Sprintf("%d-%d %s", x.From, x.To, x.Recipe)) // Fishing: catches, nothing to learn
+			continue
+		}
 		parts = append(parts, fmt.Sprintf("%d-%d %s (%s)", x.From, x.To, x.Recipe, x.Source))
 	}
 	return "Guide check: " + strings.Join(parts, "; ") + "."
