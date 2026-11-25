@@ -21,6 +21,8 @@ const (
 	Short         = "short"
 	Far           = "far"
 	NotProfession = "not_profession"
+	// NeedsRecipe: the skill reaches the recipe, but it is taught by an item the character does not have.
+	NeedsRecipe = "needs_recipe"
 )
 
 // SkillCheck is a craft path's check of the character's profession skill against the recipe.
@@ -29,7 +31,7 @@ type SkillCheck struct {
 	Have        int           `json:"have"` // the character's rank; 0 when they lack the profession
 	Need        int           `json:"need"` // the recipe's learn skill
 	Gap         int           `json:"gap"`  // points short, 0 when none
-	Status      string        `json:"status" jsonschema:"can_make, short, far or not_profession"`
+	Status      string        `json:"status" jsonschema:"can_make, needs_recipe, short, far or not_profession"`
 	RecipeKnown *bool         `json:"recipe_known,omitempty" jsonschema:"whether the capture says the recipe is known; left out when the capture does not list recipes"`
 	SkillUp     []SkillUpStep `json:"skill_up,omitempty" jsonschema:"when short: up to three recipes that give skill-ups now, estimates"`
 }
