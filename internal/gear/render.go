@@ -92,7 +92,7 @@ func Render(c character.Character, r Result) string {
 	if r.ItemLevelOnly {
 		fmt.Fprintf(&b, "Ranked by the gain over what is worn, listed by the level needed to wear it: %s.\n", r.Reason)
 	} else {
-		fmt.Fprintf(&b, "Ranked by the gain over what is worn for %s, listed by the level needed to wear it; advisor defaults, not authoritative (%s).\n", r.Spec, r.Rationale)
+		fmt.Fprintf(&b, "Ranked by the gain over what is worn, weighted by %s stat types and listed by the level needed to wear it; advisor defaults, not authoritative (%s).\n", r.Spec, r.Rationale)
 	}
 	if len(r.Slots) == 0 {
 		b.WriteString("No upgrades found for the items the dataset holds.\n")

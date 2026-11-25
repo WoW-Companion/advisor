@@ -223,7 +223,7 @@ func TestSourcesAndRender(t *testing.T) {
 	}
 	text := Render(c, res)
 	for _, want := range []string{
-		"Ranked by the gain over what is worn for Holy, listed by the level needed to wear it; advisor defaults, not authoritative",
+		"Ranked by the gain over what is worn, weighted by Holy stat types and listed by the level needed to wear it; advisor defaults, not authoritative",
 		"Cloth Hood (at level 14; empty slot): from Near Wolf, level 10-12, zone unknown, drops 5.0% of kills; Far Boss, level 40-42, zone unknown, drops 25.0% of kills",
 		"Spirit Hood (at level 14; empty slot): from object 900, zone unknown, drop chance unknown",
 		"Plain Robe (requires level 8; empty slot): source unknown",
