@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.7.87
+
+- Nearby-quest suggestions no longer include holiday quests (like Flickering Flames) outside their event, or when holiday quests are off.
+- Quests that need a higher level than yours are never suggested.
+
 ## 0.7.86
 
 - The plan file lists where each quest in your log is handed in, for live turn-in hints.

@@ -97,3 +97,23 @@ func TestEventOffersRankLast(t *testing.T) {
 		t.Errorf("event quests %+v", q)
 	}
 }
+
+func TestEventOfNameOffered(t *testing.T) {
+	jun := time.Date(2026, 6, 25, 12, 0, 0, 0, time.UTC)
+	nov := time.Date(2026, 11, 25, 12, 0, 0, 0, time.UTC)
+	if k := EventOfName("Flickering Flames in Kalimdor"); k != "midsummer" {
+		t.Fatalf("EventOfName = %q", k)
+	}
+	if EventOfName("Plain Errand") != "" {
+		t.Error("ordinary quest tagged")
+	}
+	for _, c := range []struct {
+		s    Seasonal
+		t    time.Time
+		want bool
+	}{{"on", jun, true}, {"on", nov, false}, {"", jun, false}} {
+		if got := c.s.Offered("midsummer", c.t); got != c.want {
+			t.Errorf("Offered(%q, %v) = %v", c.s, c.t, got)
+		}
+	}
+}
