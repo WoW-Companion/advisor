@@ -35,6 +35,7 @@ assert.deepStrictEqual(flat(rows).slice(3), ['Unlocks: Next Deal (from Brann, he
 // Talent entry.
 assert.deepStrictEqual(flat(describe({ text: 'x', kind: 'talent', points: 3 }, 10)), ['3 unspent talent points']);
 assert.deepStrictEqual(flat(describe({ text: 'x', kind: 'talent', points: 1 }, 10)), ['1 unspent talent point']);
+assert.deepStrictEqual(flat(describe({ text: 'Spend 1 talent point: Shadow Focus (Shadow)', kind: 'talent', points: 1 }, 10)), ['Spend 1 talent point: Shadow Focus (Shadow)']);
 
 // Difficulty against the character's level.
 assert.deepStrictEqual([15, 13, 12, 10, 8, 3, 1].map(l => difficulty(l, 10)), ['diff-red', 'diff-orange', 'diff-yellow', 'diff-yellow', 'diff-yellow', 'diff-green', 'diff-grey']);

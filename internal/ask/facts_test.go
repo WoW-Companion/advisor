@@ -122,3 +122,20 @@ func TestSubjectFactsCarryQuestReadiness(t *testing.T) {
 		t.Errorf("facts lack readiness:\n%s", got)
 	}
 }
+
+func TestTalentFacts(t *testing.T) {
+	n, zero := 1, 0
+	for name, tc := range map[string]struct {
+		t    *character.Talents
+		want string
+	}{
+		"unspent":     {&character.Talents{Unspent: &n}, "mention this FIRST"},
+		"none":        {&character.Talents{Unspent: &zero}, ""},
+		"not in file": {nil, ""},
+	} {
+		got := talentFacts(character.Character{Talents: tc.t}, nil)
+		if (tc.want == "") != (got == "") || !strings.Contains(got, tc.want) {
+			t.Errorf("%s: %q", name, got)
+		}
+	}
+}
