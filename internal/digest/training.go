@@ -91,9 +91,18 @@ func trainingLine(c character.Character, ds store.DataStore, opt Options) (Line,
 		l.Text = clip("New spells to train: " + strings.Join(names[:min(2, len(names))], ", "))
 	}
 	l.trainer(c)
-	if l.NPC == "" {
-		if t, ok := levelup.NearestTrainer(c, opt.Questie); ok {
+	place, hasPlace := levelup.TrainAt(c, opt.Questie)
+	if hasPlace { // the one trainer choice: the panel, the NEXT line and the facts all follow it
+		l.NPC, l.X, l.Y, l.HasXY = "", 0, 0, false
+		l.Zone = place.City
+		if t := place.Trainer; t != nil {
 			l.NPC, l.Zone, l.X, l.Y, l.HasXY = t.Name, t.Zone, t.X, t.Y, true
+		}
+	}
+	if hasPlace {
+		l.trainAt = place.Line(c.Class)
+		if known { // the NEXT bar names the same place the card does
+			l.Text = clip(l.Text + " at " + place.City)
 		}
 	}
 	l.Details = trainingDetails(l, from, c, sp)
@@ -154,7 +163,9 @@ func trainingDetails(l Line, from int, c character.Character, sp []levelup.Spell
 	if len(up) > 0 {
 		d = append(d, "Upgrades: "+strings.Join(up, ", "))
 	}
-	if l.NPC != "" {
+	if l.trainAt != "" {
+		d = append(d, l.trainAt)
+	} else if l.NPC != "" {
 		w := "Trainer: " + l.NPC
 		if l.Zone != "" {
 			w += ", " + l.Zone

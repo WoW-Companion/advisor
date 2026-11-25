@@ -10,6 +10,7 @@ import (
 	"github.com/WoW-Companion/advisor/internal/brief"
 	"github.com/WoW-Companion/advisor/internal/character"
 	"github.com/WoW-Companion/advisor/internal/digest"
+	"github.com/WoW-Companion/advisor/internal/levelup"
 	"github.com/WoW-Companion/advisor/internal/professions"
 	"github.com/WoW-Companion/advisor/internal/profile"
 	"github.com/WoW-Companion/advisor/internal/questie"
@@ -50,7 +51,7 @@ func Facts(cfg Config, q Question) string {
 	if g, ok := digest.FindGiver(c, cc.qx, digest.PlanQuests(all), digest.PlanNPCs(all)); ok {
 		giver = "Quest giver with something for the character now (not in the plan): " + g.Text() + "."
 	}
-	return capRunes(subjectFacts(cfg, cc, q)+brief.Character(c, f.ClientOf(c), time.Now())+"\n\n"+styleLine(c)+join(professionPlanFacts(cc, q.Text))+"\n\n"+next+join(giver), FactsBudget)
+	return capRunes(subjectFacts(cfg, cc, q)+brief.Character(c, f.ClientOf(c), time.Now())+"\n\n"+styleLine(c)+join(professionPlanFacts(cc, q.Text))+"\n\n"+next+join(trainFacts(cc))+join(giver), FactsBudget)
 }
 
 func join(s string) string {
@@ -116,7 +117,7 @@ const GroundingRules = "How to answer: answer from these facts first. Look anyth
 	"never by name alone. A lookup that finds nothing is not an answer: never tell the player there was \"no match\" or that " +
 	"you cannot tell what this is. When the facts are thin, say plainly what they do show (who gives it, where, the level, " +
 	"whether it is a class quest, why it is listed) and what it usually means. Never invent specifics such as a reward, " +
-	"an ability name or a location that is not in the facts."
+	"an ability name or a location that is not in the facts. Name NPCs, coordinates, prices and skill levels only from the facts; when one is missing, say what kind of place to look (\"your class trainer in Undercity\")."
 
 // JustReadRule is added whenever a question arrives with a ref: the player clicked the entry and has
 // read its card, so the answer is only what the card does not say, in the short answer shape.
@@ -339,4 +340,24 @@ func professionPlanFacts(cc loaded, text string) string {
 		return ""
 	}
 	return "The character HAS " + prof + " (it is one of their professions); never say they lack it. Their " + prof + " leveling plan from profession_plan; answer from it, not from general tips:\n" + capRunes(body, planRunes)
+}
+
+// trainFacts is the nearest place to train class spells, when the character has spells to train, ; "" otherwise.
+func trainFacts(cc loaded) string {
+	c := cc.c
+	if cc.ds == nil || c.Level == nil {
+		return ""
+	}
+	from := *c.Level
+	if c.KnownSpells != nil {
+		from = 1
+	}
+	if len(levelup.Spells(c, cc.ds, from, *c.Level)) == 0 {
+		return ""
+	}
+	p, ok := levelup.TrainAt(c, cc.qx)
+	if !ok {
+		return ""
+	}
+	return p.Line(c.Class) + "."
 }

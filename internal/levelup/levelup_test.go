@@ -110,10 +110,10 @@ func TestMoneyShort(t *testing.T) {
 
 func index() *questie.Index {
 	return &questie.Index{DB: "t",
-		Areas: map[int]questie.Area{1: {Zone: "Valanaar"}, 2: {Zone: "Far Hold"}},
+		Areas: map[int]questie.Area{1: {Zone: "Valanaar"}, 2: {Zone: "Far Hold"}, 3: {Zone: "Stormwind City"}},
 		Npcs: map[int]questie.Entity{
 			10: {Name: "Horde Drill Sergeant", Sub: "Warrior Trainer", Faction: "H", Spawns: []questie.Spawn{{Area: 1, X: 20, Y: 20}}},
-			11: {Name: "Sergeant Brand", Sub: "Warrior Trainer", Faction: "A", Spawns: []questie.Spawn{{Area: 2, X: 40, Y: 50}}},
+			11: {Name: "Sergeant Brand", Sub: "Warrior Trainer", Faction: "A", Spawns: []questie.Spawn{{Area: 3, X: 40, Y: 50}}},
 			12: {Name: "Captain Rhea", Sub: "Warrior Trainer", Faction: "A", Spawns: []questie.Spawn{{Area: 1, X: 60, Y: 61}}},
 			13: {Name: "Mage Mentor", Sub: "Mage Trainer", Faction: "A", Spawns: []questie.Spawn{{Area: 1, X: 1, Y: 1}}},
 			14: {Name: "Old Veteran", Sub: "Quest Giver", Spawns: []questie.Spawn{{Area: 2, X: 33, Y: 44}}},

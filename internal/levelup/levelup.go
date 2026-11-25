@@ -367,10 +367,11 @@ func Facts(c character.Character, ds store.DataStore, qx *questie.Index, from, t
 	} else {
 		fmt.Fprintf(&b, "The dataset lists no spells for a %s to train at levels %d to %d (or the character already knows them).\n", class, from, to)
 	}
-	if t, ok := SeenClassTrainer(c); ok && spells {
-		b.WriteString("Class trainer the player has visited: " + t.String() + " (" + character.SeenByYou + ").\n")
-	} else if t, ok := NearestTrainer(c, qx); ok && spells {
-		b.WriteString("Nearest class trainer for the character's faction: " + t.String() + ".\n")
+	if p, ok := TrainAt(c, qx); ok && spells {
+		b.WriteString(p.Line(c.Class) + ".\n")
+		if p.Trainer == nil {
+			b.WriteString("No source names a class trainer NPC or position here: name only the city, never an NPC or coordinates.\n")
+		}
 	}
 	if cq := ClassQuests(c, qx, 5); len(cq) > 0 {
 		b.WriteString("Class quests coming up (from the player's Questie database):\n")
