@@ -2,8 +2,8 @@
 
 ## 0.7.81
 
-- Quests that are ready to turn in where you stand now come first on the route, nearest first, before pick-ups.
-- A ready turn-in in a town you can fly to gets a "Fly to <town>: turn in ..." step, one per town.
+- Ready turn-ins where you stand now come first on the route, nearest first, before pick-ups.
+- Ready turn-ins in a town you can fly to get one "Fly to <town>" step.
 - Travel steps name the place ("Shadowfang Keep (Silverpine Forest)"), never a map number.
 
 ## 0.7.80
