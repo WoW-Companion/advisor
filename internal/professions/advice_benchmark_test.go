@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/WoW-Companion/advisor/internal/benchsummary"
 	"github.com/WoW-Companion/advisor/internal/store"
 )
 
@@ -134,7 +135,9 @@ func colour(row store.Row, skill int) string {
 	return "yellow"
 }
 
-func totalCrafts(b Benchmark) int {
+// totalCrafts is the crafts of the recipes the bands name (the guide's step counts are these) and the crafts of
+// the intermediates they take (bars smelted, bolts woven, leather ground), which no guide step counts.
+func totalCrafts(b Benchmark) (top, intermediate int) {
 	var sub func(ms []BenchMaterial) int
 	sub = func(ms []BenchMaterial) int {
 		n := 0
@@ -145,11 +148,109 @@ func totalCrafts(b Benchmark) int {
 		}
 		return n
 	}
-	n := 0
 	for _, x := range b.Bands {
-		n += x.Crafts + sub(x.Materials)
+		top += x.Crafts
+		intermediate += sub(x.Materials)
 	}
-	return n
+	return top, intermediate
+}
+
+// sourcingRow checks how the plan says each recipe is learnt against the dataset's trainer_spells and
+// vendor_sources: a recipe the plan calls a confirmed trainer recipe must be in trainer_spells, a vendor pattern
+// must be sold by a vendor, and a trainer recipe the dataset's trainer list lacks is counted as unconfirmed
+// (the plan says "check when you visit"; the gap is in the data's trainer list).
+func sourcingRow(ref *refData, prof string, b Benchmark) benchRow {
+	var confirmed, vendor, unconfirmed, wrong int
+	var bad []string
+	for _, x := range b.Bands {
+		if x.Gap != "" || x.Source == "" {
+			continue
+		}
+		switch {
+		case strings.HasPrefix(x.Source, "trainer, confirmed"):
+			confirmed++
+			if rows, _ := ref.ds.Filter("trainer_spells", store.Range{Column: "spell_id", Min: x.SpellID, Max: x.SpellID}); len(rows) == 0 {
+				wrong++
+				bad = append(bad, x.Recipe+" is called a confirmed trainer recipe, no trainer lists it")
+			}
+		case strings.HasPrefix(x.Source, "vendor pattern"):
+			vendor++
+			sold := false
+			items, _ := ref.ds.Filter("recipe_items", store.Range{Column: "teaches_spell_id", Min: x.SpellID, Max: x.SpellID})
+			for _, it := range items {
+				id := asI64(it["item_id"])
+				if v, _ := ref.ds.Filter("vendor_sources", store.Range{Column: "item_id", Min: id, Max: id}); len(v) > 0 {
+					sold = true
+				}
+			}
+			if !sold {
+				wrong++
+				bad = append(bad, x.Recipe+" is called a vendor pattern, no vendor sells it")
+			}
+		case strings.HasPrefix(x.Source, "trainer, unconfirmed"):
+			unconfirmed++
+		}
+	}
+	res := "match"
+	switch {
+	case wrong > 0:
+		res = "differ: " + strings.Join(bad, "; ")
+	case unconfirmed > 0:
+		res = fmt.Sprintf("differ: the dataset's trainer list lacks %d of the %d trainer recipes the plan uses (the plan says \"check when you visit\"; a data gap)", unconfirmed, unconfirmed+confirmed)
+	}
+	return benchRow{prof + " from skill 1: trainer and vendor sourcing", fmt.Sprintf("%d confirmed trainer, %d vendor pattern, %d unconfirmed trainer", confirmed, vendor, unconfirmed),
+		"every trainer recipe in trainer_spells, every vendor pattern in vendor_sources", "dataset trainer_spells, recipe_items, vendor_sources", res}
+}
+
+// leafMaterials adds up the raw materials of a material list: a made material counts as what it is made from.
+func leafMaterials(ms []BenchMaterial, into map[int64]int) {
+	for _, m := range ms {
+		if m.Make != nil {
+			leafMaterials(m.Make.Materials, into)
+			continue
+		}
+		into[m.ID] += m.Count
+	}
+}
+
+// totalsRow checks the plan's material totals against the sum of its bands' materials, item by item. A band's
+// material that an earlier band crafted (the bolts a later recipe takes) is not fetched, so the crafts of
+// each band's recipe are taken off the item it makes.
+func totalsRow(ref *refData, prof string, b Benchmark) benchRow {
+	want := map[int64]int{}
+	made := map[int64]int{}
+	for _, x := range b.Bands {
+		leafMaterials(x.Materials, want)
+		if row, ok := ref.of(prof)[x.SpellID]; ok && x.Gap == "" {
+			made[asI64(row["creates_item_id"])] += x.Crafts
+		}
+	}
+	for id, n := range made {
+		if w, ok := want[id]; ok {
+			want[id] = max(0, w-n)
+		}
+	}
+	got := map[int64]int{}
+	for _, t := range b.Materials {
+		got[t.ID] += t.Count
+	}
+	var bad []string
+	for id, n := range want {
+		if got[id] != n {
+			bad = append(bad, fmt.Sprintf("item %d: bands %d, totals %d", id, n, got[id]))
+		}
+	}
+	for id, n := range got {
+		if _, ok := want[id]; !ok {
+			bad = append(bad, fmt.Sprintf("item %d: totals %d, in no band", id, n))
+		}
+	}
+	sort.Strings(bad)
+	res := "match"
+	if len(bad) > 0 {
+		res = "differ: " + strings.Join(bad[:min(len(bad), 5)], "; ")
+	}
+	return benchRow{prof + " from skill 1: material totals", fmt.Sprintf("%d materials in the totals", len(b.Materials)), "the sum of the bands' raw materials less what earlier bands craft, item by item", "the plan's own bands", res}
 }
 
 // checkBands compares every band with the dataset and returns what disagrees.
@@ -286,6 +387,11 @@ func TestProfessionAdviceBenchmark(t *testing.T) {
 			add(benchRow{label + ": plan against the dataset", fmt.Sprintf("%d bands to skill %d", len(b.Bands), b.To),
 				"recipe known, not grey, learn skill, reagent counts, no rank crossed", datasetSrc, res})
 
+			if from == 1 {
+				add(sourcingRow(ref, g.Profession, b))
+				add(totalsRow(ref, g.Profession, b))
+			}
+
 			gaps := 0
 			for _, x := range b.Bands {
 				if strings.HasPrefix(x.Gap, noRecipeGap) {
@@ -351,12 +457,16 @@ func TestProfessionAdviceBenchmark(t *testing.T) {
 		for _, s := range g.Steps {
 			guideCrafts += s.Crafts
 		}
-		adv := totalCrafts(b)
+		adv, inter := totalCrafts(b)
 		res = "match"
 		if adv > guideCrafts*5/4 {
 			res = fmt.Sprintf("differ: %d%% more crafts than the guide; by design the planner minimises material cost (vendor price, gathering effort, learning cost), not crafts", 100*adv/guideCrafts-100)
 		}
-		add(benchRow{g.Profession + " 1→300: total crafts", fmt.Sprint(adv), fmt.Sprintf("%d (within 25%%)", guideCrafts), guideSrc, res})
+		advText := fmt.Sprint(adv)
+		if inter > 0 {
+			advText += fmt.Sprintf(" (+%d intermediate crafts the guide's steps leave out)", inter)
+		}
+		add(benchRow{g.Profession + " 1→300: total crafts", advText, fmt.Sprintf("%d (within 25%%)", guideCrafts), guideSrc, res})
 		used := 0
 		for _, s := range g.Steps {
 			for _, x := range b.Bands {
@@ -392,7 +502,17 @@ func TestProfessionAdviceBenchmark(t *testing.T) {
 			return n
 		}()), "gather nodes or catches by skill", "https://www.wow-professions.com/forever/" + strings.ToLower(prof) + "-leveling-guide; dataset gathering_nodes", res})
 	}
+	printCounts("professions", out)
 	writeBenchTable(t, "Profession advice", out)
+}
+
+// printCounts prints the area's same/differ count line that make advice-benchmark adds up into one summary line.
+func printCounts(area string, rows []benchRow) {
+	results := make([]string, len(rows))
+	for i, r := range rows {
+		results[i] = r.result
+	}
+	fmt.Println(benchsummary.AreaLine(area, results))
 }
 
 func writeBenchTable(t *testing.T, title string, rows []benchRow) {
@@ -476,5 +596,6 @@ func TestTailoringGuideBands(t *testing.T) {
 			t.Errorf("%s is planned at %d, before its learn skill %d", x.Recipe, x.From, learn)
 		}
 	}
+	printCounts("tailoring-guide", out)
 	writeBenchTable(t, "Tailoring plan against the Forever guide", out)
 }

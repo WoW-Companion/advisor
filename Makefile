@@ -52,11 +52,13 @@ integration:
 # The profession and stat advice benchmark: plans every profession at skill 1, 150 and 285 and checks the plans
 # and the stat priorities and suffixes against a real dataset and the recorded Forever guide steps. Needs the
 # network unless BENCH_DATASET names a dataset directory; not part of verify. BENCH_REPORT=<file> receives the
-# result tables in Markdown. See docs/professions.md.
+# result tables in Markdown. The last line is the summary, "advice-benchmark: N checks, S same, D differ (...)",
+# so the share of advice that agrees can be read per run. See docs/professions.md.
 advice-benchmark:
-	@set -e; dir="$(BENCH_DATASET)"; \
+	@set -e; dir="$(BENCH_DATASET)"; log="$$(mktemp)"; \
 	if [ -z "$$dir" ]; then \
 		dir="$$(go run ./cmd/wowc-advisor dataset update --cache "$${TMPDIR:-/tmp}/wowc-advice-benchmark" | sed -n 's/^dataset .* ready at //p')"; \
 	fi; \
 	echo "advice-benchmark: dataset $$dir"; \
-	WOWC_BENCH_DATASET="$$dir" WOWC_BENCH_REPORT="$(BENCH_REPORT)" go test ./internal/professions ./internal/stats -run 'AdviceBenchmark|StatBenchmark' -count=1 -v
+	status=0; WOWC_BENCH_DATASET="$$dir" WOWC_BENCH_REPORT="$(BENCH_REPORT)" go test ./internal/professions ./internal/stats -run 'AdviceBenchmark|StatBenchmark|TailoringGuideBands' -count=1 -v > "$$log" 2>&1 || status=$$?; \
+	cat "$$log"; go run ./internal/benchsummary/cmd < "$$log" || status=1; rm -f "$$log"; exit $$status

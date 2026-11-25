@@ -278,6 +278,12 @@ func readRows(f *parquet.File, rg parquet.RowGroup, rows []int64) ([]Row, error)
 		return nil, nil
 	}
 	cols := f.Schema().Columns()
+	repeated := make([]bool, len(cols)) // a repeated primitive column is a list whose path has one name
+	for i, c := range cols {
+		if leaf, ok := f.Schema().Lookup(c...); ok && leaf.MaxRepetitionLevel > 0 {
+			repeated[i] = true
+		}
+	}
 	r := rg.Rows()
 	defer r.Close()
 	out := make([]Row, 0, len(rows))
@@ -296,7 +302,7 @@ func readRows(f *parquet.File, rg parquet.RowGroup, rows []int64) ([]Row, error)
 		row := Row{}
 		for _, v := range buf[0] {
 			path := cols[v.Column()]
-			if len(path) == 1 {
+			if len(path) == 1 && !repeated[v.Column()] {
 				row[path[0]] = scalar(v)
 				continue
 			}

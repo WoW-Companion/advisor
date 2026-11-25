@@ -115,3 +115,35 @@ func TestRangeHolds(t *testing.T) {
 		}
 	}
 }
+
+// A column written as a repeated primitive (the random_suffixes stats column) reads as a list, not as its last element.
+func TestRepeatedColumnReadsAsList(t *testing.T) {
+	type suffix struct {
+		ID    int64   `parquet:"id"`
+		Stats []int16 `parquet:"stats"`
+	}
+	var buf bytes.Buffer
+	w := parquet.NewGenericWriter[suffix](&buf)
+	if _, err := w.Write([]suffix{{1, []int16{4, 7}}, {2, []int16{5}}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := w.Close(); err != nil {
+		t.Fatal(err)
+	}
+	s := New(ReaderSource{"suffixes": {ReaderAt: bytes.NewReader(buf.Bytes()), Size: int64(buf.Len())}})
+	for id, want := range map[int64][]int64{1: {4, 7}, 2: {5}} {
+		row, err := s.Get("suffixes", id)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got, _ := row["stats"].([]any)
+		if len(got) != len(want) {
+			t.Fatalf("id %d: stats %v, want %v", id, row["stats"], want)
+		}
+		for i := range want {
+			if got[i] != want[i] {
+				t.Errorf("id %d: stats %v, want %v", id, got, want)
+			}
+		}
+	}
+}

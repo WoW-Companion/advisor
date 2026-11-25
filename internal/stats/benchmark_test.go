@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/WoW-Companion/advisor/internal/benchsummary"
 	"github.com/WoW-Companion/advisor/internal/store"
 )
 
@@ -168,6 +169,11 @@ func TestStatBenchmark(t *testing.T) {
 			table = append(table, benchRow{"suffix " + s.Name + ": stats", s.Words, statWords(rows, s.Name), "dataset random_suffixes (kind suffix)", res})
 		}
 	}
+	results := make([]string, len(table))
+	for i, r := range table {
+		results[i] = r.result
+	}
+	fmt.Println(benchsummary.AreaLine("stats", results))
 	writeBenchTable(t, "Stat advice", table)
 }
 
@@ -182,23 +188,22 @@ func contains(l []string, s string) bool {
 	return false
 }
 
-// statWords is the stats the dataset gives a suffix name, "Intellect + Stamina".
+// statWords is the stats the dataset gives a suffix name, "Intellect + Spirit" (one entry per distinct set).
 func statWords(rows []store.Row, name string) string {
+	seen := map[string]bool{}
 	var out []string
-	for _, r := range rows {
-		if n, _ := r["name"].(string); n != name {
-			continue
-		}
-		l, _ := r["stats"].([]any)
+	for _, set := range suffixSets(rows, name) {
 		var parts []string
-		for _, v := range l {
-			if id, ok := asInt(v); ok {
-				parts = append(parts, Name(StatNames[id]))
-			}
+		for id := range set {
+			parts = append(parts, Name(StatNames[id]))
 		}
 		sort.Strings(parts)
-		out = append(out, strings.Join(parts, " + "))
+		if w := strings.Join(parts, " + "); !seen[w] {
+			seen[w] = true
+			out = append(out, w)
+		}
 	}
+	sort.Strings(out)
 	return strings.Join(out, " / ")
 }
 
