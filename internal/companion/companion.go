@@ -259,7 +259,8 @@ type Server struct {
 	data      dataState
 	planKeys  map[string]map[string]bool // character -> every step of its current plan, for "N new steps"
 	refresh   sync.Mutex
-	profStamp string // the profile store's stamp when the characters were last read
+	profStamp string    // the profile store's stamp when the characters were last read
+	digestDue time.Time // when the pending digest write falls due; zero when none
 }
 
 // New returns a companion; it does not listen. Serve does that.
@@ -534,6 +535,11 @@ func (s *Server) profileChanged(force bool) {
 	}
 	s.reload()
 	s.publish("profile", s.snapshot())
+	// The digest carries the play style, spec, stat check, guide and talent plan: write it after the
+	// same quiet time as a game save, so several quick changes make one write and /reload sees them.
+	s.mu.Lock()
+	s.digestDue = time.Now().Add(s.cfg.Debounce)
+	s.mu.Unlock()
 }
 
 // watch polls ForeverScribe.lua for new game data. Questions are asked in the overlay only.
@@ -542,7 +548,6 @@ func (s *Server) watch(ctx context.Context) {
 	s.mu.Lock()
 	s.profStamp = ask.Stamp(s.profilesPath())
 	s.mu.Unlock()
-	var due time.Time // when the pending digest write falls due; zero when none
 	// Write at once, not on the first save: an upgraded addon lists Plan.lua before any save happens.
 	s.writeDigest()
 	for {
@@ -550,11 +555,18 @@ func (s *Server) watch(ctx context.Context) {
 			last = cur
 			s.reload()
 			s.publish("game", s.snapshot())
-			due = time.Now().Add(s.cfg.Debounce) // each further change pushes it back
+			s.mu.Lock()
+			s.digestDue = time.Now().Add(s.cfg.Debounce) // each further change pushes it back
+			s.mu.Unlock()
 		}
 		s.profileChanged(false)
-		if !due.IsZero() && !time.Now().Before(due) {
-			due = time.Time{}
+		s.mu.Lock()
+		fire := !s.digestDue.IsZero() && !time.Now().Before(s.digestDue)
+		if fire {
+			s.digestDue = time.Time{}
+		}
+		s.mu.Unlock()
+		if fire {
 			s.writeDigest()
 		}
 		select {

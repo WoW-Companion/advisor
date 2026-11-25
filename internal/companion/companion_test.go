@@ -9,6 +9,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -639,5 +640,79 @@ func TestProfileChangedFromAnotherProcessRefreshesThePage(t *testing.T) {
 			}
 		}
 		return
+	}
+}
+
+// profileDigestEnv is a running watch with a profile store and a subscriber; games counts the digest
+// writes (each publishes one "game" event) once the start-up write has passed.
+func profileDigestEnv(t *testing.T, on bool) (s *Server, out string, games func() int) {
+	t.Helper()
+	s, _, out = digestEnv(t, true, on)
+	s.cfg.Profiles = filepath.Join(t.TempDir(), "profiles.json")
+	s.chars = []CharInfo{{Key: "R:New", Name: "New"}}
+	s.cfg.Poll, s.cfg.Debounce = 10*time.Millisecond, 150*time.Millisecond
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	go s.watch(ctx)
+	time.Sleep(100 * time.Millisecond) // start-up write done
+	ch := make(chan event, 64)
+	s.mu.Lock()
+	s.subs[ch] = true
+	s.mu.Unlock()
+	return s, out, func() int {
+		n := 0
+		for {
+			select {
+			case ev := <-ch:
+				if ev.name == "game" {
+					n++
+				}
+			default:
+				return n
+			}
+		}
+	}
+}
+
+func postProfile(s *Server, body string) {
+	w := httptest.NewRecorder()
+	s.setProfile(w, httptest.NewRequest("POST", "/api/profile", strings.NewReader(body)))
+}
+
+// A play style saved in Settings writes the digest after the debounce, once for several quick saves.
+func TestProfileSaveWritesDigest(t *testing.T) {
+	s, _, games := profileDigestEnv(t, true)
+	for _, spec := range []string{"A", "B", "C"} {
+		postProfile(s, `{"character":"R:New","role":"damage","focus":"leveling","spec":"`+spec+`"}`)
+		time.Sleep(20 * time.Millisecond)
+	}
+	if n := games(); n != 0 {
+		t.Fatalf("%d digest writes before the debounce", n)
+	}
+	time.Sleep(500 * time.Millisecond)
+	if n := games(); n != 1 {
+		t.Errorf("%d digest writes for three quick saves, want 1", n)
+	}
+}
+
+// A profile file changed on disk (an AI client's save) writes the digest too.
+func TestProfileFileChangeWritesDigest(t *testing.T) {
+	s, _, games := profileDigestEnv(t, true)
+	if err := os.WriteFile(s.cfg.Profiles, []byte(`{"characters":{"R:New":{"profile":{"role":"tank","focus":"dungeons"}}}}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(500 * time.Millisecond)
+	if n := games(); n != 1 {
+		t.Errorf("%d digest writes after a file change, want 1", n)
+	}
+}
+
+// With the auto-digest off a profile save writes no digest.
+func TestProfileSaveAutoDigestOff(t *testing.T) {
+	s, out, _ := profileDigestEnv(t, false)
+	postProfile(s, `{"character":"R:New","role":"damage","focus":"leveling"}`)
+	time.Sleep(500 * time.Millisecond)
+	if b, _ := os.ReadFile(out); strings.Contains(string(b), "New") { // an empty stub is not a write
+		t.Error("digest written with auto-digest off")
 	}
 }
