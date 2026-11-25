@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.39
+
+- Every profession gets a named trainer near you, even when no one has reported one yet, from your Questie install. Ask "who trains that?" about a Blacksmithing recipe, or any other profession's, and you get a trainer of your faction with their rank (Journeyman, Expert, Artisan), the zone and the coordinates; one whose rank reaches your skill and the recipe comes first. Vendors that only sell supplies are never taken for trainers.
+
 ## 0.7.38
 
 - With Questie installed, the companion knows where to mine, pick herbs and find fishing schools. Ask "where can I mine copper?" and you get the zones with the most copper veins, your own zone first, with a coordinate or two; ask "where should I fish at my level?" and you get the zones whose schools suit your Fishing skill. Profession plans use the same zones in their "gather here" lines for the ore, herbs and fish you still need. Places read from your Questie database are marked as coming from it.

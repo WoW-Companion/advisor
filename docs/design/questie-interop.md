@@ -107,3 +107,26 @@ whose area has no name is skipped.
 A database with no object rows, or none that yield an item, gives no nodes and a reason in the index
 (`NodesReason`); the answer then says no place is known. Nothing is guessed. The parsed nodes sit in
 the same local cache as the rest of the index (schema 6) and nothing from Questie is shipped.
+
+## Profession trainers (`where_to_learn`)
+
+`where_to_learn` uses the dataset's `trainers` rows (`npc_id`, `name`, `profession`, `zone_id`,
+`zone_name`, `x`, `y`, `faction`, `recipes`, `reporters`; `trainer_spells`: `npc_id`, `spell_id`,
+`required_skill`) for a profession and the character's faction. When the dataset has no trainer
+for the profession, or none for the faction (Blacksmithing has none at all), the trainers come
+from the Questie NPCs (`internal/questie/trainers.go`, index schema 7, which also keeps NPC field 15,
+`npcFlags`). The rule, on the NPC's subname (lower-cased):
+
+1. a subname with "supplies" is a vendor, never a trainer;
+2. "<Profession> Trainer" and "Junior <Profession> Trainer" (Blacksmithing, Tailoring, Leatherworking,
+   Alchemy, Enchanting, Engineering, Cooking, Fishing, First Aid, Mining, Herbalism, Skinning): tier 75;
+3. a rank word before the person noun (Blacksmith, Tailor, Leatherworker, Alchemist, Enchanter,
+   Engineer): Journeyman tier 150, Expert 225, Artisan 300, Master 375;
+4. a bare person noun ("Blacksmith") is a trainer only when `npcFlags` has the trainer bit (0x10),
+   at tier 75.
+
+Faction is Questie's `friendlyToFaction` ("A", "H", "AH"). Zone and coordinates are the NPC's spawn
+nearest the character (else its first). A trainer whose tier is below the skill wanted, the higher of
+the recipe's gate and the character's skill, sorts after those that reach it; then the usual order:
+same zone, same continent, nearest. The continent comes from a zone-name table in `internal/learn`
+(the dataset has no continent column, and the area table here carries zone names only).
