@@ -2,9 +2,9 @@
 
 ## 0.7.78
 
-- Unspent talent points come first: the NEXT line, the plan and the panel say "Spend 1 talent point: Shadow Focus (Shadow)", the next pick from your build after what you have already spent.
-- When the capture cannot show what you have picked, it says "Spend 1 talent point. Open your talents (N); I can't see what you've already picked yet" instead of naming rank 1 of the first talent.
-- Answers to "what next" mention the unspent points first. The line clears once a capture shows none unspent.
+- Unspent talent points come first: "Spend 1 talent point: Shadow Focus (Shadow)".
+- If your picks can't be seen yet, it says to open your talents instead of naming a talent.
+- "What next" answers mention unspent points first; the line clears once you spend them.
 
 ## 0.7.77
 
