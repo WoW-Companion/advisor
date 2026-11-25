@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.7.82
+
+- Training lists only what your trainer shows as available.
+- A spell that needs an earlier rank is noted, not listed as new.
+- Gold needed counts only the spells you can train now.
+- Talent picks skip ranks you already took, matched by spell.
+- If it can't tell which talents you took, it says so.
+
 ## 0.7.81
 
 - Unspent talent points come first: "Spend 1 talent point: Shadow Focus (Shadow)".

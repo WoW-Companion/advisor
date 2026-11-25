@@ -96,7 +96,7 @@ func wowcTalentTrees(v any) *Talents {
 		tree.Talents, _ = each(t["nodes"], func(n lua.Table) (Talent, bool) {
 			r := derefInt(asInt(n["rank"]))
 			pts += r
-			return Talent{Name: asStr(n["name"]), Rank: r, MaxRank: asInt(n["max"])}, true
+			return Talent{Name: asStr(n["name"]), Rank: r, MaxRank: asInt(n["max"]), SpellID: asInt(n["spell"])}, true
 		})
 		tree.Points = &pts
 		return tree, true

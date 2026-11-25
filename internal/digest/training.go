@@ -61,7 +61,16 @@ func trainingLine(c character.Character, ds store.DataStore, opt Options) (Line,
 	if known {
 		from = 1
 	}
-	sp := levelup.Spells(c, ds, from, level)
+	// Only what the visited trainer shows as available is trainable now; an offer it shows as
+	// unavailable (an earlier rank is missing) is a detail, never "new to train".
+	var sp, blocked []levelup.Spell
+	for _, x := range levelup.Spells(c, ds, from, level) {
+		if x.Blocked {
+			blocked = append(blocked, x)
+		} else {
+			sp = append(sp, x)
+		}
+	}
 	var rs []row
 	for _, x := range sp {
 		rs = append(rs, row{TrainSpell{ID: int(x.ID), Name: x.Name, Rank: x.Rank, New: x.New, Cost: x.Cost}, x.Level})
@@ -111,7 +120,7 @@ func trainingLine(c character.Character, ds store.DataStore, opt Options) (Line,
 			l.Text = clip(l.Text + " at " + place.City)
 		}
 	}
-	l.Details = trainingDetails(l, from, c, ds, sp)
+	l.Details = trainingDetails(l, from, c, ds, sp, blocked)
 	l.Asks, l.Ref = trainingAsks(l.Spells), trainingRef(level)
 	l.Why = trainingWhy(l.Spells)
 	return l, true
@@ -153,7 +162,7 @@ func (l *Line) trainer(c character.Character) {
 	}
 }
 
-func trainingDetails(l Line, from int, c character.Character, ds store.DataStore, sp []levelup.Spell) []string {
+func trainingDetails(l Line, from int, c character.Character, ds store.DataStore, sp, blocked []levelup.Spell) []string {
 	var d []string
 	var fresh, up []string
 	usually := len(sp) > 0 && sp[0].Usually
@@ -177,6 +186,13 @@ func trainingDetails(l Line, from int, c character.Character, ds store.DataStore
 	if len(up) > 0 {
 		d = append(d, "Upgrades: "+strings.Join(up, ", "))
 	}
+	if len(blocked) > 0 {
+		var need []string
+		for _, b := range blocked {
+			need = append(need, b.Label())
+		}
+		d = append(d, strings.Join(need, ", ")+" needs an earlier rank first")
+	}
 	for _, q := range levelup.QuestSpells(c, ds, from, l.Level) {
 		d = append(d, q.Line())
 	}
@@ -199,9 +215,11 @@ func trainingDetails(l Line, from int, c character.Character, ds store.DataStore
 		}
 		d = append(d, cost)
 	}
-	if from < l.Level {
+	switch {
+	case len(sp) > 0 && sp[0].Seen: // the trainer's own list says what is trainable: no level window to guess
+	case from < l.Level:
 		d = append(d, fmt.Sprintf("Unlocked between levels %d and %d", from, l.Level))
-	} else {
+	default:
 		d = append(d, "Available at your level")
 	}
 	return finishDetails(d)
