@@ -19,19 +19,48 @@
     return q.length ? '?' + q.join('&') : '';
   }
 
+  // The in-game addon's offer, from /api/addon/update, or null when none is shown ("Later" hides it).
+  function addonOffer(addon, cfg, now) {
+    if (!addon || !addon.available || !addon.latest) return null;
+    const v = bare(addon.latest);
+    if (((cfg.later || {})['addon:' + v] || 0) > now) return null;
+    return { version: v, installed: addon.installed || '', notes: addon.notes || '', reinstall: !!addon.reinstall,
+      reason: addon.reason || '', needsNewer: !!addon.needs_newer, min: addon.min || '' };
+  }
+
+  // Addon notes under the app's, their version headings marked "Addon" so the two do not blur.
+  function addonNotes(md) {
+    return String(md || '').replace(/^##\s+(\S+)/gm, '## Addon $1');
+  }
+
   // What the banner shows. status is /api/update's answer; busy is the install in progress ("" for
-  // none); failure is the last install's plain error. A pulled running version always wins, and is
-  // not dismissible: only going back (or the version being replaced) clears it.
-  function bannerState(status, cfg, now, busy, failure) {
-    if (!cfg.checkUpdates || !status) return null;
+  // none); failure is the last install's plain error; addon is /api/addon/update's answer (optional).
+  // A pulled running version always wins, and is not dismissible: only going back (or the version
+  // being replaced) clears it. When the app and the addon both have an update, one notice covers both.
+  function bannerState(status, cfg, now, busy, failure, addon) {
+    if (!cfg.checkUpdates) return null;
+    const a = addonOffer(addon, cfg, now);
+    if (!status && !a) return null;
+    status = status || {};
     const p = status.pulled;
     if (p) return { kind: 'pulled', version: p.version, reason: p.reason || 'it was pulled', backTo: p.back_to || '', busy, failure };
     const v = bare(status.latest);
     const hidden = !status.available || (cfg.skipped || []).map(bare).includes(v) || ((cfg.later || {})[v] || 0) > now;
-    if (!hidden) return { kind: 'offer', version: v, notes: status.notes || '', auto: !!cfg.autoUpdate, busy, failure };
+    if (!hidden) {
+      const both = a ? [status.notes || '', addonNotes(a.notes)].filter(Boolean).join('\n') : (status.notes || '');
+      return { kind: 'offer', version: v, notes: both, auto: !!cfg.autoUpdate, busy, failure, addon: a };
+    }
+    if (a) return { kind: 'addon', version: a.version, notes: addonNotes(a.notes), auto: !!cfg.autoUpdate, busy, failure, addon: a };
     // An install the player started from the version list has its own progress and error line.
     if (busy || failure) return { kind: 'task', busy, failure };
     return null;
+  }
+
+  // The headline of an addon-only notice, in plain words.
+  function addonText(a) {
+    if (a.reinstall) return 'Addon ' + a.installed + ' has a known problem' + (a.reason ? ': ' + a.reason.replace(/[.\s]+$/, '') : '') + '. Version ' + a.version + ' is safe to go back to';
+    if (a.needsNewer) return 'This app needs a newer addon than the one you have (' + a.installed + '). Addon ' + a.version + ' is ready';
+    return 'Addon ' + a.version + ' is ready';
   }
 
   // The banner's words and buttons as data, so the page only has to draw them.
@@ -48,9 +77,12 @@
         actions: [...back, { id: 'details', label: 'Details' }],
       };
     }
+    const both = s.kind === 'offer' && s.addon;
     return {
       cls: 'ok',
-      text: s.failure ? 'The update did not install: ' + s.failure : 'Update ' + s.version + ' is ready',
+      text: s.failure ? 'The update did not install: ' + s.failure
+        : s.kind === 'addon' ? addonText(s.addon)
+        : both ? 'Update ' + s.version + ' and addon ' + s.addon.version + ' are ready' : 'Update ' + s.version + ' is ready',
       actions: s.failure
         ? [...err, { id: 'later', label: 'Later' }]
         : [{ id: 'install', label: 'Install' }, { id: 'whatsnew', label: 'What’s new' }, { id: 'later', label: 'Later' }],
@@ -70,8 +102,10 @@
     const v = bare(version);
     cfg.skipped = [...new Set([...(cfg.skipped || []).map(bare), v])];
   }
-  function later(cfg, version, now) {
-    cfg.later = { [bare(version)]: now + LATER_MS }; // only the latest "Later" is kept
+  // keys are more things hidden by the same "Later" (the addon's "addon:<v>").
+  function later(cfg, version, now, keys) {
+    cfg.later = {}; // only the latest "Later" is kept
+    for (const k of [bare(version), ...(keys || [])]) if (k && k !== 'addon:') cfg.later[k] = now + LATER_MS;
   }
 
   const NOTICE_BULLETS = 4; // the notice shows this many bullets, then a See all changes link
@@ -99,7 +133,7 @@
     let shown = 0, hidden = 0;
     for (const raw of String(md || '').replace(/\r/g, '').split('\n')) {
       const line = raw.trim();
-      const h = /^##\s+(\S+)/.exec(line);
+      const h = /^##\s+(.+?)\s*$/.exec(line);
       if (h) { groups.push({ version: h[1], bullets: [] }); continue; }
       if (/^…\s*and \d+ more/.test(line)) { hidden += 1; continue; }
       const m = /^[-*•]\s+(.*)$/.exec(line);
@@ -149,6 +183,29 @@
     return { cls: '', text: 'You’re up to date (checked ' + hm + ')', button: '' };
   }
 
+  // Settings > Updates, addon part: the installed version, its update and the kept versions to go
+  // back to. checked is only for the up-to-date line.
+  function addonView(addon) {
+    if (!addon) return null;
+    if (!addon.installed) return { text: addon.message || '', button: '', version: '', back: [] };
+    const text = addon.installed === 'unknown' ? 'Addon installed (version unknown)'
+      : 'Addon ' + addon.installed + (addon.available ? ': ' + addon.latest + ' is ready' : ' (up to date)');
+    return {
+      text, version: addon.available ? bare(addon.latest) : '',
+      button: addon.available ? (addon.reinstall ? 'Go back to ' + bare(addon.latest) : 'Update addon') : '',
+      back: (addon.back || []).map(v => ({ version: v, button: 'Go back to ' + v, confirm: 'Go back to addon ' + v + '? The addon files from that version are restored.' })),
+    };
+  }
+
+  // Whether the page should install the addon by itself now: "Install updates automatically" is on,
+  // nothing is being written or typed (quiet), and the server says so (auto is "install" or "goback").
+  // A version pulled from the addon goes back whatever "Later" says; a plain update respects it.
+  function addonAuto(addon, cfg, now, quiet) {
+    if (!quiet || !cfg.autoUpdate || cfg.checkUpdates === false || !addon || !addon.available || !addon.auto) return '';
+    if (addon.auto === 'install' && !addonOffer(addon, cfg, now)) return '';
+    return addon.auto;
+  }
+
   // The note at the top of the chat on the first start of a different version than the last one.
   // last is the version seen at the previous start ("" the first time ever: no note).
   // reason is why an automatic go-back happened ("" when the player went back themselves).
@@ -178,7 +235,7 @@
     };
   }
 
-  const api = { CHECK_EVERY, LATER_MS, WAKE_GAP, TICK, updateQuery, bannerState, bannerView, turnOnAuto, autoArgs, skip, later, plainNotes, noteView, NOTICE_BULLETS, versionRows, noticeView, updatedNote, whatsNewQuery, CHANGELOG_URL, cmp, createSchedule };
+  const api = { addonOffer, addonView, addonAuto, CHECK_EVERY, LATER_MS, WAKE_GAP, TICK, updateQuery, bannerState, bannerView, turnOnAuto, autoArgs, skip, later, plainNotes, noteView, NOTICE_BULLETS, versionRows, noticeView, updatedNote, whatsNewQuery, CHANGELOG_URL, cmp, createSchedule };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.WowcUpdates = api;
 })(typeof window !== 'undefined' ? window : globalThis);

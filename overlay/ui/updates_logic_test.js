@@ -131,3 +131,46 @@ nv = U.noteView('## 0.7.62\n- a\n- b\n## 0.7.61\n- c\n…and 3 more changes');
 assert.deepStrictEqual(nv, { groups: [{ version: '0.7.62', bullets: ['a', 'b'] }, { version: '0.7.61', bullets: ['c'] }], more: true });
 assert.deepStrictEqual(U.noteView(''), { groups: [], more: false });
 assert.strictEqual(U.CHANGELOG_URL, 'https://github.com/WoW-Companion/advisor/releases');
+
+// The addon's part of the notice: alone, together with an app update, and the compatibility line.
+{
+  const ad = { installed: '1.0.0', available: true, latest: '1.1.0', notes: '## 1.1.0\n- Fixed a thing', auto: 'install' };
+  let s = U.bannerState(null, cfg(), NOW, '', '', ad);
+  assert.strictEqual(s.kind, 'addon');
+  let v = U.bannerView(s);
+  assert.strictEqual(v.text, 'Addon 1.1.0 is ready');
+  assert.deepStrictEqual(v.actions.map(a => a.id), ['install', 'whatsnew', 'later']);
+  s = U.bannerState(offer, cfg(), NOW, '', '', ad);
+  assert.strictEqual(s.kind, 'offer', 'one notice covers both');
+  assert.strictEqual(U.bannerView(s).text, 'Update 0.7.54 and addon 1.1.0 are ready');
+  assert.deepStrictEqual(U.noteView(s.notes).groups.map(g => g.version), ['0.7.54', 'Addon 1.1.0']);
+  assert.strictEqual(U.bannerState(null, cfg({ checkUpdates: false }), NOW, '', '', ad), null);
+  const need = U.bannerView(U.bannerState(null, cfg(), NOW, '', '', { ...ad, installed: '0.1.0', needs_newer: true, min: '0.6.0' })).text;
+  assert.ok(/needs a newer addon/.test(need) && need.includes('0.1.0') && need.includes('1.1.0'), need);
+  const back = U.bannerView(U.bannerState(null, cfg(), NOW, '', '', { ...ad, reinstall: true, reason: 'crashes.' })).text;
+  assert.ok(back.includes('known problem: crashes. Version 1.1.0'), back);
+  // Later hides the addon too, and keeps both keys.
+  const c = cfg();
+  U.later(c, '0.7.54', NOW, ['addon:1.1.0']);
+  assert.strictEqual(U.bannerState(offer, c, NOW, '', '', ad), null);
+  assert.ok(U.bannerState(offer, c, NOW + U.LATER_MS + 1, '', '', ad));
+}
+
+// Settings: the installed version, the update and the versions kept.
+{
+  const w = U.addonView({ installed: '1.1.0', available: true, latest: '1.2.0', back: ['1.0.0'] });
+  assert.strictEqual(w.text, 'Addon 1.1.0: 1.2.0 is ready');
+  assert.strictEqual(w.button, 'Update addon');
+  assert.strictEqual(w.back[0].button, 'Go back to 1.0.0');
+  assert.strictEqual(U.addonView({ message: 'Choose the WoW folder.' }).text, 'Choose the WoW folder.');
+}
+
+// The automatic install follows the app's switch and waits for quiet; a pulled version goes back.
+{
+  const ad = { installed: '1.0.0', available: true, latest: '1.1.0', auto: 'install' };
+  assert.strictEqual(U.addonAuto(ad, cfg(), NOW, true), '', 'off by default');
+  assert.strictEqual(U.addonAuto(ad, cfg({ autoUpdate: true }), NOW, false), '', 'not while an answer is written');
+  assert.strictEqual(U.addonAuto(ad, cfg({ autoUpdate: true }), NOW, true), 'install');
+  assert.strictEqual(U.addonAuto({ ...ad, auto: 'goback', reinstall: true }, cfg({ autoUpdate: true, later: { 'addon:1.1.0': NOW + 5 } }), NOW, true), 'goback');
+  assert.strictEqual(U.addonAuto(ad, cfg({ autoUpdate: true, later: { 'addon:1.1.0': NOW + 5 } }), NOW, true), '', 'Later holds back a plain update');
+}

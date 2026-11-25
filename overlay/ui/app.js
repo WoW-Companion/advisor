@@ -14,7 +14,7 @@ const save = () => { localStorage.setItem('wowc', JSON.stringify(cfg)); if (type
 const chats = WowcLaunch.chatStore(localStorage); // each character's last 50 turns, on this PC only
 
 let conn = null, state = null, busy = false, events = null;
-const upd = { status: null, busy: '', failure: '', last: '', fresh: false, ok: false, checkedAt: 0, confirm: '', notesFor: '' }; // the update banner's state
+const upd = { status: null, addon: null, retry: null, addonAutoFailed: '', busy: '', failure: '', last: '', fresh: false, ok: false, checkedAt: 0, confirm: '', notesFor: '' }; // the update banner's state
 
 // --- connection to the sidecar -------------------------------------------------------------
 
@@ -691,6 +691,7 @@ const versionLine = WowcVersion.createVersionLine({
     const r = await api('/api/update' + WowcUpdates.updateQuery(cfg, upd.fresh));
     const n = r.ok ? await r.json() : {};
     upd.status = n; upd.ok = true; upd.checkedAt = Date.now(); renderUpdates(); renderVersionList();
+    await refreshAddon();
     return n;
   },
   checked: () => schedule.checked(),
@@ -702,8 +703,64 @@ const schedule = WowcUpdates.createSchedule({ now: () => Date.now(), check: () =
 setInterval(() => schedule.tick(), WowcUpdates.TICK);
 window.addEventListener('focus', () => schedule.focus());
 
+// The in-game addon rides the same schedule, settle delay and switches: /api/addon/update says what
+// is installed, what to offer now and which older versions are kept. The sidecar downloads, checks
+// the SHA-256 and replaces the addon files; nothing is typed or sent to the game.
+async function refreshAddon() {
+  try {
+    const q = [];
+    if (cfg.gameDir) q.push('game=' + encodeURIComponent(cfg.gameDir));
+    if (cfg.updateNow) q.push('now=1');
+    if (upd.fresh) q.push('fresh=1');
+    const r = await api('/api/addon/update' + (q.length ? '?' + q.join('&') : ''));
+    upd.addon = r.ok ? await r.json() : null;
+  } catch { upd.addon = null; }
+  upd.addonAutoFailed = '';
+  renderUpdates(); renderVersionList(); autoAddon();
+}
+async function installAddon(goback) {
+  upd.failure = ''; upd.retry = () => installAddon(goback);
+  upd.busy = goback ? 'Going back to addon ' + goback + '\u2026' : 'Installing the addon\u2026';
+  renderUpdates(); renderVersionList();
+  let ok = false;
+  try {
+    const r = await api('/api/addon/install', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ game: cfg.gameDir, goback: goback || '' }) });
+    const j = await r.json();
+    if (j.status) upd.addon = j.status;
+    if (j.ok) { ok = true; showAddonDone(j.message); } else upd.failure = j.error || 'The addon did not install.';
+  } catch (e) { upd.failure = String(e); }
+  upd.busy = '';
+  renderUpdates(); renderVersionList();
+  return ok;
+}
+// "Install" on the notice: the addon first, then the app when it has an update too (the app restarts).
+async function installBoth(s) {
+  upd.retry = () => installBoth(s);
+  if (!(await installAddon(''))) { upd.retry = () => installBoth(s); return; }
+  if (s.kind === 'offer') installVersion(s.version);
+}
+function doInstall(s) { return s.kind === 'addon' ? installAddon('') : s.addon ? installBoth(s) : installVersion(s.version); }
+function showAddonDone(message) {
+  const bar = $('updated-note');
+  bar.hidden = false;
+  const x = Object.assign(document.createElement('button'), { type: 'button', textContent: 'Dismiss' });
+  x.onclick = () => { bar.hidden = true; };
+  bar.replaceChildren(Object.assign(document.createElement('span'), { className: 'upd-text', textContent: '\u2713 ' + message }), x);
+}
+// "Install updates automatically" covers the addon: it installs when nothing is being written or
+// typed, and a pulled addon goes back by itself. One failed try is not repeated until the next check.
+function autoAddon() {
+  const el = document.activeElement, tag = el && el.tagName;
+  const quiet = !busy && !upd.busy && !(document.hasFocus() && (tag === 'TEXTAREA' || tag === 'INPUT'));
+  const act = WowcUpdates.addonAuto(upd.addon, cfg, Date.now(), quiet);
+  if (!act || upd.addonAutoFailed === upd.addon.latest) return;
+  const v = upd.addon.latest;
+  installAddon('').then(ok => { if (!ok) upd.addonAutoFailed = v; });
+}
+setInterval(autoAddon, 60000);
+
 async function installVersion(version) {
-  upd.failure = ''; upd.last = version; upd.busy = 'Getting ' + version + '\u2026';
+  upd.failure = ''; upd.last = version; upd.retry = () => installVersion(version); upd.busy = 'Getting ' + version + '\u2026';
   renderUpdates(); renderVersionList();
   try {
     await invoke('install_update', { version, settingsJson: JSON.stringify(cfg) });
@@ -760,7 +817,7 @@ function drawNotes(view, link) {
 
 function renderUpdates() {
   const bar = $('update-bar');
-  const s = WowcUpdates.bannerState(upd.status, cfg, Date.now(), upd.busy, upd.failure);
+  const s = WowcUpdates.bannerState(upd.status, cfg, Date.now(), upd.busy, upd.failure, upd.addon);
   const view = WowcUpdates.bannerView(s);
   bar.hidden = !view || cfg.settingsOpen || !cfg.chatOpen;
   if (!view) return;
@@ -770,11 +827,11 @@ function renderUpdates() {
   t.className = 'upd-text'; t.textContent = view.text;
   bar.append(t);
   const act = {
-    install: () => installVersion(s.version),
-    always: () => { WowcUpdates.turnOnAuto(cfg); $('auto-update').checked = true; save(); syncAuto(); installVersion(s.version); },
+    install: () => doInstall(s),
+    always: () => { WowcUpdates.turnOnAuto(cfg); $('auto-update').checked = true; save(); syncAuto(); doInstall(s); },
     back: () => installVersion(s.backTo),
-    retry: () => installVersion(upd.last),
-    later: () => { WowcUpdates.later(cfg, s.version || upd.last, Date.now()); upd.failure = ''; save(); renderUpdates(); },
+    retry: () => (upd.retry ? upd.retry() : installVersion(upd.last)),
+    later: () => { WowcUpdates.later(cfg, s.kind === 'addon' ? '' : (s.version || upd.last), Date.now(), s.addon ? ['addon:' + s.addon.version] : []); upd.failure = ''; save(); renderUpdates(); },
     whatsnew: () => { upd.notesFor = upd.notesFor === s.version ? '' : s.version; renderUpdates(); },
     details: () => invoke('open_install_page', { url: RELEASES_URL }).catch(e => notice(String(e))),
     dismiss: () => { upd.failure = ''; renderUpdates(); },
@@ -805,7 +862,27 @@ function renderUpdates() {
   }
 }
 
+function renderAddonList() {
+  const box = $('addon-list');
+  box.replaceChildren();
+  const v = cfg.checkUpdates ? WowcUpdates.addonView(upd.addon) : null;
+  box.hidden = !v;
+  if (!v) return;
+  const line = (text, buttons) => {
+    const row = Object.assign(document.createElement('div'), { className: 'ver-row' });
+    row.append(Object.assign(document.createElement('span'), { textContent: text }));
+    for (const b of buttons) row.append(Object.assign(document.createElement('button'), { type: 'button', className: 'mini ' + (b.primary ? 'primary' : ''), textContent: b.text, disabled: !!upd.busy, onclick: b.fn }));
+    box.append(row);
+  };
+  line(v.text, v.button ? [{ text: v.button, primary: true, fn: () => installAddon('') }] : []);
+  for (const b of v.back) {
+    if (upd.confirm === 'addon:' + b.version) line(b.confirm, [{ text: 'Go back', fn: () => { upd.confirm = ''; installAddon(b.version); } }, { text: 'Cancel', fn: () => { upd.confirm = ''; renderVersionList(); } }]);
+    else line('Addon ' + b.version + ' (kept)', [{ text: b.button, fn: () => { upd.confirm = 'addon:' + b.version; renderVersionList(); } }]);
+  }
+}
+
 function renderVersionList() {
+  renderAddonList();
   const box = $('version-list');
   box.replaceChildren();
   const nv = WowcUpdates.noticeView(upd.status, upd.checkedAt);

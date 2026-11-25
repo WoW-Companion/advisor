@@ -67,6 +67,8 @@ type Config struct {
 	Debounce      time.Duration                                                               // quiet time after a save before the digest is written (default 2s)
 	GameDir       string                                                                      // the WoW folder the player chose in the setup checklist (empty: detect)
 	HTTP          *http.Client                                                                // for the addon lookup and install (nil: the default client)
+	AddonBackups  string                                                                      // where the last addon versions are kept for going back (empty: the per-user cache)
+	AddonNotes    string                                                                      // the addon CHANGELOG.md URL, one %s for the version (empty: the addon repo's)
 	AddonAPI      string                                                                      // the addon's latest-release URL (empty: GitHub's)
 	Update        func(context.Context) (release.Result, error)                               // looks up the latest release for /api/update; nil answers no notice
 	Changelog     func(ctx context.Context, version string) (string, error)                   // CHANGELOG.md at a version's tag, for the offer's notes (nil: the bundled one)
@@ -320,6 +322,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/stream/{id}", s.stream)
 	mux.HandleFunc("GET /api/setup", s.setupState)
 	mux.HandleFunc("POST /api/setup/install-addon", s.setupInstall)
+	mux.HandleFunc("GET /api/addon/update", s.addonUpdate)
+	mux.HandleFunc("POST /api/addon/install", s.addonInstall)
 	mux.HandleFunc("POST /api/setup/write-data", s.setupWriteData)
 	mux.HandleFunc("POST /api/setup/test-ai", s.setupTestAI)
 	mux.HandleFunc("POST /api/setup/download-dataset", s.setupDownloadData)
