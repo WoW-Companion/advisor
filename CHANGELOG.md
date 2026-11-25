@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.72
+
+- Profession plans show vendor prices as a new character pays them.
+- Profession plans send Alliance and Horde characters to a trainer of their own side.
+- A trainer price the game data lacks is no longer shown as free.
+
 ## 0.7.71
 
 - The app now offers, checks and installs new in-game addon versions.

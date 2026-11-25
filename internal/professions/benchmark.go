@@ -64,8 +64,10 @@ type BenchBand struct {
 	PatternOptions   []BenchPattern  `json:"if_you_have_the_pattern,omitempty"`
 	Materials        []BenchMaterial `json:"materials"`
 	Alternative      string          `json:"alternative,omitempty"`
-	Gap              string          `json:"gap,omitempty"`    // set when no recipe covers the band
-	Source           string          `json:"source,omitempty"` // how the recipe is learnt, in a few words
+	Gap              string          `json:"gap,omitempty"`          // set when no recipe covers the band
+	Source           string          `json:"source,omitempty"`       // how the recipe is learnt, in a few words
+	LearnVia         string          `json:"learn_via,omitempty"`    // known, trainer or item
+	LearnCopper      int64           `json:"learn_copper,omitempty"` // what the trainer or the pattern's vendor charges; 0 when unknown or free
 }
 
 // BenchPattern is a recipe from a drop, quest or reputation that fits a band, for a player who has it.
@@ -100,14 +102,15 @@ type BenchRecipeItem struct {
 
 // BenchTier is one rank of the profession with its gates and what its trainer costs along the path.
 type BenchTier struct {
-	Name          string `json:"name"`
-	SkillMin      int    `json:"skill_min"`
-	SkillCap      int    `json:"skill_cap"`
-	MinLevel      int    `json:"min_level"`
-	Trainer       string `json:"trainer,omitempty"`
-	TrainerCopper int64  `json:"trainer_copper"`
-	TrainerSpells int    `json:"trainer_recipes"`
-	Reachable     bool   `json:"reachable"` // the benchmark level may train it
+	Name            string `json:"name"`
+	SkillMin        int    `json:"skill_min"`
+	SkillCap        int    `json:"skill_cap"`
+	MinLevel        int    `json:"min_level"`
+	Trainer         string `json:"trainer,omitempty"`
+	TrainerCopper   int64  `json:"trainer_copper"`
+	TrainerSpells   int    `json:"trainer_recipes"`
+	TrainerUnpriced int    `json:"trainer_recipes_unpriced,omitempty"` // of those, how many have no price in the dataset
+	Reachable       bool   `json:"reachable"`                          // the benchmark level may train it
 }
 
 // BenchEfficiency scores a path: fewer materials, less vendor money and fewer rare materials is better.
@@ -216,6 +219,7 @@ func NewBenchmark(ds store.DataStore, o BenchOptions) Benchmark {
 	}
 	trainerCost := make([]int64, len(tiers))
 	trainerN := make([]int, len(tiers))
+	trainerUnpriced := make([]int, len(tiers))
 	totals := map[int64]*BenchTotal{}
 	type recipeItemKey struct{ spell, item int64 }
 	seenItem := map[recipeItemKey]bool{}
@@ -265,6 +269,7 @@ func NewBenchmark(ds store.DataStore, o BenchOptions) Benchmark {
 			}
 		}
 		bb.Source = learnWhere(opt)
+		bb.LearnVia, bb.LearnCopper = opt.LearnInfo.Via, opt.LearnInfo.Copper
 		b.Bands = append(b.Bands, bb)
 		li := opt.LearnInfo
 		ti := tierIdx(band.From)
@@ -272,6 +277,9 @@ func NewBenchmark(ds store.DataStore, o BenchOptions) Benchmark {
 		case "trainer":
 			trainerCost[ti] += li.Copper
 			trainerN[ti]++
+			if li.Copper == 0 {
+				trainerUnpriced[ti]++
+			}
 		case "item":
 			if k := (recipeItemKey{opt.Spell, li.ItemID}); !seenItem[k] {
 				seenItem[k] = true
@@ -309,7 +317,7 @@ func NewBenchmark(ds store.DataStore, o BenchOptions) Benchmark {
 			continue
 		}
 		b.Tiers = append(b.Tiers, BenchTier{Name: t.Name, SkillMin: t.SkillMin, SkillCap: t.SkillCap, MinLevel: t.MinLevel,
-			Trainer: trainer, TrainerCopper: trainerCost[i], TrainerSpells: trainerN[i], Reachable: t.MinLevel <= o.Level && t.SkillMin < allowed})
+			Trainer: trainer, TrainerCopper: trainerCost[i], TrainerSpells: trainerN[i], TrainerUnpriced: trainerUnpriced[i], Reachable: t.MinLevel <= o.Level && t.SkillMin < allowed})
 	}
 	if n := expertEarly(name, o.Faction, o.Level); n != "" && b.From < 125 && b.To > 125 {
 		b.Notes = append(b.Notes, n)
@@ -348,7 +356,7 @@ func classify(p *planner, t *BenchTotal) {
 	if rows := rowsBy(ds, "vendor_sources", "item_id", t.ID); len(rows) > 0 {
 		price := int64(-1)
 		for _, r := range rows {
-			if v := asI64(r["price_copper"]); price < 0 || v < price {
+			if v := basePrice(ds, t.ID, asI64(r["price_copper"])); price < 0 || v < price {
 				price = v
 			}
 		}
@@ -492,6 +500,20 @@ func (b *Benchmark) fishing(ds store.DataStore, tiers []Tier) {
 	}
 }
 
+// trainerCostText says what a tier's trainer recipes cost: the total of the prices the dataset lists, and how
+// many it lists none for, since a missing price is not a free recipe.
+func trainerCostText(t BenchTier) string {
+	switch {
+	case t.TrainerSpells == 0:
+		return "0"
+	case t.TrainerUnpriced == 0:
+		return fmt.Sprintf("%d for %s", t.TrainerSpells, Money(t.TrainerCopper))
+	case t.TrainerUnpriced == t.TrainerSpells:
+		return fmt.Sprintf("%d, price not in the dataset (see the trainer)", t.TrainerSpells)
+	}
+	return fmt.Sprintf("%d for %s, plus %d with no price in the dataset", t.TrainerSpells, Money(t.TrainerCopper), t.TrainerUnpriced)
+}
+
 // RenderBenchmark is the plain-text report of a benchmark.
 func RenderBenchmark(b Benchmark) string {
 	var w strings.Builder
@@ -510,7 +532,7 @@ func RenderBenchmark(b Benchmark) string {
 			if t.Trainer != "" {
 				w.WriteString(", trainer " + t.Trainer)
 			}
-			fmt.Fprintf(&w, "; trainer recipes on this path: %d for %s", t.TrainerSpells, Money(t.TrainerCopper))
+			fmt.Fprintf(&w, "; trainer recipes on this path: %s", trainerCostText(t))
 			if !t.Reachable {
 				w.WriteString(" (not open at this level)")
 			}
@@ -697,6 +719,10 @@ func guideCheck(bands []BenchBand) string {
 	for _, x := range bands {
 		if x.Gap != "" {
 			parts = append(parts, fmt.Sprintf("%d-%d GAP", x.From, x.To))
+			continue
+		}
+		if x.Source == "" {
+			parts = append(parts, fmt.Sprintf("%d-%d %s", x.From, x.To, x.Recipe)) // Fishing: catches, nothing to learn
 			continue
 		}
 		parts = append(parts, fmt.Sprintf("%d-%d %s (%s)", x.From, x.To, x.Recipe, x.Source))

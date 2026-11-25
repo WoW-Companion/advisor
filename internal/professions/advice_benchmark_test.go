@@ -8,6 +8,7 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/WoW-Companion/advisor/internal/benchsummary"
@@ -71,6 +72,25 @@ func (g guideProf) step(skill int) *guideStep {
 		}
 	}
 	return nil
+}
+
+var (
+	benchPlans   = map[string]Benchmark{}
+	benchPlansMu sync.Mutex
+)
+
+// benchPlan is NewBenchmark with each plan made once per run: planning a profession reads the dataset for
+// every recipe, and the benchmark's checks all look at the same few plans.
+func benchPlan(ds store.DataStore, o BenchOptions) Benchmark {
+	key := fmt.Sprintf("%s/%d/%d/%d/%s/%s/%v", titleCase(o.Profession), max(o.From, 1), o.To, o.Level, o.Faction, o.Gather, o.Known)
+	benchPlansMu.Lock()
+	defer benchPlansMu.Unlock()
+	if b, ok := benchPlans[key]; ok {
+		return b
+	}
+	b := NewBenchmark(ds, o)
+	benchPlans[key] = b
+	return b
 }
 
 // noRecipeGap starts the planner's message for a stretch no trainer or vendor recipe covers.
@@ -376,7 +396,7 @@ func TestProfessionAdviceBenchmark(t *testing.T) {
 
 		// the advisor's plans
 		for _, from := range []int{1, 150, 285} {
-			b := NewBenchmark(ds, BenchOptions{Profession: g.Profession, From: from})
+			b := benchPlan(ds, BenchOptions{Profession: g.Profession, From: from})
 			label := fmt.Sprintf("%s from skill %d", g.Profession, from)
 			bad := checkBands(ref, b)
 			res := "match"
@@ -452,7 +472,7 @@ func TestProfessionAdviceBenchmark(t *testing.T) {
 		}
 
 		// the whole path against the guide
-		b := NewBenchmark(ds, BenchOptions{Profession: g.Profession})
+		b := benchPlan(ds, BenchOptions{Profession: g.Profession})
 		guideCrafts := 0
 		for _, s := range g.Steps {
 			guideCrafts += s.Crafts
@@ -485,7 +505,7 @@ func TestProfessionAdviceBenchmark(t *testing.T) {
 
 	// gathering professions: the plan names what to gather, never "a pattern from the Auction House"
 	for _, prof := range []string{"Herbalism", "Mining", "Skinning", "Fishing"} {
-		b := NewBenchmark(ds, BenchOptions{Profession: prof})
+		b := benchPlan(ds, BenchOptions{Profession: prof})
 		text := RenderBenchmark(b)
 		res := "match"
 		if strings.Contains(text, "pattern at the Auction House") {

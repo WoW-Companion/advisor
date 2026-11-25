@@ -57,6 +57,11 @@ func (p *planner) trainer() string {
 			continue
 		}
 		z := asText(r["zone_name"])
+		// the dataset has no faction for most trainers: a trainer in the other side's home zone is not one the
+		// character can use
+		if side := sideOfZone(z); side != "" && p.c.Faction != "" && !strings.EqualFold(side, p.c.Faction) {
+			continue
+		}
 		name := asText(r["name"])
 		if name == "" {
 			name = curatedTrainers[asI64(r["npc_id"])]
@@ -270,6 +275,18 @@ func (p *planner) gatherLine(id int64, name string) (string, bool) {
 		line += "; needs " + skill
 	}
 	return line + ".", true
+}
+
+// sideOfZone says which faction's home zones a zone is among, "horde" or "alliance", or "" for a neutral or
+// unknown zone. A trainer in a capital or starting zone serves that faction only.
+func sideOfZone(zone string) string {
+	switch zone {
+	case "Orgrimmar", "Durotar", "Undercity", "Tirisfal Glades", "Silverpine Forest", "Mulgore", "Thunder Bluff":
+		return "horde"
+	case "Stormwind City", "Elwynn Forest", "Westfall", "Ironforge", "Dun Morogh", "Loch Modan", "Darnassus", "Teldrassil":
+		return "alliance"
+	}
+	return ""
 }
 
 // curatedTrainers names the profession trainers the dataset lists by id only, from the WoW: Forever guides:

@@ -126,15 +126,20 @@ days says its prices may have changed.
 
 ## Advice benchmark
 
-`make advice-benchmark` plans every profession for three synthetic characters (skill 1, 150 and 285) and
+`make advice-benchmark` plans every profession for synthetic characters (skill 1, 75, 150, 225 and 285) and
 compares the plans with the dataset (recipe colours, reagent counts, rank caps, learn skills) and with the Forever
-guides recorded as facts in `internal/professions/testdata/forever_guides.json`. It also checks the stat
+guides recorded as facts in `internal/professions/testdata/forever_guides.json`. A second half
+(`internal/professions/advice_costs_benchmark_test.go`) checks the money and places: each trainer recipe's price
+against `trainer_spells` and never planned before the skill a trainer asks, the trainer gate totals (an unknown price is
+never shown as 0c), a trainer of the profession on the character's own side with a name and a zone, each vendor material
+and vendor pattern at the item's base price (`items.buy_price`, what a character with no reputation pays; a vendor's
+reported price can be lower because of a reputation discount), the vendor totals, and the nodes a gathering plan names. It also checks the stat
 priority of every class and spec and its suffixes against the dataset's `random_suffixes`
-(`internal/stats/benchmark_test.go`). A difference from the dataset fails the run; a difference from a guide is
+(`internal/stats/benchmark_test.go`). A difference from the dataset fails the run (one the dataset itself causes, such as a trainer with no name or zone, is listed as "differ (data)" and fails nothing); a difference from a guide is
 listed in the table (`BENCH_REPORT=<file>`), since a guide's route is one good route and the planner picks its own by
 cost. `BENCH_DATASET=<dir>` names a dataset; without it the latest release is downloaded.
 
-The run ends with one summary line, `advice-benchmark: 247 checks, 195 same, 52 differ (professions 90/39,
+The run ends with one summary line, `advice-benchmark: N checks, S same, D differ (professions 90/39, costs 50/8,
 tailoring-guide 6/13, stats 99/0)`: every table row counts as same ("match") or differ, by area. Each area prints
 `advice-benchmark-count <area> same=N differ=M`, and `internal/benchsummary` adds them up. The share of
 same rows is how closely the advice agrees with the game data and the Forever guides, and is read per run. The rows
