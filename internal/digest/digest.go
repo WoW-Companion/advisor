@@ -321,7 +321,7 @@ func Build(c character.Character, ds store.DataStore, opt Options) Digest {
 	ups, note, link := upgradeLines(c, ds, PlanQuests(steps), opt.Questie, shortStat(sc))
 	notes = append(notes, note...)
 	if n := bagCount(ups); n > 0 { // free upgrades lead NEXT, ahead of anything to buy
-		quests = append([]Line{bagNextLine(n)}, quests...)
+		quests = append([]Line{bagNextLine(ups)}, quests...)
 	}
 	// Unspent class talent points lead everything, bag upgrades too.
 	for i, l := range quests {

@@ -100,7 +100,7 @@ func Spells(c character.Character, ds store.DataStore, from, to int) []Spell {
 			continue
 		}
 		rk, _ := r["rank"].(int64)
-		if id == 0 || name == "" || seen[id] || superseded[id] || c.KnownSpells[id] || quest[id].Quest != "" || questLocked(c, name, int(rk), false) {
+		if id == 0 || name == "" || seen[id] || superseded[id] || c.KnownSpells[id] || quest[id].Quest != "" || isRuneAbility(id, lv) || questLocked(c, name, int(rk), false) {
 			continue
 		}
 		seen[id] = true
@@ -108,7 +108,37 @@ func Spells(c character.Character, ds store.DataStore, from, to int) []Spell {
 		sup, _ := r["superseded_spell_id"].(int64)
 		out = append(out, Spell{ID: id, Name: name, Rank: int(rank), Level: int(lv), New: sup == 0, Cost: costs[id], Usually: true})
 	}
+	out = dedupeByName(out)
 	sortSpells(out)
+	return out
+}
+
+// isRuneAbility reports a class spell the dataset lists at level 1 with a high spell id: an engraving
+// (rune) ability, taught by a rune item and never by a class trainer. The dataset's `trained` column is
+// empty, so this is the stand-in rule. It applies only to the dataset's fallback list: a spell the
+// player's own trainer capture offers is always kept (see trainerSpells).
+func isRuneAbility(id, level int64) bool { return id >= runeSpellMin && level <= 1 }
+
+// runeSpellMin is the lowest spell id treated as a rune ability when it is also a level 1 spell.
+const runeSpellMin = 400000
+
+// dedupeByName keeps one spell per name: a trainer's own offer first, then the highest rank. The
+// order of the first appearance of each name is kept.
+func dedupeByName(in []Spell) []Spell {
+	at := map[string]int{}
+	var out []Spell
+	for _, s := range in {
+		k := strings.ToLower(strings.TrimSpace(s.Name))
+		i, dup := at[k]
+		if !dup {
+			at[k] = len(out)
+			out = append(out, s)
+			continue
+		}
+		if o := out[i]; s.Seen && !o.Seen || s.Seen == o.Seen && s.Rank > o.Rank {
+			out[i] = s
+		}
+	}
 	return out
 }
 
@@ -205,6 +235,7 @@ func trainerSpells(c character.Character, ds store.DataStore, t *character.SeenT
 			kept = append(kept, s)
 		}
 	}
+	kept = dedupeByName(kept)
 	sortSpells(kept)
 	return kept
 }
