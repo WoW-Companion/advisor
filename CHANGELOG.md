@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.60
+
+- Stat advice now explains itself with your own character's numbers. The stat check and gear advice now read what the game addon records about your character (your stats, health, mana, crit and what a point of Intellect, Agility or Spirit does for you), so the advice quotes your own numbers instead of general words.
+
 ## 0.7.59
 
 - Plans start from where you are, and the in-game upgrade list is tidier. A new plan no longer begins with pick-up steps for quests already in your log, so it starts at step 1 and nothing shows as completed until you finish it after the plan was made. A quest you abandoned still gets its pick-up. The in-game upgrade list shows one line for many slots of the same green gear.

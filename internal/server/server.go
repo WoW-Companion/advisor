@@ -244,7 +244,7 @@ func (c Config) profilesPath() string {
 	return profile.Path()
 }
 
-// withTotals attaches the stat totals the addon recorded (WoWCompanionDB.stats), when it did.
+// withTotals attaches the stat totals the addon recorded (WoWCompanionDB.characters[key].stats), when it did.
 func withTotals(cfg Config, c character.Character) character.Character {
 	return character.AttachTotals(unlock.AddonSV(cfg.SavedVariables), c)
 }

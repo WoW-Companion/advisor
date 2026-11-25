@@ -40,7 +40,7 @@ var gives = map[string]map[string]string{
 func (p Profile) gives(stat string) string { return gives[p.Arch][stat] }
 
 // Effects are the client's per-point numbers for a character, read from the addon's capture, one
-// phrase per stat ("+15 mana, 0.06% spell crit a point"). Empty for a stat the capture has none for.
+// phrase per stat ("+0.06% spell crit a point"). Empty for a stat the capture has none for.
 func Effects(t *character.Totals) map[string]string {
 	if t == nil || t.Per == nil {
 		return nil
@@ -58,11 +58,9 @@ func Effects(t *character.Totals) map[string]string {
 			out[stat] = strings.Join(keep, ", ") + " a point"
 		}
 	}
-	add(Intellect, plus(pp.IntMana, "%s mana"), plus(pp.IntCrit, "%s%% spell crit"))
-	add(Agility, plus(pp.AgiCrit, "%s%% crit"), plus(pp.AgiAP, "%s attack power"))
-	add(Strength, plus(pp.StrAP, "%s attack power"))
-	add(Spirit, plus(pp.SpiRegen, "%s mana every 5 seconds"))
-	add(Stamina, plus(pp.StaHealth, "%s health"))
+	add(Intellect, plus(pp.SpellCritFromInt, "%s%% spell crit"))
+	add(Agility, plus(pp.CritFromAgi, "%s%% crit"))
+	add(Spirit, plus(pp.ManaRegenFromSpi, "%s mana a second"), plus(pp.HealthRegenFromSpi, "%s health a second"))
 	return out
 }
 

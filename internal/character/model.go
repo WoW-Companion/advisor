@@ -203,7 +203,7 @@ type Character struct {
 	// Recipes are the recipes the client's own trade skill window listed, by profession (lower-case);
 	// nil when none were recorded. A recipe listed here is known.
 	Recipes map[string]SeenRecipes
-	// Totals are the stat totals the addon records (WoWCompanionDB.stats), attached with AttachTotals;
+	// Totals are the stat totals the addon records (WoWCompanionDB.characters[key].stats), attached with AttachTotals;
 	// nil when none.
 	Totals *Totals
 	// Seen is what the player saw in game (WoWCompanionDB.observed): trainers, vendors, gathering and
