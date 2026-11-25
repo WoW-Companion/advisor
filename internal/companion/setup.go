@@ -120,7 +120,7 @@ func (s *Server) setupInstall(w http.ResponseWriter, r *http.Request) {
 	game, ok := gamesetup.Resolve(o)
 	switch {
 	case !ok:
-		res["error"] = "WoW folder not found: choose it first."
+		res["error"] = gamesetup.NoGameMessage
 	case o.Latest == nil:
 		res["error"] = "Could not look up the latest addon release: " + o.LatestErr
 	default:
@@ -133,7 +133,7 @@ func (s *Server) setupInstall(w http.ResponseWriter, r *http.Request) {
 			res["error"] = "There is no safe addon version to install right now: the newest one has a known problem."
 			break
 		}
-		note, err := gamesetup.InstallAddonNote(r.Context(), s.cfg.HTTP, game, rel)
+		note, err := gamesetup.InstallAddonNote(r.Context(), s.cfg.HTTP, game, rel, s.addonBackups())
 		if err != nil {
 			res["error"] = err.Error()
 		} else {

@@ -95,7 +95,7 @@ func fixAddonCmd(ctx context.Context, stdout io.Writer, client *http.Client, gam
 			return fmt.Errorf("could not look up addon version %s: %w", plan.Version, err)
 		}
 	}
-	note, err := gamesetup.InstallAddonNote(ctx, client, game, rel)
+	note, err := gamesetup.InstallAddonNote(ctx, client, game, rel, "")
 	if err != nil {
 		return err
 	}

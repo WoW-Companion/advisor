@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.7.71
+
+- The app now keeps the in-game addon up to date: it offers a new addon version, checks it and installs it.
+- The addon uses the same settle delay, "Get updates right away" and "Install updates automatically" as the app.
+- Your Digest and Plan files are never touched, and the last three addon versions are kept so Settings > Updates can go back.
+- A pulled addon version goes back by itself, and an app that needs a newer addon says so.
+
 ## 0.7.70
 
 - Training advice sends you to the nearest class trainer city, using flight paths.
