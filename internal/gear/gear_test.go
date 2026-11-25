@@ -53,6 +53,8 @@ func table(t *testing.T, rows any) store.SizedReaderAt {
 		err = parquet.Write(&buf, r)
 	case []npcRow:
 		err = parquet.Write(&buf, r)
+	case []recipeRow:
+		err = parquet.Write(&buf, r)
 	}
 	if err != nil {
 		t.Fatal(err)

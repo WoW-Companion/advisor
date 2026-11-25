@@ -172,6 +172,8 @@ type Candidate struct {
 	Sources []Source
 	// Vendor is the cheapest vendor that sells the item, from Everloot's vendor offers; nil when none.
 	Vendor *vendors.Offer `json:"vendor,omitempty"`
+	// Craft is whether the character's skill can make the item; nil when no recipe makes it.
+	Craft *Craft `json:"craft,omitempty"`
 }
 
 // Options narrows a search. The zero value searches every slot and keeps every candidate.
@@ -317,6 +319,9 @@ func Find(c character.Character, ds store.DataStore, group string, opt Options) 
 				cands[i].Sources = sources(ds, cands[i].Item.ID, level)
 				if o, ok := vendors.Best(ds, cands[i].Item.ID); ok {
 					cands[i].Vendor = &o
+				}
+				if cr, ok := craftOf(c, ds, cands[i].Item.ID); ok {
+					cands[i].Craft = &cr
 				}
 			}
 			if cands[i].Basis == BasisStats {

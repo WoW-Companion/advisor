@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.7.67
+
+- Training advice sends you to the right class trainer, and craft advice lists only what your skill can make. "Train at:" now names your class's city for your faction (Undercity for a Horde priest, Stormwind for an Alliance one), with the flight to take from where you stand when the route is known, and an NPC with coordinates only when your own captures or QuestieDB place one in that city or your zone. A starting-area trainer is never offered to a level 24 priest in Hillsbrad. The AI is told to name NPCs, coordinates, prices and skill levels only from the facts. Gear advice calls an item craftable only when you know the recipe or a trainer teaches it at your skill; the rest is listed as "At Tailoring 125: ..." or "needs a recipe you don't have", and a recipe from an item you don't hold is no longer "You can make it now".
 ## 0.7.66
 
 - Tailoring plans follow the proven path: cloth bolts, the right recipes at the right skill, and when to visit your trainer. A recipe whose learn skill the data only guesses is no longer used far below the skill it turns yellow at (Black Mageweave Vest and Runecloth Belt were planned some 30 skill points too early), cloth bolts you make for the skill-ups are counted as kept for the recipes that use them later, and Tailoring plans name the trainer: Josef Gregorian in Undercity or Georgio Bolero in Stormwind, who teach Expert at Tailoring 125 and level 20.

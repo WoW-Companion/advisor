@@ -458,10 +458,15 @@ func (f *finder) craft() (Path, bool) {
 			if gateUnknown {
 				line = "You can make it now. "
 			}
+			if !known && len(f.c.KnownSpells) > 0 && src.Kind != "trainer" {
+				// The skill reaches it but the recipe comes from an item the character does not have.
+				sc.Status = NeedsRecipe
+				line = fmt.Sprintf("Not craftable yet: your %s is %d but you don't have the recipe. ", prof, have)
+			}
 			line += learnSentence(src, known, len(f.c.KnownSpells) > 0)
 			line += "; have " + matsLine(reagents)
 			rank := rankCraft
-			if missingOf(reagents) == 0 {
+			if missingOf(reagents) == 0 && sc.Status == CanMake {
 				rank = rankReadyCraft
 			}
 			return Path{Kind: Craft, Line: line, Reagents: reagents, Skill: sc, Recipe: &src, rank: rank}, true

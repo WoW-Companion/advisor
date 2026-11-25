@@ -71,6 +71,11 @@ func (c Candidate) Describe() string {
 		}
 		src = "from " + strings.Join(parts, "; ")
 	}
+	if c.Craft != nil {
+		if l := c.Craft.Line(); l != "" {
+			src += "; " + l
+		}
+	}
 	if c.Vendor != nil {
 		src += "; " + c.Vendor.Line() + " (seen by players on Everloot)"
 	}
@@ -115,6 +120,7 @@ func Render(c character.Character, r Result) string {
 	}
 	sort.Strings(extra)
 	credit := false
+	var reach []Candidate      // crafts the character's skill cannot make, listed apart
 	soon := map[int][]string{} // the level an upgrade needs -> its lines
 	for _, slot := range append(order, extra...) {
 		cands := r.Slots[slot]
@@ -123,6 +129,10 @@ func Render(c character.Character, r Result) string {
 		}
 		var now []Candidate
 		for _, cd := range cands {
+			if cd.outOfReach() {
+				reach = append(reach, cd)
+				continue
+			}
 			if cd.Soon {
 				soon[cd.Item.ReqLevel] = append(soon[cd.Item.ReqLevel], fmt.Sprintf("  %s: %s\n", slot, cd.Describe()))
 				credit = credit || cd.Vendor != nil
@@ -148,8 +158,17 @@ func Render(c character.Character, r Result) string {
 	for _, l := range levels {
 		fmt.Fprintf(&b, "Soon (level %d):\n%s", l, strings.Join(soon[l], ""))
 	}
+	for _, l := range beyondReach(reach) {
+		b.WriteString(l + "\n")
+	}
 	if credit {
 		b.WriteString("Sources: " + vendors.Credit + ".\n")
 	}
 	return b.String()
+}
+
+// outOfReach is a crafted candidate the character cannot make and that comes from nowhere else: it is
+// never listed as craftable.
+func (c Candidate) outOfReach() bool {
+	return c.Craft != nil && c.Craft.Status != CraftNow && len(c.Sources) == 0 && c.Vendor == nil
 }
