@@ -89,7 +89,7 @@ func BagUpgrades(c character.Character, ds store.DataStore, group string) []BagU
 	}
 	var w map[int64]float64
 	if p, ok := stats.For(c, group); ok {
-		w = idWeights(p.Weights)
+		w = idWeights(p.ItemWeights())
 	} else if _, ww, _, ok := Weights(c.Class, group); ok {
 		w = ww
 	}

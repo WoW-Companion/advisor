@@ -1,11 +1,17 @@
 # Changelog
 
-## 0.7.80
+## 0.7.81
 
 - The app now records why it ended: quit, window close, update restart, go back, shutdown and crashes.
 - After an unexpected end, the next start says "closed unexpectedly at <time>" with Open logs.
 - The helper's output has its own log, and it restarts itself if it dies.
 - Settings > Updates: Open logs folder and Copy diagnostics (a zip in Downloads, secrets left out).
+
+## 0.7.80
+
+- Gear upgrades now weigh how much of each stat an item has, not only which stats.
+- Spell Power counts for casters and healers, and Attack Power for melee, in upgrades.
+- The stat check adds up the stat amounts of your worn gear.
 
 ## 0.7.79
 
