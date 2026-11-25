@@ -14,9 +14,12 @@ Two things do the work:
 
 - **The WoW Companion app** is the small window that sits beside or over the game. It makes your plan and
   answers your questions.
-- **The WoW Companion addon** is optional. It shows the plan inside the game.
+- **The WoW Companion addon** writes down what your character has and what you see in the game: your bags,
+  gear, quests, talents, and the trainers, vendors and gathering spots you visit. The app reads it. It also
+  shows the plan inside the game.
 
-You also need **ForeverScribe**. It is an addon that writes down what your character has. The app reads it.
+That is one addon to install. **ForeverScribe is no longer needed.** If you already use it, the app still
+reads it until you switch. You can remove ForeverScribe once WoW Companion 0.6.N+ is installed.
 
 **Safe to use:** the app never touches the game. Nothing is automated. Your AI sees only what you ask it.
 
@@ -37,11 +40,12 @@ About 15 minutes. Most of that is installing one AI client and signing in. It's 
 
 ## The steps
 
-1. **Install ForeverScribe (required).** Open the [ForeverScribe page](https://github.com/MattMaximo/foreverscribe).
-   Put the addon in your game's `_forever_\Interface\AddOns` folder.
-   *You'll see a new ForeverScribe folder in AddOns.*
+1. **Install the WoW Companion addon.** Open the [addon page](https://github.com/WoW-Companion/addon)
+   and put the `WoWCompanion` folder in your game's `_forever_\Interface\AddOns` folder. The app's setup
+   checklist can also install it for you (step 5).
+   *You'll see a new WoWCompanion folder in AddOns.*
 2. **Quit WoW completely, then start it again.** WoW only notices a new addon when it starts.
-   *You'll see ForeverScribe in the addon list on the character screen.*
+   *You'll see WoW Companion in the addon list on the character screen.*
 3. **Download the app.** On the [latest release](https://github.com/WoW-Companion/advisor/releases/latest)
    download `WoW-Companion-Setup-<version>-x64.exe`.
    *You'll see the file in your Downloads folder.*
@@ -49,9 +53,10 @@ About 15 minutes. Most of that is installing one AI client and signing in. It's 
    "protected your PC". The installer is not code-signed. Click **More info**, then **Run anyway**.
    *You'll see WoW Companion in the Start menu.*
 5. **Open the app and follow the setup checklist.** The app opens a **Setup** checklist with these lines:
-   game found, ForeverScribe installed, ForeverScribe has data, WoW Companion addon (optional), display
-   mode, Questie (optional), and game data. Fix any red line with the button next to it. If ForeverScribe is
-   missing, the **Open ForeverScribe page** button takes you to it. The first time, the app downloads a small
+   game found, ForeverScribe (optional), characters captured, WoW Companion addon, display
+   mode, Questie (optional), and game data. Fix any red line with the button next to it. ForeverScribe is
+   optional: if it is the only addon you have, the checklist says you can remove it once WoW Companion is
+   installed. The first time, the app downloads a small
    game-data file (under 1 MB) from GitHub. There is nothing to install.
    *You'll see a green ✓ next to each line you need.*
 
@@ -63,12 +68,12 @@ About 15 minutes. Most of that is installing one AI client and signing in. It's 
    *You'll see the client's name in the app's AI box.*
 7. **Set WoW to Windowed (Fullscreen).** In WoW, go to System, Graphics, **Display Mode**. Choose **Windowed (Fullscreen)**.
    *You'll see the app float over the game.*
-8. **Type `/reload` once in the game.** That makes WoW save the file ForeverScribe wrote. The app can then read your character.
+8. **Type `/reload` once in the game.** That makes WoW save the file the WoW Companion addon wrote. The app can then read your character.
    *You'll see your character's name in the app, with a small green dot next to it.*
 
 **Questie is optional, and recommended.** Questie is a popular quest addon. With Questie and QuestieDB
 installed, the app suggests quests you have not picked up and shows where to get them. It reads them on your
-own PC. Without them, the app uses ForeverScribe's data alone. See [Questie interop](design/questie-interop.md).
+own PC. Without them, the app uses the addon's data alone. See [Questie interop](design/questie-interop.md).
 With Questie, the app also builds a numbered **Plan** under **Next**. It puts your pick-ups, objectives and
 turn-ins in an efficient order.
 
@@ -168,7 +173,7 @@ steps are on the [AI providers and API keys](providers.md) page.
 
 - It installs for your Windows user only. No admin rights.
 - The overlay never touches the game process. It is a separate window that sits above WoW.
-- It reads the file ForeverScribe saved. WoW writes that file when you `/reload`.
+- It reads the file the WoW Companion addon saved (and ForeverScribe's, if you still have it). WoW writes those files when you `/reload`.
 - It writes only to the WoW Companion addon folder, and only if you choose to install the addon.
 - The AI client runs with only the advisor's read-only tools.
 - Network calls: GitHub, to check for and download releases, and your AI client's or provider's own service. Nothing else.
@@ -177,7 +182,7 @@ steps are on the [AI providers and API keys](providers.md) page.
 
 - **If the app is not over the game,** then set Display Mode to **Windowed (Fullscreen)**.
 - **If the AI box says "Auto (none found)",** then install a client ([steps](#set-up-your-ai-client)), sign in once, and press **Re-scan**.
-- **If the checklist says ForeverScribe has no data,** then type `/reload` in the game and reopen the checklist.
+- **If the checklist says no characters are captured,** then type `/reload` in the game and reopen the checklist.
 - **If the app says it can't find WoW,** then use the checklist's folder box to point it at your game folder.
 - **If the map has no numbered steps,** then type `/reload`, wait a few seconds, and type it again. Also check the round map button is on.
 

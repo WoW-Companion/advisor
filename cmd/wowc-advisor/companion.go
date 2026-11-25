@@ -28,7 +28,7 @@ func companionCmd(ctx context.Context, args []string, stdout, stderr io.Writer) 
 	fs.SetOutput(stderr)
 	var cfg server.Config
 	fs.StringVar(&cfg.Dataset, "dataset", "", "dataset directory (default: $"+server.DatasetEnv+", else the cached dataset)")
-	fs.StringVar(&cfg.SavedVariables, "savedvariables", "", "ForeverScribe.lua file (default: $"+server.SavedVariablesEnv+")")
+	fs.StringVar(&cfg.SavedVariables, "savedvariables", "", "WoWCompanion.lua (or ForeverScribe.lua) file (default: $"+server.SavedVariablesEnv+")")
 	f := askFlags{optional: true}
 	fs.StringVar(&f.cache, "cache", "", "dataset cache directory (default: per-user cache)")
 	fs.StringVar(&f.agent, "agent", "", "agent command or preset: claude, codex, agy, gemini, or auto (default: \"agent\" in the config file, else the first of claude, codex, agy, gemini found)")

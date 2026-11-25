@@ -221,6 +221,7 @@ type Grounding struct {
 	Pack     string // the facts handed to the model; "" when there are none
 	KnowHow  bool
 	Browsing bool // the answer was checked against Icy Veins
+	Seen     bool // some of the facts are ones the player saw in game (trainers, vendors, gathering, quest givers)
 }
 
 // Footer is the small source line under a know-how answer, built from what grounded it, never from
@@ -247,6 +248,9 @@ func (g Grounding) Footer() string {
 		}
 		s += have[len(have)-1]
 		parts = append(parts, strings.ToUpper(s[:1])+s[1:]+": your game")
+	}
+	if g.Seen {
+		parts = append(parts, "Trainers, vendors, gathering and quest givers: "+character.SeenByYou)
 	}
 	if g.IcyURL != "" {
 		parts = append(parts, "Icy Veins")
@@ -330,6 +334,7 @@ func ground(cc loaded, q Question) Grounding {
 		}
 	}
 	g.Pack = b.String()
+	g.Seen = strings.Contains(g.Pack, character.SeenByYou)
 	return g
 }
 

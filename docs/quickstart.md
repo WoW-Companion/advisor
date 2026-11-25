@@ -3,14 +3,18 @@
 This is the long, detailed guide. **New to this? Read [Getting Started](getting-started.md) first.** It is shorter and made for players. The full path is below, top to bottom. Each step is one action and says what success looks
 like. `<you>` is your Windows user name and `<account>` your WoW account folder; use your own.
 
-## 1. Install ForeverScribe (required)
+## 1. Install the WoW Companion addon
 
-Action: install [ForeverScribe](https://github.com/MattMaximo/foreverscribe) into your game's
-`_forever_\Interface\AddOns` folder, then **quit the game completely and start it again**: the game only
-finds a new addon folder at startup, so `/reload` is not enough the first time.
+Action: install the `WoWCompanion` folder from the [addon repository](https://github.com/WoW-Companion/addon)
+into your game's `_forever_\Interface\AddOns` folder, then **quit the game completely and start it again**:
+the game only finds a new addon folder at startup, so `/reload` is not enough the first time.
 
-Success: after your first `/reload` or logout, ForeverScribe has written
-`WTF\Account\<account>\SavedVariables\ForeverScribe.lua`. That file is all the overlay needs.
+Success: after your first `/reload` or logout, the addon has written
+`WTF\Account\<account>\SavedVariables\WoWCompanion.lua`. That file is all the overlay needs: it holds your
+character (bags, gear, quests, talents) and what you have seen (trainers, vendors, gathering).
+
+ForeverScribe is no longer needed. If you still have it, the overlay reads both files and uses the newer
+capture of each character. You can remove ForeverScribe once WoW Companion 0.6.N+ is installed.
 
 ## 2. Get WoW Companion (the overlay, recommended)
 
@@ -95,13 +99,12 @@ Open WoW Companion from the Start menu.
 Success: the panel shows your most recently played character, its NEXT list and an age chip. Settings
 live in the app's own storage, not a file you edit; see the FAQ.
 
-## 5. Optional: the WoW Companion addon (see it in the game)
+## 5. In the game: the plan, tracker and tooltips
 
 The addon shows your plan inside WoW: a round button on the world map, a plan tab at the lower right of the map, and the minimap. Screenshots are in [what you'll see](getting-started.md#in-the-game-what-youll-see). It is only for in-game extras: the panel (your next quests, upgrades and materials), the tracker,
-tooltips, the plan on your map, and question buttons that copy a question. You do not need it to use the overlay.
+tooltips, the plan on your map, and question buttons that copy a question. The addon from step 1 already provides them.
 
-Action: add the WoW Companion folders (`WoWCompanion`, `WoWCompanion_Digest`) to the same
-`_forever_\Interface\AddOns` folder as ForeverScribe. There is no player-friendly download for them yet:
+Action: add the `WoWCompanion_Digest` folder to the same `_forever_\Interface\AddOns` folder as `WoWCompanion`. There is no player-friendly download for them yet:
 take them from the [addon repository](https://github.com/WoW-Companion/addon) (GitHub's **Code**, then
 **Download ZIP**, and copy just those folders out of it), or build a zip with `make package` there. Quit the
 game completely and start it again.
@@ -116,7 +119,7 @@ can delete it.
 
 With the overlay running, the advice refreshes itself; `/reload` to see it.
 
-The overlay's advisor rewrites the in-game digest a couple of seconds after ForeverScribe saves, and
+The overlay's advisor rewrites the in-game digest a couple of seconds after the addon saves, and
 skips the write when nothing changed. The game only saves and loads addon files on `/reload`, so the
 sequence is: your `/reload` saves, the overlay writes within a couple of seconds, and your next
 `/reload` loads it and shows it in `/wowc`. One `/reload` both saves and loads, but the load happens
@@ -146,7 +149,7 @@ Pick the way that suits you:
 
 The advisor's tools are pre-allowed for these runs and read-only (apart from `update_digest`, which writes
 the digest file); nothing else is. The presets pass the permission flags themselves, so you never approve
-anything in the AI client. Advice reflects the last ForeverScribe save, so `/reload` before asking if
+anything in the AI client. Advice reflects the last save, so `/reload` before asking if
 you just played.
 
 To connect an AI client you use yourself (Claude Desktop, Claude Code, Codex, Antigravity, Gemini) to the advisor, run

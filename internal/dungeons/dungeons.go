@@ -41,10 +41,11 @@ type Quest struct {
 
 // Pickup is a dungeon quest worth taking before going in.
 type Pickup struct {
-	ID      int64
-	Title   string
-	Giver   string
-	Questie bool // from the player's QuestieDB
+	ID        int64
+	Title     string
+	Giver     string
+	Questie   bool // from the player's QuestieDB
+	GiverSeen bool // the giver is one the player saw give the quest
 }
 
 // Inhabitant is a creature inside a dungeon, from the player's QuestieDB.
@@ -412,7 +413,8 @@ func pickups(p *DungeonPick, c character.Character, ds store.DataStore) []Pickup
 		if f.Level > level+LevelWindow && !p.ahead {
 			continue
 		}
-		out = append(out, Pickup{ID: id, Title: f.Name, Giver: quests.GiverName(ds, id)})
+		giver, fromSeen := quests.GiverNameSeen(ds, c.Seen, id)
+		out = append(out, Pickup{ID: id, Title: f.Name, Giver: giver, GiverSeen: fromSeen})
 	}
 	sort.SliceStable(out, func(i, j int) bool { return out[i].ID < out[j].ID })
 	if n := p.limit(); len(out) > n {

@@ -68,14 +68,24 @@ func TestCheckStates(t *testing.T) {
 			g := full(r)
 			os.RemoveAll(filepath.Join(g, "Interface", "AddOns", "ForeverScribe"))
 			os.RemoveAll(filepath.Join(g, "Interface", "AddOns", "WoWCompanion"))
-		}, map[string]string{IDGame: OK, IDScribe: Bad, IDData: OK, IDAddon: Warn}},
+		}, map[string]string{IDGame: OK, IDScribe: OK, IDData: OK, IDAddon: Warn}},
+		{"scribe alone may be removed once the addon is in", func(r string) {
+			g := full(r)
+			os.RemoveAll(filepath.Join(g, "Interface", "AddOns", "WoWCompanion"))
+		}, map[string]string{IDScribe: Warn, IDData: OK, IDAddon: Warn}},
+		{"the addon alone needs no scribe", func(r string) {
+			g := full(r)
+			os.RemoveAll(filepath.Join(g, "Interface", "AddOns", "ForeverScribe"))
+			os.Remove(filepath.Join(g, "WTF", "Account", "A", "SavedVariables", "ForeverScribe.lua"))
+			write(t, filepath.Join(g, "WTF", "Account", "A", "SavedVariables", "WoWCompanion.lua"), `WoWCompanionDB = { characters = { ["R:Mage"] = { name = "Mage", realm = "R" } } }`)
+		}, map[string]string{IDScribe: OK, IDData: OK, IDAddon: OK}},
 		{"no data file", func(r string) {
 			os.Remove(filepath.Join(full(r), "WTF", "Account", "A", "SavedVariables", "ForeverScribe.lua"))
 		}, map[string]string{IDScribe: OK, IDData: Bad}},
 		{"data without a character", func(r string) {
 			write(t, filepath.Join(full(r), "WTF", "Account", "A", "SavedVariables", "ForeverScribe.lua"), `ForeverScribeDB = {}`)
 		}, map[string]string{IDData: Bad}},
-		{"no game folder", func(r string) {}, map[string]string{IDGame: Bad, IDScribe: Bad, IDData: Bad}},
+		{"no game folder", func(r string) {}, map[string]string{IDGame: Bad, IDScribe: Warn, IDData: Bad}},
 		{"exclusive fullscreen", func(r string) {
 			write(t, filepath.Join(full(r), "WTF", "Config.wtf"), "SET gxWindow \"0\"\nSET gxMaximize \"0\"\n")
 		}, map[string]string{IDDisplay: Warn}},
@@ -293,4 +303,20 @@ func TestTestAI(t *testing.T) {
 		}
 	}
 	_ = fmt.Sprint
+}
+
+func TestScribeAloneSaysItCanBeRemovedOnce(t *testing.T) {
+	root := t.TempDir()
+	g := filepath.Join(root, "_forever_")
+	write(t, filepath.Join(g, "Interface", "AddOns", "ForeverScribe", "ForeverScribe.toc"), "x")
+	write(t, filepath.Join(g, "WTF", "Account", "A", "SavedVariables", "ForeverScribe.lua"), scribeLua)
+	n := 0
+	for _, it := range Check(Options{GameDir: root}) {
+		if strings.Contains(it.Detail, RemoveScribeNote) {
+			n++
+		}
+	}
+	if n != 1 {
+		t.Errorf("the note shows %d times", n)
+	}
 }

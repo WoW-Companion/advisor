@@ -20,12 +20,12 @@ your map. You can also ask about your character in plain words.
 
 Three small pieces work together. Think of it as a loop.
 
-- **ForeverScribe** is an addon. It writes down what your character has. WoW saves that to disk when you
-  `/reload`, log out or quit.
+- **The WoW Companion addon** writes down what your character has and what you see (trainers, vendors,
+  gathering). WoW saves that to disk when you `/reload`, log out or quit. It is the one addon to install;
+  ForeverScribe is optional now.
 - **The WoW Companion app** is the small window that sits beside or over the game. It reads that save
   within seconds. It works out your plan and answers your questions. It writes the plan back for the addon.
-- **The WoW Companion addon** is optional. It shows your plan in the game: on your map, on the minimap and
-  in its own panel.
+- **The addon also shows** your plan in the game: on your map, on the minimap and in its own panel.
 
 <!-- screenshot: overlay-beside-game.png — the whole screen, with the game and the app beside it -->
 
@@ -37,7 +37,7 @@ copies a question for you. Paste it into the app's ask box.
 
 ```mermaid
 flowchart LR
-    G[WoW game] -->|/reload saves| S[ForeverScribe save file]
+    G[WoW game] -->|/reload saves| S[WoW Companion save file]
     S --> A[WoW Companion app]
     A --> F[Plan files]
     F -->|/reload loads| D[WoW Companion addon in game]
@@ -55,12 +55,10 @@ Type a question in the app, such as "What should I do next?". Or click one of th
 
 ## What you need to set up
 
-- **ForeverScribe** ([MattMaximo/foreverscribe](https://github.com/MattMaximo/foreverscribe)) is required.
+- **The WoW Companion addon** ([WoW-Companion/addon](https://github.com/WoW-Companion/addon)) records your character. It is the one addon you need. [ForeverScribe](https://github.com/MattMaximo/foreverscribe) is optional now: still read if present, and you can remove it once WoW Companion 0.6.N+ is installed.
 - **The WoW Companion app** is the main thing. Download `WoW-Companion-Setup-<version>-x64.exe` from the
   [latest release](https://github.com/WoW-Companion/advisor/releases/latest). It works over the game in
   Windowed (Fullscreen) mode.
-- **The WoW Companion addon** ([WoW-Companion/addon](https://github.com/WoW-Companion/addon)) is optional.
-  It adds the in-game extras.
 
 Every step is in [Getting Started](docs/getting-started.md). The [quickstart](docs/quickstart.md) goes deeper.
 
@@ -83,9 +81,9 @@ Client configuration for Claude Desktop, Claude Code, Codex, Antigravity CLI and
 
 ## Character data
 
-Character-aware advice reads the file the [ForeverScribe](https://github.com/MattMaximo/foreverscribe)
-addon (MIT) writes when you `/reload` or log out:
-`WTF/Account/<account>/SavedVariables/ForeverScribe.lua` inside your game folder (on Windows,
+Character-aware advice reads the file the WoW Companion addon (and, if present, the [ForeverScribe](https://github.com/MattMaximo/foreverscribe)
+addon, MIT) writes when you `/reload` or log out:
+`WTF/Account/<account>/SavedVariables/WoWCompanion.lua` (or `ForeverScribe.lua`) inside your game folder (on Windows,
 `World of Warcraft\_forever_\WTF\Account\<ACCOUNT>\SavedVariables\ForeverScribe.lua`). The advisor finds it itself on a standard install; otherwise point it
 at it with `--savedvariables FILE` or `WOWC_SAVEDVARIABLES`; `server_info` then reports how many
 characters it found, when they were captured and which game client version and build wrote them. The file is only read, on your machine, by a

@@ -264,3 +264,50 @@ func TestTrainerOfRules(t *testing.T) {
 		}
 	}
 }
+
+func seenChar() character.Character {
+	c := char("Alliance", "Ironforge")
+	c.Seen = &character.Observed{
+		Trainers: []character.SeenTrainer{
+			{NPC: 77, Name: "Seen Smith", Map: 84, X: 30.5, Y: 70, Faction: "Alliance", T: 9, Offers: []character.SeenOffer{
+				{Name: "Runed Copper Gauntlets", Cost: 1250, Skill: "Blacksmithing", SkillLevel: 75, Spell: 500}}},
+			{NPC: 78, Name: "Horde Seen Smith", Faction: "Horde", T: 10, Offers: []character.SeenOffer{{Name: "Runed Copper Gauntlets", Spell: 500}}},
+		},
+		Vendors: []character.SeenVendor{{NPC: 79, Name: "Seen Seller", X: 5, Y: 6, T: 3, Items: []character.SeenStock{{ItemID: 70, Price: 30000}}}},
+	}
+	return c
+}
+
+func TestSeenTrainerLeadsWithCostAndSkillGate(t *testing.T) {
+	res, err := Find(seenChar(), data(t), nil, "Runed Copper Gauntlets")
+	if err != nil {
+		t.Fatal(err)
+	}
+	w := res.Ways[0]
+	if !w.Seen || w.Name != "Seen Smith" || w.Price == "" {
+		t.Fatalf("first way %+v", w)
+	}
+	for _, want := range []string{"Learn it from Seen Smith", "(30, 70)", "for " + w.Price, "(seen by you)"} {
+		if !strings.Contains(res.Text, want) {
+			t.Errorf("text lacks %q: %s", want, res.Text)
+		}
+	}
+	if res.Gate.Skill != 75 || strings.Contains(res.Text, "Horde Seen Smith") {
+		t.Errorf("gate %+v, text %s", res.Gate, res.Text)
+	}
+	// Without the sighting the dataset's own trainer answers, unmarked.
+	plain, _ := Find(char("Alliance", "Ironforge"), data(t), nil, "Runed Copper Gauntlets")
+	if strings.Contains(plain.Text, "seen by you") || plain.Ways[0].Seen {
+		t.Errorf("unmarked answer: %s", plain.Text)
+	}
+}
+
+func TestSeenVendorLeadsWithItsPrice(t *testing.T) {
+	res, err := Find(seenChar(), data(t), nil, "Plans: Thorium Bar")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if w := res.Ways[0]; !w.Seen || w.Kind != Vendor || w.Name != "Seen Seller" || !strings.Contains(res.Text, "(seen by you)") || w.Price == "" {
+		t.Errorf("%+v / %s", w, res.Text)
+	}
+}

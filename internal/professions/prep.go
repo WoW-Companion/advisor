@@ -248,7 +248,7 @@ func (p *planner) gatherLine(id int64, name string) (string, bool) {
 	if pos := p.c.LastKnownPosition(); pos != nil {
 		at = questie.Where{MapID: pos.MapID, Zone: pos.Zone, X: pos.X, Y: pos.Y}
 	}
-	kind, zones := p.gather.ItemZones(id, at)
+	kind, zones := p.gather.ItemZonesFor(p.c, id, at)
 	if len(zones) == 0 {
 		return "", false
 	}
@@ -259,7 +259,10 @@ func (p *planner) gatherLine(id int64, name string) (string, bool) {
 	case gather.Fish:
 		skill, how = "Fishing", "Fish"
 	}
-	line := fmt.Sprintf("%s %s: %s (%s)", how, name, gather.Line(zones), gather.FromQuestie)
+	line := fmt.Sprintf("%s %s: %s", how, name, gather.Line(zones))
+	if gather.AnyQuestie(zones) {
+		line += " (" + gather.FromQuestie + ")"
+	}
 	if !p.has(skill) {
 		line += "; needs " + skill
 	}

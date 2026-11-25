@@ -69,7 +69,7 @@ type Item struct {
 // Options says where to look. Latest is the newest addon release, nil when not looked up.
 type Options struct {
 	GameDir        string // the player's chosen WoW folder; empty to detect
-	SavedVariables string // the configured ForeverScribe.lua; used when GameDir is empty
+	SavedVariables string // the configured ForeverScribe.lua or WoWCompanion.lua; used when GameDir is empty
 	Latest         *AddonRelease
 	LatestErr      string
 }
@@ -130,9 +130,9 @@ func Check(o Options) []Item {
 	items := []Item{gameItem(game, ok)}
 	if !ok {
 		return append(items,
-			Item{ID: IDScribe, Title: "ForeverScribe installed", Status: Bad, Detail: "Needs the game folder first."},
-			Item{ID: IDData, Title: "ForeverScribe has data", Status: Bad, Detail: "Needs the game folder first."},
-			Item{ID: IDAddon, Title: "WoW Companion addon (optional)", Status: Warn, Optional: true, Detail: "Needs the game folder first."},
+			Item{ID: IDScribe, Title: "ForeverScribe (optional)", Status: Warn, Optional: true, Detail: "Needs the game folder first."},
+			Item{ID: IDData, Title: "Characters captured", Status: Bad, Detail: "Needs the game folder first."},
+			Item{ID: IDAddon, Title: "WoW Companion addon", Status: Warn, Detail: "Needs the game folder first."},
 			Item{ID: IDDisplay, Title: "Display mode", Status: Warn, Detail: "Needs the game folder first."},
 			Item{ID: IDQuestie, Title: "Questie (optional)", Status: Warn, Optional: true, Detail: "Needs the game folder first."})
 	}
@@ -151,40 +151,76 @@ func gameItem(game string, ok bool) Item {
 	return it
 }
 
+// RemoveScribeNote is the one line said when ForeverScribe is the only capture source.
+const RemoveScribeNote = "You can remove ForeverScribe once WoW Companion 0.6.N+ is installed."
+
+func dirExists(p string) bool {
+	st, err := os.Stat(p)
+	return err == nil && st.IsDir()
+}
+
+// scribeItem: ForeverScribe is optional; the WoW Companion addon records the characters itself.
 func scribeItem(game string) Item {
-	it := Item{ID: IDScribe, Title: "ForeverScribe installed"}
-	if st, err := os.Stat(filepath.Join(game, "Interface", "AddOns", ScribeName)); err == nil && st.IsDir() {
-		it.Status, it.Detail = OK, "Found in Interface/AddOns."
-		return it
+	it := Item{ID: IDScribe, Title: "ForeverScribe (optional)", Optional: true}
+	scribe := dirExists(filepath.Join(game, "Interface", "AddOns", ScribeName))
+	_, addon := InstalledAddonVersion(game)
+	switch {
+	case scribe && addon:
+		it.Status, it.Detail = OK, "Installed, but no longer needed: the WoW Companion addon records your characters. You can remove it."
+	case scribe:
+		it.Status, it.Detail = Warn, RemoveScribeNote
+	case addon:
+		it.Status, it.Detail = OK, "Not needed: the WoW Companion addon records your characters."
+	default:
+		it.Status, it.Detail = OK, "Not needed. Install the WoW Companion addon below, which records your characters."
 	}
-	// ForeverScribe publishes no release zip, so there is nothing to fetch: link to its page.
-	it.Status, it.Detail = Bad, "ForeverScribe is not in Interface/AddOns. Install it from its project page, then restart the game."
-	it.Action, it.Label, it.URL = ActOpenURL, "Open ForeverScribe page", ScribeURL
 	return it
 }
 
-// svFiles lists ForeverScribe.lua under <game>/WTF/Account/*/SavedVariables.
+// svFiles lists the character files (ForeverScribe.lua and WoWCompanion.lua) under
+// <game>/WTF/Account/*/SavedVariables.
 func svFiles(game string) []string {
-	m, _ := filepath.Glob(filepath.Join(game, "WTF", "Account", "*", "SavedVariables", "ForeverScribe.lua"))
-	return m
+	var out []string
+	for _, n := range []string{character.WoWCFile, character.FSFile} {
+		m, _ := filepath.Glob(filepath.Join(game, "WTF", "Account", "*", "SavedVariables", n))
+		out = append(out, m...)
+	}
+	return out
 }
 
 func dataItem(game string) Item {
-	it := Item{ID: IDData, Title: "ForeverScribe has data"}
+	it := Item{ID: IDData, Title: "Characters captured"}
 	const hint = "Log in to a character and type /reload once."
 	files := svFiles(game)
 	if len(files) == 0 {
-		it.Status, it.Detail = Bad, "No ForeverScribe.lua saved yet. "+hint
+		it.Status, it.Detail = Bad, "No character saved yet. "+hint
 		return it
 	}
 	for _, f := range files {
 		if c, err := character.LoadFile(f); err == nil && len(c.Characters) > 0 {
-			it.Status, it.Detail = OK, fmt.Sprintf("%d character(s) captured.", len(c.Characters))
+			it.Status, it.Detail = OK, fmt.Sprintf("%d character(s) captured%s.", len(c.Characters), sourceSummary(c))
 			return it
 		}
 	}
-	it.Status, it.Detail = Bad, "ForeverScribe.lua holds no character yet. "+hint
+	it.Status, it.Detail = Bad, "No character captured yet. "+hint
 	return it
+}
+
+// sourceSummary says, per source, how many characters came from it.
+func sourceSummary(f character.File) string {
+	n := map[string]int{}
+	var order []string
+	for _, c := range f.Characters {
+		if n[c.Source] == 0 {
+			order = append(order, c.Source)
+		}
+		n[c.Source]++
+	}
+	var parts []string
+	for _, s := range order {
+		parts = append(parts, fmt.Sprintf("%d from %s", n[s], s))
+	}
+	return " (" + strings.Join(parts, ", ") + ")"
 }
 
 var tocVersion = regexp.MustCompile(`(?m)^##\s*Version:\s*(\S.*?)\s*$`)
@@ -220,7 +256,7 @@ func missingData(game string) []string {
 }
 
 func addonItem(game string, o Options) Item {
-	it := Item{ID: IDAddon, Title: "WoW Companion addon (optional)", Optional: true}
+	it := Item{ID: IDAddon, Title: "WoW Companion addon"}
 	have, installed := InstalledAddonVersion(game)
 	latest := ""
 	if o.Latest != nil {

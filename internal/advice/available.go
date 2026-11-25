@@ -146,8 +146,12 @@ func AvailableQuests(c character.Character, ds store.DataStore) Available {
 		if zone != "" {
 			reason += ", in " + zone
 		}
-		s := Step{Kind: KindQuest, Title: PickUpPrefix + label, Reason: reason, Zone: zone, QuestID: int(id), Name: label, Level: lvl, NPC: quests.GiverName(ds, id),
+		giver, fromSeen := quests.GiverNameSeen(ds, c.Seen, id)
+		s := Step{Kind: KindQuest, Title: PickUpPrefix + label, Reason: reason, Zone: zone, QuestID: int(id), Name: label, Level: lvl, NPC: giver,
 			Sources: []string{fmt.Sprintf("dataset: quests id %d", id)}}
+		if fromSeen {
+			s.Sources = append(s.Sources, "quest giver: "+character.SeenByYou)
+		}
 		sc := scored{step: s, diff: d, line: ch.Found && logLines[ch.LineID], zone: logZones[zone] > 0 || here[zone]}
 		switch {
 		case sc.line:

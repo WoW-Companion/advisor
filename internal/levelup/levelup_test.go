@@ -170,3 +170,25 @@ func TestFactsCoverTotalMoneyTrainerAndQuests(t *testing.T) {
 		t.Errorf("spells %v quests %v", spells, quests)
 	}
 }
+
+func TestSeenTrainerCostsOverrideTheDatasetAndNameTheTrainer(t *testing.T) {
+	d := ds(t, true)
+	c := warrior(10, nil)
+	c.Seen = &character.Observed{Trainers: []character.SeenTrainer{{NPC: 9, Name: "Seen Warrior Trainer", Map: 84, X: 20, Y: 30, Faction: "Alliance",
+		Offers: []character.SeenOffer{{Name: "Taunt", Spell: 355, Cost: 100}}}}}
+	var taunt Spell
+	for _, s := range Spells(c, d, 10, 12) {
+		if s.ID == 355 {
+			taunt = s
+		}
+	}
+	if taunt.Cost != 100 || !taunt.Seen {
+		t.Errorf("taunt %+v", taunt)
+	}
+	if tr, ok := SeenClassTrainer(c); !ok || tr.Name != "Seen Warrior Trainer" {
+		t.Errorf("trainer %+v", tr)
+	}
+	if got := Spells(warrior(10, nil), d, 10, 12); got[0].Seen {
+		t.Errorf("a cost nobody saw was marked: %+v", got[0])
+	}
+}
