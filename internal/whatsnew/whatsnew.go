@@ -77,3 +77,30 @@ func plain(s string) string {
 	}
 	return s
 }
+
+// Section is one version's part of a changelog, as markdown bullets ("- text" per line, the marks
+// removed), or "" when the changelog has no such version. It is the only text a player sees as
+// that version's notes: never a release body or a commit message.
+func Section(md, version string) string {
+	version = strings.TrimPrefix(strings.TrimSpace(version), "v")
+	in := false
+	var out []string
+	for _, line := range strings.Split(strings.ReplaceAll(md, "\r", ""), "\n") {
+		if m := heading.FindStringSubmatch(line); m != nil {
+			if in {
+				break
+			}
+			in = m[1] == version
+			continue
+		}
+		if in && strings.HasPrefix(line, "- ") {
+			if t := strings.TrimSpace(markup.ReplaceAllString(line[2:], "")); t != "" {
+				out = append(out, "- "+t)
+			}
+		}
+	}
+	return strings.Join(out, "\n")
+}
+
+// BundledSection is Section of the CHANGELOG.md this binary was built with.
+func BundledSection(version string) string { return Section(advisor.Changelog, version) }

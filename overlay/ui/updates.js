@@ -73,12 +73,48 @@
     return text || 'No notes were published for this version.';
   }
 
-  // The Settings list: the running version (marked) then the others, each with an install button.
+  // Versions as numbers, for ordering: 0.7.58 > 0.7.9. Anything that is not x.y.z sorts last.
+  function cmp(a, b) {
+    const k = v => (/^(\d+)\.(\d+)\.(\d+)/.exec(bare(v)) || []).slice(1).map(Number);
+    const x = k(a), y = k(b);
+    if (x.length !== 3 || y.length !== 3) return x.length === y.length ? 0 : x.length ? -1 : 1;
+    for (let i = 0; i < 3; i++) if (x[i] !== y[i]) return x[i] < y[i] ? 1 : -1;
+    return 0; // 1 when a is older, -1 when newer: sorts newest first
+  }
+
+  // The Settings list, newest first with the running version in its place. A newer row offers
+  // "Update to <v>" (primary); an older one "Go back to <v>" with a one-line confirm.
   function versionRows(status) {
-    return ((status && status.versions) || []).map(v => ({
-      version: v.version, date: v.date || '', current: !!v.current,
-      label: v.version + (v.current ? ' (running)' : '') + (v.date ? ' · ' + v.date : ''),
-    }));
+    const list = ((status && status.versions) || []).slice().sort((a, b) => cmp(a.version, b.version));
+    const cur = list.find(v => v.current);
+    return list.map(v => {
+      const r = { version: v.version, date: v.date || '', current: !!v.current, button: '', primary: false, confirm: '',
+        label: v.version + (v.current ? ' (running)' : '') + (v.date ? ' · ' + v.date : '') };
+      if (!v.current && cur) {
+        if (cmp(v.version, cur.version) < 0) { r.button = 'Update to ' + v.version; r.primary = true; }
+        else { r.button = 'Go back to ' + v.version; r.confirm = 'Go back to ' + v.version + '? Your settings from that version are restored.'; }
+      } else if (!v.current) r.button = 'Update to ' + v.version;
+      return r;
+    });
+  }
+
+  // The line at the top of Updates: an offered update with its button, else when we last looked.
+  function noticeView(status, checkedAt) {
+    if (!status) return null;
+    if (status.available && !status.pulled) return { cls: 'ok', text: 'Update ' + bare(status.latest) + ' is ready', button: 'Update now', version: bare(status.latest) };
+    if (!checkedAt) return { cls: '', text: 'You’re up to date', button: '' };
+    const d = new Date(checkedAt);
+    const hm = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+    return { cls: '', text: 'You’re up to date (checked ' + hm + ')', button: '' };
+  }
+
+  // The note at the top of the chat on the first start of a different version than the last one.
+  // last is the version seen at the previous start ("" the first time ever: no note).
+  function updatedNote(last, running) {
+    const a = bare(last), b = bare(running);
+    if (!a || !b || a === b || cmp(a, b) === 0) return null;
+    return cmp(b, a) < 0 ? { kind: 'up', version: b, text: '✓ Updated to ' + b, whatsNew: true }
+                         : { kind: 'back', version: b, text: '✓ Went back to ' + b, whatsNew: false };
   }
 
   // When to look again: on start, every CHECK_EVERY, after the PC slept (a late one-minute tick), and
@@ -100,7 +136,7 @@
     };
   }
 
-  const api = { CHECK_EVERY, LATER_MS, WAKE_GAP, TICK, updateQuery, bannerState, bannerView, skip, later, plainNotes, versionRows, createSchedule };
+  const api = { CHECK_EVERY, LATER_MS, WAKE_GAP, TICK, updateQuery, bannerState, bannerView, skip, later, plainNotes, versionRows, noticeView, updatedNote, cmp, createSchedule };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.WowcUpdates = api;
 })(typeof window !== 'undefined' ? window : globalThis);

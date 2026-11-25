@@ -59,10 +59,30 @@ assert.strictEqual(U.plainNotes(offer.notes), '0.7.54\n• Fixed a thing');
 assert.strictEqual(U.plainNotes(''), 'No notes were published for this version.');
 assert.strictEqual(U.plainNotes('See [the page](http://x.y/z)\r\n\r\n\r\n\r\n- `a`'), 'See the page\n\n• a');
 
-// The version list.
-const rows = U.versionRows({ versions: [{ version: '0.7.53', date: '2026-11-24', current: true }, { version: '0.7.52', date: '2026-11-20' }] });
-assert.deepStrictEqual(rows.map(r => r.label), ['0.7.53 (running) · 2026-11-24', '0.7.52 · 2026-11-20']);
+// The version list: newest first, running in place, Update to / Go back to, pulled never listed.
+const rows = U.versionRows({ versions: [{ version: '0.7.53', date: '2026-11-24', current: true }, { version: '0.7.9' }, { version: '0.7.55', date: '2026-11-25' }, { version: '0.7.52', date: '2026-11-20' }] });
+assert.deepStrictEqual(rows.map(r => r.version), ['0.7.55', '0.7.53', '0.7.52', '0.7.9']);
+assert.deepStrictEqual(rows.map(r => r.button), ['Update to 0.7.55', '', 'Go back to 0.7.52', 'Go back to 0.7.9']);
+assert.deepStrictEqual(rows.map(r => r.primary), [true, false, false, false]);
+assert.strictEqual(rows[1].label, '0.7.53 (running) · 2026-11-24');
+assert.ok(rows[1].current);
+assert.strictEqual(rows[2].confirm, 'Go back to 0.7.52? Your settings from that version are restored.');
+assert.strictEqual(rows[0].confirm, '');
 assert.deepStrictEqual(U.versionRows(null), []);
+
+// The notice at the top of Updates.
+const at = new Date(2026, 10, 25, 9, 5).getTime();
+assert.deepStrictEqual(U.noticeView({ available: true, latest: 'v0.7.55' }, at), { cls: 'ok', text: 'Update 0.7.55 is ready', button: 'Update now', version: '0.7.55' });
+assert.strictEqual(U.noticeView({ available: false }, at).text, 'You’re up to date (checked 09:05)');
+assert.strictEqual(U.noticeView({ available: false }, at).button, '');
+assert.strictEqual(U.noticeView(null, at), null);
+
+// The note after a relaunch: upgrade, go-back, first ever start and no change.
+assert.deepStrictEqual(U.updatedNote('0.7.54', '0.7.55'), { kind: 'up', version: '0.7.55', text: '✓ Updated to 0.7.55', whatsNew: true });
+assert.deepStrictEqual(U.updatedNote('0.7.55', '0.7.54'), { kind: 'back', version: '0.7.54', text: '✓ Went back to 0.7.54', whatsNew: false });
+assert.strictEqual(U.updatedNote('', '0.7.55'), null);
+assert.strictEqual(U.updatedNote('0.7.55', '0.7.55'), null);
+assert.strictEqual(U.updatedNote('0.7.9', '0.7.10').kind, 'up');
 
 // The schedule: a late tick is a wake-up; focus checks only after 4 hours.
 let t = NOW, checks = 0;

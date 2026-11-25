@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.58
+
+- Clearer updates: newest first, plain Update and Go back buttons, and a note after each update. Settings now says when an update is ready, with an Update now button, and what's new shows only the changes for that version.
+
 ## 0.7.57
 
 - Removed a leftover keyboard test from Settings.

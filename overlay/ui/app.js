@@ -14,7 +14,7 @@ const save = () => localStorage.setItem('wowc', JSON.stringify(cfg));
 const chats = WowcLaunch.chatStore(localStorage); // each character's last 50 turns, on this PC only
 
 let conn = null, state = null, busy = false, events = null;
-const upd = { status: null, busy: '', failure: '', notesOpen: false, last: '', fresh: false, ok: false }; // the update banner's state
+const upd = { status: null, busy: '', failure: '', notesOpen: false, last: '', fresh: false, ok: false, checkedAt: 0, confirm: '' }; // the update banner's state
 
 // --- connection to the sidecar -------------------------------------------------------------
 
@@ -690,7 +690,7 @@ const versionLine = WowcVersion.createVersionLine({
   fetchUpdate: async () => {
     const r = await api('/api/update' + WowcUpdates.updateQuery(cfg, upd.fresh));
     const n = r.ok ? await r.json() : {};
-    upd.status = n; upd.ok = true; renderUpdates(); renderVersionList();
+    upd.status = n; upd.ok = true; upd.checkedAt = Date.now(); renderUpdates(); renderVersionList();
     return n;
   },
   checked: () => schedule.checked(),
@@ -750,22 +750,66 @@ function renderUpdates() {
 function renderVersionList() {
   const box = $('version-list');
   box.replaceChildren();
+  const nv = WowcUpdates.noticeView(upd.status, upd.checkedAt);
+  const nb = $('update-notice');
+  nb.hidden = !nv || !cfg.checkUpdates;
+  nb.replaceChildren();
+  if (nv) {
+    nb.className = 'update-notice ' + nv.cls;
+    nb.append(Object.assign(document.createElement('span'), { textContent: nv.text }));
+    if (nv.button) {
+      const b = Object.assign(document.createElement('button'), { type: 'button', textContent: nv.button, className: 'primary', disabled: !!upd.busy });
+      b.onclick = () => installVersion(nv.version);
+      nb.append(b);
+    }
+  }
   const rows = WowcUpdates.versionRows(upd.status);
   if (!rows.length) { box.textContent = cfg.checkUpdates ? 'Press Check now to see the versions you can install.' : ''; return; }
   for (const r of rows) {
     const row = document.createElement('div');
-    row.className = 'ver-row';
+    row.className = 'ver-row' + (r.current ? ' running' : '');
+    const confirming = upd.confirm === r.version;
     const l = document.createElement('span');
-    l.textContent = r.label;
+    l.textContent = confirming ? r.confirm : r.label;
     row.append(l);
-    if (!r.current) {
-      const b = document.createElement('button');
-      b.type = 'button'; b.className = 'mini'; b.textContent = 'Install this version'; b.disabled = !!upd.busy;
-      b.onclick = () => installVersion(r.version);
-      row.append(b);
+    const mk = (text, cls, fn) => {
+      const b = Object.assign(document.createElement('button'), { type: 'button', className: 'mini ' + cls, textContent: text, disabled: !!upd.busy });
+      b.onclick = fn; row.append(b);
+    };
+    if (confirming) {
+      mk('Go back', '', () => { upd.confirm = ''; installVersion(r.version); });
+      mk('Cancel', '', () => { upd.confirm = ''; renderVersionList(); });
+    } else if (r.button) {
+      mk(r.button, r.primary ? 'primary' : '', r.confirm ? () => { upd.confirm = r.version; renderVersionList(); } : () => installVersion(r.version));
     }
     box.append(row);
   }
+}
+
+// The note at the top of the chat after a start on a different version. The version is remembered
+// at once, so the note is gone on the next launch (kept outside the settings, which a go-back restores).
+function showUpdatedNote(running) {
+  const last = localStorage.getItem('wowc-lastver') || '';
+  localStorage.setItem('wowc-lastver', running);
+  const n = WowcUpdates.updatedNote(last, running);
+  const bar = $('updated-note');
+  if (!n) return;
+  bar.hidden = false;
+  bar.replaceChildren(Object.assign(document.createElement('span'), { className: 'upd-text', textContent: n.text }));
+  const body = Object.assign(document.createElement('div'), { className: 'upd-notes', hidden: true });
+  if (n.whatsNew) {
+    const b = Object.assign(document.createElement('button'), { type: 'button', textContent: 'What’s new' });
+    b.onclick = async () => {
+      if (!body.textContent) {
+        try { const r = await api('/api/whats-new?version=' + encodeURIComponent(n.version)); const l = r.ok ? (await r.json())[0].lines : []; body.textContent = l.length ? l.map(x => '• ' + x).join('\n') : 'No notes were published for this version.'; } catch { body.textContent = 'No notes were published for this version.'; }
+      }
+      body.hidden = !body.hidden;
+    };
+    bar.append(b);
+  }
+  const x = Object.assign(document.createElement('button'), { type: 'button', textContent: 'Dismiss' });
+  x.onclick = () => { bar.hidden = true; };
+  bar.append(x, body);
 }
 
 $('check-updates').checked = cfg.checkUpdates;
@@ -784,7 +828,7 @@ $('check-now').onclick = async () => {
 versionLine.startTimer();
 versionLine.render();
 renderVersionList();
-window.__TAURI__.app.getVersion().then(v => versionLine.setAppVersion(v));
+window.__TAURI__.app.getVersion().then(v => { versionLine.setAppVersion(v); showUpdatedNote(v); });
 
 // --- start ---------------------------------------------------------------------------------
 
