@@ -1,7 +1,7 @@
 // The settings version line and the update check, with no DOM or Tauri globals of their own so a
 // test can drive them under Node. app.js passes in the page's pieces.
 (function (root) {
-  const DAY_HALF = 12 * 60 * 60 * 1000;
+  const CHECK_EVERY = 4 * 60 * 60 * 1000; // matches updates.js
   const START_DELAY = 3000; // after the handshake; well inside the 10 s the check is allowed
 
   function versionText(appV, advisorV) {
@@ -27,6 +27,7 @@
       try {
         const n = await deps.fetchUpdate();
         latest = n && n.available ? n.latest : '';
+        if (deps.checked) deps.checked(n);
       } catch { latest = ''; } // a failed lookup shows nothing
       render();
     }
@@ -43,11 +44,11 @@
         deps.setTimeout(check, START_DELAY);
       },
       onDisconnect() { render(); },
-      startTimer() { deps.setInterval(check, DAY_HALF); },
+      startTimer() { deps.setInterval(check, CHECK_EVERY); },
     };
   }
 
-  const api = { createVersionLine, versionText, DAY_HALF, START_DELAY };
+  const api = { createVersionLine, versionText, CHECK_EVERY, START_DELAY };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.WowcVersion = api;
 })(typeof window !== 'undefined' ? window : globalThis);

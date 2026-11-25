@@ -547,6 +547,40 @@ func TestUpdateEndpoint(t *testing.T) {
 	}
 }
 
+// With the release feed configured, /api/update applies the settle delay, the player's skips and the
+// "right away" switch, and a failed feed is an empty status.
+func TestUpdateEndpointOfferRule(t *testing.T) {
+	e := start(t, "text", false)
+	now := time.Date(2026, 11, 25, 12, 0, 0, 0, time.UTC)
+	e.srv.cfg.Now = func() time.Time { return now }
+	e.srv.cfg.Version = "0.7.50"
+	var feedErr error
+	e.srv.cfg.Updates = func(context.Context, bool) ([]release.Rel, release.Pulls, error) {
+		return []release.Rel{{Version: "0.7.52", Published: now.Add(-2 * time.Hour)}, {Version: "0.7.51", Published: now.Add(-48 * time.Hour), Body: "- Fixed things"}},
+			release.Pulls{Pulled: []release.Pull{{Version: "0.7.50", Reason: "bad", BackTo: "0.7.49"}}}, feedErr
+	}
+	get := func(q string) release.Status {
+		var st release.Status
+		if err := json.NewDecoder(e.do(t, "GET", "/api/update"+q, "", nil).Body).Decode(&st); err != nil {
+			t.Fatal(err)
+		}
+		return st
+	}
+	if st := get(""); st.Latest != "0.7.51" || st.Notes != "- Fixed things" || st.Pulled == nil || st.Pulled.BackTo != "0.7.49" {
+		t.Errorf("default: %+v", st)
+	}
+	if st := get("?now=1"); st.Latest != "0.7.52" {
+		t.Errorf("right away: %+v", st)
+	}
+	if st := get("?skip=0.7.51"); st.Available {
+		t.Errorf("skipped: %+v", st)
+	}
+	feedErr = errors.New("rate limited")
+	if st := get(""); st.Available || st.Pulled != nil {
+		t.Errorf("failed feed: %+v", st)
+	}
+}
+
 // The state carries each next quest's structured fields whole beside its text, for the overlay.
 func TestNextLinesJSON(t *testing.T) {
 	long := strings.Repeat("Seena Skybreaker ", 8)

@@ -6,7 +6,7 @@ const win = window.__TAURI__.window.getCurrentWindow();
 
 const $ = id => document.getElementById(id);
 const log = $('log'), who = $('who'), badge = $('badge'), text = $('text'), send = $('send');
-const DEFAULTS = { opacity: 92, solidHover: false, mode: 'overlay', keyVis: 'Ctrl+Shift+W', keyCt: 'Ctrl+Shift+T', nextOpen: null, settingsOpen: false, chatOpen: true, size: 'M', checkUpdates: true, cleared: [], who: '', setupSeen: false, setupHidden: [], gameDir: '', length: 'standard', byClient: {}, usage: true, groups: { ai: true }, quickBar: true, dismissedSugg: {} };
+const DEFAULTS = { opacity: 92, solidHover: false, mode: 'overlay', keyVis: 'Ctrl+Shift+W', keyCt: 'Ctrl+Shift+T', nextOpen: null, settingsOpen: false, chatOpen: true, size: 'M', checkUpdates: true, updateNow: false, skipped: [], later: {}, cleared: [], who: '', setupSeen: false, setupHidden: [], gameDir: '', length: 'standard', byClient: {}, usage: true, groups: { ai: true }, quickBar: true, dismissedSugg: {} };
 // nextOpen null means automatic: open until the chat has a message, then collapsed. A click makes it a choice.
 const cfg = { ...DEFAULTS, ...JSON.parse(localStorage.getItem('wowc') || '{}') };
 cfg.settingsOpen = false; // the settings open from the gear for this session only; a launch starts calm
@@ -14,6 +14,7 @@ const save = () => localStorage.setItem('wowc', JSON.stringify(cfg));
 const chats = WowcLaunch.chatStore(localStorage); // each character's last 50 turns, on this PC only
 
 let conn = null, state = null, busy = false, events = null;
+const upd = { status: null, busy: '', failure: '', notesOpen: false, last: '', fresh: false, ok: false }; // the update banner's state
 
 // --- connection to the sidecar -------------------------------------------------------------
 
@@ -217,6 +218,7 @@ function showPanes() {
   document.body.dataset.size = cfg.size;
   $('size').value = cfg.size;
   if (!cfg.settingsOpen && wasOpen) log.scrollTop = chatScroll;
+  renderUpdates();
 }
 const nextOpen = () => cfg.nextOpen === null ? !log.children.length : cfg.nextOpen;
 // Settings groups: the AI group starts open, the rest closed; each remembers what the user chose.
@@ -686,25 +688,115 @@ WowcAsking.wireEditKeys(text, fitBox);
 }
 setInterval(() => showBadge(), 30000);
 
-// --- version line and update notice ---------------------------------------------------------
-// "WoW Companion 0.2.0 · advisor 0.2.0", plus "· v0.3.0 available" when the sidecar's one
-// unauthenticated release lookup (asked on start, then every 12 hours, only when "Check for
-// updates" is on) finds a newer release. "available" opens the release page on click; nothing is
-// downloaded or installed. A failed lookup shows nothing.
-const RELEASE_PAGE = 'https://github.com/WoW-Companion/advisor/releases/latest';
+// --- version line, update banner and version list --------------------------------------------
+// "WoW Companion 0.2.0 · advisor 0.2.0", plus "· 0.7.54 available" when the sidecar's release lookup
+// (on start, every 4 hours, after the PC wakes, and on "Check now"; only when "Check for updates" is on)
+// finds a version to offer: newest, not pulled, not skipped, and a day old unless "Get updates right
+// away" is on. The same answer drives the chat banner and the Settings version list. The install itself
+// is the Rust shell's: it downloads, checks the SHA-256, backs up the settings, runs the installer
+// and exits. A failed lookup shows nothing.
+const RELEASES_URL = 'https://github.com/WoW-Companion/advisor/releases';
 const versionLine = WowcVersion.createVersionLine({
   el: $('version'),
   getConn: () => conn,
   enabled: () => cfg.checkUpdates,
-  fetchUpdate: async () => { const r = await api('/api/update'); return r.ok ? r.json() : {}; },
-  openPage: () => invoke('open_install_page', { url: RELEASE_PAGE }).catch(e => notice(String(e))),
+  fetchUpdate: async () => {
+    const r = await api('/api/update' + WowcUpdates.updateQuery(cfg, upd.fresh));
+    const n = r.ok ? await r.json() : {};
+    upd.status = n; upd.ok = true; renderUpdates(); renderVersionList();
+    return n;
+  },
+  checked: () => schedule.checked(),
+  openPage: () => { cfg.later = {}; save(); upd.notesOpen = false; renderUpdates(); },
   setTimeout: (f, ms) => setTimeout(f, ms),
   setInterval: (f, ms) => setInterval(f, ms),
 });
+const schedule = WowcUpdates.createSchedule({ now: () => Date.now(), check: () => versionLine.check() });
+setInterval(() => schedule.tick(), WowcUpdates.TICK);
+window.addEventListener('focus', () => schedule.focus());
+
+async function installVersion(version) {
+  upd.failure = ''; upd.last = version; upd.busy = 'Getting ' + version + '\u2026';
+  renderUpdates(); renderVersionList();
+  try {
+    await invoke('install_update', { version, settingsJson: JSON.stringify(cfg) });
+  } catch (e) {
+    upd.busy = ''; upd.failure = String(e);
+    renderUpdates(); renderVersionList();
+  }
+}
+listen('update-progress', ev => { if (upd.busy) { upd.busy = String(ev.payload); renderUpdates(); } });
+
+function renderUpdates() {
+  const bar = $('update-bar');
+  const s = WowcUpdates.bannerState(upd.status, cfg, Date.now(), upd.busy, upd.failure);
+  const view = WowcUpdates.bannerView(s);
+  bar.hidden = !view || cfg.settingsOpen || !cfg.chatOpen;
+  if (!view) return;
+  bar.className = 'update-bar ' + view.cls;
+  bar.replaceChildren();
+  const t = document.createElement('span');
+  t.className = 'upd-text'; t.textContent = view.text;
+  bar.append(t);
+  const act = {
+    notes: () => { upd.notesOpen = !upd.notesOpen; renderUpdates(); },
+    install: () => installVersion(s.version),
+    back: () => installVersion(s.backTo),
+    retry: () => installVersion(upd.last),
+    later: () => { WowcUpdates.later(cfg, s.version || upd.last, Date.now()); upd.failure = ''; save(); renderUpdates(); },
+    skip: () => { WowcUpdates.skip(cfg, s.version); save(); renderUpdates(); },
+    details: () => invoke('open_install_page', { url: RELEASES_URL }).catch(e => notice(String(e))),
+    dismiss: () => { upd.failure = ''; renderUpdates(); },
+  };
+  for (const a of view.actions) {
+    const b = document.createElement('button');
+    b.type = 'button'; b.textContent = a.label; b.onclick = act[a.id];
+    bar.append(b);
+  }
+  if (s.kind === 'offer' && upd.notesOpen && !s.busy && !s.failure) {
+    const n = document.createElement('div');
+    n.className = 'upd-notes'; n.textContent = WowcUpdates.plainNotes(s.notes);
+    bar.append(n);
+  }
+}
+
+function renderVersionList() {
+  const box = $('version-list');
+  box.replaceChildren();
+  const rows = WowcUpdates.versionRows(upd.status);
+  if (!rows.length) { box.textContent = cfg.checkUpdates ? 'Press Check now to see the versions you can install.' : ''; return; }
+  for (const r of rows) {
+    const row = document.createElement('div');
+    row.className = 'ver-row';
+    const l = document.createElement('span');
+    l.textContent = r.label;
+    row.append(l);
+    if (!r.current) {
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'mini'; b.textContent = 'Install this version'; b.disabled = !!upd.busy;
+      b.onclick = () => installVersion(r.version);
+      row.append(b);
+    }
+    box.append(row);
+  }
+}
+
 $('check-updates').checked = cfg.checkUpdates;
-$('check-updates').onchange = ev => { cfg.checkUpdates = ev.target.checked; save(); if (!cfg.checkUpdates) versionLine.clearNotice(); else versionLine.check(); };
+$('check-updates').onchange = ev => { cfg.checkUpdates = ev.target.checked; save(); $('check-now').disabled = !cfg.checkUpdates; if (!cfg.checkUpdates) { versionLine.clearNotice(); renderUpdates(); } else versionLine.check(); };
+$('update-now').checked = cfg.updateNow;
+$('update-now').onchange = ev => { cfg.updateNow = ev.target.checked; save(); versionLine.check(); };
+$('check-now').disabled = !cfg.checkUpdates;
+$('check-now').onclick = async () => {
+  const out = $('check-now-out');
+  out.textContent = 'Checking\u2026';
+  upd.fresh = true; upd.ok = false;
+  await versionLine.check();
+  upd.fresh = false;
+  out.textContent = !upd.ok ? 'Could not check right now.' : upd.status.available ? 'Update ' + upd.status.latest + ' is ready.' : 'You are up to date.';
+};
 versionLine.startTimer();
 versionLine.render();
+renderVersionList();
 window.__TAURI__.app.getVersion().then(v => versionLine.setAppVersion(v));
 
 // --- start ---------------------------------------------------------------------------------

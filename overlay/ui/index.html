@@ -133,6 +133,10 @@
     <details class="grp" data-group="updates">
       <summary>Updates</summary>
       <label class="row"><span class="lbl">Check for updates</span><span class="ctl"><input id="check-updates" type="checkbox"></span></label>
+      <label class="row"><span class="lbl">Get updates right away</span><span class="ctl"><input id="update-now" type="checkbox"></span></label>
+      <small>New versions are normally offered a day after they come out, so a bad one can be pulled first. Turn this on to skip the wait.</small>
+      <div class="row"><span class="lbl"><button id="check-now" type="button">Check now</button></span><span class="ctl"><small id="check-now-out" role="status"></small></span></div>
+      <div id="version-list" class="version-list"></div>
       <label class="row"><span class="lbl">Keyboard test</span><span class="ctl"><input id="key-test" placeholder="click, then press keys" autocomplete="off"></span></label>
       <pre id="key-test-log" class="key-test-log"></pre>
       <div id="whats-new" class="whats-new"><b>What’s new</b></div>
@@ -156,6 +160,7 @@
 
   <div id="suggs" hidden></div>
 
+  <div id="update-bar" class="update-bar" role="status" hidden></div>
   <div id="log" aria-live="polite"></div>
   <button id="new-answer" type="button" hidden>&#8595; New answer</button>
   <div id="quick-slot"></div>
@@ -168,6 +173,7 @@
   <div id="grip" class="grip" title="Resize"></div>
 </main>
 <script src="version.js"></script>
+<script src="updates.js"></script>
 <script src="nextlist.js"></script>
 <script src="keydiag.js"></script>
 <script src="asking.js"></script>

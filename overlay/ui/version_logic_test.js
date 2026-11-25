@@ -1,6 +1,6 @@
 // Driven by version_test.go under Node: the version line and the update check, with fakes.
 const assert = require('assert');
-const { createVersionLine, START_DELAY, DAY_HALF } = require('./version.js');
+const { createVersionLine, START_DELAY, CHECK_EVERY } = require('./version.js');
 
 function rig({ fetchUpdate, enabled = true } = {}) {
   const timers = [], intervals = [], calls = { fetch: 0, open: 0 };
@@ -31,7 +31,7 @@ function rig({ fetchUpdate, enabled = true } = {}) {
   r.st.conn = { version: '0.3.0' }; r.v.onConnect();
   assert.strictEqual(r.el.textContent, 'WoW Companion 0.2.0 · advisor 0.3.0');
 
-  // The check is scheduled once after the first handshake, inside 10 s, then on a 12-hour timer.
+  // The check is scheduled once after the first handshake, inside 10 s, then on a 4-hour timer.
   r = rig({ fetchUpdate: async () => ({ available: true, latest: 'v0.3.0' }) });
   r.v.setAppVersion('0.2.0'); r.v.startTimer();
   assert.strictEqual(r.timers.length, 0);
@@ -42,7 +42,7 @@ function rig({ fetchUpdate, enabled = true } = {}) {
   assert.strictEqual(r.calls.fetch, 1);
   assert.ok(r.el.textContent.endsWith('· v0.3.0 ') || r.el.parts.join('').includes('v0.3.0'));
   assert.strictEqual(r.intervals.length, 1);
-  assert.strictEqual(r.intervals[0].ms, DAY_HALF);
+  assert.strictEqual(r.intervals[0].ms, CHECK_EVERY);
   await r.intervals[0].f();
   assert.strictEqual(r.calls.fetch, 2);
   // The timer with no sidecar does nothing.

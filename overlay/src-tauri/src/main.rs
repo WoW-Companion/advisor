@@ -2,6 +2,8 @@
 // sidecar. It holds no game logic; it never reads or touches the game process.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod update;
+
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Mutex;
 
@@ -329,6 +331,21 @@ fn open_install_page(app: AppHandle, url: String) -> Result<(), String> {
     app.shell().open(url, None).map_err(|e| e.to_string())
 }
 
+/// Downloads and verifies one release's installer (and keeps the running version's for going back),
+/// backs up the settings, runs the installer and exits. The page names only a version; the shell builds
+/// the address. `settings_json` is the page's own settings, saved in the backup.
+#[tauri::command]
+async fn install_update(window: tauri::Window, app: AppHandle, version: String, settings_json: String) -> Result<(), String> {
+    if window.label() != "main" {
+        return Err("not allowed".into());
+    }
+    let a = app.clone();
+    let installer = tauri::async_runtime::spawn_blocking(move || update::prepare(&a, &version, &settings_json))
+        .await
+        .map_err(|e| e.to_string())??;
+    update::run_and_exit(&app, &installer)
+}
+
 #[tauri::command]
 fn get_ui(ui: State<Ui>) -> UiState {
     UiState {
@@ -575,6 +592,7 @@ fn main() {
             get_agent,
             set_agent,
             open_install_page,
+            install_update,
             get_ui,
             set_mode,
             set_click_through,
