@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.55
+
+- If an update ever misbehaves, the app offers to go back, even from the tray icon. The tray menu now has Check for updates, Go back to the previous version (when one is saved) and Open logs folder, and they work even if the window, the advisor or your AI connection is broken. If a new version fails to start properly in its first ten minutes, the next start shows a plain screen that says "This update isn't working on your PC" with Go back, Keep trying and Open logs, and it never comes back for a version you chose to keep trying. Going back also restores the settings you had in that version. Your saved settings and profiles now carry a version number so older versions keep reading them. The addon check never offers an addon version that has been pulled, offers to reinstall the previous one if yours was pulled, and tells you whether the addon needs a /reload or a full game restart.
+
 ## 0.7.54
 
 - Updates now show in the chat with one-click install; you can skip a version or go back to an earlier one. A new version is offered a day after it comes out (or right away if you turn on "Get updates right away" in Settings), with What's new, Install, Later and Skip this version. Install downloads the installer, checks it against the published checksum, saves a copy of your settings and replaces the app in place. If the version you are running is later found to have a problem, a red banner offers to go back, and Settings lists the last five versions with an Install this version button for each.

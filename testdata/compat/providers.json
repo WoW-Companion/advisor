@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "clients": [
+    {
+      "kind": "api",
+      "provider": "anthropic",
+      "tier": "balanced"
+    },
+    {
+      "kind": "cli",
+      "agent": "claude"
+    }
+  ]
+}

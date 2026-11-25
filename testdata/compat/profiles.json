@@ -1,0 +1,12 @@
+{
+  "schema": 1,
+  "characters": {
+    "Thrall-Doomhammer": {
+      "profile": {
+        "role": "damage",
+        "focus": "leveling",
+        "spec": "Enhancement"
+      }
+    }
+  }
+}

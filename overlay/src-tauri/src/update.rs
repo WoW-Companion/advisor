@@ -129,6 +129,35 @@ pub fn valid_version(v: &str) -> bool {
     parts.len() == 3 && parts.iter().all(|p| !p.is_empty() && p.len() <= 6 && p.bytes().all(|b| b.is_ascii_digit()))
 }
 
+/// A release number as numbers to compare, or None when it is not a plain release number.
+pub fn version_key(v: &str) -> Option<(u32, u32, u32)> {
+    if !valid_version(v) {
+        return None;
+    }
+    let mut it = v.split('.').map(|p| p.parse::<u32>().unwrap_or(0));
+    Some((it.next()?, it.next()?, it.next()?))
+}
+
+/// The version in an installer's file name ("WoW-Companion-Setup-0.7.54-x64.exe" gives "0.7.54").
+pub fn installer_version(name: &str) -> Option<String> {
+    let v = name.strip_prefix("WoW-Companion-Setup-")?.strip_suffix("-x64.exe")?;
+    if valid_version(v) {
+        Some(v.to_string())
+    } else {
+        None
+    }
+}
+
+/// The newest cached installer older than `running`: the version "Go back" returns to.
+pub fn previous_installer(names: &[String], running: &str) -> Option<String> {
+    let run = version_key(running)?;
+    names
+        .iter()
+        .filter_map(|n| installer_version(n))
+        .filter(|v| version_key(v).map_or(false, |k| k < run))
+        .max_by_key(|v| version_key(v))
+}
+
 pub fn installer_name(v: &str) -> String {
     format!("WoW-Companion-Setup-{v}-x64.exe")
 }
@@ -211,16 +240,26 @@ fn prune_cache(dir: &Path, keep: &[&str]) {
     let Ok(rd) = fs::read_dir(dir) else { return };
     let files: Vec<(String, u64)> = rd.flatten().map(|e| (e.file_name().to_string_lossy().into_owned(), mtime(&e.path()))).collect();
     for n in stale_installers(&files, keep, KEEP_INSTALLERS) {
+        let _ = fs::remove_file(hash_record(&dir.join(&n)));
         let _ = fs::remove_file(dir.join(n));
     }
 }
 
-/// Copies the overlay's settings (sent by the page) and the profile files into a new dated folder
-/// under `root`, then trims the older folders to the last `KEEP_BACKUPS`.
-pub fn make_backup(root: &Path, settings_json: &str, files: &[(&str, PathBuf)], secs: u64) -> Result<PathBuf, String> {
+/// The file in a backup folder that says which app version made it (the one the settings belong to).
+pub const BACKUP_VERSION_FILE: &str = "version.txt";
+/// The overlay's own settings, as the page sent them.
+pub const BACKUP_SETTINGS_FILE: &str = "overlay-settings.json";
+
+/// Copies the overlay's settings (sent by the page; empty when the page is not there, as from the
+/// tray) and the profile files into a new dated folder under `root`, marked with the app `version` that
+/// is running, then trims the older folders to the last `KEEP_BACKUPS`.
+pub fn make_backup(root: &Path, version: &str, settings_json: &str, files: &[(&str, PathBuf)], secs: u64) -> Result<PathBuf, String> {
     let dir = root.join(backup_name(secs));
     fs::create_dir_all(&dir).map_err(|e| format!("could not make the backup folder: {e}"))?;
-    fs::write(dir.join("overlay-settings.json"), settings_json).map_err(|e| format!("could not save the settings backup: {e}"))?;
+    fs::write(dir.join(BACKUP_VERSION_FILE), version).map_err(|e| format!("could not mark the backup: {e}"))?;
+    if !settings_json.trim().is_empty() {
+        fs::write(dir.join(BACKUP_SETTINGS_FILE), settings_json).map_err(|e| format!("could not save the settings backup: {e}"))?;
+    }
     for (name, src) in files {
         if src.is_file() {
             fs::copy(src, dir.join(name)).map_err(|e| format!("could not back up {name}: {e}"))?;
@@ -233,6 +272,72 @@ pub fn make_backup(root: &Path, settings_json: &str, files: &[(&str, PathBuf)], 
         }
     }
     Ok(dir)
+}
+
+/// The backup to restore when going back to `target`: the newest one made while `target` was the
+/// running version. `backups` is (folder name, version it was made under); a folder with no version
+/// mark is never chosen, since nothing says whose settings it holds.
+pub fn pick_backup(backups: &[(String, Option<String>)], target: &str) -> Option<String> {
+    backups
+        .iter()
+        .filter(|(n, v)| n.starts_with("backup-") && v.as_deref().map(str::trim) == Some(target))
+        .map(|(n, _)| n.clone())
+        .max()
+}
+
+/// A backup read into memory: what to put back where, and the page's settings. Reading it first lets
+/// the current state be backed up (which trims old folders) without losing the one being restored.
+pub struct Restored {
+    /// The page's settings from the backup, when it had them.
+    pub settings_json: Option<String>,
+    pub files: Vec<(String, PathBuf, Vec<u8>)>,
+}
+
+/// Reads the files of the backup folder `dir` that belong at `targets` (name, where it belongs) and
+/// the page's settings. A file the backup does not hold is simply not part of it.
+pub fn load_backup(dir: &Path, targets: &[(&str, PathBuf)]) -> Result<Restored, String> {
+    let mut files = Vec::new();
+    for (name, dest) in targets {
+        let src = dir.join(name);
+        if src.is_file() {
+            let bytes = fs::read(&src).map_err(|e| format!("could not read the backup of {name}: {e}"))?;
+            files.push((name.to_string(), dest.clone(), bytes));
+        }
+    }
+    let settings_json = fs::read_to_string(dir.join(BACKUP_SETTINGS_FILE)).ok().filter(|t| !t.trim().is_empty());
+    Ok(Restored { settings_json, files })
+}
+
+/// Writes the files of a read backup back where they belong.
+pub fn apply_backup(r: &Restored) -> Result<(), String> {
+    for (name, dest, bytes) in &r.files {
+        if let Some(d) = dest.parent() {
+            fs::create_dir_all(d).map_err(|e| format!("could not restore {name}: {e}"))?;
+        }
+        fs::write(dest, bytes).map_err(|e| format!("could not restore {name}: {e}"))?;
+    }
+    Ok(())
+}
+
+/// `load_backup` then `apply_backup`.
+pub fn restore_files(dir: &Path, targets: &[(&str, PathBuf)]) -> Result<Restored, String> {
+    let r = load_backup(dir, targets)?;
+    apply_backup(&r)?;
+    Ok(r)
+}
+
+/// The newest backup under `root` made under `target`, if any.
+pub fn find_backup(root: &Path, target: &str) -> Option<PathBuf> {
+    let rd = fs::read_dir(root).ok()?;
+    let list: Vec<(String, Option<String>)> = rd
+        .flatten()
+        .map(|e| {
+            let name = e.file_name().to_string_lossy().into_owned();
+            let v = fs::read_to_string(e.path().join(BACKUP_VERSION_FILE)).ok();
+            (name, v)
+        })
+        .collect();
+    pick_backup(&list, target).map(|n| root.join(n))
 }
 
 // --- download and install -------------------------------------------------------------------------
@@ -261,7 +366,17 @@ fn curl(_: &str, _: &Path) -> Result<(), String> {
     Err("Updating in the app works on Windows only.".into())
 }
 
+/// The last progress line, for a window that has no event listener (the recovery window polls it).
+static PROGRESS: std::sync::Mutex<String> = std::sync::Mutex::new(String::new());
+
+pub fn progress() -> String {
+    PROGRESS.lock().map(|p| p.clone()).unwrap_or_default()
+}
+
 fn say(app: &AppHandle, text: &str) {
+    if let Ok(mut p) = PROGRESS.lock() {
+        *p = text.to_string();
+    }
     let _ = app.emit("update-progress", text);
 }
 
@@ -272,13 +387,110 @@ fn ensure_installer(cache: &Path, version: &str, sums: &str) -> Result<PathBuf, 
     let want = sums_entry(sums, &name).ok_or_else(|| format!("Version {version} has no checksum to verify, so it was not installed."))?;
     let path = cache.join(&name);
     if path.is_file() && verify_or_delete(&path, &want).is_ok() {
+        let _ = fs::write(hash_record(&path), &want);
         return Ok(path);
     }
     let part = cache.join(format!("{name}.part"));
     curl(&format!("{DOWNLOAD_BASE}/v{version}/{name}"), &part)?;
     verify_or_delete(&part, &want)?;
     fs::rename(&part, &path).map_err(|e| format!("could not keep the installer: {e}"))?;
+    let _ = fs::write(hash_record(&path), &want);
     Ok(path)
+}
+
+/// Where the checksum an installer was verified against is kept, so a cached installer can be checked
+/// again offline (going back must work with no network).
+fn hash_record(installer: &Path) -> PathBuf {
+    let mut n = installer.as_os_str().to_os_string();
+    n.push(".sha256");
+    PathBuf::from(n)
+}
+
+/// A cached installer of `version` whose bytes still match the checksum it was downloaded against.
+/// A mismatch deletes both files; no record means it is not trusted offline.
+pub fn cached_verified(cache: &Path, version: &str) -> Option<PathBuf> {
+    if !valid_version(version) {
+        return None;
+    }
+    let path = cache.join(installer_name(version));
+    let want = fs::read_to_string(hash_record(&path)).ok()?;
+    let want = want.trim();
+    if want.len() != 64 || !path.is_file() {
+        return None;
+    }
+    if verify_or_delete(&path, want).is_err() {
+        let _ = fs::remove_file(hash_record(&path));
+        return None;
+    }
+    Some(path)
+}
+
+fn cache_dir(app: &AppHandle) -> Result<PathBuf, String> {
+    let cache = app.path().app_cache_dir().map_err(|e| e.to_string())?.join("updates");
+    fs::create_dir_all(&cache).map_err(|e| format!("could not make the update folder: {e}"))?;
+    Ok(cache)
+}
+
+/// The version "Go back" returns to: the newest older version with a cached installer.
+pub fn previous_version(app: &AppHandle) -> Option<String> {
+    let cache = app.path().app_cache_dir().ok()?.join("updates");
+    let names: Vec<String> = fs::read_dir(cache).ok()?.flatten().map(|e| e.file_name().to_string_lossy().into_owned()).collect();
+    previous_installer(&names, env!("CARGO_PKG_VERSION"))
+}
+
+fn config_files(app: &AppHandle) -> Vec<(&'static str, PathBuf)> {
+    let mut files: Vec<(&'static str, PathBuf)> = Vec::new();
+    if let Ok(d) = app.path().app_config_dir() {
+        files.push(("agent.txt", d.join("agent.txt")));
+    }
+    if let Ok(d) = app.path().config_dir() {
+        files.push(("profiles.json", d.join("wowc-advisor").join("profiles.json")));
+        files.push(("providers.json", d.join("wowc-advisor").join("providers.json")));
+    }
+    files
+}
+
+fn backups_root(app: &AppHandle) -> Result<PathBuf, String> {
+    Ok(app.path().app_data_dir().map_err(|e| e.to_string())?.join("backups"))
+}
+
+/// Going back to `target`: reads the newest backup made under it, saves the current settings as a
+/// backup (marked with the running version) and then puts the old files back. The page's settings from
+/// the backup are returned for the caller to hand to the page. `Ok(None)` when there is no such
+/// backup: nothing is changed and the current settings stay.
+pub fn restore_backup(app: &AppHandle, target: &str) -> Result<Option<Restored>, String> {
+    if !valid_version(target) {
+        return Err("That is not a version number.".into());
+    }
+    let root = backups_root(app)?;
+    let Some(dir) = find_backup(&root, target) else { return Ok(None) };
+    let files = config_files(app);
+    let old = load_backup(&dir, &files)?;
+    // Keep what is there now, so going forward again finds it. A failure here must not stop going back.
+    let _ = backup_now(app, "");
+    apply_backup(&old)?;
+    Ok(Some(old))
+}
+
+/// Everything before going back runs: the verified cached installer of `target` (or, with a network,
+/// a freshly downloaded and verified one). The settings are not touched here.
+pub fn prepare_back(app: &AppHandle, target: &str) -> Result<PathBuf, String> {
+    if !valid_version(target) {
+        return Err("That is not a version number.".into());
+    }
+    let cache = cache_dir(app)?;
+    if let Some(p) = cached_verified(&cache, target) {
+        say(app, &format!("Going back to {target}…"));
+        return Ok(p);
+    }
+    say(app, &format!("Downloading {target}…"));
+    ensure_installer(&cache, target, &sums_for(&cache, target)?)
+}
+
+/// Saves the shell's files (and the page's settings when given) in a new backup marked with the
+/// running version, so a later go-back to this version finds them.
+pub fn backup_now(app: &AppHandle, settings_json: &str) -> Result<(), String> {
+    make_backup(&backups_root(app)?, env!("CARGO_PKG_VERSION"), settings_json, &config_files(app), now_secs()).map(|_| ())
 }
 
 fn sums_for(cache: &Path, version: &str) -> Result<String, String> {
@@ -296,8 +508,7 @@ pub fn prepare(app: &AppHandle, version: &str, settings_json: &str) -> Result<Pa
         return Err("That is not a version number.".into());
     }
     let running = env!("CARGO_PKG_VERSION");
-    let cache = app.path().app_cache_dir().map_err(|e| e.to_string())?.join("updates");
-    fs::create_dir_all(&cache).map_err(|e| format!("could not make the update folder: {e}"))?;
+    let cache = cache_dir(app)?;
     say(app, &format!("Downloading {version}…"));
     let installer = ensure_installer(&cache, version, &sums_for(&cache, version)?)?;
     if version != running && valid_version(running) {
@@ -309,16 +520,7 @@ pub fn prepare(app: &AppHandle, version: &str, settings_json: &str) -> Result<Pa
     }
     prune_cache(&cache, &[version, running]);
     say(app, "Saving your settings…");
-    let mut files: Vec<(&str, PathBuf)> = Vec::new();
-    if let Ok(d) = app.path().app_config_dir() {
-        files.push(("agent.txt", d.join("agent.txt")));
-    }
-    if let Ok(d) = app.path().config_dir() {
-        files.push(("profiles.json", d.join("wowc-advisor").join("profiles.json")));
-        files.push(("providers.json", d.join("wowc-advisor").join("providers.json")));
-    }
-    let root = app.path().app_data_dir().map_err(|e| e.to_string())?.join("backups");
-    make_backup(&root, settings_json, &files, now_secs())?;
+    backup_now(app, settings_json)?;
     Ok(installer)
 }
 
@@ -336,6 +538,136 @@ pub fn run_and_exit(app: &AppHandle, installer: &Path) -> Result<(), String> {
 #[cfg(not(windows))]
 pub fn run_and_exit(_: &AppHandle, _: &Path) -> Result<(), String> {
     Err("Updating in the app works on Windows only.".into())
+}
+
+// --- the shell's own update check (the tray's "Check for updates") --------------------------------
+
+const LATEST_URL: &str = "https://api.github.com/repos/WoW-Companion/advisor/releases/latest";
+const PULLS_URL: &str = "https://raw.githubusercontent.com/WoW-Companion/advisor/main/updates/updates.json";
+/// A release is offered once it has been public this long, as in the page.
+pub const SETTLE_SECS: u64 = 24 * 60 * 60;
+
+/// What the shell's check found.
+#[derive(Clone, Debug, PartialEq)]
+pub enum Check {
+    /// Nothing newer that may be offered (or the newest one has been pulled).
+    UpToDate,
+    /// A newer release exists but is not a day old yet; it will be offered later.
+    Settling(String),
+    /// A newer release that may be installed.
+    Available(String),
+}
+
+/// Seconds since the Unix epoch of "2026-11-25T17:06:27Z" (UTC, as GitHub writes it).
+pub fn parse_utc(ts: &str) -> Option<u64> {
+    let b = ts.as_bytes();
+    if b.len() < 19 || b[4] != b'-' || b[7] != b'-' || (b[10] != b'T' && b[10] != b' ') || b[13] != b':' || b[16] != b':' {
+        return None;
+    }
+    let num = |a: usize, z: usize| ts.get(a..z)?.parse::<i64>().ok();
+    let (y, m, d, hh, mm, ss) = (num(0, 4)?, num(5, 7)?, num(8, 10)?, num(11, 13)?, num(14, 16)?, num(17, 19)?);
+    if !(1..=12).contains(&m) || !(1..=31).contains(&d) || hh > 23 || mm > 59 || ss > 60 || y < 1970 {
+        return None;
+    }
+    // Days from the civil date (Howard Hinnant's algorithm).
+    let y2 = if m <= 2 { y - 1 } else { y };
+    let era = y2.div_euclid(400);
+    let yoe = y2 - era * 400;
+    let mp = (m + 9) % 12;
+    let doy = (153 * mp + 2) / 5 + d - 1;
+    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+    let days = era * 146097 + doe - 719468;
+    Some((days * 86400 + hh * 3600 + mm * 60 + ss) as u64)
+}
+
+/// The versions listed as pulled in `updates.json`; unreadable text pulls nothing.
+pub fn pulled_versions(text: &str) -> Vec<String> {
+    let Ok(v) = serde_json::from_str::<serde_json::Value>(text) else { return Vec::new() };
+    v.get("pulled")
+        .and_then(|p| p.as_array())
+        .map(|a| {
+            a.iter()
+                .filter_map(|e| e.get("version").and_then(|x| x.as_str()))
+                .map(|x| x.trim().trim_start_matches('v').to_string())
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// The version and publication time in a `releases/latest` answer.
+pub fn latest_release(text: &str) -> Option<(String, u64)> {
+    let v: serde_json::Value = serde_json::from_str(text).ok()?;
+    let tag = v.get("tag_name")?.as_str()?.trim().trim_start_matches('v').to_string();
+    let at = v.get("published_at").and_then(|x| x.as_str()).and_then(parse_utc).unwrap_or(0);
+    valid_version(&tag).then_some((tag, at))
+}
+
+/// Whether a release found by the shell may be offered: newer than `running`, not pulled, and (when
+/// its time is known) public for a day.
+pub fn judge(latest: &str, published: u64, running: &str, pulled: &[String], now: u64) -> Check {
+    match (version_key(latest), version_key(running)) {
+        (Some(l), Some(r)) if l > r && !pulled.iter().any(|p| p == latest) => {
+            if published > 0 && now < published.saturating_add(SETTLE_SECS) {
+                Check::Settling(latest.to_string())
+            } else {
+                Check::Available(latest.to_string())
+            }
+        }
+        _ => Check::UpToDate,
+    }
+}
+
+fn fetch_text(cache: &Path, url: &str, name: &str) -> Result<String, String> {
+    let p = cache.join(name);
+    curl(url, &p)?;
+    let text = fs::read_to_string(&p).map_err(|e| e.to_string());
+    let _ = fs::remove_file(&p);
+    text
+}
+
+/// Looks up the newest release and the pull file over HTTPS, without the page or the sidecar.
+pub fn check_latest(app: &AppHandle) -> Result<Check, String> {
+    let cache = cache_dir(app)?;
+    let latest = fetch_text(&cache, LATEST_URL, "latest.json.part")?;
+    let (tag, at) = latest_release(&latest).ok_or("The release information could not be read.")?;
+    // A pull file that cannot be read pulls nothing: it must never block an update.
+    let pulled = fetch_text(&cache, PULLS_URL, "updates.json.part").map(|t| pulled_versions(&t)).unwrap_or_default();
+    Ok(judge(&tag, at, env!("CARGO_PKG_VERSION"), &pulled, now_secs()))
+}
+
+/// Opens the shell's log folder in the file manager.
+pub fn open_folder(dir: &Path) -> Result<(), String> {
+    fs::create_dir_all(dir).map_err(|e| e.to_string())?;
+    open_dir(dir)
+}
+
+#[cfg(windows)]
+fn open_dir(dir: &Path) -> Result<(), String> {
+    use std::os::windows::process::CommandExt;
+    std::process::Command::new("explorer.exe")
+        .arg(dir)
+        .creation_flags(0x0800_0000)
+        .spawn()
+        .map(|_| ())
+        .map_err(|e| format!("could not open the folder: {e}"))
+}
+
+#[cfg(not(windows))]
+fn open_dir(_: &Path) -> Result<(), String> {
+    Err("Opening the folder works on Windows only.".into())
+}
+
+/// Appends a line to the shell's log (kept small: past 256 KB the old log is replaced).
+pub fn log_line(dir: &Path, text: &str) {
+    let _ = fs::create_dir_all(dir);
+    let file = dir.join("wowc-shell.log");
+    if fs::metadata(&file).map(|m| m.len() > 256 * 1024).unwrap_or(false) {
+        let _ = fs::rename(&file, dir.join("wowc-shell.old.log"));
+    }
+    if let Ok(mut f) = fs::OpenOptions::new().create(true).append(true).open(&file) {
+        use std::io::Write;
+        let _ = writeln!(f, "{} {}", now_secs(), text.replace('\n', " "));
+    }
 }
 
 #[cfg(test)]
@@ -423,7 +755,7 @@ mod tests {
         fs::write(src.join("profiles.json"), "{\"p\":1}").unwrap();
         let backups = root.join("backups");
         for secs in [1_000_000u64, 2_000_000, 3_000_000, 4_000_000] {
-            make_backup(&backups, "{\"opacity\":50}", &[("profiles.json", src.join("profiles.json")), ("missing.json", src.join("missing.json"))], secs).unwrap();
+            make_backup(&backups, "0.7.54", "{\"opacity\":50}", &[("profiles.json", src.join("profiles.json")), ("missing.json", src.join("missing.json"))], secs).unwrap();
         }
         let mut names: Vec<String> = fs::read_dir(&backups).unwrap().flatten().map(|e| e.file_name().to_string_lossy().into_owned()).collect();
         names.sort();
@@ -434,5 +766,111 @@ mod tests {
         assert_eq!(fs::read_to_string(last.join("profiles.json")).unwrap(), "{\"p\":1}");
         assert!(!last.join("missing.json").exists());
         let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn versions_are_compared_as_numbers() {
+        assert!(version_key("0.7.9") < version_key("0.7.10"));
+        assert_eq!(version_key("0.7"), None);
+        assert_eq!(installer_version("WoW-Companion-Setup-0.7.54-x64.exe").as_deref(), Some("0.7.54"));
+        assert_eq!(installer_version("WoW-Companion-Setup-0.7.54-x64.exe.sha256"), None);
+        assert_eq!(installer_version("notes.txt"), None);
+    }
+
+    #[test]
+    fn the_previous_version_is_the_newest_older_cached_installer() {
+        let names: Vec<String> = ["0.7.9", "0.7.10", "0.7.54", "0.7.56"].iter().map(|v| installer_name(v)).chain(["x.part".to_string(), format!("{}.sha256", installer_name("0.7.53"))]).collect();
+        assert_eq!(previous_installer(&names, "0.7.54").as_deref(), Some("0.7.10"));
+        assert_eq!(previous_installer(&names, "0.7.56").as_deref(), Some("0.7.54"));
+        assert_eq!(previous_installer(&names, "0.7.9"), None);
+        assert_eq!(previous_installer(&names, "dev"), None);
+        assert_eq!(previous_installer(&[], "0.7.54"), None);
+    }
+
+    #[test]
+    fn the_backup_to_restore_is_the_newest_one_made_under_the_target_version() {
+        let b = |n: &str, v: Option<&str>| (n.to_string(), v.map(|s| s.to_string()));
+        let list = vec![
+            b("backup-20261101-000000", Some("0.7.53")),
+            b("backup-20261110-120000", Some("0.7.54")),
+            b("backup-20261120-010101", Some("0.7.54\n")),
+            b("backup-20261125-153005", Some("0.7.55")),
+            b("backup-20261126-000000", None),
+            b("notes", Some("0.7.54")),
+        ];
+        assert_eq!(pick_backup(&list, "0.7.54").as_deref(), Some("backup-20261120-010101"));
+        assert_eq!(pick_backup(&list, "0.7.53").as_deref(), Some("backup-20261101-000000"));
+        // None under that version: the current settings are kept.
+        assert_eq!(pick_backup(&list, "0.7.40"), None);
+        assert_eq!(pick_backup(&[], "0.7.54"), None);
+    }
+
+    #[test]
+    fn restoring_puts_the_files_back_and_hands_over_the_page_settings() {
+        let root = std::env::temp_dir().join(format!("wowc-restore-test-{}", std::process::id()));
+        let live = root.join("live");
+        fs::create_dir_all(&live).unwrap();
+        fs::write(live.join("profiles.json"), "{\"now\":1}").unwrap();
+        let backups = root.join("backups");
+        make_backup(&backups, "0.7.54", "{\"opacity\":50}", &[("profiles.json", live.join("old-profiles.json"))], 1_000_000).unwrap();
+        // The backup of 0.7.54 holds the old profiles and settings.
+        let old = backups.join(backup_name(1_000_000));
+        fs::write(old.join("profiles.json"), "{\"old\":1}").unwrap();
+        make_backup(&backups, "0.7.55", "{\"opacity\":99}", &[], 2_000_000).unwrap();
+        let dir = find_backup(&backups, "0.7.54").unwrap();
+        assert_eq!(dir, old);
+        let got = restore_files(&dir, &[("profiles.json", live.join("profiles.json")), ("providers.json", live.join("providers.json"))]).unwrap();
+        assert_eq!(fs::read_to_string(live.join("profiles.json")).unwrap(), "{\"old\":1}");
+        assert!(!live.join("providers.json").exists(), "a file the backup lacks is not invented");
+        assert_eq!(got.files.iter().map(|f| f.0.clone()).collect::<Vec<_>>(), vec!["profiles.json".to_string()]);
+        assert_eq!(got.settings_json.as_deref(), Some("{\"opacity\":50}"));
+        // No backup under a version: nothing to restore.
+        assert!(find_backup(&backups, "0.7.40").is_none());
+        // A tray backup has no page settings, so none are restored over the page's.
+        make_backup(&backups, "0.7.56", "", &[], 3_000_000).unwrap();
+        assert!(restore_files(&find_backup(&backups, "0.7.56").unwrap(), &[]).unwrap().settings_json.is_none());
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn a_cached_installer_is_trusted_offline_only_while_it_matches_its_record() {
+        let dir = std::env::temp_dir().join(format!("wowc-cache-test-{}", std::process::id()));
+        fs::create_dir_all(&dir).unwrap();
+        let p = dir.join(installer_name("0.7.54"));
+        fs::write(&p, b"abc").unwrap();
+        assert!(cached_verified(&dir, "0.7.54").is_none(), "no record, no trust");
+        fs::write(hash_record(&p), "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad\n").unwrap();
+        assert_eq!(cached_verified(&dir, "0.7.54"), Some(p.clone()));
+        fs::write(&p, b"tampered").unwrap();
+        assert!(cached_verified(&dir, "0.7.54").is_none());
+        assert!(!p.exists(), "a mismatch deletes the installer");
+        assert!(cached_verified(&dir, "../x").is_none());
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn timestamps_and_release_answers_are_read() {
+        assert_eq!(parse_utc("2026-11-25T15:30:05Z"), Some(1_795_620_605));
+        assert_eq!(parse_utc("1970-01-01T00:00:00Z"), Some(0));
+        assert_eq!(parse_utc("2026-13-25T15:30:05Z"), None);
+        assert_eq!(parse_utc("yesterday"), None);
+        assert_eq!(latest_release(r#"{"tag_name":"v0.7.55","published_at":"2026-11-25T15:30:05Z"}"#), Some(("0.7.55".to_string(), 1_795_620_605)));
+        assert_eq!(latest_release(r#"{"tag_name":"nightly"}"#), None);
+        assert_eq!(latest_release("<html>"), None);
+        assert_eq!(pulled_versions(r#"{"pulled":[{"version":"v0.7.52"},{"version":"0.7.53"},{}]}"#), vec!["0.7.52".to_string(), "0.7.53".to_string()]);
+        assert!(pulled_versions("garbage").is_empty());
+    }
+
+    #[test]
+    fn the_shell_offers_only_newer_unpulled_settled_releases() {
+        let now = 1_800_000_000u64;
+        let old = now - 3 * 86400;
+        assert_eq!(judge("0.7.55", old, "0.7.54", &[], now), Check::Available("0.7.55".into()));
+        assert_eq!(judge("0.7.55", now - 3600, "0.7.54", &[], now), Check::Settling("0.7.55".into()));
+        assert_eq!(judge("0.7.55", 0, "0.7.54", &[], now), Check::Available("0.7.55".into()), "an unknown time does not block");
+        assert_eq!(judge("0.7.55", old, "0.7.54", &["0.7.55".to_string()], now), Check::UpToDate);
+        assert_eq!(judge("0.7.54", old, "0.7.54", &[], now), Check::UpToDate);
+        assert_eq!(judge("0.7.53", old, "0.7.54", &[], now), Check::UpToDate);
+        assert_eq!(judge("0.7.55", old, "dev", &[], now), Check::UpToDate);
     }
 }

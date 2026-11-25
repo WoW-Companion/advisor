@@ -132,3 +132,13 @@ func TestSourceReadsAndKeepsTheAnswer(t *testing.T) {
 		t.Errorf("the second call should reuse the kept answer, hits = %d", hits)
 	}
 }
+
+func TestAddonPullsAreReadLeniently(t *testing.T) {
+	p := ParsePulls([]byte(`{"schema":1,"pulled":[],"addon_pulled":[{"version":"v1.2.0","reason":"crashes","back_to":"v1.1.0"},"junk",{"version":""},7],"notice":null}`))
+	if len(p.Addon) != 1 || p.Addon[0].Version != "1.2.0" || p.Addon[0].BackTo != "1.1.0" || p.Addon[0].Reason != "crashes" {
+		t.Errorf("addon pulls: %+v", p.Addon)
+	}
+	if p := ParsePulls([]byte(`{"addon_pulled":null}`)); len(p.Addon) != 0 {
+		t.Errorf("no addon pulls expected: %+v", p.Addon)
+	}
+}
