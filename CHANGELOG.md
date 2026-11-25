@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.54
+
+- Updates now show in the chat with one-click install; you can skip a version or go back to an earlier one. A new version is offered a day after it comes out (or right away if you turn on "Get updates right away" in Settings), with What's new, Install, Later and Skip this version. Install downloads the installer, checks it against the published checksum, saves a copy of your settings and replaces the app in place. If the version you are running is later found to have a problem, a red banner offers to go back, and Settings lists the last five versions with an Install this version button for each.
+
 ## 0.7.53
 
 - Play style changes reach the game on the next /reload, no need to close Settings. Saving a play style, spec, stat check or focus (in Settings or through your AI client) now rewrites the in-game advice a moment later, so the panel's stat chip and advice are current as soon as you reload.

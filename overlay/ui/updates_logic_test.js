@@ -1,0 +1,76 @@
+// Driven by updates_test.go under Node: the banner states, the offer's switches as the page sends
+// them, the notes text, the version list and the check schedule, with no DOM.
+const assert = require('assert');
+const U = require('./updates.js');
+
+const NOW = 1_000_000_000_000;
+const cfg = (o = {}) => ({ checkUpdates: true, updateNow: false, skipped: [], later: {}, ...o });
+const offer = { available: true, latest: '0.7.54', notes: '## 0.7.54\n- **Fixed** a thing' };
+
+// The query carries only the player's switches.
+assert.strictEqual(U.updateQuery(cfg(), false), '');
+assert.strictEqual(U.updateQuery(cfg({ updateNow: true, skipped: ['v0.7.52', '0.7.53'] }), true), '?now=1&skip=0.7.52%2C0.7.53&fresh=1');
+
+// Banner states.
+let s = U.bannerState(offer, cfg(), NOW, '', '');
+assert.deepStrictEqual([s.kind, s.version], ['offer', '0.7.54']);
+let v = U.bannerView(s);
+assert.strictEqual(v.text, 'Update 0.7.54 is ready');
+assert.deepStrictEqual(v.actions.map(a => a.label), ['What’s new', 'Install', 'Later', 'Skip this version']);
+assert.strictEqual(v.cls, 'ok');
+assert.strictEqual(U.bannerState(offer, cfg({ checkUpdates: false }), NOW, '', ''), null, 'the master switch hides it');
+assert.strictEqual(U.bannerState(null, cfg(), NOW, '', ''), null);
+assert.strictEqual(U.bannerState({ available: false }, cfg(), NOW, '', ''), null);
+assert.strictEqual(U.bannerState(offer, cfg({ skipped: ['0.7.54'] }), NOW, '', ''), null, 'skipped');
+assert.notStrictEqual(U.bannerState(offer, cfg({ skipped: ['0.7.53'] }), NOW, '', ''), null, 'skipping another version does not hide it');
+
+// Later hides for 24 hours for that version, then it returns; a newer version shows at once.
+const c = cfg();
+U.later(c, 'v0.7.54', NOW);
+assert.strictEqual(c.later['0.7.54'], NOW + 24 * 3600 * 1000);
+assert.strictEqual(U.bannerState(offer, c, NOW + 3600 * 1000, '', ''), null);
+assert.notStrictEqual(U.bannerState(offer, c, NOW + 24 * 3600 * 1000 + 1, '', ''), null);
+assert.notStrictEqual(U.bannerState({ ...offer, latest: '0.7.55' }, c, NOW + 1000, '', ''), null);
+U.skip(c, '0.7.54'); U.skip(c, 'v0.7.54');
+assert.deepStrictEqual(c.skipped, ['0.7.54']);
+
+// Installing and failing.
+s = U.bannerState(offer, cfg(), NOW, 'Downloading 0.7.54…', '');
+assert.deepStrictEqual([U.bannerView(s).text, U.bannerView(s).actions.length], ['Downloading 0.7.54…', 0]);
+s = U.bannerState(offer, cfg(), NOW, '', 'The download did not match its checksum.');
+v = U.bannerView(s);
+assert.ok(v.text.includes('did not install') && v.actions[0].id === 'retry');
+s = U.bannerState({ available: false }, cfg(), NOW, '', 'no network');
+assert.strictEqual(s.kind, 'task');
+assert.deepStrictEqual(U.bannerView(s).actions.map(a => a.id), ['retry', 'dismiss']);
+
+// A pulled running version: red, with the reason and the way back; it ignores Later and Skip.
+const pulled = { available: true, latest: '0.7.54', pulled: { version: '0.7.52', reason: 'it crashes on login.', back_to: '0.7.51' } };
+s = U.bannerState(pulled, cfg({ skipped: ['0.7.54'], later: { '0.7.54': NOW + 1e9 } }), NOW, '', '');
+v = U.bannerView(s);
+assert.strictEqual(v.cls, 'bad');
+assert.strictEqual(v.text, 'This version has a known problem: it crashes on login.');
+assert.deepStrictEqual(v.actions.map(a => a.label), ['Go back to 0.7.51', 'Details']);
+v = U.bannerView(U.bannerState({ pulled: { version: '0.7.52', reason: 'bad', back_to: '' } }, cfg(), NOW, '', ''));
+assert.deepStrictEqual(v.actions.map(a => a.id), ['details'], 'no earlier version to go back to');
+
+// Release notes as plain text.
+assert.strictEqual(U.plainNotes(offer.notes), '0.7.54\n• Fixed a thing');
+assert.strictEqual(U.plainNotes(''), 'No notes were published for this version.');
+assert.strictEqual(U.plainNotes('See [the page](http://x.y/z)\r\n\r\n\r\n\r\n- `a`'), 'See the page\n\n• a');
+
+// The version list.
+const rows = U.versionRows({ versions: [{ version: '0.7.53', date: '2026-11-24', current: true }, { version: '0.7.52', date: '2026-11-20' }] });
+assert.deepStrictEqual(rows.map(r => r.label), ['0.7.53 (running) · 2026-11-24', '0.7.52 · 2026-11-20']);
+assert.deepStrictEqual(U.versionRows(null), []);
+
+// The schedule: a late tick is a wake-up; focus checks only after 4 hours.
+let t = NOW, checks = 0;
+const sch = U.createSchedule({ now: () => t, check: () => checks++ });
+t += U.TICK; assert.strictEqual(sch.tick(), ''); assert.strictEqual(checks, 0);
+t += 2 * 3600 * 1000; assert.strictEqual(sch.tick(), 'wake'); assert.strictEqual(checks, 1);
+assert.strictEqual(sch.focus(), false);
+t += U.CHECK_EVERY + 1; assert.strictEqual(sch.focus(), true); assert.strictEqual(checks, 2);
+sch.checked(); assert.strictEqual(sch.focus(), false);
+assert.strictEqual(U.CHECK_EVERY, 4 * 3600 * 1000);
+console.log('ok');

@@ -242,3 +242,13 @@ a:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; border-ra
 .settings small.err { color: #e07070; }
 .time-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
 .time-chip { cursor: pointer; }
+
+/* The update banner sits in the page flow above the chat, never over the input. Its background is solid
+   (not --alpha), so it stays readable at every opacity. */
+.update-bar { flex: none; margin: 4px 8px 0; padding: 5px 8px; border-radius: 8px; font-size: 12px; line-height: 1.35; background: #2a3a2c; border: 1px solid #5d8a62; color: #f1efe6; display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; }
+.update-bar.bad { background: #5a2019; border-color: #c4503d; }
+.update-bar .upd-text { flex: 1 1 100%; overflow-wrap: anywhere; }
+.update-bar button { padding: 1px 8px; font-size: 11px; }
+.update-bar .upd-notes { flex: 1 1 100%; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 9em; overflow: auto; font-size: 11px; opacity: .92; }
+.version-list { display: grid; gap: 3px; font-size: 12px; }
+.version-list .ver-row { display: flex; justify-content: space-between; align-items: center; gap: 6px; }

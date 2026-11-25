@@ -83,7 +83,8 @@ func companionCmd(ctx context.Context, args []string, stdout, stderr io.Writer) 
 		Update: func(ctx context.Context) (release.Result, error) {
 			return release.Check(ctx, http.DefaultClient, release.LatestURL, server.Version)
 		},
-		Stream: len(ac.Command) > 0 && strings.TrimSuffix(strings.ToLower(filepath.Base(ac.Command[0])), strings.ToLower(filepath.Ext(ac.Command[0]))) == "claude",
+		Updates: (&release.Source{Client: http.DefaultClient, ListURL: release.ListURL, PullsURL: release.PullsURL}).Get,
+		Stream:  len(ac.Command) > 0 && strings.TrimSuffix(strings.ToLower(filepath.Base(ac.Command[0])), strings.ToLower(filepath.Ext(ac.Command[0]))) == "claude",
 	})
 	p := ln.Addr().(*net.TCPAddr).Port
 	if *handshake {

@@ -61,18 +61,20 @@ type Config struct {
 	Dataset       string        // dataset directory, for each character's next quests (empty: none until Setup downloads it)
 	Cache         dataset.Store // where the Setup row looks for and downloads the dataset (Root empty: the per-user cache)
 	Poll          time.Duration
-	NoUsage       bool                                          // start with the usage line off
-	AutoDigest    bool                                          // rewrite the in-game digest when ForeverScribe saves
-	DigestPath    string                                        // Digest.lua; empty derives it from ForeverScribe
-	Debounce      time.Duration                                 // quiet time after a save before the digest is written (default 2s)
-	GameDir       string                                        // the WoW folder the player chose in the setup checklist (empty: detect)
-	HTTP          *http.Client                                  // for the addon lookup and install (nil: the default client)
-	AddonAPI      string                                        // the addon's latest-release URL (empty: GitHub's)
-	Update        func(context.Context) (release.Result, error) // looks up the latest release for /api/update; nil answers no notice
-	Profiles      string                                        // the play-style store (empty: profile.Path())
-	Now           func() time.Time                              // the clock for ask ages (nil: time.Now)
-	Providers     string                                        // the saved client list (empty: provider.SettingsPath())
-	Keys          provider.KeyStore                             // where API keys are kept (nil: the platform's default)
+	NoUsage       bool                                                                        // start with the usage line off
+	AutoDigest    bool                                                                        // rewrite the in-game digest when ForeverScribe saves
+	DigestPath    string                                                                      // Digest.lua; empty derives it from ForeverScribe
+	Debounce      time.Duration                                                               // quiet time after a save before the digest is written (default 2s)
+	GameDir       string                                                                      // the WoW folder the player chose in the setup checklist (empty: detect)
+	HTTP          *http.Client                                                                // for the addon lookup and install (nil: the default client)
+	AddonAPI      string                                                                      // the addon's latest-release URL (empty: GitHub's)
+	Update        func(context.Context) (release.Result, error)                               // looks up the latest release for /api/update; nil answers no notice
+	Updates       func(ctx context.Context, fresh bool) ([]release.Rel, release.Pulls, error) // the published releases and the pull file for /api/update (nil: the older Update lookup)
+	Version       string                                                                      // the running version for /api/update (empty: the build's own)
+	Profiles      string                                                                      // the play-style store (empty: profile.Path())
+	Now           func() time.Time                                                            // the clock for ask ages (nil: time.Now)
+	Providers     string                                                                      // the saved client list (empty: provider.SettingsPath())
+	Keys          provider.KeyStore                                                           // where API keys are kept (nil: the platform's default)
 }
 
 // Digest statuses.
@@ -876,15 +878,38 @@ func (s *Server) autoDigest(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(s.snapshot().Digest)
 }
 
-// update answers the overlay's version line: one unauthenticated release lookup, made only when the
-// page asks (it asks when "Check for updates" is on). Failure is an empty notice, never an error.
+// update answers the overlay's update banner, version line and version list: one unauthenticated
+// release lookup (kept a few minutes), made only when the page asks (it asks when "Check for updates"
+// is on). The player's choices come as query: now=1 (no settle delay), skip=<versions>, fresh=1 (Check
+// now). Failure is an empty status, never an error.
 func (s *Server) update(w http.ResponseWriter, r *http.Request) {
-	var n release.Notice
-	if s.cfg.Update != nil {
-		n = release.NoticeFor(s.cfg.Update(r.Context()))
-	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(n)
+	if s.cfg.Updates == nil {
+		var n release.Notice
+		if s.cfg.Update != nil {
+			n = release.NoticeFor(s.cfg.Update(r.Context()))
+		}
+		json.NewEncoder(w).Encode(n)
+		return
+	}
+	q := r.URL.Query()
+	rels, pulls, err := s.cfg.Updates(r.Context(), q.Get("fresh") == "1")
+	if err != nil {
+		json.NewEncoder(w).Encode(release.Status{})
+		return
+	}
+	now, running := time.Now(), server.Version
+	if s.cfg.Now != nil {
+		now = s.cfg.Now()
+	}
+	if s.cfg.Version != "" {
+		running = s.cfg.Version
+	}
+	var skipped []string
+	if v := q.Get("skip"); v != "" {
+		skipped = strings.Split(v, ",")
+	}
+	json.NewEncoder(w).Encode(release.Compute(rels, pulls, release.Options{Running: running, Skipped: skipped, Immediate: q.Get("now") == "1", Now: now}))
 }
 
 // planStaleFor reports whether the written Plan.lua is older than a capture or the dataset. The
