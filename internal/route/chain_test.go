@@ -159,7 +159,7 @@ func TestPlanLuaCarriesChainFields(t *testing.T) {
 		t.Fatal(err)
 	}
 	root := vars["WoWCompanionPlan"].(lua.Table)
-	if root["schema"] != "1.1" {
+	if root["schema"] != "1.2" {
 		t.Fatalf("schema %v", root["schema"])
 	}
 	steps := lua.List(root["characters"].(lua.Table)["Hero"].(lua.Table)["steps"])

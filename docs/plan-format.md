@@ -40,7 +40,7 @@ Data only: one assignment of tables, strings, numbers and booleans. Never code.
 
 ```lua
 WoWCompanionPlan = {
-  schema = "1.1",
+  schema = "1.2",
   generated = 1795363809,        -- unix seconds
   characters = {
     ["Hero"] = {                 -- the character name as captured, no realm
@@ -91,6 +91,33 @@ An older addon ignores them and shows the steps in order. Example:
 { n = 3, kind = "turnin", questID = 30, quest = "Quest 30", label = "Turn in Quest 30 to Elder Test", map = 7001, x = 50.0, y = 50.0, done = false, unlocks = { 31 } },
 { n = 4, kind = "pickup", questID = 31, quest = "Quest 31", label = "Pick up Quest 31 from Elder Test", map = 7001, x = 50.0, y = 50.0, done = false, locked = true, unlockedBy = { 30 }, depth = 1, chain = "The Test Line" },
 ```
+
+## Schema 1.2: guidance for a quest once accepted
+
+The game writes the app's files only on a reload, so the addon never learns of an accept in time. The plan
+therefore carries, for every quest it lists (route steps, `later`, `find`, follow-ups and class quests), what
+the quest needs once taken. The addon switches to it live when the quest log shows the accept. Steps gain
+`questIDs = { ... }` when a merged stop serves more than one quest; every non-travel step has `questID` and
+`kind`, so the addon can mark a step done when the log shows it done and advance its step counter.
+
+```lua
+guidance = {                      -- per character, keyed by quest id; data only
+  [31] = {
+    questID = 31, quest = "Quest 31", class = true,
+    steps = { 2, 5 },             -- the route steps that serve it (empty: not on the route)
+    objectives = {                -- what to do once accepted; may be empty
+      { text = "Kill Test Wolf", map = 7001, x = 30.0, y = 20.0, zone = "Testisle" },
+      { text = "Collect Test Shield", zone = "Testisle" },   -- position unknown: the zone only
+    },
+    turnin = { text = "Turn in Quest 31 to Elder Test", map = 7001, x = 50.0, y = 50.0, zone = "Testisle" },
+                                  -- absent when the turn-in is withheld (an unplaced objective) or unknown
+    after = "After this: Pick up Quest 40 from Elder Test.",   -- the next planned step
+  },
+},
+```
+
+Names and positions come from the dataset or the player's own capture, never invented; an item without
+`map`, `x` and `y` has only a `zone`. Older addons ignore the block.
 
 Minor schema changes only add keys; readers ignore keys they do not know.
 

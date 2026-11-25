@@ -100,6 +100,7 @@ type Plan struct {
 	Notes     []string     `json:"notes,omitempty"`
 	Follow    []FollowNote `json:"follow_ups,omitempty"` // the locked follow-ups on the route, one per quest
 	Basis     Basis        `json:"basis"`                // what the plan was built from
+	Guides    []Guide      `json:"guides,omitempty"`     // what each listed quest needs once accepted (Plan.lua 1.2)
 }
 
 // Basis is the state a plan starts from. "Done" in a plan means done after Captured: a reader judges
@@ -240,7 +241,7 @@ func planWith(c character.Character, src source, opt Options) Plan {
 	}
 
 	var later []*spot
-	var use []*quest
+	var use, listed []*quest
 	var findSpots []*spot
 	if !c.QuestsCaptured && len(c.Quests) == 0 {
 		p.Notes = append(p.Notes, "The quest log is not in the capture yet, so no pick-ups are planned (a quest you already have would show as one).")
@@ -256,6 +257,9 @@ func planWith(c character.Character, src source, opt Options) Plan {
 			for _, sp := range q.chain() {
 				sp.must = true
 			}
+		}
+		if len(q.chain()) > 0 || len(q.unplaced) > 0 {
+			listed = append(listed, q)
 		}
 		if q.level > lvl+LevelMargin && !q.must {
 			later = append(later, q.chain()...)
@@ -438,6 +442,7 @@ func planWith(c character.Character, src source, opt Options) Plan {
 		}
 	}
 	p.Total = len(p.Steps)
+	p.Guides = guides(append(listed, chosen...), p.Steps, p.Zone, src.mapName)
 	for i, s := range findSpots {
 		p.Find = append(p.Find, FindStop{N: i + 1, QuestID: s.quests[0], Quest: strings.Join(s.names, ", "), Label: s.label})
 	}

@@ -108,3 +108,19 @@ console.log('ok');
   assert.strictEqual(reads.length, 4);
   console.log('ok styles');
 })().catch(e => { console.error(e); process.exit(1); });
+
+// Following the played character: the newest capture wins unless a character is pinned or the setting is off.
+{
+  const chars = [{ key: 'Aria', name: 'Aria' }, { key: 'Bram', name: 'Bram' }];
+  const f = o => L.followChoice({ characters: chars, newest: 'Bram', current: 'Aria', follow: true, pinned: '', ...o });
+  const sw = f({});
+  assert.strictEqual(sw.key, 'Bram'); assert.strictEqual(sw.switched, true);
+  assert.ok(/Bram/.test(sw.line) && !/\n/.test(sw.line), 'one line, naming the character');
+  assert.strictEqual(f({ pinned: 'Aria' }).key, 'Aria', 'a pinned character stops following');
+  assert.strictEqual(f({ pinned: 'Aria' }).switched, false);
+  assert.strictEqual(f({ follow: false }).key, 'Aria', 'the setting off stops following');
+  assert.strictEqual(f({ current: 'Bram' }).switched, false, 'already on the newest: no switch, no line');
+  assert.strictEqual(f({ current: '' }).key, 'Bram', 'nothing chosen yet: the newest, with no line');
+  assert.strictEqual(f({ current: '' }).line, '');
+  assert.strictEqual(f({ pinned: 'Gone' }).key, 'Bram', 'a pin on a character no longer captured is ignored');
+}
