@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -38,6 +39,7 @@ func professionPlanCmd(args []string, stdout, stderr io.Writer) error {
 	fs.IntVar(&o.Level, "level", 60, "character level")
 	fs.StringVar(&o.Faction, "faction", "", "horde or alliance")
 	fs.StringVar(&o.Gather, "gather", "", "a gathering profession the character has (default: none)")
+	known := fs.String("known", "", "comma-separated spell ids of recipes the character already knows (drop and quest patterns included)")
 	where := fs.String("dataset", "", "dataset directory or base URL (default: $"+server.DatasetEnv+")")
 	asJSON := fs.Bool("json", false, "print JSON")
 	if err := fs.Parse(args); err != nil {
@@ -53,6 +55,16 @@ func professionPlanCmd(args []string, stdout, stderr io.Writer) error {
 	}
 	if o.From < 1 || o.To < 0 || o.Level < 1 {
 		return errors.New("--from and --level must be at least 1, --to at least 0")
+	}
+	for _, f := range strings.Split(*known, ",") {
+		if f = strings.TrimSpace(f); f == "" {
+			continue
+		}
+		id, err := strconv.ParseInt(f, 10, 64)
+		if err != nil || id <= 0 {
+			return fmt.Errorf("--known takes spell ids, not %q", f)
+		}
+		o.Known = append(o.Known, id)
 	}
 	if *where == "" {
 		*where = os.Getenv(server.DatasetEnv)

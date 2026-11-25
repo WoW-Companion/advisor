@@ -8,9 +8,21 @@ import (
 
 func itoa(n int) string { return strconv.Itoa(n) }
 
+func renderMake(b *strings.Builder, m *Make, indent string) {
+	fmt.Fprintf(b, "%s  %s\n", indent, m.describe())
+}
+
 func renderOption(b *strings.Builder, o Option, indent string) {
 	if o.Learn != "" {
-		fmt.Fprintf(b, "%sLearn it first: %s.\n", indent, o.Learn)
+		fmt.Fprintf(b, "%sLearn it first: %s", indent, o.Learn)
+		if o.LearnSkill != nil {
+			around := ""
+			if o.Around {
+				around = "around "
+			}
+			fmt.Fprintf(b, " (%sskill %d)", around, *o.LearnSkill)
+		}
+		b.WriteString(".\n")
 	}
 	for _, n := range o.Needs {
 		fmt.Fprintf(b, "%s%s: need %d, have %d", indent, n.Item, n.Total, n.Have)
@@ -18,6 +30,9 @@ func renderOption(b *strings.Builder, o Option, indent string) {
 			fmt.Fprintf(b, ", missing %d, from %s", n.Missing, n.From)
 		}
 		b.WriteString("\n")
+		if n.Make != nil {
+			renderMake(b, n.Make, indent)
+		}
 	}
 }
 
@@ -35,10 +50,16 @@ func RenderPath(pa Path) string {
 	for i, band := range pa.Bands {
 		fmt.Fprintf(&b, "\n%d. Make ~%d × %s (skill %d→%d)", (pa.Part-1)*MaxBands+i+1, band.Best.Crafts, band.Best.Recipe, band.From, band.To)
 		fmt.Fprintf(&b, ", %s there.\n", band.Best.Difficulty)
+		if band.Rank != "" {
+			fmt.Fprintf(&b, "   First train %s at your trainer (character level %d).\n", band.Rank, band.RankLevel)
+		}
 		renderOption(&b, band.Best, "   ")
 		if band.Or != nil {
 			fmt.Fprintf(&b, "   Or ~%d × %s:\n", band.Or.Crafts, band.Or.Recipe)
 			renderOption(&b, *band.Or, "     ")
+		}
+		for _, po := range band.Patterns {
+			fmt.Fprintf(&b, "   If you have the pattern: ~%d × %s.\n", po.Crafts, po.Recipe)
 		}
 	}
 	if len(pa.Prep) > 0 {
