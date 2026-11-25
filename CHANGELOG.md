@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.61
+
+- What's new now lists everything since your last version. If you skipped a few updates, the notes show every version after the one you're running, newest first (up to three versions and about eight lines, then "…and N more changes"), and there is a See all changes button that opens the full list. After going back to an older version it only says so, with no list.
+
 ## 0.7.60
 
 - Stat advice now explains itself with your own character's numbers. The stat check and gear advice now read what the game addon records about your character (your stats, health, mana, crit and what a point of Intellect, Agility or Spirit does for you), so the advice quotes your own numbers instead of general words.

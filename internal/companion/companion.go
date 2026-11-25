@@ -912,23 +912,33 @@ func (s *Server) update(w http.ResponseWriter, r *http.Request) {
 	}
 	st := release.Compute(rels, pulls, release.Options{Running: running, Skipped: skipped, Immediate: q.Get("now") == "1", Now: now})
 	if st.Available {
-		st.Notes = s.notesFor(r.Context(), st.Latest)
+		st.Notes = s.notesFor(r.Context(), running, st.Latest, pulledVersions(pulls))
 	}
 	json.NewEncoder(w).Encode(st)
 }
 
-// notesFor is the CHANGELOG section of a version: read from the repository at that version's tag
-// when the lookup is configured, else (or when that fails) from the changelog bundled in this binary.
-// The release body and commit messages are never used.
-func (s *Server) notesFor(ctx context.Context, version string) string {
+// pulledVersions is the versions on the pull list: never listed in "What's new".
+func pulledVersions(p release.Pulls) []string {
+	var out []string
+	for _, x := range p.Pulled {
+		out = append(out, x.Version)
+	}
+	return out
+}
+
+// notesFor is the CHANGELOG of every version after from, up to latest, newest first and capped
+// (pulled versions left out): read from the repository at latest's tag when the lookup is
+// configured, else (or when that has nothing) from the changelog bundled in this binary. The
+// release body and commit messages are never used.
+func (s *Server) notesFor(ctx context.Context, from, latest string, pulled []string) string {
 	if s.cfg.Changelog != nil {
-		if md, err := s.cfg.Changelog(ctx, version); err == nil {
-			if n := whatsnew.Section(md, version); n != "" {
+		if md, err := s.cfg.Changelog(ctx, latest); err == nil {
+			if n := whatsnew.Range(md, from, latest, pulled); n != "" {
 				return n
 			}
 		}
 	}
-	return whatsnew.BundledSection(version)
+	return whatsnew.BundledRange(from, latest, pulled)
 }
 
 // planStaleFor reports whether the written Plan.lua is older than a capture or the dataset. The
@@ -945,11 +955,22 @@ func (s *Server) planStaleFor(capturedAt int64) bool {
 // CHANGELOG.md bundled into the binary (no network).
 func (s *Server) whatsNew(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	if v := r.URL.Query().Get("version"); v != "" { // one version's whole section, for the note after an update
+	if v := r.URL.Query().Get("version"); v != "" { // the note after an update: everything since the version left
 		rel := whatsnew.Release{Version: v, Lines: []string{}}
-		for _, l := range strings.Split(whatsnew.BundledSection(v), "\n") {
-			if l = strings.TrimPrefix(l, "- "); l != "" {
-				rel.Lines = append(rel.Lines, l)
+		var pulled []string
+		if s.cfg.Updates != nil {
+			if _, p, err := s.cfg.Updates(r.Context(), false); err == nil {
+				pulled = pulledVersions(p)
+			}
+		}
+		from := r.URL.Query().Get("from")
+		text := whatsnew.BundledSection(v)
+		if from != "" {
+			text = whatsnew.BundledRange(from, v, pulled)
+		}
+		for _, l := range strings.Split(text, "\n") {
+			if l != "" {
+				rel.Lines = append(rel.Lines, l) // markdown-ish: "## v" headings and "- " bullets
 			}
 		}
 		json.NewEncoder(w).Encode([]whatsnew.Release{rel})

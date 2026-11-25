@@ -70,3 +70,57 @@ func TestShownNotesHaveNoMissionIds(t *testing.T) {
 		t.Error("CHANGELOG.md carries a mission id")
 	}
 }
+
+const rangeLog = `# Changelog
+
+## 0.7.58
+
+- Fifty-eight a.
+- Fifty-eight b.
+
+## 0.7.57
+
+- Fifty-seven.
+
+## 0.7.56
+
+- Fifty-six **a**.
+
+## 0.7.55
+
+- Running.
+`
+
+func TestRangeIncludesSkippedNewestFirstAndExcludesPulledAndRunning(t *testing.T) {
+	got := Range(rangeLog, "0.7.55", "0.7.58", []string{"v0.7.57"})
+	want := "## 0.7.58\n- Fifty-eight a.\n- Fifty-eight b.\n## 0.7.56\n- Fifty-six a."
+	if got != want {
+		t.Errorf("got %q want %q", got, want)
+	}
+	if got := Range(rangeLog, "0.7.55", "0.7.57", nil); got != "## 0.7.57\n- Fifty-seven.\n## 0.7.56\n- Fifty-six a." {
+		t.Errorf("upper bound is inclusive, newer excluded: %q", got)
+	}
+	if got := Range(rangeLog, "0.7.58", "0.7.58", nil); got != "" {
+		t.Errorf("nothing newer than the running version: %q", got)
+	}
+}
+
+func TestRangeCapsVersionsAndBullets(t *testing.T) {
+	var b strings.Builder
+	for v := 9; v >= 1; v-- {
+		b.WriteString("## 0.1." + string(rune('0'+v)) + "\n\n- one\n- two\n- three\n\n")
+	}
+	got := Range(b.String(), "0.1.0", "0.1.9", nil)
+	if n := strings.Count(got, "## "); n != RangeVersions {
+		t.Errorf("%d versions, want %d:\n%s", n, RangeVersions, got)
+	}
+	if n := strings.Count(got, "\n- ") + 1; n != RangeBullets {
+		t.Errorf("%d bullets, want %d:\n%s", n, RangeBullets, got)
+	}
+	if !strings.HasSuffix(got, "…and 19 more changes") || !strings.HasPrefix(got, "## 0.1.9\n") {
+		t.Errorf("tail or head wrong:\n%s", got)
+	}
+	if got := Range(rangeLog, "0.7.55", "0.7.58", nil); strings.Contains(got, "more changes") {
+		t.Errorf("nothing hidden, no tail: %q", got)
+	}
+}

@@ -94,3 +94,12 @@ t += U.CHECK_EVERY + 1; assert.strictEqual(sch.focus(), true); assert.strictEqua
 sch.checked(); assert.strictEqual(sch.focus(), false);
 assert.strictEqual(U.CHECK_EVERY, 4 * 3600 * 1000);
 console.log('ok');
+
+// The note after an update knows the version it left, "See all changes" is in the banner,
+// and a go-back shows no what's new.
+assert.strictEqual(U.updatedNote('0.7.55', '0.7.58').from, '0.7.55');
+assert.strictEqual(U.whatsNewQuery(U.updatedNote('0.7.55', '0.7.58')), '?version=0.7.58&from=0.7.55');
+assert.strictEqual(U.updatedNote('0.7.58', '0.7.55').whatsNew, false);
+assert.strictEqual(U.updatedNote('0.7.58', '0.7.55').text, '✓ Went back to 0.7.55');
+assert.ok(U.bannerView(U.bannerState(offer, cfg(), NOW, '', '')).actions.some(a => a.id === 'changes' && a.label === 'See all changes'));
+assert.ok(/^https:\/\/github\.com\/WoW-Companion\/advisor\/.*CHANGELOG\.md$/.test(U.CHANGELOG_URL));
