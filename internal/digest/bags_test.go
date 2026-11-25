@@ -63,8 +63,12 @@ func TestBagUpgradesLeadPanelAndNext(t *testing.T) {
 			t.Errorf("a slot a bag item covers is listed again: %s", l)
 		}
 	}
-	if next := sectionText(after, NextQuests); !strings.Contains(next[0], "You have 2 upgrades in your bags") {
+	if next := sectionText(after, NextQuests); !strings.Contains(next[0], "Equip from your bags: Test Mail Gauntlets (Hands), Test Mail Boots (Feet)") {
 		t.Fatalf("NEXT should lead with the bag count: %v", next)
+	}
+	one := Build(bagsWarrior(character.ItemStack{ItemID: 2, Count: 1}), ds, opt)
+	if next := sectionText(one, NextQuests); !strings.Contains(next[0], "Equip Test Mail Boots (Feet) from your bags") {
+		t.Fatalf("one bag upgrade should be named: %v", next)
 	}
 	if next := sectionText(before, NextQuests); len(next) > 0 && strings.Contains(next[0], "in your bags") {
 		t.Fatalf("no bag line without bag upgrades: %v", next)
