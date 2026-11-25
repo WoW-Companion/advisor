@@ -2,9 +2,9 @@
 
 ## 0.7.78
 
-- A turn-in is only planned for a quest that is done; an unfinished quest gets its objectives first, or sits under Find when its objectives are not known.
-- Every step's first line is an action ("Place the Western vial", "Finish Quest"); the level fit goes below it.
-- Quest details and the facts behind answers now say whether a quest is "ready to turn in" or "n of m objectives done".
+- A turn-in is planned only for a quest that is done; objectives come first.
+- Every step's first line is an action; the level fit goes below it.
+- Quests now say "ready to turn in" or how many objectives are done.
 
 ## 0.7.77
 
