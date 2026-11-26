@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.7.85
+## 0.7.86
 
 - The app now records why it ended: quit, window close, update restart, go back, shutdown and crashes.
 - After an unexpected end, the next start says "closed unexpectedly at <time>" with Open logs.
@@ -9,6 +9,12 @@
 - A missed class or racial spell quest, like Touch of Weakness, now gets a plan step.
 - A trainer rank blocked by that quest says so, not listed as trainable.
 - The training line in the digest names the quest that teaches the spell.
+
+## 0.7.85
+
+- In town, a dungeon quest at your level (The Book of Ur) is a pick-up step, first on the route.
+- A dungeon far above you, and holiday quests, stay under later.
+- With a nearly full quest log, only as many pick-ups as free slots are planned.
 
 ## 0.7.84
 
