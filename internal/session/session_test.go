@@ -199,3 +199,14 @@ func TestParseXP(t *testing.T) {
 		t.Errorf("m = %v", m)
 	}
 }
+
+func TestScaleFor(t *testing.T) {
+	for _, tc := range []struct {
+		mine, quest int
+		want        float64
+	}{{30, 25, 1}, {30, 24, 0.8}, {30, 23, 0.6}, {30, 22, 0.4}, {30, 21, 0.2}, {30, 20, 0.1}, {14, 10, 1}, {14, 9, 0.8}, {12, 9, 1}} {
+		if got := ScaleFor(tc.mine, tc.quest); got != tc.want {
+			t.Errorf("ScaleFor(%d, %d) = %v, want %v", tc.mine, tc.quest, got, tc.want)
+		}
+	}
+}

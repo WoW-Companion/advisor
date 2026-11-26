@@ -371,3 +371,15 @@ func TestQuestBlockedRankNeverTrainable(t *testing.T) {
 		t.Errorf("level 9: %q", got)
 	}
 }
+
+func TestHiddenName(t *testing.T) {
+	for name, want := range map[string]bool{
+		"Improved Pummel": true, "Shield Specialization": true, "Battle Stance Passive": true, "Cat Form (Passive)": true,
+		"Rogue Passive (DND)": true, "Hellfire Effect": true, "Charge Rage Bonus Effect": true,
+		"Charge": false, "Mortal Strike": false, "Frostbolt": false,
+	} {
+		if got := hiddenName(name); got != want {
+			t.Errorf("hiddenName(%q) = %v, want %v", name, got, want)
+		}
+	}
+}
