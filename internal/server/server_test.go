@@ -62,7 +62,7 @@ func exercise(t *testing.T, cs *mcp.ClientSession) {
 	for _, tool := range tools.Tools {
 		names = append(names, tool.Name)
 	}
-	if strings.Join(names, ",") != "bags_across_characters,character_brief,doctor,dungeon_plan,farm_spots,get_character_profile,inventory_review,list_characters,profession_plan,quest_chain,quest_plan,server_info,set_character_profile,stat_check,talent_plan,talent_tree,update_digest,upgrade_finder,upgrade_paths,whats_next,where_to_gather,where_to_learn" {
+	if strings.Join(names, ",") != "bags_across_characters,character_brief,doctor,dungeon_plan,farm_spots,get_character_profile,inventory_review,list_characters,profession_plan,quest_chain,quest_plan,seasonal_events,server_info,set_character_profile,stat_check,talent_plan,talent_tree,update_digest,upgrade_finder,upgrade_paths,whats_next,where_to_gather,where_to_learn" {
 		t.Errorf("tools = %v", names)
 	}
 	call := func(name string, args map[string]any) (string, bool) {

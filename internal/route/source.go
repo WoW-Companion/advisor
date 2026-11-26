@@ -375,7 +375,7 @@ func (s *questieSource) quests(c character.Character, at *questie.Where) []*ques
 			if pick == nil || pick.m != curMap {
 				continue
 			}
-			q := &quest{id: qq.ID, name: qq.Name, level: qq.Level, pickup: pick, must: classQuestOf(c, qq)}
+			q := &quest{id: qq.ID, name: qq.Name, level: qq.Level, pickup: pick, must: classQuestOf(c, qq), event: qq.Event != ""}
 			q.festival = festivalSort(qq.Zone)
 			q.xp = s.opt.XP[qq.ID]
 			if d := s.qx.DungeonOf(qq.ID); d != nil {
@@ -423,7 +423,7 @@ func (s *questieSource) quests(c character.Character, at *questie.Where) []*ques
 			if pick == nil || pick.m != cur {
 				continue
 			}
-			q := &quest{id: qq.ID, name: qq.Name, level: qq.Level, pickup: pick, must: classQuestOf(c, qq),
+			q := &quest{id: qq.ID, name: qq.Name, level: qq.Level, pickup: pick, must: classQuestOf(c, qq), event: qq.Event != "",
 				locked: true, depth: f.Depth, unlockedBy: f.UnlockedBy, chainName: f.Chain, observed: f.Observed}
 			q.objs, q.unplaced = objectives(qq, nil, nil, pick.x, pick.y)
 			if len(q.unplaced) == 0 {
