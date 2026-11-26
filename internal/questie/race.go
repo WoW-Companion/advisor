@@ -85,6 +85,12 @@ func (w Who) raceAllows(mask uint64) bool {
 // RaceAllows is raceAllows for callers outside the package.
 func (w Who) RaceAllows(mask uint64) bool { return w.raceAllows(mask) }
 
+// FactionAdmits reports whether a friendlyToFaction value ("A", "H", "AH") includes the player's side;
+// an unknown side admits everything. It is the one test of "friendly to the player's side".
+func FactionAdmits(faction, side string) bool {
+	return side == "" || strings.Contains(faction, side)
+}
+
 // Hostile reports whether every NPC starter of the quest is friendly only to the other side, so the
 // player cannot take it from them. Unknown factions and object starters are never hostile.
 func (ix *Index) Hostile(q *Quest, w Who) bool {
@@ -96,7 +102,7 @@ func (ix *Index) Hostile(q *Quest, w Who) bool {
 			return false
 		}
 		f := ix.NpcFaction(r.ID)
-		if f == "" || strings.Contains(f, w.Side) {
+		if f == "" || FactionAdmits(f, w.Side) {
 			return false
 		}
 	}

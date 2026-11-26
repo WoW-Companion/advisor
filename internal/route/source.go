@@ -557,7 +557,7 @@ const (
 // name no faction while the NPC gives quests. With the side unknown any named faction counts.
 func friendly(e questie.Entity, side string) bool {
 	if e.Faction != "" {
-		return side == "" || strings.Contains(e.Faction, side)
+		return questie.FactionAdmits(e.Faction, side)
 	}
 	return e.Flags&flagQuestGiver != 0
 }
