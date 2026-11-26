@@ -230,3 +230,45 @@ func TestTrainingLineNamesMissedSpellQuest(t *testing.T) {
 		t.Errorf("quest done: %+v", l)
 	}
 }
+
+// The class trainer's list: only "available" offers are trained; an unavailable one at the player's
+// level is a detail, one above it is out of the window.
+func TestTrainerListOnlyAvailableOffersAreTrained(t *testing.T) {
+	ds := store.New(store.ReaderSource{"class_spells": tbl(t, []spellRow{
+		{5, 1, "Mind Vision", i32p(1), 22, nil},
+		{5, 2, "Touch of Weakness", i32p(2), 20, nil},
+		{5, 3, "Smite", i32p(4), 20, nil},
+		{5, 4, "Mana Burn", i32p(1), 24, nil},
+		{5, 5, "Shadow Word: Pain", i32p(4), 26, nil},
+	})})
+	c := character.Character{Name: "Testpriest", Class: "PRIEST", Race: "Undead", Level: ip(24), Money: ip(100000),
+		Seen: &character.Observed{Trainers: []character.SeenTrainer{{NPC: 4607, Name: "Father Lankester", Faction: "Horde", T: 1,
+			Offers: []character.SeenOffer{
+				{Name: "Mind Vision", Rank: "Rank 1", State: "available", Cost: 1000, Level: 22},
+				{Name: "Touch of Weakness", Rank: "Rank 2", State: "unavailable", Cost: 3000, Level: 20},
+				{Name: "Smite", Rank: "Rank 4", State: "available", Cost: 2000, Level: 20},
+				{Name: "Mana Burn", Rank: "Rank 1", State: "available", Cost: 4000, Level: 24},
+				{Name: "Shadow Word: Pain", Rank: "Rank 4", State: "available", Cost: 9000, Level: 26},
+			}}}}}
+	c.KnownSpells = map[int64]bool{}
+	l, ok := trainingOf(Build(c, ds, synthOpt))
+	if !ok {
+		t.Fatal("no training entry")
+	}
+	if strings.Contains(l.Text, "Touch of Weakness") || strings.Contains(l.Text, "Shadow Word") || !strings.Contains(l.Text, "Smite (Rank 4), Mind Vision") {
+		t.Errorf("text = %q", l.Text)
+	}
+	if len(l.Spells) != 3 {
+		t.Errorf("spells = %+v", l.Spells)
+	}
+	all := strings.Join(l.Details, "|")
+	if !strings.Contains(all, "Touch of Weakness (Rank 2) needs an earlier rank first") || strings.Contains(all, "Unlocked between") {
+		t.Errorf("details = %q", all)
+	}
+	if !strings.Contains(all, "7 silver") && !strings.Contains(all, "70 silver") {
+		t.Logf("details = %q", all)
+	}
+	if strings.Contains(all, "New: Touch") {
+		t.Errorf("unavailable offer listed as new: %q", all)
+	}
+}

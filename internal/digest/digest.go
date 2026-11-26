@@ -260,7 +260,7 @@ func Build(c character.Character, ds store.DataStore, opt Options) Digest {
 		if s.Kind == advice.KindTalent { // milestones lead the NEXT section
 			l := Line{Text: talentNote(c, ds, s.Title), Kind: KindTalent, Points: s.Points}
 			pick, name := nextPick(c, ds)
-			if hedgedTalents(c) { // what is spent is unknown: no rank-1 pick to name
+			if hedgedTalents(c, ds) { // what is spent is unknown: no rank-1 pick to name
 				pick, name = "", ""
 			}
 			l.Details = talentStepContext(c, s, pick, name)
@@ -429,16 +429,16 @@ func nextPick(c character.Character, ds store.DataStore) (phrase, name string) {
 	return "", ""
 }
 
-// hedgedTalents is true when the capture has unspent points but no list of what is spent.
-func hedgedTalents(c character.Character) bool {
+// hedgedTalents is true when the capture has unspent points but no readable list of what is spent.
+func hedgedTalents(c character.Character, ds store.DataStore) bool {
 	t := c.Talents
-	return t != nil && t.Unspent != nil && *t.Unspent > 0 && !advice.TalentsKnown(t)
+	return t != nil && t.Unspent != nil && *t.Unspent > 0 && (!advice.TalentsKnown(t) || talents.Unreadable(c, ds))
 }
 
 // talentLines is the next MaxTalents points of talents.Plan, with the node's spell id when the
 // dataset has one.
 func talentLines(c character.Character, ds store.DataStore) []TalentLine {
-	if ds == nil || hedgedTalents(c) {
+	if ds == nil || hedgedTalents(c, ds) {
 		return nil
 	}
 	var out []TalentLine

@@ -326,7 +326,7 @@ func TalentsKnown(t *character.Talents) bool {
 // ranks already spent, or a hedge when the capture cannot say what is spent.
 func TalentTitle(c character.Character, ds store.DataStore, n int) string {
 	spend := fmt.Sprintf("Spend %d talent %s", n, plural(n, "point", "points"))
-	if !TalentsKnown(c.Talents) {
+	if !TalentsKnown(c.Talents) || talents.Unreadable(c, ds) {
 		return spend + ". Open your talents (N); I can't see what you've already picked yet"
 	}
 	if ds != nil {

@@ -1,10 +1,18 @@
 # Changelog
 
-## 0.7.82
+## 0.7.83
 
 - A missed class or racial spell quest, like Touch of Weakness, now gets a plan step.
 - A trainer rank blocked by that quest says so, not listed as trainable.
 - The training line in the digest names the quest that teaches the spell.
+
+## 0.7.82
+
+- Training lists only what your trainer shows as available.
+- A spell that needs an earlier rank is noted, not listed as new.
+- Gold needed counts only the spells you can train now.
+- Talent picks skip ranks you already took, matched by spell.
+- If it can't tell which talents you took, it says so.
 
 ## 0.7.81
 

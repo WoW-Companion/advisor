@@ -147,6 +147,54 @@ func matchSpec(steps []buildStep, name string) string {
 	return best
 }
 
+// CantSee is the line for a capture whose spent talents cannot be told apart.
+const CantSee = "I can't see which talents you've taken yet."
+
+// nodeSpells maps a talent spell id to its node id (0 when the dataset has no spell ids), and
+// the set of node names, both from the dataset's talent_nodes.
+func nodeSpells(ds store.DataStore) (map[int64]int64, map[string]bool) {
+	spells, names := map[int64]int64{}, map[string]bool{}
+	if ds == nil {
+		return spells, names
+	}
+	rows, err := ds.Filter("talent_nodes", store.Range{Column: "node_id", Min: 1})
+	if err != nil {
+		return spells, names
+	}
+	for _, r := range rows {
+		if sp := num(r["spell_id"]); sp != 0 {
+			spells[sp] = num(r["node_id"])
+		}
+		if n := strings.ToLower(strings.TrimSpace(text(r["name"]))); n != "" {
+			names[n] = true
+		}
+	}
+	return spells, names
+}
+
+// Unreadable is true when the capture says points are spent but some spent class node cannot be
+// told apart: no node id, no name and no spell id the dataset knows. Crediting such a capture would propose rank 1 of a talent that may already be maxed.
+func Unreadable(c character.Character, ds store.DataStore) bool {
+	if c.Talents == nil {
+		return false
+	}
+	bySpell, _ := nodeSpells(ds)
+	for _, tr := range c.Talents.Trees {
+		if tr.IsProfession() {
+			continue
+		}
+		for _, tl := range tr.Talents {
+			if tl.Rank <= 0 || tl.NodeID != nil || strings.TrimSpace(tl.Name) != "" {
+				continue
+			}
+			if tl.SpellID == nil || bySpell[int64(*tl.SpellID)] == 0 {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func nodeName(ds store.DataStore, id int64) string {
 	rows, err := ds.Filter("talent_nodes", store.Range{Column: "node_id", Min: id, Max: id})
 	if err != nil || len(rows) == 0 {
@@ -181,6 +229,10 @@ func Plan(c character.Character, ds store.DataStore, opt Options) (p Result) {
 		return p
 	}
 	p.Available = available(all)
+	if Unreadable(c, ds) {
+		p.Missing = CantSee
+		return p
+	}
 
 	want := strings.TrimSpace(opt.Spec)
 	if want == "" && c.Profile != nil {
@@ -226,12 +278,15 @@ func Plan(c character.Character, ds store.DataStore, opt Options) (p Result) {
 
 	// Credit the captured ranks against the build's steps, in order; what is left is next.
 	ranks, byName := map[int64]int{}, map[string]int{}
+	bySpell, _ := nodeSpells(ds)
 	if c.Talents != nil {
 		for _, t := range c.Talents.Trees {
 			for _, tl := range t.Talents {
 				switch {
 				case tl.NodeID != nil:
 					ranks[int64(*tl.NodeID)] += tl.Rank
+				case tl.SpellID != nil && bySpell[int64(*tl.SpellID)] != 0:
+					ranks[bySpell[int64(*tl.SpellID)]] += tl.Rank
 				default:
 					byName[strings.ToLower(tl.Name)] += tl.Rank
 				}

@@ -189,7 +189,7 @@ func trainerSpells(c character.Character, ds store.DataStore, t *character.SeenT
 				superseded[sup] = true
 			}
 		}
-		if sp.Name == "" || sp.Level > to || sp.Level < from || c.KnownSpells[sp.ID] && sp.ID != 0 || questLocked(c, sp.Name, sp.Rank, sp.Blocked) {
+		if sp.Name == "" || sp.Level > to || sp.Level < from || c.KnownSpells[sp.ID] && sp.ID != 0 || !sp.Blocked && questLocked(c, sp.Name, sp.Rank, false) {
 			continue
 		}
 		key := fmt.Sprintf("%s|%d", strings.ToLower(sp.Name), sp.Rank)
