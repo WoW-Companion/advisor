@@ -105,3 +105,24 @@ func TestViolation(t *testing.T) {
 		}
 	}
 }
+
+func TestFragmentLengthRule(t *testing.T) {
+	ok := "- " + strings.Repeat("a", 100) + "\n"
+	long := "- " + strings.Repeat("a", 101) + "\n"
+	root := fixture(t)
+	write(t, root, "changes/ADV-1.md", ok)
+	if err := checkFragments(root); err != nil {
+		t.Errorf("100 characters refused: %v", err)
+	}
+	write(t, root, "changes/ADV-2.md", long)
+	err := checkFragments(root)
+	if err == nil || !strings.Contains(err.Error(), "ADV-2.md") || strings.Contains(err.Error(), "ADV-1.md") {
+		t.Errorf("101 characters: %v", err)
+	}
+	if _, err := prepare(root, ""); err == nil || !strings.Contains(err.Error(), "ADV-2.md") {
+		t.Errorf("prepare accepted an over-long line: %v", err)
+	}
+	if read(t, root, "VERSION") != "0.7.9\n" {
+		t.Error("refusal changed VERSION")
+	}
+}

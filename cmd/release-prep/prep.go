@@ -9,6 +9,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/WoW-Companion/advisor/internal/whatsnew"
 )
 
 // versionFiles are the files whose version must equal VERSION, each with the pattern that finds it.
@@ -69,6 +71,9 @@ func prepare(root, bump string) (string, error) {
 		b, err := os.ReadFile(n)
 		if err != nil {
 			return "", err
+		}
+		if p := whatsnew.LintFragment("changes/"+filepath.Base(n), string(b)); len(p) > 0 {
+			return "", fmt.Errorf("a fragment breaks the note rule (see docs/releasing.md):\n  %s", strings.Join(p, "\n  "))
 		}
 		got := false
 		for _, l := range strings.Split(strings.ReplaceAll(string(b), "\r", ""), "\n") {
@@ -203,6 +208,27 @@ func checkBranch(dir, base string) error {
 	}
 	if len(bad) > 0 {
 		return fmt.Errorf("a normal change must not edit VERSION or CHANGELOG.md: use changes/<ID>.md; `make release-prep` does the release\n  %s", strings.Join(bad, "\n  "))
+	}
+	return nil
+}
+
+// checkFragments fails when a line of any changes/*.md under root breaks the note rule, naming the file.
+func checkFragments(root string) error {
+	names, _ := filepath.Glob(filepath.Join(root, "changes", "*.md"))
+	sort.Strings(names)
+	var probs []string
+	for _, n := range names {
+		if filepath.Base(n) == "README.md" {
+			continue
+		}
+		b, err := os.ReadFile(n)
+		if err != nil {
+			return err
+		}
+		probs = append(probs, whatsnew.LintFragment("changes/"+filepath.Base(n), string(b))...)
+	}
+	if len(probs) > 0 {
+		return fmt.Errorf("a fragment breaks the note rule (see docs/releasing.md):\n  %s", strings.Join(probs, "\n  "))
 	}
 	return nil
 }

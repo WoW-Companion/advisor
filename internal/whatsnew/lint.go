@@ -35,23 +35,40 @@ func Lint(md string) []string {
 		if !in || !strings.HasPrefix(line, "- ") {
 			continue
 		}
-		b := strings.TrimSpace(line[2:])
-		add := func(why string) { probs = append(probs, fmt.Sprintf("%s: %s: %s", ver, why, b)) }
-		if n := len([]rune(b)); n > MaxBulletLen {
-			add(fmt.Sprintf("%d characters, over %d", n, MaxBulletLen))
+		probs = append(probs, lintBullet(ver, strings.TrimSpace(line[2:]))...)
+	}
+	return probs
+}
+
+// LintFragment applies the same rules to the bullets of one change fragment (changes/<ID>.md), so an
+// over-long or developer-worded line fails in its own change. Each problem is "<name>: <why>: <bullet>".
+func LintFragment(name, md string) []string {
+	var probs []string
+	for _, line := range strings.Split(strings.ReplaceAll(md, "\r", ""), "\n") {
+		if strings.HasPrefix(line, "- ") {
+			probs = append(probs, lintBullet(name, strings.TrimSpace(line[2:]))...)
 		}
-		if missionID.MatchString(b) {
-			add("mission id")
-		}
-		if fileName.MatchString(b) {
-			add("file name")
-		}
-		if devWords.MatchString(b) {
-			add("developer word")
-		}
-		if odds.MatchString(b) {
-			add("numbers or odds")
-		}
+	}
+	return probs
+}
+
+func lintBullet(ver, b string) []string {
+	var probs []string
+	add := func(why string) { probs = append(probs, fmt.Sprintf("%s: %s: %s", ver, why, b)) }
+	if n := len([]rune(b)); n > MaxBulletLen {
+		add(fmt.Sprintf("%d characters, over %d", n, MaxBulletLen))
+	}
+	if missionID.MatchString(b) {
+		add("mission id")
+	}
+	if fileName.MatchString(b) {
+		add("file name")
+	}
+	if devWords.MatchString(b) {
+		add("developer word")
+	}
+	if odds.MatchString(b) {
+		add("numbers or odds")
 	}
 	return probs
 }
