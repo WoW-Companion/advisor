@@ -1,16 +1,22 @@
 PLATFORMS := windows/amd64 windows/arm64 darwin/amd64 darwin/arm64 linux/amd64 linux/arm64
 
-.PHONY: verify dist cross-check bench integration advice-benchmark offline-benchmark
+.PHONY: verify release-prep dist cross-check bench integration advice-benchmark offline-benchmark
 verify:
 	@out="$$(gofmt -l .)"; if [ -n "$$out" ]; then echo "gofmt needed on:"; echo "$$out"; exit 1; fi
 	go vet ./...
 	go test ./...
+	go run ./cmd/release-prep -check
 	@if command -v cargo >/dev/null 2>&1; then \
 		echo "cargo check --locked (overlay/src-tauri)"; \
 		(cd overlay/src-tauri && cargo check --locked) || exit 1; \
 	else \
 		echo "verify: cargo not found; skipping the overlay Rust compile check"; \
 	fi
+
+# Bundles changes/*.md into a new CHANGELOG section and bumps VERSION and the overlay version fields
+# (BUMP=minor for a minor release). Run it once, as the last commit of a release.
+release-prep:
+	go run ./cmd/release-prep
 
 # The release archives and SHA256SUMS for every platform in dist/ (git-ignored): the same script the
 # release workflow runs. VERSION and COMMIT override the VERSION file and git's HEAD.

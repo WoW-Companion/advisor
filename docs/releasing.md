@@ -102,3 +102,16 @@ release before it:
 
 The addon notice says whether the game needs `/reload` (the release only changes files that are already
 installed) or a full restart (the release adds files: the game reads an addon's file list only when it starts).
+
+## Change fragments and release-prep
+
+A normal change never edits `VERSION`, `CHANGELOG.md`, `overlay/src-tauri/tauri.conf.json`, `Cargo.toml` or
+`Cargo.lock`. It adds `changes/<MISSION-ID>.md` instead: the player-facing bullet lines (`- `, one change
+each, under the length rule above). Two changes then never conflict, and a release is batched when you
+choose.
+
+To release, run `make release-prep` (`BUMP=minor` for a minor version) as its own last commit. It reads
+`changes/*.md` in file-name order, writes one `## <next version>` section at the top of `CHANGELOG.md`, bumps
+`VERSION` and the overlay version fields, and deletes the fragments. It refuses when there are none. A
+release-prep commit changes only those files; `make verify` runs `go run ./cmd/release-prep -check`, which
+fails any other commit on a branch (since it left the base branch) that touches `VERSION` or `CHANGELOG.md`.

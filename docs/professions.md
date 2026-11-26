@@ -157,3 +157,7 @@ same rows is how closely the advice agrees with the game data and the Forever gu
 that stay differ are choices, not errors: the planner picks the cheapest recipe per skill point where a guide picks
 the easiest, a stretch whose patterns have no vendor, quest or trainer in the dataset is a gap that names the
 patterns and sends you to the Auction House, and the dataset's trainer list lacks some trainer recipes.
+
+## Skill-up routes
+
+When the game data has a `profession_routes` table, skill-up advice follows it: the step that covers your skill and the next two, with crafts scaled to your skill inside the step, materials counted over bags and bank, the profession's own trainer for your faction (nearest first), and the tool (rod, pick, knife) mentioned only when missing. Without a route the path is estimated from recipe colours and vendor prices.
