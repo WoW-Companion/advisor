@@ -17,7 +17,9 @@ func main() {
 	flag.Parse()
 	var err error
 	if *check {
-		err = checkBranch(".", *base)
+		if err = checkFragments("."); err == nil {
+			err = checkBranch(".", *base)
+		}
 	} else {
 		var v string
 		if v, err = prepare(".", *bump); err == nil {
