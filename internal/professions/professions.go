@@ -31,6 +31,7 @@ const KeepWindow = 50
 const (
 	Orange  = "orange"  // below the yellow threshold: always a skill-up
 	Yellow  = "yellow"  // from the yellow threshold up to grey: still a skill-up
+	Green   = "green"   // halfway from yellow to grey: a skill-up one craft in four (a skill-up path says so)
 	Unknown = "unknown" // the dataset has no thresholds for the recipe
 )
 
@@ -170,6 +171,17 @@ func difficulty(r Recipe, skill int) string {
 		return Yellow
 	}
 	return ""
+}
+
+// colourAt is the colour of the recipe at the skill as the game shows it: orange below the yellow skill, yellow up to
+// halfway to grey, green from there to the grey skill, "" for grey; Unknown when the dataset has no thresholds.
+// difficulty folds green into Yellow, which plans keep as one band of recipes that still give skill.
+func colourAt(r Recipe, skill int) string {
+	d := difficulty(r, skill)
+	if d == Yellow && skill >= greenFrom(r) {
+		return Green
+	}
+	return d
 }
 
 // estimateMargin is how far below its yellow skill an estimated recipe may be scheduled: an orange

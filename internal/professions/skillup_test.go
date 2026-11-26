@@ -75,3 +75,30 @@ func TestUnnamedTrainerShowsItsID(t *testing.T) {
 		t.Errorf("trainer %q", got)
 	}
 }
+
+// A recipe halfway from yellow to grey is green, not yellow, and its rate is worded as one skill-up in four crafts.
+func TestColourAtSeparatesGreenFromYellow(t *testing.T) {
+	r := Recipe{YellowSkill: ip(15), GreySkill: ip(55)} // green from 35
+	for _, tc := range []struct {
+		skill int
+		want  string
+		per   string
+	}{
+		{14, Orange, "about 1 point per craft"},
+		{15, Yellow, "about 3 points per 4 crafts"},
+		{34, Yellow, "about 3 points per 4 crafts"},
+		{35, Green, "about 1 point per 4 crafts"},
+		{54, Green, "about 1 point per 4 crafts"},
+		{55, "", "about 1 point per craft"},
+	} {
+		if got := colourAt(r, tc.skill); got != tc.want {
+			t.Errorf("colourAt(skill %d) = %q, want %q", tc.skill, got, tc.want)
+		}
+		if tc.want != "" && SkillPerCraft(tc.want) != tc.per {
+			t.Errorf("SkillPerCraft(%q) = %q, want %q", tc.want, SkillPerCraft(tc.want), tc.per)
+		}
+	}
+	if colourAt(Recipe{}, 10) != Unknown {
+		t.Error("a recipe with no thresholds has no colour")
+	}
+}

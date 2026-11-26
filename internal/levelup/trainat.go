@@ -56,6 +56,9 @@ func TrainAt(c character.Character, qx *questie.Index) (TrainPlace, bool) {
 		at = questie.Where{MapID: p.MapID, Zone: p.Zone, X: p.X, Y: p.Y}
 		zone = p.Zone
 	}
+	if zone == "" && c.Location != nil {
+		zone = c.Location.Zone // the capture names the zone but gave no position
+	}
 	pl := TrainPlace{City: city, Here: strings.EqualFold(zone, city)}
 	if t, ok := SeenClassTrainer(c); ok && (strings.EqualFold(t.Zone, city) || zone != "" && strings.EqualFold(t.Zone, zone)) {
 		pl.City, pl.Trainer, pl.Seen = t.Zone, &t, true

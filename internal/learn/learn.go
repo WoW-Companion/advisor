@@ -351,7 +351,7 @@ func (f *finder) vendorWays(item int64, name string) []Way {
 			continue
 		}
 		w := Way{Kind: Vendor, Name: str(n["name"]), Item: name, id: id}
-		if p := i64(r["price_copper"]); p > 0 {
+		if p := vendors.BasePrice(f.ds, item, i64(r["price_copper"])); p > 0 {
 			w.Price = vendors.Money(p)
 		}
 		cont, qf := f.place(&w, n, id)

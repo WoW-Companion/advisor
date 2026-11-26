@@ -82,6 +82,22 @@ func Money(c int64) string {
 	return strings.Join(p, " ")
 }
 
+// BasePrice is the price a player with no standing pays for an item whose vendor row lists the price. A
+// reporter's price can be lower than the item's buy price because of a reputation discount the reporter had
+// (a tenth off at Honored), so the buy price is used when it is higher. An unknown listed price (0 or less)
+// stays unknown.
+func BasePrice(ds store.DataStore, itemID, listed int64) int64 {
+	if listed <= 0 || ds == nil {
+		return listed
+	}
+	if it, err := ds.Get("items", itemID); err == nil {
+		if base := i64(it["buy_price"]); base > listed {
+			return base
+		}
+	}
+	return listed
+}
+
 func i64(v any) int64 { n, _ := v.(int64); return n }
 
 func str(v any) string { s, _ := v.(string); return s }
@@ -100,7 +116,7 @@ func Best(ds store.DataStore, itemID int64) (Offer, bool) {
 	var best Offer
 	found := false
 	for _, r := range rows {
-		o := Offer{NPCID: i64(r["npc_id"]), PriceCopper: i64(r["price_copper"]), Source: Source}
+		o := Offer{NPCID: i64(r["npc_id"]), PriceCopper: BasePrice(ds, itemID, i64(r["price_copper"])), Source: Source}
 		if b, ok := r["limited"].(bool); ok {
 			o.Limited = b
 		} else {

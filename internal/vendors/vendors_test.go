@@ -1,10 +1,28 @@
 package vendors
 
 import (
+	"bytes"
 	"testing"
 
+	"github.com/parquet-go/parquet-go"
+
 	"github.com/WoW-Companion/advisor/internal/character"
+	"github.com/WoW-Companion/advisor/internal/store"
 )
+
+type itemRow struct {
+	ID       int32 `parquet:"id"`
+	BuyPrice int32 `parquet:"buy_price"`
+}
+
+func itemsTable(t *testing.T, rows []itemRow) store.SizedReaderAt {
+	t.Helper()
+	var buf bytes.Buffer
+	if err := parquet.Write(&buf, rows); err != nil {
+		t.Fatal(err)
+	}
+	return store.SizedReaderAt{ReaderAt: bytes.NewReader(buf.Bytes()), Size: int64(buf.Len())}
+}
 
 func TestMoneyAndCheap(t *testing.T) {
 	for _, tc := range []struct {
@@ -45,5 +63,24 @@ func TestSeenVendorBeatsTheDatasetAndIsMarked(t *testing.T) {
 	}
 	if _, ok := BestFor(character.Character{}, nil, 5); ok {
 		t.Error("an offer from nowhere")
+	}
+}
+
+// A vendor row's price can carry the reporter's reputation discount: a player with no standing pays the item's buy price.
+func TestBasePriceRaisesADiscountedPriceToTheBuyPrice(t *testing.T) {
+	ds := store.New(store.ReaderSource{"items": itemsTable(t, []itemRow{{7, 300}, {8, 100}})})
+	for _, tc := range []struct{ item, listed, want int64 }{
+		{7, 270, 300}, // a tenth off at Honored: the base price is 300
+		{7, 300, 300},
+		{7, 0, 0}, // an unknown price stays unknown
+		{8, 120, 120},
+		{9, 50, 50}, // the item has no row
+	} {
+		if got := BasePrice(ds, tc.item, tc.listed); got != tc.want {
+			t.Errorf("BasePrice(item %d, listed %d) = %d, want %d", tc.item, tc.listed, got, tc.want)
+		}
+	}
+	if got := BasePrice(nil, 7, 270); got != 270 {
+		t.Errorf("without a dataset BasePrice = %d, want 270", got)
 	}
 }
