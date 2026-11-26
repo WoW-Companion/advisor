@@ -202,6 +202,9 @@ func hasCraft(r Result) bool {
 // Hiking Boots; likely better)".
 func (u BagUpgrade) Line() string {
 	s := wording.SlotName(u.Slot, u.Item.Slot) + ": " + u.Name + ", in your bags; equip it now"
+	if u.Need != nil {
+		s = wording.SlotName(u.Slot, u.Item.Slot) + ": " + u.Name + ", in your bags; " + u.Need.Line()
+	}
 	var more []string
 	if u.Replaces != "" {
 		more = append(more, "replaces "+u.Replaces)

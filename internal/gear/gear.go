@@ -142,6 +142,8 @@ type Item struct {
 	Estimated     bool
 	Quality       int
 	Slot          int
+	Class         int // the items table's class_id and subclass_id (2 is a weapon)
+	Subclass      int
 	Bonding       int
 	StatTypes     []int64
 	// Stats is the amount of each stat (type id to amount) from the dataset's stat values; nil when the
@@ -177,6 +179,8 @@ type Candidate struct {
 	Vendor *vendors.Offer `json:"vendor,omitempty"`
 	// Craft is whether the character's skill can make the item; nil when no recipe makes it.
 	Craft *Craft `json:"craft,omitempty"`
+	// Need is the weapon skill the item needs and the character can learn but has not; nil otherwise.
+	Need *SkillNeed `json:"need,omitempty"`
 }
 
 // Options narrows a search. The zero value searches every slot and keeps every candidate.
@@ -211,7 +215,7 @@ func i64(v any) int64 { n, _ := v.(int64); return n }
 func itemOf(row store.Row) Item {
 	it := Item{
 		ID: i64(row["id"]), ItemLevel: int(i64(row["item_level"])), RequiredLevel: int(i64(row["required_level"])),
-		Quality: int(i64(row["quality"])), Slot: int(i64(row["slot"])), Bonding: int(i64(row["bonding"])),
+		Quality: int(i64(row["quality"])), Slot: int(i64(row["slot"])), Class: int(i64(row["class_id"])), Subclass: int(i64(row["subclass_id"])), Bonding: int(i64(row["bonding"])),
 		StatsKnown: row["stats_status"] == "known",
 	}
 	it.Name, _ = row["name"].(string)
@@ -280,6 +284,7 @@ func Find(c character.Character, ds store.DataStore, group string, opt Options) 
 	}
 
 	level := *c.Level
+	wsk := LoadWeaponSkills(c, ds)
 	for _, b := range BagUpgrades(c, ds, group) {
 		if opt.Slot == "" || opt.Slot == b.Slot {
 			res.Bags = append(res.Bags, b)
@@ -300,6 +305,9 @@ func Find(c character.Character, ds store.DataStore, group string, opt Options) 
 		if !rl.canUse(int8(i64(row["class_id"])), int8(i64(row["subclass_id"])), int8(it.Slot), level) ||
 			!allowsClass(int32(i64(row["allowable_class_mask"])), rl.ID) {
 			continue
+		}
+		if usable, _ := wsk.ItemSkill(c, it.Class, it.Subclass); !usable {
+			continue // the class can never learn the weapon's skill
 		}
 		// A required level of 0 is what the client table holds for many high-level items (the real
 		// dataset has 2,330 equippable ones, up to item level 83), so 0 is "unknown", not "none":
@@ -337,6 +345,7 @@ func Find(c character.Character, ds store.DataStore, group string, opt Options) 
 			cands = cands[:opt.Limit]
 		}
 		for i := range cands {
+			_, cands[i].Need = wsk.ItemSkill(c, cands[i].Item.Class, cands[i].Item.Subclass)
 			if !opt.NoSources {
 				cands[i].Sources = sources(ds, cands[i].Item.ID, level)
 				if o, ok := vendors.Best(ds, cands[i].Item.ID); ok {

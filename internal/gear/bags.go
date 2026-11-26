@@ -23,6 +23,8 @@ type BagUpgrade struct {
 	Delta  float64
 	// Replaces is the worn item's name; empty for an empty slot.
 	Replaces string
+	// Need is the weapon skill the item needs and the character can learn but has not; nil otherwise.
+	Need *SkillNeed
 }
 
 // equipLocs maps the addon's equipLoc strings to inventory types.
@@ -93,6 +95,7 @@ func BagUpgrades(c character.Character, ds store.DataStore, group string) []BagU
 	} else if _, ww, _, ok := Weights(c.Class, group); ok {
 		w = ww
 	}
+	wsk := LoadWeaponSkills(c, ds)
 	var lo loadout
 	if ds != nil {
 		lo = loadoutOf(c, ds, group)
@@ -112,6 +115,10 @@ func BagUpgrades(c character.Character, ds store.DataStore, group string) []BagU
 		it, ok := bagItem(st, ds, rl, level)
 		if !ok || it.ReqLevel > level {
 			continue
+		}
+		usable, need := wsk.ItemSkill(c, it.Class, it.Subclass)
+		if !usable {
+			continue // the class can never learn the weapon's skill
 		}
 		name := it.Name
 		if name == "" {
@@ -134,7 +141,7 @@ func BagUpgrades(c character.Character, ds store.DataStore, group string) []BagU
 			if worn && cur.ID == it.ID {
 				continue
 			}
-			up := BagUpgrade{Slot: slot, Item: it, Name: name, Empty: !worn, Likely: true}
+			up := BagUpgrade{Slot: slot, Item: it, Name: name, Empty: !worn, Likely: true, Need: need}
 			if worn {
 				up.Replaces = c.Equipment[slot].Name
 				if up.Replaces == "" {
