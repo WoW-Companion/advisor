@@ -83,11 +83,32 @@ func (l Line) writeFields(b *strings.Builder) {
 			if sp.Rank > 0 {
 				fmt.Fprintf(b, ", rank = %d", sp.Rank)
 			}
-			fmt.Fprintf(b, ", new = %t }", sp.New)
+			fmt.Fprintf(b, ", new = %t", sp.New)
+			writeOffer(b, sp)
+			b.WriteString(" }")
+		}
+		b.WriteString(" }")
+	}
+	if len(l.Ahead) > 0 {
+		b.WriteString(", ahead = { ")
+		for i, sp := range l.Ahead {
+			if i > 0 {
+				b.WriteString(", ")
+			}
+			fmt.Fprintf(b, "{ id = %d, name = %s", sp.ID, Quote(sp.Name))
+			if sp.Rank > 0 {
+				fmt.Fprintf(b, ", rank = %d", sp.Rank)
+			}
+			fmt.Fprintf(b, ", new = %t", sp.New)
+			writeOffer(b, sp)
+			b.WriteString(" }")
 		}
 		b.WriteString(" }")
 	}
 	if l.HasXY {
+		if l.Map > 0 {
+			fmt.Fprintf(b, ", map = %d", l.Map)
+		}
 		fmt.Fprintf(b, ", x = %.1f, y = %.1f", l.X, l.Y)
 	}
 	writeContext(b, l.Details)
@@ -224,4 +245,24 @@ func (e Envelope) Lua() string {
 	}
 	b.WriteString("  },\n}\n")
 	return b.String()
+}
+
+// writeOffer renders the schema 1.10 fields of a training offer: cost, state, requires,
+// requiresQuest and level, each left out when empty.
+func writeOffer(b *strings.Builder, sp TrainSpell) {
+	if sp.Cost > 0 {
+		fmt.Fprintf(b, ", cost = %d", sp.Cost)
+	}
+	if sp.State != "" {
+		fmt.Fprintf(b, ", state = %s", Quote(sp.State))
+	}
+	if sp.Requires > 0 {
+		fmt.Fprintf(b, ", requires = %d", sp.Requires)
+	}
+	if sp.RequiresQuest > 0 {
+		fmt.Fprintf(b, ", requiresQuest = %d", sp.RequiresQuest)
+	}
+	if sp.Level > 0 {
+		fmt.Fprintf(b, ", level = %d", sp.Level)
+	}
 }

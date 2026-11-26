@@ -33,6 +33,48 @@ type TrainSpell struct {
 	Rank int   // 0 when the ability has no rank
 	New  bool  // false when it upgrades a known rank
 	Cost int64 // copper; 0 when not known
+	// Schema 1.10. State is "available", "blocked" (the trainer will not teach it until Requires is
+	// learned) or "later" (above the character's level). Requires is the prerequisite spell id and
+	// RequiresQuest the quest that teaches it, 0 when none; Level is the level it is taught at.
+	State         string
+	Requires      int
+	RequiresQuest int
+	Level         int
+}
+
+// Offer states of a training spell (schema 1.10).
+const (
+	StateAvailable = "available"
+	StateBlocked   = "blocked"
+	StateLater     = "later"
+)
+
+// MaxTrainAhead caps the blocked and later offers of a training entry.
+const MaxTrainAhead = 8
+
+func trainSpell(x levelup.Spell, state string) TrainSpell {
+	return TrainSpell{ID: int(x.ID), Name: x.Name, Rank: x.Rank, New: x.New, Cost: x.Cost, State: state,
+		Requires: int(x.Requires), RequiresQuest: x.RequiresQuest, Level: x.Level}
+}
+
+// aheadOffers is the blocked and later offers: those the trainer showed as unavailable, then the
+// dataset's blocked and later ranks, one per spell id.
+func aheadOffers(c character.Character, ds store.DataStore, blocked []levelup.Spell) []TrainSpell {
+	var out []TrainSpell
+	seen := map[int]bool{}
+	add := func(x levelup.Spell, state string) {
+		if t := trainSpell(x, state); t.ID != 0 && !seen[t.ID] && len(out) < MaxTrainAhead {
+			seen[t.ID] = true
+			out = append(out, t)
+		}
+	}
+	for _, b := range blocked {
+		add(b, StateBlocked)
+	}
+	for _, a := range levelup.Ahead(c, ds) {
+		add(a, a.State)
+	}
+	return out
 }
 
 // classIDs maps the capture's class token to the dataset's class_id.
@@ -81,12 +123,14 @@ func trainingLine(c character.Character, ds store.DataStore, opt Options) (Line,
 	}
 	var rs []row
 	for _, x := range sp {
-		rs = append(rs, row{TrainSpell{ID: int(x.ID), Name: x.Name, Rank: x.Rank, New: x.New, Cost: x.Cost}, x.Level})
+		rs = append(rs, row{trainSpell(x, StateAvailable), x.Level})
 	}
 	qb := levelup.QuestBlocked(c, ds, opt.Questie)
 	if len(rs) == 0 && len(qb) > 0 { // nothing to train, but a quest-taught spell is missing
 		l := Line{Kind: KindTraining, Level: level, Text: clip("Quest-taught spell: " + qb[0]), Details: finishDetails(qb)}
 		l.Asks, l.Ref = trainingAsks(nil), trainingRef(level)
+		l.Ahead = aheadOffers(c, ds, blocked)
+		l.place(c, opt)
 		return l, true
 	}
 	if len(rs) == 0 {
@@ -122,15 +166,8 @@ func trainingLine(c character.Character, ds store.DataStore, opt Options) (Line,
 	} else if known { // the player has untrained spells now: the NEXT bar says it is time to visit the trainer
 		l.Text = clip("New spells to train: " + strings.Join(names[:min(2, len(names))], ", "))
 	}
-	l.trainer(c)
-	place, hasPlace := levelup.TrainAt(c, opt.Questie)
-	if hasPlace { // the one trainer choice: the panel, the NEXT line and the facts all follow it
-		l.NPC, l.X, l.Y, l.HasXY = "", 0, 0, false
-		l.Zone = place.City
-		if t := place.Trainer; t != nil {
-			l.NPC, l.Zone, l.X, l.Y, l.HasXY = t.Name, t.Zone, t.X, t.Y, true
-		}
-	}
+	l.Ahead = aheadOffers(c, ds, blocked)
+	place, hasPlace := l.place(c, opt)
 	if hasPlace {
 		l.trainAt = place.Line(c.Class)
 		if known { // the NEXT bar names the same place the card does
@@ -145,6 +182,21 @@ func trainingLine(c character.Character, ds store.DataStore, opt Options) (Line,
 	l.Asks, l.Ref = trainingAsks(l.Spells), trainingRef(level)
 	l.Why = trainingWhy(l.Spells)
 	return l, true
+}
+
+// place sets the entry's trainer from the capture and the chosen train-at place (the one trainer
+// choice: the panel, the NEXT line and the facts all follow it).
+func (l *Line) place(c character.Character, opt Options) (levelup.TrainPlace, bool) {
+	l.trainer(c)
+	place, hasPlace := levelup.TrainAt(c, opt.Questie)
+	if hasPlace {
+		l.NPC, l.X, l.Y, l.HasXY, l.Map = "", 0, 0, false, 0
+		l.Zone = place.City
+		if t := place.Trainer; t != nil {
+			l.NPC, l.Zone, l.X, l.Y, l.HasXY, l.Map = t.Name, t.Zone, t.X, t.Y, true, t.Map
+		}
+	}
+	return place, hasPlace
 }
 
 func spellLabel(s TrainSpell) string {
@@ -180,6 +232,9 @@ func (l *Line) trainer(c character.Character) {
 	l.NPC, l.Zone = best.Name, best.Zone
 	if best.X != nil && best.Y != nil {
 		l.X, l.Y, l.HasXY = *best.X, *best.Y, true
+	}
+	if best.MapID != nil {
+		l.Map = *best.MapID
 	}
 }
 

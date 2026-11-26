@@ -24,7 +24,7 @@ import (
 
 // Schema is the version of one character's entry; EnvelopeSchema is the file's.
 const (
-	Schema         = "1.9"
+	Schema         = "1.10"
 	EnvelopeSchema = "2.0"
 )
 
@@ -107,8 +107,12 @@ type Line struct {
 	// Unlocks is on a turn-in line: the follow-ups turning it in unlocks (not written to Digest.lua).
 	Unlocks []string
 	Spells  []TrainSpell // training: the abilities and ranks
-	X, Y    float64      // training: the trainer's map percent, when HasXY
-	HasXY   bool
+	// Schema 1.10, training: Ahead is the blocked and later offers (State, Requires, RequiresQuest, Level), Map the
+	// trainer's uiMapID with X, Y its map percent, when HasXY.
+	Ahead []TrainSpell
+	Map   int
+	X, Y  float64 // training: the trainer's map percent, when HasXY
+	HasXY bool
 }
 
 // StatsEntry is the optional stats entry (schema 1.7): the stat check in plain words.

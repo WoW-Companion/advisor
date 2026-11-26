@@ -12,8 +12,8 @@ WoWCompanionDigest = {
   schema = "2.0",
   generated = 1795271211,        -- unix seconds, when the file was written
   characters = {
-    ["Testchar"] = { schema = "1.9", ... },   -- exactly the 1.9 digest below, for that character
-    ["Otherchar"] = { schema = "1.9", ... },
+    ["Testchar"] = { schema = "1.10", ... },   -- exactly the 1.10 digest below, for that character
+    ["Otherchar"] = { schema = "1.10", ... },
   },
 }
 ```
@@ -83,6 +83,21 @@ known.
 | `level` | the character's level |
 | `spells` | `{ { id = 6546, name = "Rend", rank = 2, new = false }, ... }` at most 8; `rank` only when the ability has one; `new = false` is an upgrade of a known rank |
 | `npc`, `zone`, `x`, `y` | the class trainer, only when the capture holds an NPC named "<Class> Trainer" (the one in the character's zone first); `x`/`y` are map percent when captured. A trainer is never guessed, so these are usually absent |
+
+**Training offers and the trainer's place (schema 1.10).** Every `spells` entry also carries `state = "available"`,
+`level` (the level it is taught at) and, when known, `cost` (copper). A second list, `ahead`, holds the offers the
+trainer cannot teach yet, in the same shape with `state = "blocked"` (at or below the character's level, but a
+prerequisite is missing) or `state = "later"` (up to 6 levels above the character), at most 8. Offers carry:
+
+| Field | Meaning |
+| ----- | ------- |
+| `requires` | the prerequisite spell id, usually the previous rank (the dataset's `superseded_spell_id`); absent when none or already known |
+| `requiresQuest` | the quest id that teaches the prerequisite (for example 5658 for Touch of Weakness Rank 1); absent when none |
+| `map` | the trainer's uiMapID, beside `x`/`y`; present only when known |
+
+A reader can show an `ahead` offer as "train it now" the moment its `requires` spell is known (`IsSpellKnown`) and
+the character's level reaches its `level`. The training line is also written when only `ahead` offers exist. Older
+addons ignore the unknown fields.
 
 Every `next_quests` line (except notes), `upgrades` line, `dungeons` entry, `talents` entry and the training line
 also has:

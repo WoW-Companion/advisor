@@ -83,7 +83,7 @@ func cityTrainer(c character.Character, qx *questie.Index, city string, at quest
 			continue
 		}
 		if !found {
-			best, found = Trainer{t.Name, p.Zone, p.X, p.Y}, true
+			best, found = Trainer{t.Name, p.Zone, p.X, p.Y, p.Map}, true
 		}
 	}
 	return best, found
