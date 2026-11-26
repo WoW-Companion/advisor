@@ -95,6 +95,7 @@ func Spells(c character.Character, ds store.DataStore, from, to int) []Spell {
 		}
 	}
 	costs := costsOf(ds, lo, hi)
+	talents := talentNames(ds, ClassIDs[strings.ToUpper(c.Class)])
 	var out []Spell
 	seen := map[int64]bool{}
 	for _, r := range rows {
@@ -105,7 +106,7 @@ func Spells(c character.Character, ds store.DataStore, from, to int) []Spell {
 			continue
 		}
 		rk, _ := r["rank"].(int64)
-		if id == 0 || name == "" || seen[id] || superseded[id] || c.KnownSpells[id] || quest[id].Quest != "" || isRuneAbility(id, lv) || questLocked(c, name, int(rk), false) {
+		if id == 0 || name == "" || seen[id] || superseded[id] || c.KnownSpells[id] || quest[id].Quest != "" || isRuneAbility(id, lv) || isTalentEffect(talents, name, rk) || questLocked(c, name, int(rk), false) {
 			continue
 		}
 		seen[id] = true
@@ -116,6 +117,44 @@ func Spells(c character.Character, ds store.DataStore, from, to int) []Spell {
 	out = dedupeByName(out)
 	sortSpells(out)
 	return out
+}
+
+// talentNames is the lower-cased names of the talents of the class's trees (talent_trees by class_id,
+// talent_nodes by tree); nil when the dataset has neither table. A class spell with no rank that
+// carries a talent's name is that talent or its effect, which a talent point buys and no class
+// trainer teaches (the dataset's class_spells lists them with the abilities).
+func talentNames(ds store.DataStore, classID int64) map[string]bool {
+	if ds == nil || classID == 0 {
+		return nil
+	}
+	trees, err := ds.Filter("talent_trees", store.Range{Column: "class_id", Min: classID, Max: classID})
+	if err != nil || len(trees) == 0 {
+		return nil
+	}
+	out := map[string]bool{}
+	done := map[int64]bool{} // a tree has one row per talent group
+	for _, t := range trees {
+		id, _ := t["tree_id"].(int64)
+		if done[id] {
+			continue
+		}
+		done[id] = true
+		nodes, err := ds.Filter("talent_nodes", store.Range{Column: "tree_id", Min: id, Max: id})
+		if err != nil {
+			continue
+		}
+		for _, n := range nodes {
+			if name, _ := n["name"].(string); name != "" {
+				out[strings.ToLower(strings.TrimSpace(name))] = true
+			}
+		}
+	}
+	return out
+}
+
+// isTalentEffect reports a rank-less class spell named like one of the class's talents.
+func isTalentEffect(talents map[string]bool, name string, rank int64) bool {
+	return rank == 0 && talents[strings.ToLower(strings.TrimSpace(name))]
 }
 
 // isRuneAbility reports a class spell the dataset lists at level 1 with a high spell id: an engraving
@@ -680,6 +719,7 @@ func Ahead(c character.Character, ds store.DataStore) []Spell {
 		}
 	}
 	costs := costsOf(ds, lo, hi)
+	talents := talentNames(ds, ClassIDs[strings.ToUpper(c.Class)])
 	var out []Spell
 	seen := map[int64]bool{}
 	for _, r := range rows {
@@ -691,7 +731,7 @@ func Ahead(c character.Character, ds store.DataStore) []Spell {
 		if t, ok := r["trained"].(bool); ok && !t {
 			continue
 		}
-		if id == 0 || name == "" || seen[id] || c.KnownSpells[id] || quest[id].Quest != "" || isRuneAbility(id, lv) {
+		if id == 0 || name == "" || seen[id] || c.KnownSpells[id] || quest[id].Quest != "" || isRuneAbility(id, lv) || isTalentEffect(talents, name, rk) {
 			continue
 		}
 		s := Spell{ID: id, Name: name, Rank: int(rk), Level: int(lv), New: sup == 0, Cost: costs[id], Usually: true}

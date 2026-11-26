@@ -316,10 +316,6 @@ func Find(c character.Character, ds store.DataStore, group string, opt Options) 
 		if itemdata.Unobtainable(it.Name) || it.ItemLevel <= 0 || it.Quality <= 0 || it.Quality == qualityArtifact || unequippableBonding(it.Bonding) {
 			continue
 		}
-		if !rl.canUse(int8(i64(row["class_id"])), int8(i64(row["subclass_id"])), int8(it.Slot), level) ||
-			!allowsClass(int32(i64(row["allowable_class_mask"])), rl.ID) {
-			continue
-		}
 		if usable, _ := wsk.ItemSkill(c, it.Class, it.Subclass); !usable {
 			continue // the class can never learn the weapon's skill
 		}
@@ -331,6 +327,12 @@ func Find(c character.Character, ds store.DataStore, group string, opt Options) 
 			it.ReqLevel, it.Estimated = est, true
 		}
 		if it.ReqLevel > level+EquipWindow {
+			continue
+		}
+		// Judged at the level the item needs when that is above the character's: plate that needs level
+		// 40 is theirs from 40, though a warrior wears mail until then.
+		if !rl.canUse(int8(i64(row["class_id"])), int8(i64(row["subclass_id"])), int8(it.Slot), max(level, it.ReqLevel)) ||
+			!allowsClass(int32(i64(row["allowable_class_mask"])), rl.ID) {
 			continue
 		}
 		anyStats = anyStats || it.StatsKnown
@@ -564,16 +566,64 @@ func sources(ds store.DataStore, itemID int64, level int) []Source {
 	return out
 }
 
+// Inventory types and armor subclasses CanUse treats on their own: no armor type or weapon skill
+// decides who may wear them.
+const (
+	invShirt      = 4
+	invTabard     = 19
+	invRelic      = 28 // a libram, idol or totem
+	armorCosmetic = 5  // cosmetic armor, any class may wear it
+	relicLibram   = 7
+	relicIdol     = 8
+	relicTotem    = 9
+)
+
+// relicFor is the relic subclass a class holds in its relic slot: librams for paladins, idols for
+// druids and totems for shamans; no other class has one.
+func relicFor(classID int) int {
+	switch classID {
+	case rules["PALADIN"].ID:
+		return relicLibram
+	case rules["DRUID"].ID:
+		return relicIdol
+	case rules["SHAMAN"].ID:
+		return relicTotem
+	}
+	return 0
+}
+
+// Levelless reports whether the dataset row is worn gear whose required level says nothing about how
+// useful it is: a shirt, a tabard or cosmetic armor. It is never "far below" a character's level.
+func Levelless(row store.Row) bool {
+	if row == nil || int(i64(row["class_id"])) != classArmor {
+		return false
+	}
+	slot := int(i64(row["slot"]))
+	return slot == invShirt || slot == invTabard || int(i64(row["subclass_id"])) == armorCosmetic
+}
+
 // CanUse reports whether a character of the class token at level can wear or wield the dataset item
-// row, by armor type, weapon type, shield and class restriction. known is false for an unsupported
-// class, an item that is not worn gear, or a row the dataset gives no type for.
+// row, by armor type, weapon type, shield and class restriction. Shirts, tabards and cosmetic armor
+// suit every class, and a libram, idol or totem suits the paladin, druid or shaman. known is false
+// for an unsupported class, an item that is not worn gear (a bag, a quiver), or a row the dataset
+// gives no type for.
 func CanUse(class string, level int, row store.Row) (usable, known bool) {
 	rl, ok := rules[strings.ToUpper(class)]
 	if !ok || row == nil || i64(row["slot"]) == 0 {
 		return false, false
 	}
+	classID := int(i64(row["class_id"]))
+	if classID != classWeapon && classID != classArmor {
+		return false, false // bags and quivers: no rule here says who uses them
+	}
 	if !allowsClass(int32(i64(row["allowable_class_mask"])), rl.ID) {
 		return false, true
 	}
-	return rl.canUse(int8(i64(row["class_id"])), int8(i64(row["subclass_id"])), int8(i64(row["slot"])), level), true
+	if Levelless(row) {
+		return true, true
+	}
+	if classID == classArmor && int(i64(row["slot"])) == invRelic {
+		return int(i64(row["subclass_id"])) == relicFor(rl.ID), true
+	}
+	return rl.canUse(int8(classID), int8(i64(row["subclass_id"])), int8(i64(row["slot"])), level), true
 }
