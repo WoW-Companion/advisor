@@ -96,13 +96,16 @@ pub fn on_start(old: &GuardState, running: &str, cached_previous: Option<&str>, 
         };
         return (st, Decision::Normal);
     }
-    if st.open && st.tracked() && st.session_at <= st.upgraded_at.saturating_add(WINDOW_SECS) {
-        // The last start inside the window never exited cleanly.
+    // Whether the last session began inside the upgrade window. The window decides only whether the
+    // safe screen (the offer to go back) is shown; a session that never exited cleanly is counted
+    // as an abnormal exit whenever it happened.
+    let in_window = st.session_at <= st.upgraded_at.saturating_add(WINDOW_SECS);
+    if st.open {
         st.abnormal_exits += 1;
     }
     st.session_at = now;
     st.open = true;
-    let decision = if st.tripped() && !st.kept { Decision::SafeScreen } else { Decision::Normal };
+    let decision = if st.tripped() && !st.kept && (in_window || st.health_fails >= 1) { Decision::SafeScreen } else { Decision::Normal };
     (st, decision)
 }
 
@@ -239,14 +242,22 @@ mod tests {
     }
 
     #[test]
-    fn a_crash_of_a_session_that_began_after_the_window_does_not_count() {
+    fn a_crash_after_the_window_is_counted_but_does_not_show_the_safe_screen() {
         let (st, _) = on_start(&old_clean(), "0.7.55", None, T0);
         let st = on_clean_exit(&st);
         // A start long after the upgrade that then dies, twice.
         let (st, _) = on_start(&st, "0.7.55", None, T0 + WINDOW_SECS + 100);
         let (st, d) = on_start(&st, "0.7.55", None, T0 + WINDOW_SECS + 200);
         let (st, d2) = on_start(&st, "0.7.55", None, T0 + WINDOW_SECS + 300);
-        assert_eq!((st.abnormal_exits, d, d2), (0, Decision::Normal, Decision::Normal));
+        assert_eq!((st.abnormal_exits, d, d2), (2, Decision::Normal, Decision::Normal));
+    }
+
+    #[test]
+    fn an_unwatched_record_counts_a_session_with_no_clean_exit() {
+        // No upgrade is tracked (a first install), and the session still never exited cleanly.
+        let first = GuardState { schema: 1, version: "0.7.55".into(), open: true, session_at: T0, ..GuardState::default() };
+        let (st, d) = on_start(&first, "0.7.55", None, T0 + 5000);
+        assert_eq!((st.abnormal_exits, d), (1, Decision::Normal));
     }
 
     #[test]

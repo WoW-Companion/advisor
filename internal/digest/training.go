@@ -63,17 +63,31 @@ func trainingLine(c character.Character, ds store.DataStore, opt Options) (Line,
 	}
 	// Only what the visited trainer shows as available is trainable now; an offer it shows as
 	// unavailable (an earlier rank is missing) is a detail, never "new to train".
-	var sp, blocked []levelup.Spell
-	for _, x := range levelup.Spells(c, ds, from, level) {
-		if x.Blocked {
-			blocked = append(blocked, x)
-		} else {
-			sp = append(sp, x)
+	split := func(from int) (sp, blocked []levelup.Spell) {
+		for _, x := range levelup.Spells(c, ds, from, level) {
+			if x.Blocked {
+				blocked = append(blocked, x)
+			} else {
+				sp = append(sp, x)
+			}
 		}
+		return
+	}
+	sp, blocked := split(from)
+	if known && opt.PrevLevel > 0 && opt.PrevLevel < level && len(sp) > 0 && sp[0].Usually {
+		// No trainer capture: the dataset's list is a guess, so keep to the levels reached since the last training.
+		from = opt.PrevLevel + 1
+		sp, blocked = split(from)
 	}
 	var rs []row
 	for _, x := range sp {
 		rs = append(rs, row{TrainSpell{ID: int(x.ID), Name: x.Name, Rank: x.Rank, New: x.New, Cost: x.Cost}, x.Level})
+	}
+	qb := levelup.QuestBlocked(c, ds, opt.Questie)
+	if len(rs) == 0 && len(qb) > 0 { // nothing to train, but a quest-taught spell is missing
+		l := Line{Kind: KindTraining, Level: level, Text: clip("Quest-taught spell: " + qb[0]), Details: finishDetails(qb)}
+		l.Asks, l.Ref = trainingAsks(nil), trainingRef(level)
+		return l, true
 	}
 	if len(rs) == 0 {
 		return Line{}, false
@@ -102,7 +116,10 @@ func trainingLine(c character.Character, ds store.DataStore, opt Options) (Line,
 		when += " (if you don't have them yet)"
 	}
 	l.Text = clip(when + ": " + strings.Join(names, ", "))
-	if known { // the player has untrained spells now: the NEXT bar says it is time to visit the trainer
+	usual := len(sp) > 0 && sp[0].Usually
+	if known && usual { // no trainer capture: the dataset's list is a guess, so point at the trainer's own
+		l.Text = clip("Check the trainer's list: " + strings.Join(names[:min(2, len(names))], ", "))
+	} else if known { // the player has untrained spells now: the NEXT bar says it is time to visit the trainer
 		l.Text = clip("New spells to train: " + strings.Join(names[:min(2, len(names))], ", "))
 	}
 	l.trainer(c)
@@ -117,10 +134,14 @@ func trainingLine(c character.Character, ds store.DataStore, opt Options) (Line,
 	if hasPlace {
 		l.trainAt = place.Line(c.Class)
 		if known { // the NEXT bar names the same place the card does
-			l.Text = clip(l.Text + " at " + place.City)
+			if usual && l.NPC != "" {
+				l.Text = clip(l.Text + " with " + l.NPC + " at " + place.City)
+			} else {
+				l.Text = clip(l.Text + " at " + place.City)
+			}
 		}
 	}
-	l.Details = trainingDetails(l, from, c, ds, sp, blocked)
+	l.Details = trainingDetails(l, from, c, ds, sp, blocked, qb)
 	l.Asks, l.Ref = trainingAsks(l.Spells), trainingRef(level)
 	l.Why = trainingWhy(l.Spells)
 	return l, true
@@ -162,7 +183,7 @@ func (l *Line) trainer(c character.Character) {
 	}
 }
 
-func trainingDetails(l Line, from int, c character.Character, ds store.DataStore, sp, blocked []levelup.Spell) []string {
+func trainingDetails(l Line, from int, c character.Character, ds store.DataStore, sp, blocked []levelup.Spell, qb []string) []string {
 	var d []string
 	var fresh, up []string
 	usually := len(sp) > 0 && sp[0].Usually
@@ -196,6 +217,7 @@ func trainingDetails(l Line, from int, c character.Character, ds store.DataStore
 	for _, q := range levelup.QuestSpells(c, ds, from, l.Level) {
 		d = append(d, q.Line())
 	}
+	d = append(d, qb...)
 	if l.trainAt != "" {
 		d = append(d, l.trainAt)
 	} else if l.NPC != "" {
@@ -217,6 +239,8 @@ func trainingDetails(l Line, from int, c character.Character, ds store.DataStore
 	}
 	switch {
 	case len(sp) > 0 && sp[0].Seen: // the trainer's own list says what is trainable: no level window to guess
+	case from < l.Level && usually: // the dataset's guess, not the trainer's word: never claim a level range
+		d = append(d, "Check the trainer's list for what you can train")
 	case from < l.Level:
 		d = append(d, fmt.Sprintf("Unlocked between levels %d and %d", from, l.Level))
 	default:

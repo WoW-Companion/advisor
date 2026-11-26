@@ -222,14 +222,25 @@ func bagLine(c character.Character, b gear.BagUpgrade) Line {
 	return l
 }
 
-// bagNextLine is the NEXT line for n upgrades in the bags.
-func bagNextLine(n int) Line {
-	text := "You have an upgrade in your bags"
-	if n > 1 {
-		text = fmt.Sprintf("You have %d upgrades in your bags", n)
+// bagNextLine is the NEXT line for the upgrades already in the bags, naming each item.
+func bagNextLine(ups []Line) Line {
+	var items []string
+	for _, l := range ups {
+		if l.PathKind != PathBags {
+			continue
+		}
+		it := l.Text
+		if l.Slot != "" {
+			it += " (" + l.Slot + ")"
+		}
+		items = append(items, it)
+	}
+	text := "Equip " + strings.Join(items, ", ") + " from your bags"
+	if len(items) > 1 {
+		text = "Equip from your bags: " + strings.Join(items, ", ")
 	}
 	q := "Which items in my bags should I equip now?"
-	return Line{Text: text, Kind: KindNote, Details: []string{"Equip them now; they are free"}, Asks: asksOf(q, q), Ref: noteRef("bag-upgrades"), Why: "Free upgrades, already yours"}
+	return Line{Text: clip(text), Kind: KindNote, Details: []string{"Better than what you're wearing, and free"}, Asks: asksOf(q, q), Ref: noteRef("bag-upgrades"), Why: "Better than what you're wearing, and free"}
 }
 
 // PathBags is the path kind of an upgrade that is already in the bags.

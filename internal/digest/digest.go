@@ -271,7 +271,7 @@ func Build(c character.Character, ds store.DataStore, opt Options) Digest {
 			quests, milestones = append(quests, l), append(milestones, l)
 			continue
 		}
-		if advice.IsClassQuest(s) {
+		if advice.IsClassQuest(s) || advice.IsSpellQuest(s) {
 			l := Line{Text: clip(s.Title), Quest: s.QuestID, Kind: KindPickup, Title: s.Name, Level: s.Level, Class: true, Elite: s.Elite, NPC: s.NPC, Zone: s.Zone}
 			l.Details = questContext(c, l, s.Reason)
 			l.Asks, l.Ref = questAsks(l), questRef(l.Quest)
@@ -321,7 +321,7 @@ func Build(c character.Character, ds store.DataStore, opt Options) Digest {
 	ups, note, link := upgradeLines(c, ds, PlanQuests(steps), opt.Questie, shortStat(sc))
 	notes = append(notes, note...)
 	if n := bagCount(ups); n > 0 { // free upgrades lead NEXT, ahead of anything to buy
-		quests = append([]Line{bagNextLine(n)}, quests...)
+		quests = append([]Line{bagNextLine(ups)}, quests...)
 	}
 	// Unspent class talent points lead everything, bag upgrades too.
 	for i, l := range quests {
@@ -534,7 +534,7 @@ func PlanQuests(steps []advice.Step) map[int]bool {
 func PlanNPCs(steps []advice.Step) map[string]bool {
 	out := map[string]bool{}
 	for _, s := range steps {
-		if s.NPC != "" && (strings.HasPrefix(s.Title, advice.PickUpPrefix) || advice.IsClassQuest(s)) {
+		if s.NPC != "" && (strings.HasPrefix(s.Title, advice.PickUpPrefix) || advice.IsClassQuest(s) || advice.IsSpellQuest(s)) {
 			out[s.NPC] = true
 		}
 	}

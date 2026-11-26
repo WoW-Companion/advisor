@@ -192,7 +192,7 @@ func TestTrainNowLineNamesTwoSpellsAndTrainer(t *testing.T) {
 	l, ok := trainingOf(Build(c, warriorStore(t), opt))
 	// Known Taunt is left out; Rend rank 1 never shows (nothing at its level in the store), so the
 	// untrained spells up to level 12 are Hamstring, Heroic Strike 2, Rend 2 and Shield Bash.
-	if !ok || !strings.HasPrefix(l.Text, "New spells to train: ") || strings.Count(l.Text, ",") != 1 || strings.Contains(l.Text, "Taunt") {
+	if !ok || !strings.HasPrefix(l.Text, "Check the trainer's list: ") || strings.Count(l.Text, ",") != 1 || strings.Contains(l.Text, "Taunt") {
 		t.Fatalf("train line = %+v", l)
 	}
 	if l.NPC != "Captain Rhea" || !strings.Contains(strings.Join(l.Details, "|"), "Train at: Stormwind City: Captain Rhea (60, 61)") {
@@ -209,7 +209,7 @@ func TestTrainNowLineNamesTwoSpellsAndTrainer(t *testing.T) {
 func TestTrainerListOnlyAvailableOffersAreTrained(t *testing.T) {
 	ds := store.New(store.ReaderSource{"class_spells": tbl(t, []spellRow{
 		{5, 1, "Mind Vision", i32p(1), 22, nil},
-		{5, 2, "Touch of Weakness", i32p(2), 20, nil},
+		{5, 2, "Renew", i32p(2), 20, nil},
 		{5, 3, "Smite", i32p(4), 20, nil},
 		{5, 4, "Mana Burn", i32p(1), 24, nil},
 		{5, 5, "Shadow Word: Pain", i32p(4), 26, nil},
@@ -218,7 +218,7 @@ func TestTrainerListOnlyAvailableOffersAreTrained(t *testing.T) {
 		Seen: &character.Observed{Trainers: []character.SeenTrainer{{NPC: 4607, Name: "Father Lankester", Faction: "Horde", T: 1,
 			Offers: []character.SeenOffer{
 				{Name: "Mind Vision", Rank: "Rank 1", State: "available", Cost: 1000, Level: 22},
-				{Name: "Touch of Weakness", Rank: "Rank 2", State: "unavailable", Cost: 3000, Level: 20},
+				{Name: "Renew", Rank: "Rank 2", State: "unavailable", Cost: 3000, Level: 20},
 				{Name: "Smite", Rank: "Rank 4", State: "available", Cost: 2000, Level: 20},
 				{Name: "Mana Burn", Rank: "Rank 1", State: "available", Cost: 4000, Level: 24},
 				{Name: "Shadow Word: Pain", Rank: "Rank 4", State: "available", Cost: 9000, Level: 26},
@@ -228,14 +228,14 @@ func TestTrainerListOnlyAvailableOffersAreTrained(t *testing.T) {
 	if !ok {
 		t.Fatal("no training entry")
 	}
-	if strings.Contains(l.Text, "Touch of Weakness") || strings.Contains(l.Text, "Shadow Word") || !strings.Contains(l.Text, "Smite (Rank 4), Mind Vision") {
+	if strings.Contains(l.Text, "Renew") || strings.Contains(l.Text, "Shadow Word") || !strings.Contains(l.Text, "Smite (Rank 4), Mind Vision") {
 		t.Errorf("text = %q", l.Text)
 	}
 	if len(l.Spells) != 3 {
 		t.Errorf("spells = %+v", l.Spells)
 	}
 	all := strings.Join(l.Details, "|")
-	if !strings.Contains(all, "Touch of Weakness (Rank 2) needs an earlier rank first") || strings.Contains(all, "Unlocked between") {
+	if !strings.Contains(all, "Renew (Rank 2) needs an earlier rank first") || strings.Contains(all, "Unlocked between") {
 		t.Errorf("details = %q", all)
 	}
 	if !strings.Contains(all, "7 silver") && !strings.Contains(all, "70 silver") {
@@ -243,5 +243,103 @@ func TestTrainerListOnlyAvailableOffersAreTrained(t *testing.T) {
 	}
 	if strings.Contains(all, "New: Touch") {
 		t.Errorf("unavailable offer listed as new: %q", all)
+	}
+}
+
+// An Undead priest at 24 who never took the Renew quest gets a training line naming it.
+func TestTrainingLineNamesMissedSpellQuest(t *testing.T) {
+	r1, r2 := i32p(1), i32p(2)
+	ds := store.New(store.ReaderSource{"class_spells": tbl(t, []spellRow{
+		{5, 2652, "Touch of Weakness", r1, 10, nil},
+		{5, 19261, "Touch of Weakness", r2, 20, i32p(2652)},
+	})})
+	st := []questie.Ref{{ID: 100}}
+	qx := &questie.Index{DB: "v0",
+		Quests: map[int]*questie.Quest{5658: {ID: 5658, Name: "Touch of Weakness", Level: 10, MinLevel: 10, Classes: 1 << 4, Races: 1 << 4, Starters: st, Finishers: st}},
+		Npcs:   map[int]questie.Entity{100: {Name: "Aelthalyste", Spawns: []questie.Spawn{{Area: 902, X: 50, Y: 60}}}},
+		Areas:  map[int]questie.Area{902: {UIMap: 7001, Zone: "Undercity"}}}
+	id, x, y := 7001, 40.0, 60.0
+	c := character.Character{Name: "Priest", Class: "PRIEST", Race: "Undead", Level: ip(24), KnownSpells: map[int64]bool{2944: true},
+		Location: &character.Location{Zone: "Undercity", MapID: &id, X: &x, Y: &y}}
+	opt := synthOpt
+	opt.Questie = qx
+	l, ok := trainingOf(Build(c, ds, opt))
+	if !ok || !strings.Contains(strings.Join(l.Details, "|"), "Touch of Weakness (Rank 2) needs Rank 1 first: it comes from the quest Touch of Weakness at Aelthalyste") {
+		t.Fatalf("training line = %+v, %v", l, ok)
+	}
+	c.CompletedQuests = []int{5658}
+	if l, ok := trainingOf(Build(c, ds, opt)); ok {
+		t.Errorf("quest done: %+v", l)
+	}
+}
+
+// runeStore has real level-1 spells, rune abilities (high ids at level 1) and a duplicated rune name.
+func runeStore(t *testing.T) store.DataStore {
+	r1, r2 := i32p(1), i32p(2)
+	return store.New(store.ReaderSource{"class_spells": tbl(t, []spellRow{
+		{5, 585, "Test Smite", r1, 1, nil},
+		{5, 2050, "Test Heal", r1, 1, nil},
+		{5, 401946, "Test Circle", nil, 1, nil},
+		{5, 413259, "Test Sear", nil, 1, nil},
+		{5, 413260, "Test Sear", nil, 1, nil},
+		{5, 500001, "Test Ward", r1, 4, nil},
+		{5, 500002, "Test Ward", r2, 6, nil},
+	})})
+}
+
+func priest(level int) character.Character {
+	return character.Character{Name: "Testpriest", Class: "PRIEST", Race: "Skyborn", Level: ip(level), KnownSpells: map[int64]bool{}}
+}
+
+func spellNames(l Line) []string {
+	var n []string
+	for _, s := range l.Spells {
+		n = append(n, s.Name)
+	}
+	return n
+}
+
+func TestTrainingFallbackSkipsRunesAndDedupes(t *testing.T) {
+	opt := synthOpt
+	opt.PrevLevel = 3
+	l, ok := trainingOf(Build(priest(7), runeStore(t), opt))
+	if !ok {
+		t.Fatal("no training line")
+	}
+	// Level 1 spells are before the last training; the rune ids are never trainer spells; a high id
+	// above level 1 stays, once, at its highest rank.
+	if got := spellNames(l); !slices.Equal(got, []string{"Test Ward"}) || l.Spells[0].Rank != 2 {
+		t.Fatalf("spells = %v %+v", got, l.Spells)
+	}
+	all := strings.Join(append([]string{l.Text}, l.Details...), "|")
+	if strings.Contains(all, "Unlocked between") || !strings.Contains(all, "Available at your level") && !strings.Contains(all, "Check the trainer's list") {
+		t.Errorf("fallback wording: %s", all)
+	}
+}
+
+func TestTrainingFallbackLevelOneDedupe(t *testing.T) {
+	l, ok := trainingOf(Build(priest(7), runeStore(t), synthOpt))
+	if !ok {
+		t.Fatal("no training line")
+	}
+	got := spellNames(l)
+	for _, bad := range []string{"Test Circle", "Test Sear"} {
+		if slices.Contains(got, bad) {
+			t.Errorf("rune ability %s listed: %v", bad, got)
+		}
+	}
+	if !slices.Contains(got, "Test Smite") || !slices.Contains(got, "Test Heal") || strings.Count(strings.Join(got, "|"), "Test Ward") != 1 {
+		t.Errorf("spells = %v", got)
+	}
+}
+
+func TestTrainerOfferedHighIDIsKept(t *testing.T) {
+	c := priest(7)
+	c.Seen = &character.Observed{Trainers: []character.SeenTrainer{{NPC: 9, Name: "Test Priest Trainer", Faction: "Alliance", T: 1,
+		Offers: []character.SeenOffer{{Spell: 401946, Name: "Test Circle", State: "available", Level: 1, Cost: 100}}}}}
+	c.Faction = "Alliance"
+	l, ok := trainingOf(Build(c, runeStore(t), synthOpt))
+	if !ok || !slices.Contains(spellNames(l), "Test Circle") {
+		t.Fatalf("a trainer-offered high id is dropped: %+v", l)
 	}
 }

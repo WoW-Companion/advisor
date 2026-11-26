@@ -531,6 +531,7 @@ pub fn run_and_exit(app: &AppHandle, installer: &Path) -> Result<(), String> {
     say(app, "Installing…");
     std::process::Command::new(installer).args(["/P", "/R"]).spawn().map_err(|e| format!("could not start the installer: {e}"))?;
     std::thread::sleep(std::time::Duration::from_millis(800));
+    crate::life::set_reason("installer started (update or go back): the app restarts");
     app.exit(0);
     Ok(())
 }
@@ -690,17 +691,9 @@ fn open_dir(_: &Path) -> Result<(), String> {
     Err("Opening the folder works on Windows only.".into())
 }
 
-/// Appends a line to the shell's log (kept small: past 256 KB the old log is replaced).
+/// Appends a line to the shell's log (local-time stamped, about 1 MB a file, three older files kept).
 pub fn log_line(dir: &Path, text: &str) {
-    let _ = fs::create_dir_all(dir);
-    let file = dir.join("wowc-shell.log");
-    if fs::metadata(&file).map(|m| m.len() > 256 * 1024).unwrap_or(false) {
-        let _ = fs::rename(&file, dir.join("wowc-shell.old.log"));
-    }
-    if let Ok(mut f) = fs::OpenOptions::new().create(true).append(true).open(&file) {
-        use std::io::Write;
-        let _ = writeln!(f, "{} {}", now_secs(), text.replace('\n', " "));
-    }
+    crate::life::log_line(dir, text);
 }
 
 #[cfg(test)]

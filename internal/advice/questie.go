@@ -21,7 +21,9 @@ const (
 // IsClassQuest reports whether the step is a class quest pick-up.
 func IsClassQuest(s Step) bool { return strings.HasPrefix(s.Title, ClassQuestPrefix) }
 
-func isPickUp(s Step) bool { return strings.HasPrefix(s.Title, PickUpPrefix) || IsClassQuest(s) }
+func isPickUp(s Step) bool {
+	return strings.HasPrefix(s.Title, PickUpPrefix) || IsClassQuest(s) || IsSpellQuest(s)
+}
 
 // MaxLocated is how many quests in the log get a location from Questie (the prompt budget).
 const MaxLocated = 5

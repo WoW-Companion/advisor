@@ -142,6 +142,8 @@
       <label class="row"><span class="lbl">Install updates automatically</span><span class="ctl"><input id="auto-update" type="checkbox"></span></label>
       <small>Installs an offered update, and a new version of the in-game addon, when the app starts or after five quiet minutes, never while an answer is being written. If your version is pulled, it goes back by itself. An addon update takes effect the next time you log in or reload your UI.</small>
       <div class="row"><span class="lbl"><button id="check-now" type="button">Check now</button></span><span class="ctl"><small id="check-now-out" role="status"></small></span></div>
+      <div class="row"><span class="lbl"><button id="open-logs" type="button">Open logs folder</button> <button id="copy-diag" type="button">Copy diagnostics</button></span><span class="ctl"><small id="diag-out" role="status"></small></span></div>
+      <small>Copy diagnostics saves a zip of the logs to your Downloads folder. Keys, tokens and your questions are left out.</small>
       <div id="version-list" class="version-list"></div>
       <div id="addon-list" class="version-list" hidden></div>
       <div id="whats-new" class="whats-new"><b>What’s new</b></div>
@@ -166,6 +168,7 @@
   <div id="suggs" hidden></div>
 
   <div id="updated-note" class="update-bar" role="status" hidden></div>
+  <div id="crash-note" class="update-bar" role="status" hidden></div>
   <div id="update-bar" class="update-bar" role="status" hidden></div>
   <div id="log" aria-live="polite"></div>
   <button id="new-answer" type="button" hidden>&#8595; New answer</button>

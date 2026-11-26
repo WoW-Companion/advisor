@@ -296,6 +296,7 @@ fn run(app: &AppHandle, action: &Action, found: &Found, started: u64) -> Outcome
         persist(app, &st);
     }
     recover::restore_for_go_back(app, &version);
+    crate::life::set_reason(&format!("auto-install of {version}: installer started"));
     match update::run_and_exit(app, &installer) {
         Ok(()) => Outcome::Deferred,
         Err(e) => Outcome::Failed(e),
