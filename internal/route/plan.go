@@ -109,6 +109,7 @@ type Options struct {
 	// current step. XP is the quest XP table (nil: no XP is shown). LogCap is the quest log's size
 	// (0 is DefaultLogCap).
 	Dungeons []DungeonLevel
+	Places   *Places // the dataset's UI map and instance names, for maps Questie does not name
 	XP       map[int]int
 	LogCap   int
 }
@@ -944,11 +945,7 @@ func travelName(src source, m int, place string) string {
 	if fs, ok := src.(flightSource); ok {
 		return fs.travelName(m, place)
 	}
-	n := src.mapName(m)
-	if strings.HasPrefix(n, "map ") {
-		return cmp.Or(place, "another area")
-	}
-	return n
+	return cmp.Or(src.mapName(m), place, "another area")
 }
 
 // readyFirst puts the ready turn-ins on the player's map first, nearest first: what can be handed in

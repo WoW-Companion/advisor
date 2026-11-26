@@ -2,7 +2,6 @@ package route
 
 import (
 	"cmp"
-	"fmt"
 	"math"
 	"sort"
 	"strings"
@@ -45,7 +44,7 @@ func (s *questieSource) mapName(m int) string {
 		}
 	}
 	if best == "" {
-		return fmt.Sprintf("map %d", m)
+		return cmp.Or(s.opt.Places.Name(m), unknownPlace)
 	}
 	return best
 }
@@ -79,7 +78,7 @@ func (s *questieSource) travelName(m int, place string) string {
 	case zone != "":
 		return zone
 	}
-	return cmp.Or(place, "another area")
+	return cmp.Or(s.opt.Places.Travel(m), place, "another area")
 }
 
 // flights are the maps the player can fly to: the flight masters they opened, else none known.
