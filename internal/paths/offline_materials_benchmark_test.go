@@ -566,7 +566,14 @@ func TestOfflineBenchmarkRecurringNoAnswer(t *testing.T) {
 		if p != nil {
 			words = dungeons.RenderNamed(c, *p, togo)
 		}
-		m := mbReset.FindString(words)
+		// a line that says the lockout is not known is the advisor saying so, not stating one
+		var stated []string
+		for _, l := range strings.Split(words, "\n") {
+			if !strings.HasSuffix(l, ": not known yet") {
+				stated = append(stated, l)
+			}
+		}
+		m := mbReset.FindString(strings.Join(stated, "\n"))
 		if words == "" {
 			words = "no dungeon plan: a raid is not planned"
 		}

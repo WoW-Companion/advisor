@@ -458,3 +458,97 @@ func TestABossIsNamedOnce(t *testing.T) {
 		t.Errorf("unlinked %v", p.UnlinkedBosses)
 	}
 }
+
+type bossModeRow struct {
+	MapID      int32  `parquet:"map_id"`
+	Name       string `parquet:"name"`
+	CreatureID *int32 `parquet:"creature_id,optional"`
+	Difficulty int32  `parquet:"difficulty_id"`
+}
+
+// raidAndModes: a dungeon whose bosses are kept under the base difficulties and an alternate mode (id 198), and a raid.
+func raidAndModes(t *testing.T) store.DataStore {
+	return store.New(store.ReaderSource{
+		"items": table(t, []itemRow{it(1, "Mind Hood", 25, 15, cloth, head, 5, 7), it(2, "Mode Cap", 25, 15, cloth, head, 5, 7)}),
+		"loot_sources": table(t, []lootRow{
+			{1, "creature", 100, 1000, 3}, {1, "creature", 101, 1000, 0}, {2, "creature", 102, 10, 5},
+		}),
+		"instances": table(t, []instRow{
+			{1, "Mode Keep", "dungeon", i16(5), i16(15), i16(21), "curated", "Westfall"},
+			{2, "Ash Citadel", "raid", i16(40), i16(60), i16(60), "curated", "Silithus"},
+			{3, "Wyrm's Lair", "raid", i16(40), i16(60), i16(60), "curated", "Dustwallow Marsh"},
+		}),
+		"instance_bosses": table(t, []bossModeRow{
+			{1, "First Boss", i32(100), 0}, {1, "Second Boss", nil, 1}, {1, "Alternate Boss", i32(102), 198}, {1, "First Boss", nil, 198},
+			{2, "Raid Boss", i32(101), 0},
+		}),
+	})
+}
+
+func TestAlternateModeBossesAreNotListed(t *testing.T) {
+	p, _, err := Named(warrior(20, "Horde"), raidAndModes(t), nil, "Mode Keep")
+	if err != nil || p == nil {
+		t.Fatalf("%v %v", p, err)
+	}
+	if got := strings.Join(p.Bosses, ","); got != "First Boss,Second Boss" {
+		t.Errorf("bosses %q", got)
+	}
+	for _, d := range p.Drops {
+		if d.Boss == "Alternate Boss" {
+			t.Errorf("a drop of an alternate-mode boss: %+v", d)
+		}
+	}
+	if got := standardEncounters([]store.Row{{"difficulty_id": int64(198)}}); len(got) != 1 {
+		t.Errorf("a map with only an alternate mode lost its bosses: %v", got)
+	}
+}
+
+func TestARaidIsDescribedByNameNotPlanned(t *testing.T) {
+	c := warrior(60, "Horde")
+	ds := raidAndModes(t)
+	p, _, err := Named(c, ds, nil, "Ash Citadel")
+	if err != nil || p == nil || !p.Raid {
+		t.Fatalf("%v %v", p, err)
+	}
+	text := RenderNamed(c, *p, 0)
+	for _, want := range []string{"Ash Citadel (about levels 60–60; entrance in Silithus; 40 players)", "All bosses: Raid Boss", "Lockout and attunement: not known yet"} {
+		if !strings.Contains(text, want) {
+			t.Errorf("missing %q in:\n%s", want, text)
+		}
+	}
+	if d := Mentioned(ds, nil, "what drops in Ash Citadel?"); d != "Ash Citadel" {
+		t.Errorf("mentioned %q", d)
+	}
+	res, err := Plan(c, ds)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, p := range append(res.Picks, res.Unknown...) {
+		if p.Raid {
+			t.Errorf("a raid was planned: %s", p.Name)
+		}
+	}
+	if d, _, _ := Named(c, ds, nil, "Mode Keep"); d == nil || strings.Contains(RenderNamed(c, *d, 0), "Lockout") {
+		t.Error("a dungeon was given a raid lockout line")
+	}
+}
+
+func TestPercentOfARareDrop(t *testing.T) {
+	for _, tc := range []struct {
+		ch   float64
+		want string
+	}{{100, "100%"}, {33.3, "33%"}, {1, "1%"}, {0.5, "0.5%"}, {0.3, "0.3%"}, {0.04, "under 0.1%"}} {
+		if got := percent(tc.ch); got != tc.want {
+			t.Errorf("percent(%v) = %q, want %q", tc.ch, got, tc.want)
+		}
+	}
+}
+
+func TestANameWithAnApostropheIsMentioned(t *testing.T) {
+	ds := raidAndModes(t)
+	for _, q := range []string{"what drops in Wyrm's Lair?", "what drops in Wyrms Lair?", "wyrm\u2019s lair loot"} {
+		if got := Mentioned(ds, nil, q); got != "Wyrm's Lair" {
+			t.Errorf("%q: mentioned %q", q, got)
+		}
+	}
+}

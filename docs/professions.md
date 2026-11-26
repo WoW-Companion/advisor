@@ -186,6 +186,14 @@ skills against `profession_routes`, the First Aid bandage ladder, the trainer to
 where a Cooking or First Aid recipe is learned, and which recipes a plan leaves out as a specialization's. The dataset
 holds no specialization table, so the choice of branch is listed as "differ (data)" or checked as unnamed.
 
+`internal/paths/offline_instances_benchmark_test.go` (also `make offline-benchmark`, areas `advice-dungeon-bosses-*`,
+`advice-boss-*`, `advice-raid-*`, `advice-instance-questions`, `advice-battleground`, `advice-honor-*` and
+`advice-quest-chain*`, `advice-class-chain-no-answer`) check a dungeon's and a raid's boss list against `instance_bosses`
+and the boss each dungeon ends on, a boss's drop and its rate on a synthetic dungeon (no real boss has a `creature_id`),
+raid size, level and entrance, the lockout and attunement the dataset does not hold, battlegrounds and honor rewards
+(no row at all), and a quest's step and next quest in `quest_lines`. Encounter rows that are not bosses are listed as
+"differ (data)".
+
 `internal/paths/offline_sources_benchmark_test.go` (also `make offline-benchmark`, areas `advice-class-order-*`,
 `advice-elite-*`, `advice-creature-location`, `advice-elite-dungeon-bosses`, `advice-rare-no-answer` and `advice-recipe-*`) checks
 the order of a class's quests (the dataset's own class quest rows under a synthetic QuestieDB that gives the order:

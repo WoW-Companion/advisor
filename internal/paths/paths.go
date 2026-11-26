@@ -294,7 +294,9 @@ func (f *finder) why(crs []creature) string {
 		// a mount is bought from a vendor or trainer, or won: an empty table is no verdict on it
 		return "the game data lists no source for this mount, so it can't say where to get it"
 	case len(f.loot) == 0:
-		return "the game data knows no dependable way to get this, so it is not worth chasing"
+		// an empty table is no verdict: a reward the dataset does not list (an honor-rank piece, a boss drop it cannot
+		// link) is not shown to be a random drop
+		return "the game data lists no source for this item, so it can't say where to get it"
 	case bonding == 1 && len(crs) > 0:
 		return "it is a random drop from creatures (and Bind on Pickup, so not on the Auction House), not worth chasing"
 	case len(crs) > 0:

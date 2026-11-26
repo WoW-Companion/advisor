@@ -62,6 +62,8 @@ type DungeonPick struct {
 	MinLevel   *int
 	MaxLevel   *int
 	MaxPlayers *int
+	// Raid is true for a raid map: its lockout and attunement are not in the dataset.
+	Raid bool
 	// EntranceZone is where the dungeon's entrance is; empty when not known.
 	EntranceZone string
 	// EntranceX and EntranceY are the entrance in map percent of EntranceZone; EntranceFromQuestie
@@ -126,10 +128,17 @@ func candidates(gr gear.Result) map[int64]gear.Candidate {
 // players run: not typed dungeon, or with neither an entrance (the dataset's zone or Questie's) nor
 // a group size (the client has map rows such as Ruins of Lordaeron that are neither).
 func pickOf(row store.Row, qx *questie.Index) (DungeonPick, bool) {
-	if row["instance_type"] != "dungeon" {
+	return pickOfType(row, qx, false)
+}
+
+// pickOfType is pickOf; with raids set, a raid map is described too (Named and Mentioned, never a plan).
+func pickOfType(row store.Row, qx *questie.Index, raids bool) (DungeonPick, bool) {
+	kind, _ := row["instance_type"].(string)
+	if kind != "dungeon" && !(raids && kind == "raid") {
 		return DungeonPick{}, false
 	}
 	p := DungeonPick{MapID: i64(row["map_id"]), MinLevel: optInt(row["min_level"]), MaxLevel: optInt(row["max_level"]), MaxPlayers: optInt(row["max_players"])}
+	p.Raid = kind == "raid"
 	p.Name, _ = row["name"].(string)
 	p.EntranceZone, _ = row["entrance_zone_name"].(string)
 	if p.EntranceZone == "" && p.MaxPlayers == nil && qx.FindDungeon(int(p.MapID), p.Name) == nil {
@@ -162,7 +171,7 @@ func Named(c character.Character, ds store.DataStore, qx *questie.Index, name st
 	}
 	var best *DungeonPick
 	for _, row := range rows {
-		p, ok := pickOf(row, qx)
+		p, ok := pickOfType(row, qx, true)
 		if !ok {
 			continue
 		}
@@ -319,6 +328,7 @@ func meanwhile(c character.Character) string {
 // fill adds the boss drops that are upgrades, and the linked open quests, to a pick.
 func fill(p *DungeonPick, c character.Character, ds store.DataStore, cands map[int64]gear.Candidate, qx *questie.Index) {
 	bosses, _ := ds.Filter("instance_bosses", store.Range{Column: "map_id", Min: p.MapID, Max: p.MapID})
+	bosses = standardEncounters(bosses)
 	named := map[string]bool{}
 	for _, b := range bosses {
 		if name, _ := b["name"].(string); name != "" && !named[strings.ToLower(name)] {
@@ -372,6 +382,26 @@ func fill(p *DungeonPick, c character.Character, ds store.DataStore, cands map[i
 		return p.Drops[i].ItemID < p.Drops[j].ItemID
 	})
 	p.Quests = openQuests(p, c, ds)
+}
+
+// standardDifficulty is the highest difficulty id of the dungeon's ordinary encounters: the dataset keeps 0 (the
+// legacy id) and 1 (normal) for the base game, and a later id (198, 201, 215) for an alternate mode of the same map
+// whose encounter set differs (a different boss list, two bosses fought as one, a boss spelled another way).
+const standardDifficulty = 1
+
+// standardEncounters keeps the encounters of the ordinary difficulties when the map has any, so an alternate
+// mode's bosses are not listed beside the real ones; a map with only alternate rows keeps them all.
+func standardEncounters(rows []store.Row) []store.Row {
+	var base []store.Row
+	for _, r := range rows {
+		if d, ok := r["difficulty_id"].(int64); !ok || d <= standardDifficulty {
+			base = append(base, r)
+		}
+	}
+	if len(base) == 0 {
+		return rows
+	}
+	return base
 }
 
 // maxPickups is how many dungeon quests a pick lists.
@@ -525,15 +555,17 @@ func Mentioned(ds store.DataStore, qx *questie.Index, text string) string {
 	if err != nil {
 		return ""
 	}
-	hay := " " + strings.ToLower(strings.NewReplacer("'", "", "’", "", "?", " ", ",", " ", ".", " ", "!", " ").Replace(text)) + " "
+	// an apostrophe is dropped from the text and from each name alike: "Onyxia's Lair" is asked as "onyxias lair"
+	plain := strings.NewReplacer("'", "", "\u2019", "", "?", " ", ",", " ", ".", " ", "!", " ")
+	hay := " " + strings.ToLower(plain.Replace(text)) + " "
 	word := map[string][]string{}
 	var longest string
 	for _, row := range rows {
-		p, ok := pickOf(row, qx)
+		p, ok := pickOfType(row, qx, true)
 		if !ok || p.Name == "" {
 			continue
 		}
-		n := strings.ToLower(p.Name)
+		n := strings.ToLower(plain.Replace(p.Name))
 		if strings.Contains(hay, " "+n+" ") && len(n) > len(longest) {
 			longest = p.Name
 		}
