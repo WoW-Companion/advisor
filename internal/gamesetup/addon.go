@@ -323,64 +323,51 @@ func PlanAddon(have, latest string, pulls []release.Pull) AddonOffer {
 	return AddonOffer{}
 }
 
-// NewFiles lists the addon files in the zip that are not in the addons folder yet. The game reads an
-// addon's file list only when it starts, so a release that adds files needs a full restart, and one
-// that only changes files needs only /reload.
-func NewFiles(zipb []byte, addons string) ([]string, error) {
-	zr, err := zip.NewReader(bytes.NewReader(zipb), int64(len(zipb)))
-	if err != nil {
-		return nil, fmt.Errorf("not a valid zip: %w", err)
+// ReloadNote is the sentence an addon update notice ends with. The game reads an addon's TOC and
+// file list only when it starts, so an update that adds files needs a full restart.
+func ReloadNote(restart bool) string {
+	if restart {
+		return RestartText
 	}
-	var out []string
-	for _, f := range zr.File {
-		if f.FileInfo().IsDir() {
-			continue
-		}
-		name, err := safeName(f.Name)
-		if err != nil {
-			return nil, err
-		}
-		if isDataFile(name) {
-			continue
-		}
-		if _, err := os.Stat(filepath.Join(addons, filepath.FromSlash(name))); err != nil {
-			out = append(out, name)
-		}
-	}
-	return out, nil
+	return ReloadText
 }
 
-// ReloadNote is the sentence an addon update notice ends with.
-func ReloadNote(newFiles []string) string {
-	if len(newFiles) == 0 {
-		return "Type /reload in game to use it."
-	}
-	return "This version adds new files, so quit the game fully and start it again (a /reload is not enough)."
+// The two wordings of the reload line (the overlay words them the same way).
+const (
+	ReloadText  = "A /reload in game is required to load the new addon. Type /reload now if WoW is open."
+	RestartText = "This addon update adds new files: fully exit and restart WoW to load it (/reload isn't enough)."
+)
+
+// InstallResult is what an install or go-back did: the sentence to show, and whether the game needs a
+// full restart (the update added files, so /reload would not load them).
+type InstallResult struct {
+	Note    string
+	Restart bool
 }
 
 // InstallAddonNote is InstallAddon that also says whether the game needs /reload or a full restart.
-func InstallAddonNote(ctx context.Context, c *http.Client, game string, r *AddonRelease, backups string) (string, error) {
+func InstallAddonNote(ctx context.Context, c *http.Client, game string, r *AddonRelease, backups string) (InstallResult, error) {
 	if r == nil || r.ZipURL == "" {
-		return "", errors.New("no release to install")
+		return InstallResult{}, errors.New("no release to install")
 	}
 	if r.SumsURL == "" {
-		return "", errors.New("the release has no SHA256SUMS; refusing an unverified install")
+		return InstallResult{}, errors.New("the release has no SHA256SUMS; refusing an unverified install")
 	}
 	zipb, err := get(ctx, c, r.ZipURL, maxZip, "")
 	if err != nil {
-		return "", err
+		return InstallResult{}, err
 	}
 	sums, err := get(ctx, c, r.SumsURL, maxSums, "")
 	if err != nil {
-		return "", err
+		return InstallResult{}, err
 	}
 	return InstallVerified(zipb, sums, r.ZipName, game, backups)
 }
 
 // InstallVerified checks the zip against SHA256SUMS first and touches nothing when it does not match.
-func InstallVerified(zipb, sums []byte, name, game, backups string) (string, error) {
+func InstallVerified(zipb, sums []byte, name, game, backups string) (InstallResult, error) {
 	if err := VerifySum(zipb, name, sums); err != nil {
-		return "", err
+		return InstallResult{}, err
 	}
 	return InstallZip(zipb, game, installOpts{Have: haveVersion(game), Backups: backups})
 }

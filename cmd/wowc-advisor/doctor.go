@@ -104,7 +104,7 @@ func fixAddonCmd(ctx context.Context, stdout io.Writer, client *http.Client, gam
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(stdout, "Installed WoW Companion addon %s into %s\n%s\n", rel.Version, filepath.Join(game, "Interface", "AddOns"), note)
+	fmt.Fprintf(stdout, "Installed WoW Companion addon %s into %s\n%s\n", rel.Version, filepath.Join(game, "Interface", "AddOns"), note.Note)
 	return nil
 }
 

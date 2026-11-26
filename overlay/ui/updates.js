@@ -206,26 +206,29 @@
     return addon.auto;
   }
 
-  const RELOAD_ADDON = 'If WoW is open, type /reload in game to load it.';
-  const RELOAD_BOTH = 'If WoW is open, type /reload in game to load the addon.';
+  // The line under an addon update: a /reload is required, or a full restart when the update added
+  // files (the game reads an addon's TOC and file list only at start).
+  const RELOAD_TEXT = 'A /reload in game is required to load the new addon. Type /reload now if WoW is open.';
+  const RESTART_TEXT = "This addon update adds new files: fully exit and restart WoW to load it (/reload isn't enough).";
+  const reloadLine = restart => restart ? RESTART_TEXT : RELOAD_TEXT;
 
   // The note at the top of the chat on the first start of a different version than the last one.
   // last is the version seen at the previous start ("" the first time ever: no note).
   // reason is why an automatic go-back happened ("" when the player went back themselves).
   // addon is the addon version installed with this update ("" when none was): the line then names
-  // the app, the addon or both.
-  function updatedNote(last, running, reason, addon) {
+  // the app, the addon or both. restart is true when the addon update added files.
+  function updatedNote(last, running, reason, addon, restart) {
     const a = bare(last), b = bare(running), d = bare(addon || '');
-    if (!a || !b || a === b || cmp(a, b) === 0) return d ? { kind: 'up', version: '', addon: d, text: '✓ Updated: addon ' + d, reload: RELOAD_ADDON, whatsNew: false } : null;
+    if (!a || !b || a === b || cmp(a, b) === 0) return d ? { kind: 'up', version: '', addon: d, text: '✓ Updated: addon ' + d, reload: reloadLine(restart), whatsNew: false } : null;
     if (cmp(b, a) >= 0) return { kind: 'back', version: b, text: '✓ Went back to ' + b + (reason ? ': ' + String(reason).replace(/[.\s]+$/, '') : ''), whatsNew: false };
-    return { kind: 'up', version: b, from: a, addon: d, text: '✓ Updated: app ' + b + (d ? ' and addon ' + d : ''), ...(d ? { reload: RELOAD_BOTH } : {}), whatsNew: true };
+    return { kind: 'up', version: b, from: a, addon: d, text: '✓ Updated: app ' + b + (d ? ' and addon ' + d : ''), ...(d ? { reload: reloadLine(restart) } : {}), whatsNew: true };
   }
   // The notice for an addon installed while the app keeps running; addon is "" or "unknown" when the
   // version is not known (the reload line then clears on the next save).
-  function addonDoneNote(addon, message) {
+  function addonDoneNote(addon, message, restart) {
     const d = bare(addon || '');
     const known = d && d !== 'unknown';
-    return { kind: 'up', version: '', addon: known ? d : '', text: '✓ ' + (known ? 'Updated: addon ' + d : message), reload: RELOAD_ADDON, whatsNew: false };
+    return { kind: 'up', version: '', addon: known ? d : '', text: '✓ ' + (known ? 'Updated: addon ' + d : message), reload: reloadLine(restart), whatsNew: false };
   }
   // Whether the game now runs the addon the notice named. game is the app's view of the last save:
   // { addon: the addonVersion it recorded ("" when none), savedAt: when the file was written }, and

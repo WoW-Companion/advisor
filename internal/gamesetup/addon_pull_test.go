@@ -52,20 +52,57 @@ func mkzip(t *testing.T, files ...string) []byte {
 	return b.Bytes()
 }
 
-func TestNewFilesDecidesReloadOrRestart(t *testing.T) {
-	addons := t.TempDir()
-	os.MkdirAll(filepath.Join(addons, "WoWCompanion"), 0o755)
-	os.WriteFile(filepath.Join(addons, "WoWCompanion", "Core.lua"), []byte("old"), 0o644)
-	same, err := NewFiles(mkzip(t, "WoWCompanion/Core.lua"), addons)
-	if err != nil || len(same) != 0 || !strings.Contains(ReloadNote(same), "/reload") || strings.Contains(ReloadNote(same), "quit") {
-		t.Errorf("changed files only: %v %v %q", same, err, ReloadNote(same))
+func mkzipFiles(t *testing.T, files map[string]string) []byte {
+	t.Helper()
+	var b bytes.Buffer
+	zw := zip.NewWriter(&b)
+	for n, c := range files {
+		w, _ := zw.Create(n)
+		w.Write([]byte(c))
 	}
-	added, err := NewFiles(mkzip(t, "WoWCompanion/Core.lua", "WoWCompanion/Extra.lua"), addons)
-	if err != nil || len(added) != 1 || added[0] != "WoWCompanion/Extra.lua" || !strings.Contains(ReloadNote(added), "quit the game fully") {
-		t.Errorf("a new file: %v %v %q", added, err, ReloadNote(added))
+	zw.Close()
+	return b.Bytes()
+}
+
+func TestInstallSaysReloadOrRestart(t *testing.T) {
+	const toc = "## Interface: 110000\n## SavedVariables: WowcDB\nCore.lua\n"
+	cases := []struct {
+		name    string
+		prep    func(addons string)
+		zip     map[string]string
+		restart bool
+	}{
+		{"content only", nil, map[string]string{"WoWCompanion/WoWCompanion.toc": toc, "WoWCompanion/Core.lua": "new"}, false},
+		{"a file added to the TOC", nil, map[string]string{"WoWCompanion/WoWCompanion.toc": toc + "NewFile.lua\n", "WoWCompanion/Core.lua": "x", "WoWCompanion/NewFile.lua": "x"}, true},
+		{"a file removed only", nil, map[string]string{"WoWCompanion/WoWCompanion.toc": "## Interface: 110000\n## SavedVariables: WowcDB\n", "WoWCompanion/Core.lua": "x"}, false},
+		{"Interface changed", nil, map[string]string{"WoWCompanion/WoWCompanion.toc": "## Interface: 110100\n## SavedVariables: WowcDB\nCore.lua\n", "WoWCompanion/Core.lua": "x"}, true},
+		{"a new folder", nil, map[string]string{"WoWCompanion/WoWCompanion.toc": toc, "WoWCompanion/Core.lua": "x", "WoWCompanion_Extra/WoWCompanion_Extra.toc": "Extra.lua\n", "WoWCompanion_Extra/Extra.lua": "x"}, true},
+		{"unreadable before-state", func(addons string) {
+			os.WriteFile(filepath.Join(addons, "WoWCompanion", "Other.toc"), []byte("x.lua\n"), 0o000) // a TOC that cannot be read
+		}, map[string]string{"WoWCompanion/WoWCompanion.toc": toc, "WoWCompanion/Core.lua": "x"}, true},
 	}
-	if _, err := NewFiles(mkzip(t, "../evil.lua"), addons); err == nil {
-		t.Error("an unsafe entry must be refused")
+	for _, c := range cases {
+		game := t.TempDir()
+		addons := filepath.Join(game, "Interface", "AddOns")
+		os.MkdirAll(filepath.Join(addons, "WoWCompanion"), 0o755)
+		os.WriteFile(filepath.Join(addons, "WoWCompanion", "WoWCompanion.toc"), []byte(toc+"Gone.lua\n"), 0o644)
+		if c.name == "content only" || c.name == "Interface changed" || c.name == "a new folder" {
+			os.WriteFile(filepath.Join(addons, "WoWCompanion", "WoWCompanion.toc"), []byte(toc), 0o644)
+		}
+		os.WriteFile(filepath.Join(addons, "WoWCompanion", "Core.lua"), []byte("old"), 0o644)
+		if c.prep != nil {
+			c.prep(addons)
+			if _, err := os.ReadFile(filepath.Join(addons, "WoWCompanion", "Other.toc")); err == nil {
+				continue // running as a user that can read anything
+			}
+		}
+		res, err := InstallZip(mkzipFiles(t, c.zip), game, installOpts{Backups: t.TempDir()})
+		if err != nil || res.Restart != c.restart {
+			t.Errorf("%s: restart = %v (%v), want %v", c.name, res.Restart, err, c.restart)
+		}
+		if c.restart != strings.Contains(res.Note, "fully exit") || strings.Contains(res.Note, "/reload") != true {
+			t.Errorf("%s: wrong note %q", c.name, res.Note)
+		}
 	}
 }
 

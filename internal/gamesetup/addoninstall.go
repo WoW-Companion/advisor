@@ -1,6 +1,8 @@
 package gamesetup
 
 import (
+	"bufio"
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -57,37 +59,34 @@ type installOpts struct {
 // keeps a copy of the version being replaced, then replaces the addon folders file by file. Files
 // the new version no longer ships are removed; the app's data files are never touched. Only the
 // AddOns folder changes (the backups and the staging folder live under opts.Backups).
-func InstallZip(zipb []byte, game string, o installOpts) (string, error) {
+func InstallZip(zipb []byte, game string, o installOpts) (InstallResult, error) {
 	addons := filepath.Join(game, "Interface", "AddOns")
 	if st, err := os.Stat(game); err != nil || !st.IsDir() {
-		return "", errors.New(NoGameMessage)
-	}
-	fresh, err := NewFiles(zipb, addons)
-	if err != nil {
-		return "", err
+		return InstallResult{}, errors.New(NoGameMessage)
 	}
 	stageRoot := o.Backups
 	if stageRoot == "" {
 		stageRoot = os.TempDir()
 	}
 	if err := os.MkdirAll(stageRoot, 0o755); err != nil {
-		return "", err
+		return InstallResult{}, err
 	}
 	stage, err := os.MkdirTemp(stageRoot, "staging-")
 	if err != nil {
-		return "", err
+		return InstallResult{}, err
 	}
 	defer os.RemoveAll(stage)
 	if err := extractZip(zipb, stage, true); err != nil {
-		return "", err
+		return InstallResult{}, err
 	}
+	before, berr := snapshotAddons(addons)
 	if err := backupCurrent(addons, o); err != nil {
-		return "", err
+		return InstallResult{}, err
 	}
 	if err := syncAddons(stage, addons); err != nil {
-		return "", err
+		return InstallResult{}, err
 	}
-	return ReloadNote(fresh), nil
+	return resultFor(before, berr, addons), nil
 }
 
 // topFolders lists the addon folders (WoWCompanion*) directly under dir.
@@ -243,43 +242,31 @@ func pruneBackups(dir string) error {
 }
 
 // GoBack restores a kept version. The version being left is kept in its place.
-func GoBack(game, backups, version string) (string, error) {
+func GoBack(game, backups, version string) (InstallResult, error) {
 	version = strings.TrimPrefix(strings.TrimSpace(version), "v")
 	if st, err := os.Stat(game); err != nil || !st.IsDir() {
-		return "", errors.New(NoGameMessage)
+		return InstallResult{}, errors.New(NoGameMessage)
 	}
 	if version == "" || strings.ContainsAny(version, `/\`) || strings.Contains(version, "..") {
-		return "", errors.New("that version is not one of the kept ones")
+		return InstallResult{}, errors.New("that version is not one of the kept ones")
 	}
 	src := filepath.Join(backups, version)
 	if st, err := os.Stat(src); err != nil || !st.IsDir() {
-		return "", fmt.Errorf("version %s is not kept on this computer", version)
+		return InstallResult{}, fmt.Errorf("version %s is not kept on this computer", version)
 	}
 	addons := filepath.Join(game, "Interface", "AddOns")
 	have := haveVersion(game)
 	if have == version {
-		return "", fmt.Errorf("version %s is already installed", version)
+		return InstallResult{}, fmt.Errorf("version %s is already installed", version)
 	}
-	// What the restore adds is judged on the backup's own files.
-	var fresh []string
-	for _, top := range topFolders(src) {
-		filepath.WalkDir(filepath.Join(src, top), func(p string, d fs.DirEntry, err error) error {
-			if err == nil && !d.IsDir() {
-				rel, _ := filepath.Rel(src, p)
-				if _, e := os.Stat(filepath.Join(addons, rel)); e != nil {
-					fresh = append(fresh, filepath.ToSlash(rel))
-				}
-			}
-			return nil
-		})
-	}
+	before, berr := snapshotAddons(addons)
 	if err := backupCurrent(addons, installOpts{Have: have, Backups: backups}); err != nil {
-		return "", err
+		return InstallResult{}, err
 	}
 	if err := syncAddons(src, addons); err != nil {
-		return "", err
+		return InstallResult{}, err
 	}
-	return ReloadNote(fresh), nil
+	return resultFor(before, berr, addons), nil
 }
 
 // AddonStatus is what the update notice and Settings need about the installed addon.
@@ -349,4 +336,106 @@ func StatusFor(o Options, backups string, immediate bool, now time.Time) AddonSt
 		}
 	}
 	return st
+}
+
+// tocState is what the game reads at start from one TOC: its file entries and the metadata lines that
+// shape loading (## Interface, ## SavedVariables*, ## Dependencies).
+type tocState struct {
+	files map[string]bool
+	meta  map[string]bool
+}
+
+// addonState maps addon folder -> TOC file name -> state.
+type addonState map[string]map[string]tocState
+
+// snapshotAddons reads every WoWCompanion* folder's TOC files under addons. A missing AddOns folder is
+// an empty state; any other read failure is an error.
+func snapshotAddons(addons string) (addonState, error) {
+	st := addonState{}
+	ents, err := os.ReadDir(addons)
+	if errors.Is(err, fs.ErrNotExist) {
+		return st, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	for _, e := range ents {
+		if !e.IsDir() || !allowedTop(e.Name()) {
+			continue
+		}
+		files, err := os.ReadDir(filepath.Join(addons, e.Name()))
+		if err != nil {
+			return nil, err
+		}
+		tocs := map[string]tocState{}
+		for _, f := range files {
+			if f.IsDir() || !strings.EqualFold(filepath.Ext(f.Name()), ".toc") {
+				continue
+			}
+			b, err := os.ReadFile(filepath.Join(addons, e.Name(), f.Name()))
+			if err != nil {
+				return nil, err
+			}
+			tocs[f.Name()] = parseTOC(b)
+		}
+		st[e.Name()] = tocs
+	}
+	return st, nil
+}
+
+func parseTOC(b []byte) tocState {
+	t := tocState{files: map[string]bool{}, meta: map[string]bool{}}
+	sc := bufio.NewScanner(bytes.NewReader(b))
+	for sc.Scan() {
+		line := strings.TrimSpace(strings.TrimPrefix(sc.Text(), "\xef\xbb\xbf"))
+		switch {
+		case line == "":
+		case strings.HasPrefix(line, "##"):
+			k, v, _ := strings.Cut(strings.TrimSpace(strings.TrimPrefix(line, "##")), ":")
+			k = strings.ToLower(strings.TrimSpace(k))
+			if k == "interface" || k == "dependencies" || strings.HasPrefix(k, "savedvariables") {
+				t.meta[k+": "+strings.Join(strings.Fields(v), " ")] = true
+			}
+		case strings.HasPrefix(line, "#"):
+		default:
+			t.files[strings.ToLower(strings.ReplaceAll(line, "\\", "/"))] = true
+		}
+	}
+	return t
+}
+
+// needsRestart says whether going from before to after adds anything /reload cannot load: a folder, a
+// TOC, a file entry or a metadata line that was not there. Removals and content changes do not count.
+func needsRestart(before, after addonState) bool {
+	for folder, tocs := range after {
+		bt, ok := before[folder]
+		if !ok {
+			return true
+		}
+		for name, t := range tocs {
+			b, ok := bt[name]
+			if !ok {
+				return true
+			}
+			for f := range t.files {
+				if !b.files[f] {
+					return true
+				}
+			}
+			for m := range t.meta {
+				if !b.meta[m] {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+// resultFor judges an install that has just synced into addons. An unreadable before or after state
+// counts as a restart, the safe side.
+func resultFor(before addonState, berr error, addons string) InstallResult {
+	after, aerr := snapshotAddons(addons)
+	restart := berr != nil || aerr != nil || needsRestart(before, after)
+	return InstallResult{Note: ReloadNote(restart), Restart: restart}
 }

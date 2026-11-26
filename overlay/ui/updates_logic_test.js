@@ -97,12 +97,19 @@ assert.strictEqual(U.updatedNote('0.7.55', '0.7.54', 'it loses plans.').text, '�
 assert.strictEqual(U.updatedNote('0.7.54', '0.7.55', 'ignored').text, '✓ Updated: app 0.7.55');
 assert.strictEqual(U.updatedNote('0.7.73', '0.7.74', '', '0.6.46').text, '✓ Updated: app 0.7.74 and addon 0.6.46');
 assert.strictEqual(U.updatedNote('0.7.74', '0.7.74', '', '0.6.46').text, '✓ Updated: addon 0.6.46');
-assert.strictEqual(U.updatedNote('0.7.74', '0.7.74', '', '0.6.46').reload, 'If WoW is open, type /reload in game to load it.');
-assert.strictEqual(U.updatedNote('0.7.73', '0.7.74', '', '0.6.46').reload, 'If WoW is open, type /reload in game to load the addon.');
+const RELOAD = 'A /reload in game is required to load the new addon. Type /reload now if WoW is open.';
+const RESTART = "This addon update adds new files: fully exit and restart WoW to load it (/reload isn't enough).";
+assert.strictEqual(U.updatedNote('0.7.74', '0.7.74', '', '0.6.46').reload, RELOAD);
+assert.strictEqual(U.updatedNote('0.7.74', '0.7.74', '', '0.6.46', true).reload, RESTART);
+assert.strictEqual(U.updatedNote('0.7.73', '0.7.74', '', '0.6.46').reload, RELOAD);
+assert.strictEqual(U.updatedNote('0.7.73', '0.7.74', '', '0.6.46', true).reload, RESTART);
+assert.strictEqual(U.updatedNote('0.7.73', '0.7.74', '', '', true).reload, undefined);
 assert.strictEqual(U.updatedNote('0.7.73', '0.7.74').reload, undefined);
 assert.strictEqual(U.updatedNote('0.7.55', '0.7.54').reload, undefined);
 assert.strictEqual(U.addonDoneNote('0.6.54', 'x').text, '✓ Updated: addon 0.6.54');
-assert.strictEqual(U.addonDoneNote('unknown', 'Addon installed').reload, 'If WoW is open, type /reload in game to load it.');
+assert.strictEqual(U.addonDoneNote('unknown', 'Addon installed').reload, RELOAD);
+assert.strictEqual(U.addonDoneNote('0.6.54', '', true).reload, RESTART);
+assert.strictEqual(U.reloadDone(U.addonDoneNote('0.6.54', '', true), { addon: '0.6.54', savedAt: 200 }, 100), true);
 { // the reload line clears once a save shows the new version
   const n = U.addonDoneNote('0.6.54', '');
   assert.strictEqual(U.reloadDone(n, { addon: '0.6.53', savedAt: 200 }, 100), false);
