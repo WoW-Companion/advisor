@@ -302,9 +302,17 @@ func TestGameDataChangeEvent(t *testing.T) {
 	if err := os.Rename(tmp, filepath.Join(e.dir, "ForeverScribe.lua")); err != nil {
 		t.Fatal(err)
 	}
-	ev := next(t, ch)
+	// Under load the poller may emit a game event for the earlier stamp first: wait for the new capture.
+	var ev sse
 	var st State
-	json.Unmarshal([]byte(ev.data), &st)
+	for range 5 {
+		ev = next(t, ch)
+		st = State{}
+		json.Unmarshal([]byte(ev.data), &st)
+		if st.CapturedAt == 999 {
+			break
+		}
+	}
 	if ev.name != "game" || st.CapturedAt != 999 || st.Default != "R:New" || len(st.Characters) != 2 {
 		t.Errorf("event %s %+v", ev.name, st)
 	}
