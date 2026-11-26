@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.7.94
+
+- **Fixed** objectives Questie places on the map but the plan missed now get real spots.
+- **Changed** a stop with no known position is sent as x = -1, y = -1, marked unplaced, never 0, 0.
+- **Changed** with no spawn data, subzones named in the quest text give approximate spots.
+- **Fixed** Questie quest fields are read by the database's own key map.
+- **Added** an objective with no known spot is placed from the game's quest map point.
+- **Added** `wowc-advisor doctor quests` counts how your logged objectives are placed.
+- **Fixed** objectives on enemy-faction NPCs now say "Kill", not "Talk to".
+- **Changed** the verb comes from the quest log's own objective text ("slain" is Kill) when present.
+- **Changed** without log text, an NPC is friendly only if its faction includes your side.
+- **Fixed** a Horde Skyborne is no longer sent to Alliance quest givers; Skyborne has own race bits.
+- **Fixed** an unknown race now falls back to the captured faction's races, and says so.
+- **Changed** pick-ups skip quest givers who are friendly only to the other side.
+- **Fixed** bag gear is compared by its captured stats, so a lower item-level blue is no upgrade.
+- **Fixed** without stats, item level decides and quality only breaks ties ("likely better").
+
 ## 0.7.93
 
 - **Changed** a quest handed in at another NPC, with nothing to do, now reads as a trip to that NPC.
