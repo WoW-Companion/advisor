@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.7.86
+## 0.7.87
 
 - Weapon rules now come from your game data, not the AI's memory.
 - Ask where to train Staves: the AI names your faction's Weapon Masters and the price.
@@ -8,6 +8,10 @@
 - A weapon your class can never use is not suggested.
 - A big upgrade that needs a skill adds a "Train Staves" step, after your ready turn-ins.
 - With older game data, the AI says it has no weapon-skill facts.
+
+## 0.7.86
+
+- The plan file lists where each quest in your log is handed in, for live turn-in hints.
 
 ## 0.7.85
 
