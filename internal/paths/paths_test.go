@@ -312,3 +312,44 @@ func TestQuestRewardNamesItsQuestFromQuestie(t *testing.T) {
 		t.Errorf("a shield for a Protection warrior: %+v", r)
 	}
 }
+
+type observedRow struct {
+	QuestID  int64   `parquet:"quest_id"`
+	Title    string  `parquet:"title"`
+	Level    *int16  `parquet:"level"`
+	Faction  *string `parquet:"faction"`
+	Category *string `parquet:"category"`
+}
+
+// The client's quests table holds no quest name, so a quest the dataset knows only from quests_observed is still named,
+// placed by its zone heading and worded as a choice; a quest of the other side's or far above the level is left out.
+func TestQuestRewardNamesItsQuestFromObserved(t *testing.T) {
+	const a, b, c, d = 50, 51, 52, 53
+	s := func(v string) *string { return &v }
+	l := func(v int16) *int16 { return &v }
+	ds := store.New(store.ReaderSource{
+		"items": tbl(t, []itemRow{
+			item(a, "Oak Girdle", 14, 9, 2, 3, 6, 0),
+			item(b, "Oak Gloves", 14, 9, 2, 3, 10, 0),
+			item(c, "Oak Boots", 14, 9, 2, 3, 8, 0),
+			item(d, "Oak Cap", 14, 9, 2, 3, 1, 0),
+		}),
+		"loot_sources": tbl(t, []lootRow{{a, "quest reward", 801, 0, 0, nil}, {b, "quest reward", 801, 0, 0, nil}, {c, "quest reward", 802, 0, 0, nil}, {d, "quest reward", 803, 0, 0, nil}}),
+		"quests_observed": tbl(t, []observedRow{
+			{801, "Synthetic Errand", l(10), s("horde"), s("Synthetic Vale")},
+			{802, "Synthetic Alliance Errand", l(10), s("alliance"), nil},
+			{803, "Synthetic High Errand", l(40), s("horde"), nil},
+		}),
+	})
+	lvl := 10
+	horde := character.Character{Name: "T", Class: "WARRIOR", Faction: "Horde", Level: &lvl}
+	r := For(horde, ds, a, Options{})
+	if len(r.Paths) == 0 || r.Paths[0].Line != "Finish Synthetic Errand and choose it (in Synthetic Vale)" {
+		t.Errorf("a quest the dataset knows only from players is named: %+v", r)
+	}
+	for _, id := range []int64{c, d} {
+		if r := For(horde, ds, id, Options{}); r.Dependable() {
+			t.Errorf("item %d: a quest of the other side's or far above the level is no way: %+v", id, r)
+		}
+	}
+}

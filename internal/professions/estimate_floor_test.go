@@ -36,6 +36,9 @@ func TestExpertEarlyNamesTrainerByFaction(t *testing.T) {
 	if got := expertEarly("Tailoring", "Alliance", 60); !contains(got, "Georgio Bolero in Stormwind") {
 		t.Errorf("alliance: %q", got)
 	}
+	if got := expertEarly("Tailoring", "horde", 60); !contains(got, "Artisan as soon as you have Tailoring 200 and character level 35") {
+		t.Errorf("Artisan is trained at skill 200 and level 35, not at the 225 cap: %q", got)
+	}
 	if got := expertEarly("Mining", "horde", 60); got != "" {
 		t.Errorf("only Tailoring has the early Expert step: %q", got)
 	}

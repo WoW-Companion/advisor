@@ -372,7 +372,7 @@ func expertEarly(profession, faction string, level int) string {
 	case "alliance":
 		who = "Georgio Bolero in Stormwind"
 	}
-	s := "Train Journeyman before skill 75, Expert as soon as you have Tailoring 125 and character level 20 (about 50s, " + who + "), and Artisan at 225."
+	s := "Train Journeyman before skill 75, Expert as soon as you have Tailoring 125 and character level 20 (about 50s, " + who + "), and Artisan as soon as you have Tailoring 200 and character level 35."
 	if level > 0 && level < 20 {
 		s += " Expert needs character level 20, so you are not there yet."
 	}
