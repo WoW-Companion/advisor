@@ -271,8 +271,8 @@ func TestOfflineBenchmarkMoneyWording(t *testing.T) {
 				bad = append(bad, fmt.Sprintf("%s says %q", k, v))
 			}
 		}
-		slices := []string{got["vendor"], got["bags"], got["plan"]}
-		out = append(out, benchRow{fmt.Sprintf("%d copper in words", c), strings.Join(slices, " | "), fmt.Sprintf("%d copper in every place", c), itemsMoneySrc, resultIf(len(bad) == 0, strings.Join(bad, "; "))})
+		words := []string{got["vendor"], got["bags"], got["plan"]}
+		out = append(out, benchRow{fmt.Sprintf("%d copper in words", c), "vendor " + words[0] + ", bags " + words[1] + ", plan " + words[2], fmt.Sprintf("%d copper in every place", c), itemsMoneySrc, resultIf(len(bad) == 0, strings.Join(bad, "; "))})
 	}
 	for _, c := range []int{12345, 2147483647} {
 		purse := c
