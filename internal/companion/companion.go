@@ -216,6 +216,8 @@ type State struct {
 	Digest     DigestState  `json:"digest"`
 	Settings   Settings     `json:"settings"`
 	DataNotice string       `json:"data_notice,omitempty"` // set once a dataset update has installed
+	GameAddon  string       `json:"game_addon,omitempty"`  // the addon version the last game save recorded
+	SavedAt    int64        `json:"saved_at,omitempty"`    // when the game last wrote the save file (Unix seconds)
 	Context    *ContextView `json:"context,omitempty"`     // the follow-up chip, while a card is active
 }
 
@@ -250,6 +252,8 @@ type Server struct {
 	pmu       sync.Mutex // guards the saved client list file
 	chars     []CharInfo
 	captured  int64
+	gameAddon string // the addonVersion recorded in the last save read
+	savedAt   int64  // that save file's modification time, Unix seconds
 	loadErr   string
 	web       []Entry
 	card      *card            // the follow-up context, see context.go
@@ -449,7 +453,7 @@ func (s *Server) state(w http.ResponseWriter, r *http.Request) {
 func (s *Server) snapshot() State {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	st := State{Characters: s.chars, CapturedAt: s.captured, Error: s.loadErr, Streaming: s.cfg.Stream, Digest: s.digest, Settings: s.settingsLocked(), DataNotice: s.dataNotice()}
+	st := State{Characters: s.chars, CapturedAt: s.captured, Error: s.loadErr, Streaming: s.cfg.Stream, Digest: s.digest, Settings: s.settingsLocked(), DataNotice: s.dataNotice(), GameAddon: s.gameAddon, SavedAt: s.savedAt}
 	var best int64 = -1
 	for _, c := range s.chars {
 		if c.CapturedAt > best {
@@ -476,6 +480,10 @@ func (s *Server) reload() {
 		return
 	}
 	s.loadErr, s.chars, s.captured = "", nil, 0
+	s.gameAddon, s.savedAt = f.Addon, 0
+	if fi, err := os.Stat(s.cfg.ForeverScribe); err == nil {
+		s.savedAt = fi.ModTime().Unix()
+	}
 	s.planKeys = map[string]map[string]bool{}
 	for _, c := range f.Characters {
 		c = character.AttachTotals(unlock.AddonSV(s.cfg.Ask.SavedVariables), profile.Attach(s.profilesPath(), c))
