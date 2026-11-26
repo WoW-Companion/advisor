@@ -3,8 +3,10 @@ package whatsnew
 import (
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	advisor "github.com/WoW-Companion/advisor"
 )
@@ -183,5 +185,32 @@ func TestBundledNotesFollowTheWritingRule(t *testing.T) {
 	top := Bundled()[0].Version
 	if v, _ := os.ReadFile("../../VERSION"); strings.TrimSpace(string(v)) != top {
 		t.Errorf("newest CHANGELOG version is %s but VERSION is %q: a release is the next version, with its notes", top, strings.TrimSpace(string(v)))
+	}
+}
+
+func TestSinceListsEveryVersionNewestFirstAndCaps(t *testing.T) {
+	var b strings.Builder
+	for v := 60; v >= 1; v-- {
+		b.WriteString("## 0.1." + strconv.Itoa(v) + "\n\n- **Fixed** a thing. And more.\n\n")
+	}
+	now := time.Date(2026, 11, 26, 0, 0, 0, 0, time.UTC)
+	got, more := Since(b.String(), "0.1.58", "0.1.60", []string{"v0.1.59"}, nil, now)
+	if len(got) != 1 || got[0].Version != "0.1.60" || more {
+		t.Fatalf("got %+v more=%v", got, more)
+	}
+	if got[0].Lines[0] != "Fixed a thing." || len(got[0].Lines) != 2 {
+		t.Errorf("lines = %q", got[0].Lines)
+	}
+	got, more = Since(b.String(), "0.1.0", "0.1.60", nil, nil, now)
+	if len(got) != SinceVersions || !more || got[0].Version != "0.1.60" {
+		t.Errorf("count cap: %d more=%v", len(got), more)
+	}
+	old := map[string]time.Time{"0.1.2": now.AddDate(0, 0, -SinceDays-1), "0.1.3": now.AddDate(0, 0, -5)}
+	got, more = Since(b.String(), "0.1.0", "0.1.3", nil, old, now)
+	if len(got) != 2 || !more {
+		t.Errorf("age cap: %+v more=%v", got, more)
+	}
+	if g, m := Since(b.String(), "", "0.1.3", nil, nil, now); g != nil || m {
+		t.Errorf("no from = %+v", g)
 	}
 }

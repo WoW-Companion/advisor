@@ -199,3 +199,52 @@ assert.strictEqual(U.CHANGELOG_URL, 'https://github.com/WoW-Companion/advisor/re
   assert.strictEqual(U.addonAuto({ ...ad, auto: 'goback', reinstall: true }, cfg({ autoUpdate: true, later: { 'addon:1.1.0': NOW + 5 } }), NOW, true), 'goback');
   assert.strictEqual(U.addonAuto(ad, cfg({ autoUpdate: true, later: { 'addon:1.1.0': NOW + 5 } }), NOW, true), '', 'Later holds back a plain update');
 }
+
+// Every update notice carries the reload or restart line and a What's new button: the auto and manual
+// addon installs, a go-back, an app update with a bundled addon, and an addon-only start.
+{
+  const ONLY = x => x.reload === RELOAD || x.reload === RESTART;
+  const auto = U.addonDoneNote('0.6.67', 'Addon 0.6.67 is installed.', false); // what the auto-install draws
+  assert.strictEqual(auto.text, '✓ Updated: addon 0.6.67');
+  assert.strictEqual(auto.reload, RELOAD);
+  assert.strictEqual(U.addonDoneNote('0.6.67', 'x', true).reload, RESTART, 'restart wording when the update adds files');
+  const back = U.addonDoneNote('', 'Went back to addon 0.6.50. Type /reload.', false);
+  assert.ok(ONLY(back) && back.whatsNew && back.text.startsWith('✓ Went back to addon'), 'a go-back keeps the line');
+  const both = U.updatedNote('0.7.73', '0.7.74', '', '0.6.46', true);
+  assert.strictEqual(both.reload, RESTART);
+  assert.strictEqual(U.updatedNote('0.7.74', '0.7.74', '', '0.6.46').reload, RELOAD);
+  for (const n of [auto, back, both, U.updatedNote('0.7.74', '0.7.74', '', '0.6.46'), U.updatedNote('0.7.73', '0.7.74')]) assert.strictEqual(n.whatsNew, true);
+  // The notice is redrawn in place: the later install is the whole text, nothing stacks.
+  const later = U.addonDoneNote('0.6.68', '', false);
+  assert.strictEqual(later.text, '✓ Updated: addon 0.6.68');
+  // A restart notice is not cleared by a save that only proves a /reload.
+  assert.strictEqual(U.reloadDone(U.addonDoneNote('0.6.67', '', true), { addon: '', savedAt: 500 }, 100), false);
+  // A save time that could not be read at install time is not a base to beat.
+  assert.strictEqual(U.reloadDone(U.addonDoneNote('0.6.67', '', false), { addon: '', savedAt: 500 }, null), false);
+}
+
+// Notes since last viewed.
+{
+  const c = cfg();
+  // First run: seeded with what is installed, so nothing is listed.
+  assert.strictEqual(U.seedNotesSeen(c, '0.7.94', '0.6.67'), true);
+  assert.deepStrictEqual(c.notesSeen, { app: '0.7.94', addon: '0.6.67' });
+  assert.strictEqual(U.seedNotesSeen(c, '0.7.99', '0.6.70'), false, 'a later start does not move it');
+  assert.strictEqual(U.notesQuery(c, '0.7.94', '0.6.67'), '?app_from=0.7.94&app=0.7.94&addon_from=0.6.67&addon=0.6.67');
+  assert.ok(U.notesView({ app: { entries: [] }, addon: { entries: [] } }).empty, 'first run shows nothing');
+  // Two app and three addon versions later, the range runs from the last seen.
+  assert.strictEqual(U.notesQuery(c, '0.7.96', '0.6.70'), '?app_from=0.7.94&app=0.7.96&addon_from=0.6.67&addon=0.6.70');
+  const v = U.notesView({
+    app: { entries: [{ version: '0.7.96', lines: ['Fixed a.'] }, { version: '0.7.95', lines: ['Added b.', 'Fixed c.'] }], more: false },
+    addon: { entries: [{ version: '0.6.70', lines: ['x'] }, { version: '0.6.69', lines: ['y'] }, { version: '0.6.68', lines: ['z'] }], more: false },
+  });
+  assert.deepStrictEqual(v.sections.map(s => [s.component, s.entries.map(e => e.version)]), [['App', ['0.7.96', '0.7.95']], ['Addon', ['0.6.70', '0.6.69', '0.6.68']]]);
+  assert.strictEqual(v.more, null);
+  // Opening marks the installed versions seen; the next view is empty.
+  assert.strictEqual(U.openNotes(c, '0.7.96', '0.6.70'), true);
+  assert.deepStrictEqual(c.notesSeen, { app: '0.7.96', addon: '0.6.70' });
+  assert.strictEqual(U.openNotes(c, '0.7.96', 'unknown'), false, 'an unknown addon version keeps its mark');
+  // The cap: when the server left versions out, the last line points at the release page.
+  const capped = U.notesView({ app: { entries: [{ version: '0.7.96', lines: ['a'] }], more: true }, addon: { entries: [] } });
+  assert.deepStrictEqual(capped.more, { text: 'Older changes: see the release page', url: U.CHANGELOG_URL });
+}
