@@ -10,6 +10,7 @@ import (
 
 	"github.com/WoW-Companion/advisor/internal/character"
 	"github.com/WoW-Companion/advisor/internal/questie"
+	"github.com/WoW-Companion/advisor/internal/store"
 	"github.com/WoW-Companion/advisor/internal/unlock"
 )
 
@@ -98,6 +99,9 @@ type Stop struct {
 	Observed   bool   `json:"observed,omitempty"`    // the link or the giver was observed in game
 	Giver      string `json:"giver,omitempty"`       // on a locked pick-up: the NPC
 	Here       bool   `json:"here,omitempty"`        // on a locked pick-up: the same NPC as the unlocking turn-in
+	// Errand is the kind of a city errand stop ("train", "bank", "class", "profession", "turnin"); empty on
+	// an ordinary stop (Plan.lua 1.7).
+	Errand string `json:"errand,omitempty"`
 }
 
 // FindStop is an objective the planner could not place on the map: something to find, with no x or y.
@@ -106,6 +110,10 @@ type FindStop struct {
 	QuestID int    `json:"quest_id,omitempty"`
 	Quest   string `json:"quest,omitempty"`
 	Label   string `json:"label"`
+	// Hint and Zone are on a logged quest with no place on the map, mostly a done quest whose finisher is
+	// unknown: Hint is the quest's own objective text, Zone where it is known to be (Plan.lua 1.7).
+	Hint string `json:"hint,omitempty"`
+	Zone string `json:"zone,omitempty"`
 }
 
 // Point is a place on a map, in map percent.
@@ -136,6 +144,11 @@ type Options struct {
 	// or in the hub" rule, for a caller that wants every pick-up of the map.
 	PickupCap int
 	AnyPickup bool
+
+	// Data is the dataset, for the class trainer's spells in a city errand (nil: none). Trainable counts
+	// the spells the character can train now; nil reads them from Data.
+	Data      store.DataStore
+	Trainable func(c character.Character) int
 }
 
 // DungeonLevel is a dungeon's level range; Map is its instance id (0 when unknown).
@@ -171,6 +184,7 @@ type Plan struct {
 	Exit      *Exit        `json:"exit,omitempty"`       // the run's last line: the way to the next trip (Plan.lua 1.6)
 	Trips     []Trip       `json:"trips,omitempty"`      // logged quests outside the run, by destination zone (Plan.lua 1.6)
 	Parked    []Parked     `json:"parked,omitempty"`     // logged quests set aside, and why (Plan.lua 1.6)
+	Errands   []Errand     `json:"errands,omitempty"`    // which steps are city errands (Plan.lua 1.7)
 }
 
 // Basis is the state a plan starts from. "Done" in a plan means done after Captured: a reader judges
@@ -258,8 +272,10 @@ type quest struct {
 	objs     []*spot
 	unplaced []*spot // unfinished objectives with no location
 	turnin   *spot
-	must     bool // a class quest: its stops are must-include
-	event    bool // a holiday-event quest the player opted in to: optional, after the rest
+	must     bool   // a class quest: its stops are must-include
+	done     bool   // the log says every objective is done
+	hint     string // Questie's own objective text, for a quest with no place
+	event    bool   // a holiday-event quest the player opted in to: optional, after the rest
 
 	// Pick-up facts (an unstarted quest): the dungeon it leads to with its level range, the quest's
 	// XP from the table (0: unknown) and whether it is a holiday or festival quest.
@@ -373,7 +389,7 @@ func planWith(c character.Character, src source, opt Options) Plan {
 		}
 		if q.pickup != nil && !q.locked {
 			pickups = append(pickups, q) // decided below, with the quest log's room
-		} else if q.level > lvl+LevelMargin && !q.must {
+		} else if q.level > lvl+LevelMargin && !q.must && !(q.turnin != nil && q.turnin.ready) {
 			later = append(later, q.chain()...)
 		} else if len(q.chain()) > 0 {
 			use = append(use, q)

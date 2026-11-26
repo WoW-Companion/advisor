@@ -319,11 +319,12 @@ func (s *questieSource) quests(c character.Character, at *questie.Where) []*ques
 		if qq == nil || (lq.Failed != nil && *lq.Failed) {
 			continue
 		}
-		q := &quest{id: qq.ID, name: qq.Name, level: qq.Level, must: classQuestOf(c, qq)}
+		q := &quest{id: qq.ID, name: qq.Name, level: qq.Level, must: classQuestOf(c, qq), hint: qq.Objective}
 		if lq.Level != nil {
 			q.level = *lq.Level
 		}
 		ready := character.Quest(lq).Ready()
+		q.done = ready
 		complete := ready
 		var done, open []string
 		for _, o := range lq.Objectives {

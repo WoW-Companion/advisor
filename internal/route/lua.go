@@ -10,7 +10,7 @@ import (
 )
 
 // Schema is the Plan.lua format version (docs/plan-format.md).
-const Schema = "1.6"
+const Schema = "1.7"
 
 // File is the file name, next to Digest.lua.
 const File = "Plan.lua"
@@ -42,6 +42,9 @@ func stops(b *strings.Builder, indent string, list []Stop) {
 		}
 		if s.Place != "" {
 			extra += ", place = " + digest.Quote(s.Place)
+		}
+		if s.Errand != "" {
+			extra += ", errand = " + digest.Quote(s.Errand)
 		}
 		if s.Unplaced {
 			extra += ", unplaced = true"
@@ -99,9 +102,25 @@ func (e Envelope) Lua() string {
 		stops(&b, "        ", p.Later)
 		b.WriteString("      },\n      find = {\n")
 		for _, f := range p.Find {
+			if f.Hint != "" {
+				z := ""
+				if f.Zone != "" {
+					z = ", zone = " + digest.Quote(f.Zone)
+				}
+				fmt.Fprintf(&b, "        { n = %d, questID = %d, quest = %s, hint = %s%s, done = false },\n", f.N, f.QuestID, digest.Quote(f.Quest), digest.Quote(f.Hint), z)
+				continue
+			}
 			fmt.Fprintf(&b, "        { n = %d, kind = \"objective\", questID = %d, quest = %s, label = %s, done = false },\n", f.N, f.QuestID, digest.Quote(f.Quest), digest.Quote(f.Label))
 		}
-		b.WriteString("      },\n      guidance = {\n")
+		b.WriteString("      },\n")
+		if len(p.Errands) > 0 {
+			b.WriteString("      errands = {\n")
+			for _, e := range p.Errands {
+				fmt.Fprintf(&b, "        { n = %d, kind = %s, label = %s, map = %d, x = %.1f, y = %.1f, why = %s },\n", e.N, digest.Quote(e.Kind), digest.Quote(e.Label), e.Map, e.X, e.Y, digest.Quote(e.Why))
+			}
+			b.WriteString("      },\n")
+		}
+		b.WriteString("      guidance = {\n")
 		for _, g := range p.Guides {
 			guideLua(&b, "        ", g)
 		}
@@ -180,8 +199,16 @@ func lockedNote(s Stop) string {
 
 func appendFind(b *strings.Builder, p Plan) {
 	for _, f := range p.Find {
-		fmt.Fprintf(b, "Find: %s\n", f.Label)
+		fmt.Fprintf(b, "%s\n", findLine(f))
 	}
+}
+
+// findLine is a find entry as one line; a hint that already starts with a verb ("Find an ogre...") stands alone.
+func findLine(f FindStop) string {
+	if strings.HasPrefix(f.Label, "Find ") {
+		return f.Label
+	}
+	return "Find: " + f.Label
 }
 
 func cmpZone(z string) string {
@@ -210,7 +237,7 @@ func Lines(p Plan, limit int) (lines []string, summary string) {
 		lines = append(lines, StepText(s))
 	}
 	for _, f := range p.Find {
-		lines = append(lines, "Find: "+f.Label)
+		lines = append(lines, findLine(f))
 	}
 	if len(p.Steps) > 0 {
 		// The dataset and the capture hold no zone size, so there is no honest distance in yards: the
