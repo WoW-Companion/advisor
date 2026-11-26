@@ -24,12 +24,9 @@ const (
 // PickUpPrefix starts the title of a step for a quest that is not yet in the log.
 const PickUpPrefix = "Pick up: "
 
-// classIDs and raceIDs map the capture's tokens to the game's ids; a mask bit is 1<<(id-1).
+// classIDs and raceIDs map the capture's tokens to the game's ids; race mask bits come from questie.RaceBit.
 var classIDs = map[string]int{"WARRIOR": 1, "PALADIN": 2, "HUNTER": 3, "ROGUE": 4, "PRIEST": 5, "DEATHKNIGHT": 6,
 	"SHAMAN": 7, "MAGE": 8, "WARLOCK": 9, "MONK": 10, "DRUID": 11, "DEMONHUNTER": 12, "EVOKER": 13}
-
-var raceIDs = map[string]int{"human": 1, "orc": 2, "dwarf": 3, "nightelf": 4, "scourge": 5, "undead": 5, "tauren": 6,
-	"gnome": 7, "troll": 8, "goblin": 9, "bloodelf": 10, "draenei": 11, "worgen": 22, "pandaren": 24}
 
 // Available is the quests a character could pick up now. Unchecked names each rule the dataset
 // could not support, so an empty list is never read as "nothing to pick up".
@@ -38,17 +35,26 @@ type Available struct {
 	Unchecked []string
 }
 
+func classBit(id int) uint64 {
+	if id <= 0 {
+		return 0
+	}
+	return 1 << (id - 1)
+}
+
 func asInt(v any) (int, bool) {
 	n, ok := v.(int64)
 	return int(n), ok
 }
 
-func maskAllows(row store.Row, col string, id int) (allowed, checked bool) {
-	m, ok := asInt(row[col])
-	if !ok || id == 0 {
+// maskAllows checks a quest's mask column against the player's bit; unchecked when the column is
+// missing or the player has no bit.
+func maskAllows(row store.Row, col string, bit uint64) (allowed, checked bool) {
+	m, ok := row[col].(int64)
+	if !ok || bit == 0 {
 		return true, false
 	}
-	return m <= 0 || m&(1<<(id-1)) != 0, true
+	return m <= 0 || uint64(m)&bit != 0, true
 }
 
 // AvailableQuests finds quests the character has not picked up but could: level within the band,
@@ -107,7 +113,15 @@ func AvailableQuests(c character.Character, ds store.DataStore) Available {
 		line, zone bool
 	}
 	var found []scored
-	classID, raceID := classIDs[strings.ToUpper(c.Class)], raceIDs[strings.ToLower(strings.ReplaceAll(c.Race, " ", ""))]
+	classID := classIDs[strings.ToUpper(c.Class)]
+	raceBit, sideMask, fellback := questie.RaceMasks(c.Race, c.Faction)
+	raceMask := raceBit
+	if raceMask == 0 {
+		raceMask = sideMask
+	}
+	if fellback {
+		out.Unchecked = append(out.Unchecked, fmt.Sprintf("race %q is unknown, so quests are filtered by the %s faction's races only", c.Race, c.Faction))
+	}
 	var classSeen, raceSeen bool
 	for _, r := range rows {
 		id, _ := r["id"].(int64)
@@ -115,13 +129,13 @@ func AvailableQuests(c character.Character, ds store.DataStore) Available {
 		if id == 0 || done[id] || logged[id] || (name != "" && items.Unobtainable(name)) {
 			continue
 		}
-		if ok, chk := maskAllows(r, "allowable_class_mask", classID); chk {
+		if ok, chk := maskAllows(r, "allowable_class_mask", classBit(classID)); chk {
 			classSeen = true
 			if !ok {
 				continue
 			}
 		}
-		if ok, chk := maskAllows(r, "allowable_race_mask", raceID); chk {
+		if ok, chk := maskAllows(r, "allowable_race_mask", raceMask); chk {
 			raceSeen = true
 			if !ok {
 				continue
