@@ -47,6 +47,8 @@ func Path() string {
 // Entry is everything stored for one character.
 type Entry struct {
 	Profile *character.Profile `json:"profile,omitempty"`
+	// Seasonal is the holiday-event setting: empty (off, the default), "on" or "on:<event keys>".
+	Seasonal string `json:"seasonal,omitempty"`
 }
 
 // Schema is the version of the file's layout. Changes are additive only: a field is added, never
@@ -101,7 +103,7 @@ func Update(path, key string, fn func(*Entry) error) (Entry, error) {
 	if err := fn(&e); err != nil {
 		return Entry{}, err
 	}
-	if e.Profile == nil {
+	if e.Profile == nil && e.Seasonal == "" {
 		delete(f.Characters, key) // nothing left to keep: the character has no entry
 	} else {
 		f.Characters[key] = e
@@ -122,6 +124,7 @@ func Update(path, key string, fn func(*Entry) error) (Entry, error) {
 func Attach(path string, c character.Character) character.Character {
 	e := Get(path, c.Key)
 	c.Profile = e.Profile
+	c.Seasonal = e.Seasonal
 	return c
 }
 

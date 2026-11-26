@@ -659,6 +659,7 @@ func New(cfg Config) *mcp.Server {
 	s := mcp.NewServer(&mcp.Implementation{Name: "wowc-advisor", Version: Version}, nil)
 
 	addProfileTools(s, cfg)
+	addSeasonalTools(s, cfg)
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "server_info",

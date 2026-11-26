@@ -48,6 +48,10 @@ All character tools take an optional `character` name (omit it when only one was
 - `get_character_profile` / `set_character_profile`: the character's saved play style (role, focus,
   spec, guide) and talent plan, kept on the player's PC. `talent_tree`: the exact captured talent
   node names a plan may use.
+- `seasonal_events`: holiday event quests are opt-in and off by default. It reads the setting, the events
+  running today, their quests at the player's level and where they start. Set it only when the player
+  clearly asks ("add the festival quests", "stop showing event quests"); when they only ask what an
+  event is, explain it and offer to add it. Confirm a change in one sentence.
 - `dungeon_plan`: which dungeons fit the character and which boss drops are upgrades (optional
   `limit`).
 - `farm_spots`: where an item drops (item id or name, optional `limit`): creatures and objects by level fit

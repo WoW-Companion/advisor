@@ -3,6 +3,7 @@ package advice
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/WoW-Companion/advisor/internal/character"
 	"github.com/WoW-Companion/advisor/internal/items"
@@ -36,7 +37,10 @@ func whereOf(c character.Character) (questie.Where, bool) {
 func whoOf(c character.Character) questie.Who {
 	w := questie.Who{Level: *c.Level, Below: AvailBelow, Above: AvailAbove,
 		ClassID: classIDs[strings.ToUpper(c.Class)], RaceID: raceIDs[strings.ToLower(strings.ReplaceAll(c.Race, " ", ""))],
-		Done: map[int]bool{}, InLog: map[int]bool{}}
+		Done: map[int]bool{}, InLog: map[int]bool{}, Seasonal: questie.Seasonal(c.Seasonal)}
+	if c.CapturedAt != nil {
+		w.Now = time.Unix(*c.CapturedAt, 0)
+	}
 	for _, id := range c.CompletedQuests {
 		w.Done[id] = true
 	}
@@ -84,6 +88,11 @@ func offerStep(c character.Character, qx *questie.Index, o questie.Offer) Step {
 	if o.Class {
 		title = fmt.Sprintf("%s%s from %s", ClassQuestPrefix, q.Name, g)
 		reason += ". " + ClassQuestNote // the reward is never named: no local source gives it
+	}
+	if q.Event != "" {
+		ev, _ := questie.EventByKey(q.Event)
+		title = fmt.Sprintf("%s%s (optional, %s) from %s", PickUpPrefix, q.Name, ev.Name, g)
+		reason += "; a holiday event quest you opted in to, optional"
 	}
 	return Step{Kind: KindQuest, Title: title, Reason: reason,
 		Zone: g.Zone, QuestID: q.ID, Location: g.String(), Name: q.Name, Level: q.Level, NPC: g.Name,
