@@ -747,7 +747,7 @@ async function installAddon(goback) {
     const r = await api('/api/addon/install', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ game: cfg.gameDir, goback: goback || '' }) });
     const j = await r.json();
     if (j.status) upd.addon = j.status;
-    if (j.ok) { ok = true; showAddonDone(j.message); } else upd.failure = j.error || 'The addon did not install.';
+    if (j.ok) { ok = true; showAddonDone(j.message, j.restart); } else upd.failure = j.error || 'The addon did not install.';
   } catch (e) { upd.failure = String(e); }
   upd.busy = '';
   renderUpdates(); renderVersionList();
@@ -760,16 +760,18 @@ async function installBoth(s) {
   if (s.kind === 'offer') {
     // The app restarts: keep the addon version so the note after the restart names both.
     if (upd.addon && upd.addon.installed) localStorage.setItem('wowc-addonver', upd.addon.installed);
+    localStorage.setItem('wowc-addonrestart', upd.lastRestart ? '1' : '');
     // (showAddonDone has kept the save time seen at the install, for the reload line after the restart.)
     installVersion(s.version);
   }
 }
 function doInstall(s) { return s.kind === 'addon' ? installAddon('') : s.addon ? installBoth(s) : installVersion(s.version); }
-async function showAddonDone(message) {
+async function showAddonDone(message, restart) {
+  upd.lastRestart = !!restart;
   const g = await gameSnap();
   const base = g ? g.savedAt : 0;
   localStorage.setItem('wowc-addonsaved', String(base));
-  drawUpdated(WowcUpdates.addonDoneNote(upd.addon && upd.addon.installed, message), base);
+  drawUpdated(WowcUpdates.addonDoneNote(upd.addon && upd.addon.installed, message, restart), base);
 }
 // What the last game save recorded: the addon version it runs and when the file was written.
 async function gameSnap() {
@@ -990,10 +992,12 @@ async function showUpdatedNote(running) {
   localStorage.setItem('wowc-lastver', running);
   const addonVer = localStorage.getItem('wowc-addonver') || '';
   localStorage.removeItem('wowc-addonver');
-  const first = WowcUpdates.updatedNote(last, running, '', addonVer);
+  const addonRestart = !!localStorage.getItem('wowc-addonrestart');
+  localStorage.removeItem('wowc-addonrestart');
+  const first = WowcUpdates.updatedNote(last, running, '', addonVer, addonRestart);
   // An automatic go-back keeps its reason in the shell: "✓ Went back to <v>: <reason>".
   const reason = first && first.kind === 'back' ? await invoke('take_went_back', { version: running }).catch(() => '') : '';
-  const n = WowcUpdates.updatedNote(last, running, reason, addonVer);
+  const n = WowcUpdates.updatedNote(last, running, reason, addonVer, addonRestart);
   if (!n) return;
   drawUpdated(n, Number(localStorage.getItem('wowc-addonsaved')) || 0);
 }

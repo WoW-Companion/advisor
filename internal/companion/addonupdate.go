@@ -85,7 +85,8 @@ func (s *Server) addonInstall(w http.ResponseWriter, r *http.Request) {
 			res["error"] = err.Error()
 		} else {
 			res["ok"] = true
-			res["message"] = "Went back to addon " + strings.TrimPrefix(req.GoBack, "v") + ". " + note
+			res["message"] = "Went back to addon " + strings.TrimPrefix(req.GoBack, "v") + ". " + note.Note
+			res["restart"] = note.Restart
 		}
 	default:
 		have, installed := gamesetup.InstalledAddonVersion(game)
@@ -102,7 +103,8 @@ func (s *Server) addonInstall(w http.ResponseWriter, r *http.Request) {
 			res["error"] = err.Error()
 		} else {
 			res["ok"] = true
-			res["message"] = "Addon " + rel.Version + " is installed. " + note
+			res["message"] = "Addon " + rel.Version + " is installed. " + note.Note
+			res["restart"] = note.Restart
 		}
 	}
 	res["status"] = gamesetup.StatusFor(s.setupOptions(req.Game, false, r.Context()), s.addonBackups(), false, s.now())

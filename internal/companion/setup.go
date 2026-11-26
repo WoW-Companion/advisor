@@ -138,7 +138,8 @@ func (s *Server) setupInstall(w http.ResponseWriter, r *http.Request) {
 			res["error"] = err.Error()
 		} else {
 			res["ok"] = true
-			res["message"] = "Installed " + rel.Version + ". " + note
+			res["message"] = "Installed " + rel.Version + ". " + note.Note
+			res["restart"] = note.Restart
 		}
 	}
 	res["items"] = s.setupItems(req.Game, false, r.Context())
