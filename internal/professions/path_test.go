@@ -286,3 +286,12 @@ func TestRecipesAloneGiveAnEstimatedSkillAndARealPlan(t *testing.T) {
 		t.Errorf("Plan: %+v", pl)
 	}
 }
+
+// A plan's money is the exact amount, to the copper, in the wording of a vendor price.
+func TestMoneyExact(t *testing.T) {
+	for in, want := range map[int64]string{0: "0c", 7: "7c", 100: "1s", 1050: "10s 50c", 10000: "1g", 12345: "1g 23s 45c", 27547: "2g 75s 47c", 10045: "1g 45c"} {
+		if got := Money(in); got != want {
+			t.Errorf("Money(%d) = %q, want %q", in, got, want)
+		}
+	}
+}

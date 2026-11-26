@@ -88,10 +88,36 @@ func Find(ds store.DataStore, table, text string, limit int) (hits []Match, more
 	return scan(ds, table, text, q, limit)
 }
 
+// idColumns are the columns that key each table the index lists.
+var idColumns = map[string]string{Items: "id", Npcs: "id", Instances: "map_id", Recipes: "spell_id", ItemSets: "set_id"}
+
+// maxSetMembers is the most pieces an item set lists (ItemID_0 to ItemID_16).
+const maxSetMembers = 17
+
+// rowID is the id of a row of table: the table's key column, as the index spells it.
+func rowID(table string, r store.Row) int64 {
+	if col, ok := idColumns[table]; ok {
+		if id, _ := r[col].(int64); id != 0 {
+			return id
+		}
+	}
+	for _, col := range []string{"id", "spell_id", "set_id", "map_id"} {
+		if id, _ := r[col].(int64); id != 0 {
+			return id
+		}
+	}
+	return 0
+}
+
 // scan is the fallback for a dataset without the index and for a table it does not list: the
-// table's name column, exact matches before partial ones.
+// table's name column, exact matches before partial ones. A table with a row for each member of
+// something (item_sets) names a match once.
 func scan(ds store.DataStore, table, text, q string, limit int) ([]Match, bool, error) {
-	rows, err := ds.SearchName(table, strings.TrimSpace(text), limit+1)
+	want := limit + 1
+	if table == ItemSets {
+		want *= maxSetMembers // one row a member: read enough rows for limit+1 sets
+	}
+	rows, err := ds.SearchName(table, strings.TrimSpace(text), want)
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
 			return nil, false, nil
@@ -99,11 +125,13 @@ func scan(ds store.DataStore, table, text, q string, limit int) ([]Match, bool, 
 		return nil, false, err
 	}
 	var exact, all []Match
+	seen := map[int64]bool{}
 	for _, r := range rows {
-		id, _ := r["id"].(int64)
-		if id == 0 { // recipes are keyed by spell_id
-			id, _ = r["spell_id"].(int64)
+		id := rowID(table, r)
+		if seen[id] {
+			continue
 		}
+		seen[id] = true
 		name, _ := r["name"].(string)
 		m := Match{id, name}
 		all = append(all, m)

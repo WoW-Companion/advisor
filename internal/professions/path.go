@@ -10,6 +10,7 @@ import (
 	"github.com/WoW-Companion/advisor/internal/gather"
 	"github.com/WoW-Companion/advisor/internal/questie"
 	"github.com/WoW-Companion/advisor/internal/store"
+	"github.com/WoW-Companion/advisor/internal/vendors"
 )
 
 // MaxBands is how many bands one answer shows; the rest come with the next part.
@@ -177,21 +178,13 @@ func basePrice(ds store.DataStore, id, listed int64) int64 {
 	return listed
 }
 
-// Money writes copper as gold, silver and copper.
+// Money writes copper as gold, silver and copper, every unit that is not zero ("1g 23s 45c"): the
+// same wording and the same amount, to the copper, as a vendor price. Nothing is "0c".
 func Money(c int64) string {
-	switch {
-	case c >= 10000:
-		if s := (c % 10000) / 100; s > 0 {
-			return fmt.Sprintf("%dg %ds", c/10000, s)
-		}
-		return fmt.Sprintf("%dg", c/10000)
-	case c >= 100:
-		if k := c % 100; k > 0 {
-			return fmt.Sprintf("%ds %dc", c/100, k)
-		}
-		return fmt.Sprintf("%ds", c/100)
+	if m := vendors.Money(c); m != "" {
+		return m
 	}
-	return fmt.Sprintf("%dc", c)
+	return "0c"
 }
 
 // sourceOf is the cheapest way to get one unit of a material the character does not hold.
