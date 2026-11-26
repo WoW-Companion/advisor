@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/WoW-Companion/advisor/internal/character"
 	"github.com/WoW-Companion/advisor/internal/items"
+	"github.com/WoW-Companion/advisor/internal/questie"
 	"github.com/WoW-Companion/advisor/internal/quests"
 	"github.com/WoW-Companion/advisor/internal/store"
 )
@@ -125,6 +127,12 @@ func AvailableQuests(c character.Character, ds store.DataStore) Available {
 				continue
 			}
 		}
+		if ml, ok := asInt(r["min_level"]); ok && ml > *c.Level {
+			continue // the quest needs a higher level than the player's
+		}
+		if ev := questie.EventOfName(name); ev != "" && !questie.Seasonal(c.Seasonal).Offered(ev, clockOf(c)) {
+			continue
+		}
 		zone, _ := r["zone_name"].(string)
 		if logZones[zone] == 0 && !here[zone] {
 			continue
@@ -185,4 +193,12 @@ func AvailableQuests(c character.Character, ds store.DataStore) Available {
 		out.Quests = append(out.Quests, f.step)
 	}
 	return out
+}
+
+// clockOf is the player's date: the capture's time, else the machine's clock.
+func clockOf(c character.Character) time.Time {
+	if c.CapturedAt != nil && *c.CapturedAt > 0 {
+		return time.Unix(*c.CapturedAt, 0)
+	}
+	return time.Now()
 }

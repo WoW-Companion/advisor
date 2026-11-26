@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.7.88
+## 0.7.89
 
 - The app now records why it ended: quit, window close, update restart, go back, shutdown and crashes.
 - After an unexpected end, the next start says "closed unexpectedly at <time>" with Open logs.
@@ -13,6 +13,11 @@
 - Rune abilities (engravings) are no longer listed as spells to train.
 - Spell lists show each spell once, at its highest rank.
 - With no trainer visit on record, training points you to your trainer's list.
+
+## 0.7.88
+
+- Nearby-quest picks skip holiday quests outside their event, or when holiday quests are off.
+- Quests that need a higher level than yours are never picked.
 
 ## 0.7.87
 

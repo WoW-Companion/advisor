@@ -240,3 +240,31 @@ func (ix *Index) EventQuests(key string, w Who) []EventQuest {
 	}
 	return out
 }
+
+// eventQuestWords are fragments of holiday quest names (lower case) and their event's key, for
+// quest rows that carry no sort id.
+var eventQuestWords = map[string]string{
+	"flickering flames": "midsummer", "midsummer": "midsummer", "honor the flame": "midsummer",
+	"desecrate the flame": "midsummer", "hallow's end": "hallows-end", "winter veil": "winter-veil",
+	"lunar festival": "lunar-festival", "love is in the air": "love-is-in-the-air",
+	"noblegarden": "noblegarden", "children's week": "childrens-week",
+	"harvest festival": "harvest-festival", "brewfest": "brewfest",
+}
+
+// EventOfName is the key of the event a quest of this name looks like, "" for an ordinary quest.
+func EventOfName(name string) string {
+	n := strings.ToLower(name)
+	for w, key := range eventQuestWords {
+		if strings.Contains(n, w) {
+			return key
+		}
+	}
+	return ""
+}
+
+// Offered reports whether a holiday quest of the event may be offered at t: the event's window
+// holds t (the base rule) and the player has opted in to it.
+func (s Seasonal) Offered(key string, t time.Time) bool {
+	e, ok := EventByKey(key)
+	return ok && e.Running(t) && s.Wants(key)
+}
