@@ -91,21 +91,32 @@ func (in In) speed() float64 {
 // under 30. It is a rough guide, and everything built on it says so.
 func Estimate(level int) int { return max(40*level-50, 30) }
 
-// Scale is the share of a quest's XP the game gives a character who is diff levels above it.
+// Scale is the share of a quest's XP the game gives a character who is diff levels above the quest
+// (the Classic table of the Warcraft Wiki: full XP up to five levels above, then 80%, 60%, 40%, 20%
+// and from ten levels on 10%). A quest under level 10 gives full XP only up to four levels above, so
+// the first cut comes a level earlier (ScaleFor).
 func Scale(diff int) float64 {
 	switch {
-	case diff <= 4:
+	case diff <= 5:
 		return 1
-	case diff == 5:
-		return 0.8
 	case diff == 6:
-		return 0.6
+		return 0.8
 	case diff == 7:
-		return 0.4
+		return 0.6
 	case diff == 8:
+		return 0.4
+	case diff == 9:
 		return 0.2
 	}
 	return 0.1
+}
+
+// ScaleFor is Scale for a character of level mine and a quest of level quest.
+func ScaleFor(mine, quest int) float64 {
+	if quest < 10 && mine-quest == 5 {
+		return 0.8
+	}
+	return Scale(mine - quest)
 }
 
 // QuestXP is the XP a quest gives this character, and whether it is an estimate from the level.
@@ -123,7 +134,7 @@ func (in In) QuestXP(id, level int) (xp int, estimated bool) {
 	if !ok || base <= 0 {
 		base, ok = Estimate(level), false
 	}
-	return int(math.Round(float64(base) * Scale(in.level()-level))), !ok
+	return int(math.Round(float64(base) * ScaleFor(in.level(), level))), !ok
 }
 
 var counted = regexp.MustCompile(`\((\d+)/(\d+)\)\s*$`)

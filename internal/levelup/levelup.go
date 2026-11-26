@@ -96,6 +96,7 @@ func Spells(c character.Character, ds store.DataStore, from, to int) []Spell {
 	}
 	costs := costsOf(ds, lo, hi)
 	talents := talentNames(ds, ClassIDs[strings.ToUpper(c.Class)])
+	late := lateRanked(ds, ClassIDs[strings.ToUpper(c.Class)])
 	var out []Spell
 	seen := map[int64]bool{}
 	for _, r := range rows {
@@ -106,7 +107,7 @@ func Spells(c character.Character, ds store.DataStore, from, to int) []Spell {
 			continue
 		}
 		rk, _ := r["rank"].(int64)
-		if id == 0 || name == "" || seen[id] || superseded[id] || c.KnownSpells[id] || quest[id].Quest != "" || isRuneAbility(id, lv) || isTalentEffect(talents, name, rk) || questLocked(c, name, int(rk), false) {
+		if id == 0 || name == "" || seen[id] || superseded[id] || c.KnownSpells[id] || quest[id].Quest != "" || isRuneAbility(id, lv) || isTalentEffect(talents, name, rk) || sideEffect(late, name, rk, lv) || questLocked(c, name, int(rk), false) {
 			continue
 		}
 		seen[id] = true
@@ -152,9 +153,44 @@ func talentNames(ds store.DataStore, classID int64) map[string]bool {
 	return out
 }
 
-// isTalentEffect reports a rank-less class spell named like one of the class's talents.
+// isTalentEffect reports a class spell that a talent point buys or the game applies, never a class
+// trainer: a rank-less spell named like one of the class's talents, a spell named like a talent
+// effect or a stance's passive half (see hiddenName), or a rank-less level 1 spell whose ranks are
+// taught much later (the damage half of Execute, which the dataset lists at level 1).
 func isTalentEffect(talents map[string]bool, name string, rank int64) bool {
-	return rank == 0 && talents[strings.ToLower(strings.TrimSpace(name))]
+	return rank == 0 && talents[strings.ToLower(strings.TrimSpace(name))] || hiddenName(name)
+}
+
+// hiddenName reports a spell name no trainer teaches: a talent ("Improved Pummel", "Shield
+// Specialization", ranks 1 to 5 listed at level 1), or the passive or effect half of an ability
+// ("Battle Stance Passive", "Cat Form (Passive)", "Rogue Passive (DND)", "Hellfire Effect").
+func hiddenName(name string) bool {
+	n := strings.ToLower(strings.TrimSpace(name))
+	return strings.HasPrefix(n, "improved ") || strings.Contains(n, " specialization") ||
+		strings.Contains(n, "passive") || strings.Contains(n, "(dnd)") || strings.HasSuffix(n, " effect")
+}
+
+// lateRanked is the lower-cased names of the class's spells that have a ranked row above level 1:
+// a rank-less level 1 row of the same name is a side effect of that spell, not a spell to train.
+func lateRanked(ds store.DataStore, classID int64) map[string]bool {
+	rows, err := ds.Filter("class_spells", store.Range{Column: "class_id", Min: classID, Max: classID})
+	if err != nil {
+		return nil
+	}
+	out := map[string]bool{}
+	for _, r := range rows {
+		name, _ := r["name"].(string)
+		rk, _ := r["rank"].(int64)
+		if lv, _ := r["level"].(int64); rk > 0 && lv > 1 && name != "" {
+			out[strings.ToLower(strings.TrimSpace(name))] = true
+		}
+	}
+	return out
+}
+
+// sideEffect reports a rank-less level 1 row whose name has ranked rows later (see lateRanked).
+func sideEffect(late map[string]bool, name string, rank, level int64) bool {
+	return rank == 0 && level <= 1 && late[strings.ToLower(strings.TrimSpace(name))]
 }
 
 // isRuneAbility reports a class spell the dataset lists at level 1 with a high spell id: an engraving
@@ -720,6 +756,7 @@ func Ahead(c character.Character, ds store.DataStore) []Spell {
 	}
 	costs := costsOf(ds, lo, hi)
 	talents := talentNames(ds, ClassIDs[strings.ToUpper(c.Class)])
+	late := lateRanked(ds, ClassIDs[strings.ToUpper(c.Class)])
 	var out []Spell
 	seen := map[int64]bool{}
 	for _, r := range rows {
@@ -731,7 +768,7 @@ func Ahead(c character.Character, ds store.DataStore) []Spell {
 		if t, ok := r["trained"].(bool); ok && !t {
 			continue
 		}
-		if id == 0 || name == "" || seen[id] || c.KnownSpells[id] || quest[id].Quest != "" || isRuneAbility(id, lv) || isTalentEffect(talents, name, rk) {
+		if id == 0 || name == "" || seen[id] || c.KnownSpells[id] || quest[id].Quest != "" || isRuneAbility(id, lv) || isTalentEffect(talents, name, rk) || sideEffect(late, name, rk, lv) {
 			continue
 		}
 		s := Spell{ID: id, Name: name, Rank: int(rk), Level: int(lv), New: sup == 0, Cost: costs[id], Usually: true}

@@ -218,6 +218,15 @@ material counts from `recipe_reagents`). The dataset's `trainers` table holds no
 Mining, Skinning or Herbalism trainer, so those cases check that the advisor names nobody; they and the vendors the
 dataset names by id only are listed as "differ (data)".
 
+`internal/paths/offline_levelling_benchmark_test.go` (also `make offline-benchmark`, areas `advice-ability-*`,
+`advice-levelling-no-answer`, `advice-talent-*`, `advice-pacing-*`, `advice-level-fit` and `advice-xp-*`) checks, on
+`testdata/levelling_snapshot` (rebuild it from a built dataset with `testdata/levelling_snapshot/build.sh <dataset dir>`, which
+needs duckdb), the level a class ability or rank is offered at (`class_spells`), that talents, stance passives and effect
+rows are never offered as trainer spells, which talent builds are checked (every build is still "curated (unverified)", so the
+advisor names no pick), the points line, the dungeons offered to a level and each dungeon's range beside the dataset and two
+guides, the quest XP share by level difference (Warcraft Wiki), the estimate flag, and the XP and rested XP line. The dataset
+holds no XP per level, quest XP, rested XP, zone level or points-by-level table; those cases check the advisor states none.
+
 The run ends with one summary line, `advice-benchmark: N checks, S same, D differ (professions 90/39, costs 50/8,
 tailoring-guide 6/13, stats 99/0)`: every table row counts as same ("match") or differ, by area. Each area prints
 `advice-benchmark-count <area> same=N differ=M`, and `internal/benchsummary` adds them up. The share of
