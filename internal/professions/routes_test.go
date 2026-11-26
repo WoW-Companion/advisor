@@ -87,7 +87,7 @@ func TestRouteFactsFollowTheDatasetRoute(t *testing.T) {
 
 func TestRouteFactsMentionAMissingRodOnly(t *testing.T) {
 	got := RouteFacts(enchanter(false), routeDataset(t, true), nil, "Enchanting")
-	if !strings.Contains(got, "no Enchanting tool") || !strings.Contains(got, "buy on the AH") {
+	if !strings.Contains(got, "no Runed Copper Rod") || !strings.Contains(got, "buy on the AH") {
 		t.Errorf("a missing rod is not explained:\n%s", got)
 	}
 }
