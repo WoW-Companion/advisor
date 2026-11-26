@@ -140,14 +140,22 @@ listed in the table (`BENCH_REPORT=<file>`), since a guide's route is one good r
 cost. `BENCH_DATASET=<dir>` names a dataset; without it the latest release is downloaded.
 
 `make offline-benchmark` runs the same kind of comparison with no network, on a fixed sample: real dataset rows in
-`testdata/advice_snapshot` (eight professions up to skill 75, and the items the stat cases use; rebuild it from a
+`testdata/advice_snapshot` (eight professions up to skill 75, the items the stat cases use with their stats and
+armor, every profession route and rank trainer, and the talent builds, nodes and priorities; rebuild it from a
 built dataset with `scripts/advice-snapshot.sh <dataset dir>`, which needs duckdb). Each profession is planned
 from skill 1 and every band is set beside the raw dataset rows (how the recipe is learnt, what learning it costs, the
 materials and their counts, the orange crafts, each rank's trainer cost); `internal/professions/offline_benchmark_test.go`
 also states ten recipes' thresholds, learn skills and reagents as literals, checks what `Plan` lists to make next,
 and sets the planner's craft counts and the Forever guides' reagents side by side. The stat half
 (`internal/gear/offline_benchmark_test.go`) checks the item stat amounts the advisor reads, the best chest upgrade
-for several classes, the order two items take by their amounts, and the totals of worn gear. The tests also run
+for several classes, the order two items take by their amounts, the totals of worn gear, the armor and older stats
+(bonus healing and damage, extra armor) of ten items, and gear comparisons with and without the addon's captured stats.
+`internal/professions/offline_routes_benchmark_test.go` sets the skill-up answer for eighteen characters, and every
+profession's route as the advisor reads it, beside the raw `profession_routes` rows (steps, crafts left, materials per
+craft, alternatives, the zones of a gathering step). `internal/talents/offline_benchmark_test.go` sets every spec's
+"do I have a checked build" answer beside the dataset's talent rows, and the next points of a checked build (four
+specs' real nodes written one row per point) beside the next rows of the table; the dataset holds no
+Forever leveling build yet, so each class is listed as a dataset-side difference. The tests also run
 in `make verify`; `BENCH_REPORT=<file>` receives the tables.
 
 The run ends with one summary line, `advice-benchmark: N checks, S same, D differ (professions 90/39, costs 50/8,
@@ -160,4 +168,4 @@ patterns and sends you to the Auction House, and the dataset's trainer list lack
 
 ## Skill-up routes
 
-When the game data has a `profession_routes` table, skill-up advice follows it: the step that covers your skill and the next two, with crafts scaled to your skill inside the step, materials counted over bags and bank, the profession's own trainer for your faction (nearest first), and the tool (rod, pick, knife) mentioned only when missing. Without a route the path is estimated from recipe colours and vendor prices.
+When the game data has a `profession_routes` table, skill-up advice follows it: the step that covers your skill and the next two, with crafts scaled to your skill inside the step, materials counted over bags and bank (the table holds what one craft uses, times the crafts left; a gathering step for Herbalism, Mining, Skinning or Fishing names its zones and what to gather), the profession's own trainer for your faction (nearest first), and the tool (rod, pick, knife) mentioned only when missing. Without a route the path is estimated from recipe colours and vendor prices.

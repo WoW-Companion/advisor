@@ -29,12 +29,21 @@ func ItemStats(row store.Row) map[int64]int {
 // SpellPower is the weight name of the item stat that adds damage and healing to spells.
 const SpellPower = "spell_power"
 
-// ItemWeights are the profile's weights read for gear: the five primaries as they stand, plus the two
-// item stats a profile does not list but that do the same job as its lead stat. Spell Power counts as much
-// as Intellect for a caster or healer (it is what their gear carries instead of, or besides, Intellect); Attack
-// Power counts four-fifths of the better of Strength and Agility for a melee, ranged or feral build, as the
-// gear weights file does for the specs it lists. A tank, whose profile already names armor and defences, gets
-// neither. The stat check and the digest keep reading Weights.
+// The weight names of the older item stats: bonus healing and bonus damage on a Classic item, and the extra armor
+// a green item adds to its base armor.
+const (
+	SpellHealing = "spell_healing"
+	SpellDamage  = "spell_damage"
+	ExtraArmor   = "extra_armor"
+)
+
+// ItemWeights are the profile's weights read for gear: the five primaries as they stand, plus the item
+// stats a profile does not list but that do the same job as its lead stat. Spell Power counts as much
+// as Intellect for a caster or healer (it is what their gear carries instead of, or besides, Intellect), and so
+// does the older bonus healing for a healer and bonus damage for a caster; Attack Power counts four-fifths of
+// the better of Strength and Agility for a melee, ranged or feral build, as the gear weights file does for the
+// specs it lists. A tank, whose profile already names armor and defences, counts the extra armor a green item
+// adds as much as armor. The stat check and the digest keep reading Weights.
 func (p Prof) ItemWeights() map[string]float64 {
 	out := make(map[string]float64, len(p.Weights)+1)
 	for k, v := range p.Weights {
@@ -43,6 +52,13 @@ func (p Prof) ItemWeights() map[string]float64 {
 	switch p.Arch {
 	case archCaster, archHealer:
 		out[SpellPower] = p.Weights[Intellect]
+		if p.Arch == archHealer {
+			out[SpellHealing] = p.Weights[Intellect]
+		} else {
+			out[SpellDamage] = p.Weights[Intellect]
+		}
+	case archTank:
+		out[ExtraArmor] = p.Weights[Armor]
 	case archStr, archAgi, archRanged, archFeral:
 		out[AttackPower] = 0.8 * max(p.Weights[Strength], p.Weights[Agility])
 	}

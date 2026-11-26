@@ -67,6 +67,9 @@ var statIDs = map[string]int64{
 	"agility": 3, "strength": 4, "intellect": 5, "spirit": 6, "stamina": 7, "hit": 31, "crit": 32,
 	"haste": 36, "expertise": 37, "attack_power": 38, "versatility": 40, "mp5": 43, "spell_power": 45,
 	"mastery": 49,
+	// The older gear stats a Classic item carries: bonus healing and damage (items from before Spell Power),
+	// the defence ratings of a tank's gear, and the armor a green item adds on top of its base armor.
+	"spell_healing": 41, "spell_damage": 42, "dodge": 13, "parry": 14, "block": 15, "extra_armor": 50,
 }
 
 type specWeights struct {
@@ -146,6 +149,9 @@ type Item struct {
 	Subclass      int
 	Bonding       int
 	StatTypes     []int64
+	// Armor is the item's armor, the dataset's `armor` column (item level, armor type, quality and slot decide
+	// it); 0 when there is none.
+	Armor int
 	// Stats is the amount of each stat (type id to amount) from the dataset's stat values; nil when the
 	// dataset has types only.
 	Stats      map[int64]int `json:"-"`
@@ -230,6 +236,7 @@ func itemOf(row store.Row) Item {
 		}
 	}
 	it.Stats = stats.ItemStats(row)
+	it.Armor = int(i64(row["armor"]))
 	return it
 }
 

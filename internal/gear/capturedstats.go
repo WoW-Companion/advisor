@@ -52,7 +52,7 @@ func (it Item) statMap() map[string]float64 {
 	if len(it.Captured) > 0 {
 		return it.Captured
 	}
-	if !it.StatsKnown || len(it.Stats) == 0 {
+	if !it.StatsKnown || len(it.Stats) == 0 && it.Armor == 0 {
 		return nil
 	}
 	out := map[string]float64{}
@@ -60,6 +60,9 @@ func (it Item) statMap() map[string]float64 {
 		if n, ok := it.Stats[id]; ok {
 			out[name] = float64(n)
 		}
+	}
+	if it.Armor > 0 {
+		out[stats.Armor] = float64(it.Armor) // the captured stats carry armor too: both sides count it
 	}
 	return out
 }

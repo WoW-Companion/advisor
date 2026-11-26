@@ -1,6 +1,7 @@
 package professions
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -47,9 +48,9 @@ func routeDataset(t *testing.T, withRoute bool) store.DataStore {
 	}
 	if withRoute {
 		src["profession_routes"] = table(t, []routeRow{
-			{1, "Enchanting", 1, 20, 70, i64p(7), "Enchant Chest - Inferior Stamina", 50, `[{"item_id":1,"count":50}]`, "trainer", 0, "rod is Blacksmith-made; buy on the AH"},
-			{2, "Enchanting", 2, 70, 90, i64p(8), "Enchant Chest - Minor Absorption", 20, `[{"item_id":3,"count":20}]`, "trainer", 0, "needs Journeyman"},
-			{3, "Enchanting", 3, 20, 70, i64p(9), "Enchant Bracer - Minor Stamina", 25, `[{"item_id":1,"count":50}]`, "trainer", 1, ""},
+			{1, "Enchanting", 1, 20, 70, i64p(7), "Enchant Chest - Inferior Stamina", 50, `[{"item_id":1,"count":1}]`, "trainer", 0, "rod is Blacksmith-made; buy on the AH"},
+			{2, "Enchanting", 2, 70, 90, i64p(8), "Enchant Chest - Minor Absorption", 20, `[{"item_id":3,"count":1}]`, "trainer", 0, "needs Journeyman"},
+			{3, "Enchanting", 3, 20, 70, i64p(9), "Enchant Bracer - Minor Stamina", 25, `[{"item_id":1,"count":2}]`, "trainer", 1, ""},
 		})
 	}
 	return store.New(src)
@@ -110,5 +111,56 @@ func TestFallbackPrefersTheCheaperOrangeRecipe(t *testing.T) {
 	steps := SkillUp(enchanter(true), ds, "Enchanting", 70, 0)
 	if len(steps) != 1 || steps[0].Recipe != "Enchant Chest - Inferior Stamina" {
 		t.Fatalf("steps = %+v", steps)
+	}
+}
+
+// The dataset's materials column reaches the store as one flat list: every item id, then every name, then
+// every count. A count of 0 is a herb to gather.
+func TestParseMaterialsReadsTheDatasetColumns(t *testing.T) {
+	for _, c := range []struct {
+		name string
+		in   any
+		want []RouteMaterial
+	}{
+		{"one", []any{int64(2589), "Linen Cloth", int64(2)}, []RouteMaterial{{2589, 2}}},
+		{"two", []any{int64(2996), int64(2320), "Bolt of Linen Cloth", "Coarse Thread", int64(1), int64(3)}, []RouteMaterial{{2996, 1}, {2320, 3}}},
+		{"gather", []any{int64(2447), int64(765), "Peacebloom", "Silverleaf", int64(0), int64(0)}, []RouteMaterial{{2447, 0}, {765, 0}}},
+		{"empty", []any{}, nil},
+		{"ragged", []any{int64(1), "x"}, nil},
+		{"json", `[{"item_id":1,"count":2}]`, []RouteMaterial{{1, 2}}},
+		{"pairs", "1:2,3:4", []RouteMaterial{{1, 2}, {3, 4}}},
+	} {
+		if got := parseMaterials(c.in); fmt.Sprint(got) != fmt.Sprint(c.want) {
+			t.Errorf("%s: %v, want %v", c.name, got, c.want)
+		}
+	}
+}
+
+// A gathering route (kind gather: no recipe, zones instead) is read and told, with the smelting alternatives
+// Mining has beside its gathering steps.
+func TestRouteFactsTellGatheringSteps(t *testing.T) {
+	ds := snapshot().ds
+	r, ok := LoadRoute(ds, "Herbalism")
+	if !ok || len(r.Steps) == 0 || !r.Steps[0].Gather || len(r.Steps[0].Where) == 0 || len(r.Steps[0].Materials) == 0 {
+		t.Fatalf("Herbalism route = %v, %+v", ok, r.Steps)
+	}
+	got := RouteFacts(routeChar("Herbalism", 20), ds, nil, "Herbalism")
+	if !strings.Contains(got, "Now: skill 20 to 70: gather in Durotar") || !strings.Contains(got, "gather: Peacebloom, Silverleaf, Earthroot") {
+		t.Errorf("gathering step not told:\n%s", got)
+	}
+	got = RouteFacts(routeChar("Mining", 30), ds, nil, "Mining")
+	if !strings.Contains(got, "Alternative for that step") || !strings.Contains(got, "Smelt Copper") {
+		t.Errorf("the smelting alternative is missing:\n%s", got)
+	}
+	if s := NextSkillUp(routeChar("Herbalism", 20), ds, "Herbalism"); strings.Contains(s, "make") {
+		t.Errorf("a gathering step is no craft: %q", s)
+	}
+}
+
+// Craft steps carry the materials of the dataset's column: counted for the crafts left.
+func TestRouteFactsCountTheDatasetMaterials(t *testing.T) {
+	got := RouteFacts(routeChar("Tailoring", 45), snapshot().ds, nil, "Tailoring")
+	if !strings.Contains(got, "Now: skill 45 to 55: 12 x Linen Belt; materials: 12 Bolt of Linen Cloth (you have none); 12 Coarse Thread (you have none)") {
+		t.Errorf("materials not counted:\n%s", got)
 	}
 }

@@ -71,10 +71,11 @@ advice-benchmark:
 	cat "$$log"; go run ./internal/benchsummary/cmd < "$$log" || status=1; rm -f "$$log"; exit $$status
 
 # The same profession and stat comparison on a fixed sample that needs no network: real dataset rows kept in
-# testdata/advice_snapshot (rebuilt by scripts/advice-snapshot.sh), the planner's and the gear finder's answers
-# beside the dataset rows and the recorded Forever guide steps. It also runs in make verify (go test ./...).
+# testdata/advice_snapshot (rebuilt by scripts/advice-snapshot.sh), the planner's, the gear finder's, the talent
+# plan's and the profession route's answers beside the dataset rows (items, armor, talent builds, profession
+# routes) and the recorded Forever guide steps. It also runs in make verify (go test ./...).
 # BENCH_REPORT=<file> receives the result tables in Markdown. The last line is the summary, "advice-benchmark:
 # N checks, S same, D differ (...)". See docs/professions.md.
 offline-benchmark:
-	@log="$$(mktemp)"; status=0; WOWC_BENCH_REPORT="$(BENCH_REPORT)" go test ./internal/professions ./internal/gear -run 'OfflineBenchmark' -count=1 -v > "$$log" 2>&1 || status=$$?; \
+	@log="$$(mktemp)"; status=0; WOWC_BENCH_REPORT="$(BENCH_REPORT)" go test ./internal/professions ./internal/gear ./internal/talents -run 'OfflineBenchmark' -count=1 -v > "$$log" 2>&1 || status=$$?; \
 	grep -E '^(---|FAIL|ok|    offline_)' "$$log" || true; go run ./internal/benchsummary/cmd < "$$log" || status=1; rm -f "$$log"; exit $$status
