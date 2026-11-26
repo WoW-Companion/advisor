@@ -11,6 +11,7 @@ import (
 	"github.com/WoW-Companion/advisor/internal/learn"
 	"github.com/WoW-Companion/advisor/internal/questie"
 	"github.com/WoW-Companion/advisor/internal/store"
+	"github.com/WoW-Companion/advisor/internal/vendors"
 )
 
 // RouteMaterial is one material of a route step: the count one craft uses (the dataset's profession_routes
@@ -206,6 +207,38 @@ var toolWords = map[string][]string{
 	"mining":        {"mining pick"},
 	"skinning":      {"skinning knife"},
 	"blacksmithing": {"blacksmith hammer"},
+	"fishing":       {"fishing pole"},
+}
+
+// toolItems are the base tool item of each profession that has one, named as the dataset names it.
+var toolItems = map[string]string{
+	"enchanting":    "Runed Copper Rod",
+	"mining":        "Mining Pick",
+	"skinning":      "Skinning Knife",
+	"blacksmithing": "Blacksmith Hammer",
+	"fishing":       "Fishing Pole",
+}
+
+// toolHint says where to get the profession's tool: the item by name, and the vendor price when the dataset has
+// vendor rows for it ("a Mining Pick, sold by vendors for 10c"); "" when the profession has no tool item the dataset names.
+func toolHint(ds store.DataStore, profession string) string {
+	name := toolItems[strings.ToLower(profession)]
+	if name == "" || ds == nil {
+		return ""
+	}
+	rows, err := ds.Filter("items", store.Range{Column: "name", Min: name, Max: name})
+	if err != nil || len(rows) == 0 {
+		return ""
+	}
+	id := asNum(rows[0]["id"])
+	if len(rowsBy(ds, "vendor_sources", "item_id", id)) == 0 {
+		return ""
+	}
+	t := "buy " + name + " from a vendor"
+	if m := vendors.Money(asNum(rows[0]["buy_price"])); m != "" {
+		t += " (" + m + ")"
+	}
+	return t + "."
 }
 
 // HasTool reports whether the character carries or wears the profession's tool; needed is false
@@ -350,6 +383,9 @@ func RouteFacts(c character.Character, ds store.DataStore, qx *questie.Index, pr
 		}
 		b.WriteString(".\n")
 		for _, a := range route.Alts[s.Step] {
+			if a.To <= have {
+				continue // an alternative whose skill range the player has already passed has no crafts left
+			}
 			fmt.Fprintf(&b, "  Alternative for that step: %d x %s", a.craftsLeft(have), a.Recipe)
 			if m := a.materialsText(ds, stock, have); m != "" {
 				b.WriteString("; materials: " + m)
@@ -357,26 +393,38 @@ func RouteFacts(c character.Character, ds store.DataStore, qx *questie.Index, pr
 			b.WriteString(".\n")
 		}
 	}
-	if tier, need := tierTraining(sk, route, i, end, notes, have); need {
-		lead := "Before the skill " + fmt.Sprintf("%d to %d", route.Steps[i].From, route.Steps[i].To) + " step"
-		if route.Steps[i].Recipe != "" {
-			lead = "Before step " + route.Steps[i].Recipe
+	if tier, at, need := tierTraining(sk, route, i, end, notes, have); need {
+		gate := route.Steps[at]
+		lead := "Before the skill " + fmt.Sprintf("%d to %d", max(have, gate.From), gate.To) + " step"
+		if gate.Recipe != "" {
+			lead = "Before step " + gate.Recipe
 		}
 		if how, text := tierAccess(ds, profession, tier.Name, c.Faction); how != "" {
 			fmt.Fprintf(&b, "%s you must get %s %s (character level %d, skill %d): %s.\n", lead, profession, tier.Name, tier.MinLevel, tier.SkillMin, text)
 		} else {
 			fmt.Fprintf(&b, "%s you must train %s %s (character level %d, skill %d). ", lead, profession, tier.Name, tier.MinLevel, tier.SkillMin)
-			b.WriteString(trainerLine(c, ds, qx, profession))
+			if t := tierTrainer(ds, profession, tier.Name, c.Faction); t != "" {
+				b.WriteString(profession + " " + tier.Name + " trainer: " + t + ".")
+			} else {
+				b.WriteString(trainerLine(c, ds, qx, profession))
+			}
 			b.WriteString("\n")
 		}
 	} else if k := firstUnknown(c, route, i, end); k >= 0 && strings.Contains(strings.ToLower(route.Steps[k].LearnedFrom), "trainer") {
 		b.WriteString("Learn " + route.Steps[k].Recipe + " at a " + profession + " trainer. " + trainerLine(c, ds, qx, profession) + "\n")
 	}
 	if has, needed := HasTool(c, profession); needed && !has {
-		b.WriteString("They have no " + profession + " tool (rod, pick or knife) in bags, bank or worn: they need one; ")
+		tool := toolItems[strings.ToLower(profession)]
+		if tool == "" {
+			tool = profession + " tool"
+		}
+		b.WriteString("They have no " + tool + " (the " + profession + " tool) in bags, bank or worn: they need one; ")
 		hint := "buy it on the Auction House or from a vendor."
+		if h := toolHint(ds, profession); h != "" {
+			hint = h
+		}
 		for _, s := range route.Steps {
-			if strings.Contains(strings.ToLower(s.Notes), "rod") || strings.Contains(strings.ToLower(s.Notes), "tool") {
+			if strings.EqualFold(profession, "Enchanting") && strings.Contains(strings.ToLower(s.Notes), "rod") || strings.Contains(strings.ToLower(s.Notes), "tool") {
 				hint = s.Notes + "."
 				break
 			}
@@ -400,17 +448,39 @@ func firstUnknown(c character.Character, r Route, i, end int) int {
 }
 
 // tierTraining says whether a step in range needs a rank the character has not trained: the step
-// reaches past their skill cap. It returns the tier that opens at the cap.
-func tierTraining(sk character.Skill, r Route, i, end int, n Notes, have int) (Tier, bool) {
+// reaches past their skill cap. It returns the tier that opens at the cap and the index of the first step that
+// needs it.
+func tierTraining(sk character.Skill, r Route, i, end int, n Notes, have int) (Tier, int, bool) {
 	if sk.Max == nil || len(n.Tiers) == 0 {
-		return Tier{}, false
+		return Tier{}, 0, false
 	}
 	for k := i; k < end; k++ {
 		if r.Steps[k].To > *sk.Max && *sk.Max < n.Tiers[len(n.Tiers)-1].SkillCap {
-			return n.TierAt(*sk.Max), true
+			return n.TierAt(*sk.Max), k, true
 		}
 	}
-	return Tier{}, false
+	return Tier{}, 0, false
+}
+
+// tierTrainer is the trainer the dataset's profession_tiers names for the tier on the character's side, with its
+// place ("Doctor Herbert Halsey in Undercity"); "" when no row of the tier names one. Several are joined by "; ".
+func tierTrainer(ds store.DataStore, profession, tier, faction string) string {
+	rows, _ := ds.Filter("profession_tiers", store.Range{Column: "profession", Min: profession, Max: profession})
+	var out []string
+	for _, r := range rows {
+		name, place := asText(r["trainer_name"]), asText(r["place"])
+		if name == "" || !strings.EqualFold(asText(r["tier"]), tier) || asText(r["how"]) != "trainer" {
+			continue
+		}
+		if f := asText(r["faction"]); f != "" && !strings.EqualFold(f, "both") && faction != "" && !strings.EqualFold(f, faction) {
+			continue
+		}
+		if place != "" {
+			name += " in " + place
+		}
+		out = append(out, name)
+	}
+	return strings.Join(out, "; ")
 }
 
 // trainerLine names the profession's own trainers for the faction, nearest first.

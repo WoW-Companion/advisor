@@ -447,6 +447,7 @@ func (f *finder) craft() (Path, bool) {
 		return Path{}, false
 	}
 	sort.SliceStable(recs, func(i, j int) bool { return i64(recs[i]["spell_id"]) < i64(recs[j]["spell_id"]) })
+	var blocked store.Row // a recipe of a profession the character has at the skill the recipe needs, whose recipe has a material with no way to be had
 	for _, r := range recs {
 		prof, skill, ok := f.profession(str(r["skill_line_name"]))
 		if !ok {
@@ -479,6 +480,9 @@ func (f *finder) craft() (Path, bool) {
 		reagents, rok := f.reagents(spell)
 		if have >= need {
 			if !rok {
+				if blocked == nil {
+					blocked = r
+				}
 				continue
 			}
 			sc.Status = CanMake
@@ -550,6 +554,16 @@ func (f *finder) craft() (Path, bool) {
 	if need <= 1 && str(r["learned_from"]) == "trainer" {
 		sc.Need, sc.Gap = 0, 0
 		line = fmt.Sprintf("Made by %s. You don't have %s: ", crafters(prof), prof)
+	}
+	if blocked != nil {
+		// the character has the profession: the missing piece is a material, never the profession
+		prof = str(blocked["skill_line_name"])
+		need = 0
+		if n := optInt(blocked["learn_skill"]); n != nil {
+			need = *n
+		}
+		sc = &SkillCheck{Profession: prof, Need: need, Status: NotProfession}
+		line = fmt.Sprintf("Made by %s (skill %d). You have %s, but a material it needs has no source in the game data: ", crafters(prof), need, prof)
 	}
 	line += f.otherWays(prof)
 	return Path{Kind: Craft, Line: line, Skill: sc, Informational: true, rank: rankOtherCraft}, true
@@ -816,8 +830,32 @@ func (f *finder) getReagent(id int64, it store.Row) string {
 			return "buy it from a vendor" + short
 		}
 	}
+	if how := f.craftReagent(rows); how != "" {
+		return how + short
+	}
 	if Tradeable(int(i64(it["bonding"])), int(i64(it["quality"]))) {
 		return "buy it on the Auction House" + short
+	}
+	return ""
+}
+
+// craftReagent is "make it with your Mining: Smelt Copper" when a crafted row of the reagent names a profession the
+// character has at the skill the recipe is learned at; "" otherwise.
+func (f *finder) craftReagent(rows []store.Row) string {
+	for _, l := range rows {
+		if str(l["source_kind"]) != "crafted" {
+			continue
+		}
+		prof := str(l["profession"])
+		_, sk, ok := f.profession(prof)
+		if !ok || sk.Rank == nil || *sk.Rank < int(i64(l["learn_skill"])) {
+			continue
+		}
+		how := "make it with your " + prof
+		if r, err := f.ds.Filter("recipes", store.Range{Column: "spell_id", Min: i64(l["source_id"]), Max: i64(l["source_id"])}); err == nil && len(r) > 0 && str(r[0]["name"]) != "" {
+			how += ": " + str(r[0]["name"])
+		}
+		return how
 	}
 	return ""
 }

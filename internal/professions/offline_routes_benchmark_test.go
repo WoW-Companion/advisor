@@ -179,9 +179,15 @@ func TestOfflineBenchmarkRouteAnswers(t *testing.T) {
 		}
 
 		// the alternatives the guide gives for the step
-		if n := len(alts[s.step]); n > 0 {
+		var open []refStep // an alternative whose skill range the player has passed has no crafts left, so it is not offered
+		for _, a := range alts[s.step] {
+			if a.to > rc.skill {
+				open = append(open, a)
+			}
+		}
+		if n := len(open); n > 0 {
 			haveAlt := 0
-			for _, a := range alts[s.step] {
+			for _, a := range open {
 				if strings.Contains(got, fmt.Sprintf("Alternative for that step: %d x %s", a.left(rc.skill), a.recipe)) {
 					haveAlt++
 				}
@@ -190,7 +196,7 @@ func TestOfflineBenchmarkRouteAnswers(t *testing.T) {
 			if haveAlt != n {
 				res = "differ"
 			}
-			out = append(out, benchRow{label + ": alternatives for the step", fmt.Sprintf("%d listed", haveAlt), fmt.Sprintf("%d in the guide", n), routesSource, res})
+			out = append(out, benchRow{label + ": alternatives for the step", fmt.Sprintf("%d listed", haveAlt), fmt.Sprintf("%d in the guide not yet passed", n), routesSource, res})
 		}
 	}
 	finishOffline(t, "professions-routes", "Offline skill-up answers against the dataset routes", out)
