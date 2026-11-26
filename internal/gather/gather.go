@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/WoW-Companion/advisor/internal/character"
+	"github.com/WoW-Companion/advisor/internal/names"
 	"github.com/WoW-Companion/advisor/internal/questie"
 	"github.com/WoW-Companion/advisor/internal/store"
 )
@@ -377,8 +378,68 @@ func (g *Gatherer) Find(c character.Character, item, verb string) Result {
 		res.Text = zonesText(verbPhrase(kind)+" "+name, res.Zones)
 		return res
 	}
-	return g.questieFind(c, item, verb)
+	found := g.questieFind(c, item, verb)
+	if len(found.Zones) == 0 {
+		if caught, ok := g.catchZones(c, item, verb); ok {
+			return caught
+		}
+	}
+	return found
 }
+
+// SideOfZone says which faction's home zones a zone is among, "horde" or "alliance", or "" for a neutral or
+// unknown zone. A character of the other faction does not fish or trade in a capital or starting zone.
+func SideOfZone(zone string) string {
+	switch zone {
+	case "Orgrimmar", "Durotar", "Undercity", "Tirisfal Glades", "Silverpine Forest", "Mulgore", "Thunder Bluff":
+		return "horde"
+	case "Stormwind City", "Elwynn Forest", "Westfall", "Ironforge", "Dun Morogh", "Loch Modan", "Darnassus", "Teldrassil":
+		return "alliance"
+	}
+	return ""
+}
+
+// catchZones answers a fishing question from the dataset's fishing_catches when no school or sighting does: the
+// zones where installs caught the item, best catch rate first, leaving out a zone that is the other faction's
+// home. It needs the item to be one fishing gives; any other question is no answer.
+func (g *Gatherer) catchZones(c character.Character, query, verb string) (Result, bool) {
+	if g == nil || g.ds == nil || strings.TrimSpace(query) == "" || !inKinds(Fish, verbKinds(verb)) {
+		return Result{}, false
+	}
+	id, name, _ := names.Resolve(g.ds, names.Items, query)
+	if id == 0 {
+		return Result{}, false
+	}
+	rows, err := g.ds.Filter("fishing_catches", store.Range{Column: "item_id", Min: id, Max: id})
+	if err != nil || len(rows) == 0 {
+		return Result{}, false
+	}
+	sort.SliceStable(rows, func(i, j int) bool {
+		if a, b := f64(rows[i]["rate"]), f64(rows[j]["rate"]); a != b {
+			return a > b
+		}
+		return str(rows[i]["zone_name"]) < str(rows[j]["zone_name"])
+	})
+	res := Result{Query: strings.TrimSpace(query), Item: name, Kind: Fish, Zones: []Zone{}}
+	for _, r := range rows {
+		z := str(r["zone_name"])
+		if side := SideOfZone(z); z == "" || side != "" && c.Faction != "" && !strings.EqualFold(side, c.Faction) {
+			continue
+		}
+		note := fmt.Sprintf("%.0f%% of %d casts", 100*f64(r["rate"]), i64(r["casts"]))
+		res.Zones = append(res.Zones, Zone{Zone: z, Nodes: []string{note}})
+		if len(res.Zones) == MaxZones {
+			break
+		}
+	}
+	if len(res.Zones) == 0 {
+		return Result{}, false
+	}
+	res.Text = zonesText(verbPhrase(Fish)+" "+name, res.Zones)
+	return res, true
+}
+
+func f64(v any) float64 { f, _ := v.(float64); return f }
 
 func (g *Gatherer) questieFind(c character.Character, item, verb string) Result {
 	res := Result{Query: strings.TrimSpace(item), Zones: []Zone{}}

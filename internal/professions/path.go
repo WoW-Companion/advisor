@@ -89,6 +89,7 @@ type Band struct {
 	Patterns  []Option // recipes learnt from drops, quests or reputation, for a player who has the pattern
 	Rank      string   // the rank to train before this band, when it starts one
 	RankLevel int      // the character level that rank needs
+	RankVia   string   // how that rank is gained when a trainer does not teach it ("it is a book from ..."); "" for a trainer
 	Gap       string   // set when no recipe covers the band: the plain-words line saying so; Best is empty
 }
 
@@ -589,6 +590,7 @@ func computePath(c character.Character, ds store.DataStore, profession string, t
 			g := p.gapBand(recipes, skill, next, stop)
 			if t, ok := p.rankStarting(skill); ok {
 				g.Rank, g.RankLevel = t.Name, t.MinLevel
+				_, g.RankVia = tierAccess(p.ds, p.prof, t.Name, p.c.Faction)
 			}
 			bands = append(bands, g)
 			skill = next
@@ -619,6 +621,7 @@ func computePath(c character.Character, ds store.DataStore, profession string, t
 		b := Band{From: skill, To: best.reach, Best: best.opt}
 		if t, ok := p.rankStarting(skill); ok {
 			b.Rank, b.RankLevel = t.Name, t.MinLevel
+			_, b.RankVia = tierAccess(p.ds, p.prof, t.Name, p.c.Faction)
 		}
 		b.Patterns = p.patternAlternatives(recipes, skill, stop, best.opt.Recipe)
 		for _, alt := range all[1:] {
@@ -845,7 +848,7 @@ func (p *planner) extend(recipes []Recipe, prev Band, next scored, stock, used m
 			if s2.learned != 0 {
 				p.learnt[s2.learned] = true
 			}
-			return extended{Band{From: prev.From, To: s2.reach, Best: s2.opt, Rank: prev.Rank, RankLevel: prev.RankLevel,
+			return extended{Band{From: prev.From, To: s2.reach, Best: s2.opt, Rank: prev.Rank, RankLevel: prev.RankLevel, RankVia: prev.RankVia,
 				Patterns: prev.Patterns, Or: prev.Or}, st, us}, true
 		}
 	}
