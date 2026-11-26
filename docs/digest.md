@@ -61,7 +61,7 @@ addons, and adds these when known. None is truncated; only `text` is capped (60 
 An `upgrades` line adds `slot` (plain words: "Cloak", "Wrists", "Two-hand", "One-hand", "Shield", "Off hand"), `ilvl` (not shown to players) and `atLevel` (the level the item needs, only when the character is not yet that level) beside `text` and `item`.
 
 **Upgrades you can get (schema 1.7).** An upgrades line is written only for an item with at least one dependable way
-to get it, and carries `wear` ("Wear now" or "From level 12"), `gain` ("Big upgrade", "Solid upgrade" or
+to get it, and carries `wear` ("Wear now", "From level 12", or "After you train" for a weapon whose skill is still to learn), `gain` ("Big upgrade", "Solid upgrade" or
 "Small upgrade"), `replaces` (the worn item's name alone; left out for an empty slot), `how` (the best way, one line) and
 `pathKind` (`quest`, `craft`, `auction`, `dungeon` or `creature`, for the icon). The gain comes from the existing score
 (item level plus quality, or the stat-weighted equivalent): 10 points or more, or an empty slot, is a big upgrade; 5 to

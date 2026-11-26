@@ -57,7 +57,7 @@ func Facts(cfg Config, q Question) string {
 	if g, ok := digest.FindGiver(c, cc.qx, digest.PlanQuests(all), digest.PlanNPCs(all)); ok {
 		giver = "Quest giver with something for the character now (not in the plan): " + g.Text() + "."
 	}
-	return capRunes(subjectFacts(cfg, cc, q)+brief.Character(c, f.ClientOf(c), time.Now())+"\n\n"+styleLine(c)+join(seasonalFacts(c, cc.qx))+join(bagFacts(c, cc.ds))+join(professionPlanFacts(cc, q.Text))+join(talentFacts(c, cc.ds))+"\n\n"+next+join(trainFacts(cc))+join(giver), FactsBudget)
+	return capRunes(subjectFacts(cfg, cc, q)+brief.Character(c, f.ClientOf(c), time.Now())+"\n\n"+styleLine(c)+join(seasonalFacts(c, cc.qx))+join(bagFacts(c, cc.ds))+join(weaponFacts(c, cc.ds, q.Text))+join(professionPlanFacts(cc, q.Text))+join(talentFacts(c, cc.ds))+"\n\n"+next+join(trainFacts(cc))+join(giver), FactsBudget)
 }
 
 func join(s string) string {
@@ -278,6 +278,14 @@ func (c Config) PromptGround(q Question) (string, Grounding) {
 	if TalentQuestion(q.Text) {
 		if i := strings.Index(p, " Plain text, under "); i >= 0 {
 			p = p[:i] + talentRule() + p[i+1:]
+		}
+		return p, Grounding{}
+	}
+	if WeaponQuestion(q.Text) {
+		// Weapon rules differ from Classic: the facts are the source, never general knowledge, and no
+		// "general WoW knowledge" footer is put under the answer.
+		if i := strings.Index(p, " Plain text, under "); i >= 0 {
+			p = p[:i] + weaponRule + p[i+1:]
 		}
 		return p, Grounding{}
 	}

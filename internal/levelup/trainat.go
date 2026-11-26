@@ -110,3 +110,8 @@ func (p TrainPlace) Line(class string) string {
 	}
 	return b.String()
 }
+
+// FlightFrom is the flight point in zone with a direct flight to the city; "" when none is known.
+func FlightFrom(city, zone string) string {
+	return flightsTo[strings.ToLower(city)][strings.ToLower(zone)]
+}

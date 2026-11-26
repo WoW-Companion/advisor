@@ -98,10 +98,12 @@ type Line struct {
 	Ref  string
 	// Schema 1.6. Why is one short, factual reason (at most MaxWhy characters), left out when no fact fits.
 	Why string
-	// Schema 1.7, upgrades: Wear is "Wear now" or "From level N", Gain "Big upgrade", "Solid upgrade" or
+	// Schema 1.7, upgrades: Wear is "Wear now", "From level N" or "After you train" (a weapon skill to learn first), Gain "Big upgrade", "Solid upgrade" or
 	// "Small upgrade", Replaces the worn item's name alone ("" for an empty slot; schema 1.9), How the best path's
 	// one line and PathKind its kind (quest, craft, auction, dungeon or creature), for the icon.
 	Wear, Gain, Replaces, How, PathKind string
+	// Train is the weapon skill the upgrade needs and the character can learn, "" when none.
+	Train string
 	// Unlocks is on a turn-in line: the follow-ups turning it in unlocks (not written to Digest.lua).
 	Unlocks []string
 	Spells  []TrainSpell // training: the abilities and ranks
@@ -342,6 +344,7 @@ func Build(c character.Character, ds store.DataStore, opt Options) Digest {
 	}
 
 	quests = routeOrder(quests, opt.Order)
+	quests = withWeaponTraining(quests, weaponTraining(c, ds, link.trains))
 	for _, s := range []Section{
 		{NextQuests, capLines(quests, MaxQuests), ""},
 		{Upgrades, capLines(ups, MaxUpgrades), upgradesSummary(len(capLines(ups, MaxUpgrades)))},
