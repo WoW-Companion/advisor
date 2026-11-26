@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.91
+
+- After an addon update, the notice now says to type /reload in game to load it, and the line goes away once the game runs the new addon.
+
 ## 0.7.90
 
 - Profession skill-up advice follows the efficient routes from your game data.
