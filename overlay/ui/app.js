@@ -760,16 +760,54 @@ async function installBoth(s) {
   if (s.kind === 'offer') {
     // The app restarts: keep the addon version so the note after the restart names both.
     if (upd.addon && upd.addon.installed) localStorage.setItem('wowc-addonver', upd.addon.installed);
+    // (showAddonDone has kept the save time seen at the install, for the reload line after the restart.)
     installVersion(s.version);
   }
 }
 function doInstall(s) { return s.kind === 'addon' ? installAddon('') : s.addon ? installBoth(s) : installVersion(s.version); }
-function showAddonDone(message) {
+async function showAddonDone(message) {
+  const g = await gameSnap();
+  const base = g ? g.savedAt : 0;
+  localStorage.setItem('wowc-addonsaved', String(base));
+  drawUpdated(WowcUpdates.addonDoneNote(upd.addon && upd.addon.installed, message), base);
+}
+// What the last game save recorded: the addon version it runs and when the file was written.
+async function gameSnap() {
+  try { const r = await api('/api/state'); if (!r.ok) return null; const j = await r.json(); return { addon: j.game_addon || '', savedAt: j.saved_at || 0 }; } catch { return null; }
+}
+// The update notice, with its /reload line when the addon was updated. The line stays (the notice can
+// still be dismissed) until a newer save shows the game running the new addon, then goes by itself.
+let reloadTimer = null;
+function drawUpdated(n, base) {
   const bar = $('updated-note');
+  clearInterval(reloadTimer);
   bar.hidden = false;
+  const text = Object.assign(document.createElement('span'), { className: 'upd-text', textContent: n.text });
+  const line = n.reload ? Object.assign(document.createElement('span'), { className: 'upd-text upd-reload', textContent: n.reload }) : null;
+  bar.replaceChildren(text);
+  if (line) { text.append(document.createElement('br'), line); }
+  const body = Object.assign(document.createElement('div'), { hidden: true });
+  if (n.whatsNew) {
+    const b = Object.assign(document.createElement('button'), { type: 'button', textContent: 'What’s new' });
+    b.onclick = async () => {
+      if (!body.hasChildNodes() && !body.textContent) {
+        try { const r = await api('/api/whats-new' + WowcUpdates.whatsNewQuery(n)); const l = r.ok ? (await r.json())[0].lines : []; if (n.addon) l.unshift('## App ' + n.version, '', '(The addon, now ' + n.addon + ', is covered by these notes too.)', ''); body.replaceChildren(drawNotes(WowcUpdates.noteView(l.join('\n')), true) || 'No notes were published for this version.'); } catch { body.textContent = 'No notes were published for this version.'; }
+      }
+      body.hidden = !body.hidden;
+    };
+    bar.append(b);
+  }
   const x = Object.assign(document.createElement('button'), { type: 'button', textContent: 'Dismiss' });
-  x.onclick = () => { bar.hidden = true; };
-  bar.replaceChildren(Object.assign(document.createElement('span'), { className: 'upd-text', textContent: '\u2713 ' + (upd.addon && upd.addon.installed && upd.addon.installed !== 'unknown' ? 'Updated: addon ' + upd.addon.installed : message) }), x);
+  x.onclick = () => { clearInterval(reloadTimer); bar.hidden = true; };
+  bar.append(x, body);
+  if (line) {
+    const check = async () => {
+      const g = await gameSnap();
+      if (WowcUpdates.reloadDone(n, g, base)) { clearInterval(reloadTimer); line.previousSibling.remove(); line.remove(); }
+    };
+    reloadTimer = setInterval(check, 15000);
+    check();
+  }
 }
 // "Install updates automatically" covers the addon: it installs when nothing is being written or
 // typed, and a pulled addon goes back by itself. One failed try is not repeated until the next check.
@@ -956,24 +994,8 @@ async function showUpdatedNote(running) {
   // An automatic go-back keeps its reason in the shell: "✓ Went back to <v>: <reason>".
   const reason = first && first.kind === 'back' ? await invoke('take_went_back', { version: running }).catch(() => '') : '';
   const n = WowcUpdates.updatedNote(last, running, reason, addonVer);
-  const bar = $('updated-note');
   if (!n) return;
-  bar.hidden = false;
-  bar.replaceChildren(Object.assign(document.createElement('span'), { className: 'upd-text', textContent: n.text }));
-  const body = Object.assign(document.createElement('div'), { hidden: true });
-  if (n.whatsNew) {
-    const b = Object.assign(document.createElement('button'), { type: 'button', textContent: 'What’s new' });
-    b.onclick = async () => {
-      if (!body.hasChildNodes() && !body.textContent) {
-        try { const r = await api('/api/whats-new' + WowcUpdates.whatsNewQuery(n)); const l = r.ok ? (await r.json())[0].lines : []; if (n.addon) l.unshift('## App ' + n.version, '', '(The addon, now ' + n.addon + ', is covered by these notes too.)', ''); body.replaceChildren(drawNotes(WowcUpdates.noteView(l.join('\n')), true) || 'No notes were published for this version.'); } catch { body.textContent = 'No notes were published for this version.'; }
-      }
-      body.hidden = !body.hidden;
-    };
-    bar.append(b);
-  }
-  const x = Object.assign(document.createElement('button'), { type: 'button', textContent: 'Dismiss' });
-  x.onclick = () => { bar.hidden = true; };
-  bar.append(x, body);
+  drawUpdated(n, Number(localStorage.getItem('wowc-addonsaved')) || 0);
 }
 
 // --- why the app closed ---------------------------------------------------------------------

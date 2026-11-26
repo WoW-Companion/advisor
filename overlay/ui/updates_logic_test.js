@@ -97,6 +97,22 @@ assert.strictEqual(U.updatedNote('0.7.55', '0.7.54', 'it loses plans.').text, '�
 assert.strictEqual(U.updatedNote('0.7.54', '0.7.55', 'ignored').text, '✓ Updated: app 0.7.55');
 assert.strictEqual(U.updatedNote('0.7.73', '0.7.74', '', '0.6.46').text, '✓ Updated: app 0.7.74 and addon 0.6.46');
 assert.strictEqual(U.updatedNote('0.7.74', '0.7.74', '', '0.6.46').text, '✓ Updated: addon 0.6.46');
+assert.strictEqual(U.updatedNote('0.7.74', '0.7.74', '', '0.6.46').reload, 'If WoW is open, type /reload in game to load it.');
+assert.strictEqual(U.updatedNote('0.7.73', '0.7.74', '', '0.6.46').reload, 'If WoW is open, type /reload in game to load the addon.');
+assert.strictEqual(U.updatedNote('0.7.73', '0.7.74').reload, undefined);
+assert.strictEqual(U.updatedNote('0.7.55', '0.7.54').reload, undefined);
+assert.strictEqual(U.addonDoneNote('0.6.54', 'x').text, '✓ Updated: addon 0.6.54');
+assert.strictEqual(U.addonDoneNote('unknown', 'Addon installed').reload, 'If WoW is open, type /reload in game to load it.');
+{ // the reload line clears once a save shows the new version
+  const n = U.addonDoneNote('0.6.54', '');
+  assert.strictEqual(U.reloadDone(n, { addon: '0.6.53', savedAt: 200 }, 100), false);
+  assert.strictEqual(U.reloadDone(n, { addon: '0.6.54', savedAt: 200 }, 100), true);
+  assert.strictEqual(U.reloadDone(n, { addon: '0.6.55', savedAt: 200 }, 100), true);
+  // no version recorded: the next write after the update clears it
+  assert.strictEqual(U.reloadDone(n, { addon: '', savedAt: 100 }, 100), false);
+  assert.strictEqual(U.reloadDone(n, { addon: '', savedAt: 101 }, 100), true);
+  assert.strictEqual(U.reloadDone(U.updatedNote('0.7.54', '0.7.55'), { addon: '', savedAt: 300 }, 100), false);
+}
 assert.strictEqual(U.updatedNote('', '0.7.55'), null);
 assert.strictEqual(U.updatedNote('0.7.55', '0.7.55'), null);
 assert.strictEqual(U.updatedNote('0.7.9', '0.7.10').kind, 'up');

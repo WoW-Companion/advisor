@@ -206,6 +206,9 @@
     return addon.auto;
   }
 
+  const RELOAD_ADDON = 'If WoW is open, type /reload in game to load it.';
+  const RELOAD_BOTH = 'If WoW is open, type /reload in game to load the addon.';
+
   // The note at the top of the chat on the first start of a different version than the last one.
   // last is the version seen at the previous start ("" the first time ever: no note).
   // reason is why an automatic go-back happened ("" when the player went back themselves).
@@ -213,9 +216,26 @@
   // the app, the addon or both.
   function updatedNote(last, running, reason, addon) {
     const a = bare(last), b = bare(running), d = bare(addon || '');
-    if (!a || !b || a === b || cmp(a, b) === 0) return d ? { kind: 'up', version: '', addon: d, text: '✓ Updated: addon ' + d, whatsNew: false } : null;
+    if (!a || !b || a === b || cmp(a, b) === 0) return d ? { kind: 'up', version: '', addon: d, text: '✓ Updated: addon ' + d, reload: RELOAD_ADDON, whatsNew: false } : null;
     if (cmp(b, a) >= 0) return { kind: 'back', version: b, text: '✓ Went back to ' + b + (reason ? ': ' + String(reason).replace(/[.\s]+$/, '') : ''), whatsNew: false };
-    return { kind: 'up', version: b, from: a, addon: d, text: '✓ Updated: app ' + b + (d ? ' and addon ' + d : ''), whatsNew: true };
+    return { kind: 'up', version: b, from: a, addon: d, text: '✓ Updated: app ' + b + (d ? ' and addon ' + d : ''), ...(d ? { reload: RELOAD_BOTH } : {}), whatsNew: true };
+  }
+  // The notice for an addon installed while the app keeps running; addon is "" or "unknown" when the
+  // version is not known (the reload line then clears on the next save).
+  function addonDoneNote(addon, message) {
+    const d = bare(addon || '');
+    const known = d && d !== 'unknown';
+    return { kind: 'up', version: '', addon: known ? d : '', text: '✓ ' + (known ? 'Updated: addon ' + d : message), reload: RELOAD_ADDON, whatsNew: false };
+  }
+  // Whether the game now runs the addon the notice named. game is the app's view of the last save:
+  // { addon: the addonVersion it recorded ("" when none), savedAt: when the file was written }, and
+  // base is savedAt at the time of the update. With a recorded version, the save must show the new
+  // one; without, the next write after the update (a /reload writes it) is enough.
+  function reloadDone(note, game, base) {
+    if (!note || !note.reload || !game) return false;
+    const v = bare(game.addon || '');
+    if (v && v !== 'unknown' && note.addon) return cmp(v, note.addon) <= 0; // cmp is 1 when v is older
+    return (game.savedAt || 0) > (base || 0);
   }
   // When to look again: on start, every CHECK_EVERY, after the PC slept (a late one-minute tick), and
   // when the window gains focus more than CHECK_EVERY after the last look. now() is the clock.
@@ -236,7 +256,7 @@
     };
   }
 
-  const api = { addonOffer, addonView, addonAuto, CHECK_EVERY, LATER_MS, WAKE_GAP, TICK, updateQuery, bannerState, bannerView, turnOnAuto, autoArgs, skip, later, plainNotes, noteView, NOTICE_BULLETS, versionRows, noticeView, updatedNote, whatsNewQuery, CHANGELOG_URL, cmp, createSchedule };
+  const api = { addonOffer, addonView, addonAuto, CHECK_EVERY, LATER_MS, WAKE_GAP, TICK, updateQuery, bannerState, bannerView, turnOnAuto, autoArgs, skip, later, plainNotes, noteView, NOTICE_BULLETS, versionRows, noticeView, updatedNote, addonDoneNote, reloadDone, whatsNewQuery, CHANGELOG_URL, cmp, createSchedule };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.WowcUpdates = api;
 })(typeof window !== 'undefined' ? window : globalThis);
