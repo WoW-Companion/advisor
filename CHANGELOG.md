@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.7.86
+
+- Weapon rules come from your game data, not the AI's memory: what your class can learn, what you have learned, and where the Weapon Masters stand.
+- Ask "Where can I train Staves?" and the AI names the masters of your faction, with the price (a priest trains Staves for 10 silver at Hanashi or Sayoc in Orgrimmar, or Ansekhwa in Thunder Bluff).
+- A bag or quest-reward weapon you can learn but haven't gets "Needs the Staves skill: train it at Hanashi in Orgrimmar (10s)". A weapon your class can never use is not suggested.
+- A big upgrade that needs a skill adds a "Train Staves" step after your ready turn-ins, when a master is in your town or one flight away.
+- With game data too old to hold weapon skills, the AI says it has no weapon-skill facts.
+
 ## 0.7.85
 
 - In town, a dungeon quest at your level (The Book of Ur) is a pick-up step, first on the route.

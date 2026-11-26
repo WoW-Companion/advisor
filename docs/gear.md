@@ -33,6 +33,12 @@ level range. There is no object table and no zone on any of them, so object sour
   is the Classic Era trainer rule from general game knowledge; the dataset holds no spell or
   trainer data to check it against. Cloaks, necks, rings and trinkets are never restricted. Shields only for Warrior,
   Paladin and Shaman.
+- Weapon skills: when the dataset has `weapon_skills` and `weapon_masters`, a weapon whose skill the class can never learn is
+  never suggested, and one the class can learn but the character's captured Weapon Skills lack stays listed with
+  "Needs the Staves skill: train it at <nearest master> in <city> (10s)" (the master in the character's zone first). The digest adds a
+  "Train <skill>" step after the ready turn-ins when a significant upgrade needs it and a master is in the town the character is in or one
+  flight from it. The AI's facts carry the captured skills, the class's learnable skills and the masters. Without the tables nothing changes
+  and the AI says it has no weapon-skill facts. Capture without skills: nothing is claimed either way.
 - Weapons by subclass from the table in `rules.go` (Priest: dagger, one-hand mace, staff, wand;
   Rogue: dagger, fist, one-hand sword, mace and axe, bow, crossbow, gun, thrown). One-hand weapons
   and off-hand weapons fit the off hand only once the character has learned Dual Wield (the level in

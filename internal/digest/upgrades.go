@@ -47,6 +47,7 @@ func upgradesSummary(n int) string {
 type upgradeLinks struct {
 	questWhy map[int]string   // quest id -> why it is worth doing: it rewards an upgrade
 	craftFor map[int64]string // reagent item id -> the upgrade it is for
+	trains   []trainNeed      // weapon skills the listed upgrades need
 }
 
 // aOrAn puts the right article before a gain word's lower-case form: "a big", "a solid", "a small".
@@ -66,6 +67,13 @@ func upgradeLines(c character.Character, ds store.DataStore, planQuests map[int]
 	for _, b := range bags {
 		covered[b.Slot] = true
 		lines = append(lines, bagLine(c, b))
+		if b.Need != nil {
+			g := ""
+			if !b.Empty && !b.Likely {
+				g = GainWord(gear.Candidate{Delta: b.Delta})
+			}
+			link.trains = append(link.trains, trainNeed{b.Need, b.Name, g, b.Empty || b.Likely || g != "Small upgrade"})
+		}
 	}
 	res, err := gear.Find(c, ds, group, gear.Options{NoSources: true})
 	if err != nil {
@@ -133,6 +141,9 @@ func upgradeLines(c character.Character, ds store.DataStore, planQuests map[int]
 		taken[cd.Item.ID] = true
 		l := upgradeLine(c, slot, cd, best, short)
 		lines = append(lines, l)
+		if cd.Need != nil {
+			link.trains = append(link.trains, trainNeed{cd.Need, cd.Item.Name, l.Gain, cd.Empty || l.Gain != "Small upgrade"})
+		}
 		if best.Kind == paths.Quest && best.QuestID != 0 {
 			link.questWhy[best.QuestID] = firstWhy(
 				fmt.Sprintf("Rewards %s, a %s %s upgrade", cd.Item.Name, lowerGain(l.Gain), strings.ToLower(l.Slot)),
@@ -157,12 +168,20 @@ func upgradeLine(c character.Character, slot string, cd gear.Candidate, best pat
 	if cd.Soon {
 		wear = fmt.Sprintf("From level %d", cd.Item.ReqLevel)
 	}
+	if cd.Need != nil && !cd.Soon {
+		wear = "After you train"
+	}
 	gain := GainWord(cd)
 	l := Line{Text: clip(cd.Item.Name), Item: int(cd.Item.ID), Slot: name, ILvl: cd.Item.ItemLevel, Wear: wear, Gain: gain, Replaces: replacedName(c, slot, cd.Empty), How: oneLineHow(best.Line), PathKind: best.Kind}
 	if cd.Soon {
 		l.AtLevel = cd.Item.ReqLevel
 	}
-	l.Details = finishDetails([]string{wording.Upper(best.Line)}) // the way in full; the item, wear, gain and replaces are fields
+	details := []string{wording.Upper(best.Line)} // the way in full; the item, wear, gain and replaces are fields
+	if cd.Need != nil {
+		details = append(details, cd.Need.Line())
+		l.Train = cd.Need.Skill
+	}
+	l.Details = finishDetails(details)
 	var mats []string
 	for _, g := range best.Reagents {
 		if g.Name != "" && len(mats) < 2 {
@@ -186,6 +205,11 @@ func bagLine(c character.Character, b gear.BagUpgrade) Line {
 		l.Gain = GainWord(gear.Candidate{Delta: b.Delta})
 	}
 	details := []string{name + ": " + b.Name + ", in your bags; equip it now"}
+	if b.Need != nil {
+		l.Wear, l.How, l.Train = "After you train", b.Need.Line(), b.Need.Skill
+		details[0] = name + ": " + b.Name + ", in your bags"
+		details = append(details, b.Need.Line())
+	}
 	if b.Replaces != "" {
 		l.Why = firstWhy("Beats your " + b.Replaces)
 		details = append(details, "Replaces "+b.Replaces)
@@ -215,7 +239,7 @@ const PathBags = "bags"
 func bagCount(lines []Line) int {
 	n := 0
 	for _, l := range lines {
-		if l.PathKind == PathBags {
+		if l.PathKind == PathBags && l.Train == "" { // one that needs training is not free to equip
 			n++
 		}
 	}
