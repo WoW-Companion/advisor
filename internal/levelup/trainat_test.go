@@ -80,3 +80,18 @@ func TestTrainAtUsesTheZoneWhenTheCaptureHasNoPosition(t *testing.T) {
 		t.Fatalf("place = %+v %v", p, ok)
 	}
 }
+
+func TestClassCityForPrefersTheCharactersOwnCityThenContinent(t *testing.T) {
+	for _, tc := range []struct{ side, class, zone, want string }{
+		{"Horde", "MAGE", "Orgrimmar", "Orgrimmar"}, {"Horde", "WARRIOR", "Durotar", "Orgrimmar"}, {"Horde", "WARRIOR", "Tirisfal Glades", "Undercity"},
+		{"Horde", "WARRIOR", "", "Undercity"}, {"Horde", "DRUID", "Durotar", "Thunder Bluff"}, {"Alliance", "ROGUE", "Teldrassil", "Darnassus"},
+		{"Alliance", "MAGE", "Teldrassil", "Stormwind City"}, {"Horde", "ROGUE", "Valley of Trials", "Orgrimmar"},
+	} {
+		if got := classCityFor(tc.side, tc.class, tc.zone); got != tc.want {
+			t.Errorf("%s %s in %q: %q, want %q", tc.side, tc.class, tc.zone, got, tc.want)
+		}
+	}
+	if got := classCityFor("Horde", "HUNTER", "Elwynn Forest"); got != ClassCity("Horde", "HUNTER") {
+		t.Errorf("a continent with no trainer city: %q", got)
+	}
+}

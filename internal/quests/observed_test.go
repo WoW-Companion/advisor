@@ -117,3 +117,16 @@ func TestChainStepsAreNamedFromObservedTitles(t *testing.T) {
 		t.Errorf("render:\n%s", r)
 	}
 }
+
+func TestResolveObservedIgnoresCaseAccentsAndApostrophes(t *testing.T) {
+	src := store.ReaderSource{"quests_observed": table(t, []obsRow{{363, "A Rogue's Deal", 5, 0, "horde", "Deathknell"}, {364, "Sarkoth", 5, 0, "horde", ""}, {365, "Sarkoth", 5, 0, "horde", ""}})}
+	ds := store.New(src)
+	for _, q := range []string{"A Rogue's Deal", "a rogues deal", "ROGUES DEAL"} {
+		if id, name, _ := resolveObserved(ds, q); id != 363 || name != "A Rogue's Deal" {
+			t.Errorf("resolveObserved(%q) = %d %q", q, id, name)
+		}
+	}
+	if id, _, cands := resolveObserved(ds, "sarkoth"); id != 0 || len(cands) != 2 {
+		t.Errorf("two quests of one title are candidates: %d %v", id, cands)
+	}
+}

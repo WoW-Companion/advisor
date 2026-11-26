@@ -9,14 +9,17 @@ import (
 	"github.com/WoW-Companion/advisor/internal/questie"
 )
 
-// classCities is the capital that holds a class trainer, by faction then class token. A city only:
-// the dataset holds no class trainers, so a named NPC comes from the player's own captures or their
-// QuestieDB, never from this table. A class with no entry here (a faction that cannot play it) gets no line.
-var classCities = map[string]map[string]string{
-	"horde": {"WARRIOR": "Undercity", "MAGE": "Undercity", "PRIEST": "Undercity", "WARLOCK": "Undercity", "ROGUE": "Undercity",
-		"HUNTER": "Orgrimmar", "SHAMAN": "Orgrimmar", "DRUID": "Thunder Bluff", "PALADIN": "Silvermoon City"},
-	"alliance": {"WARRIOR": "Stormwind City", "PALADIN": "Stormwind City", "ROGUE": "Stormwind City", "PRIEST": "Stormwind City",
-		"MAGE": "Stormwind City", "WARLOCK": "Stormwind City", "HUNTER": "Ironforge", "SHAMAN": "Ironforge", "DRUID": "Darnassus"},
+// classCities are the capitals that hold a class trainer, by faction then class token, the usual one first and
+// the others after it. A city only: the dataset holds no class trainers, so a named NPC comes from the player's
+// own captures or their QuestieDB, never from this table. A class with no entry here (a faction that cannot play
+// it) gets no line. The lists are the Classic class trainer lists of the Warcraft Wiki.
+var classCities = map[string]map[string][]string{
+	"horde": {"WARRIOR": {"Undercity", "Orgrimmar", "Thunder Bluff"}, "MAGE": {"Undercity", "Orgrimmar"}, "PRIEST": {"Undercity", "Orgrimmar", "Thunder Bluff"},
+		"WARLOCK": {"Undercity", "Orgrimmar"}, "ROGUE": {"Undercity", "Orgrimmar"}, "HUNTER": {"Orgrimmar", "Thunder Bluff"},
+		"SHAMAN": {"Orgrimmar", "Thunder Bluff"}, "DRUID": {"Thunder Bluff"}, "PALADIN": {"Silvermoon City"}},
+	"alliance": {"WARRIOR": {"Stormwind City", "Ironforge", "Darnassus"}, "PALADIN": {"Stormwind City", "Ironforge"}, "ROGUE": {"Stormwind City", "Ironforge", "Darnassus"},
+		"PRIEST": {"Stormwind City", "Ironforge", "Darnassus"}, "MAGE": {"Stormwind City", "Ironforge"}, "WARLOCK": {"Stormwind City", "Ironforge"},
+		"HUNTER": {"Ironforge", "Darnassus"}, "SHAMAN": {"Ironforge"}, "DRUID": {"Darnassus"}},
 }
 
 // flightsTo is the flight point with a direct flight to the city, by city then the zone it stands in.
@@ -40,15 +43,41 @@ type TrainPlace struct {
 
 // ClassCity is the capital for the faction's class trainers, "" when none is known.
 func ClassCity(faction, class string) string {
-	return classCities[strings.ToLower(faction)][strings.ToUpper(class)]
+	if l := classCities[strings.ToLower(faction)][strings.ToUpper(class)]; len(l) > 0 {
+		return l[0]
+	}
+	return ""
+}
+
+// classCityFor is the capital to train in for a character standing in zone: the city itself when it holds the
+// class trainer, else the class's city on the zone's continent, else the usual one. A character in Durotar is
+// not sent across the sea to Undercity when Orgrimmar has a trainer too.
+func classCityFor(faction, class, zone string) string {
+	list := classCities[strings.ToLower(faction)][strings.ToUpper(class)]
+	if len(list) == 0 {
+		return ""
+	}
+	zone = strings.TrimSpace(zone)
+	for _, c := range list {
+		if strings.EqualFold(c, zone) {
+			return c
+		}
+	}
+	if cont := learn.ContinentOf(zone); cont != "" {
+		for _, c := range list {
+			if learn.ContinentOf(c) == cont {
+				return c
+			}
+		}
+	}
+	return list[0]
 }
 
 // TrainAt chooses the place to train class spells: a class trainer the player opened in the city or
 // where they stand, else the class's trainer in the faction's city from QuestieDB, else the city alone.
 // It never names an NPC or a position that no source holds.
 func TrainAt(c character.Character, qx *questie.Index) (TrainPlace, bool) {
-	city := ClassCity(c.Faction, c.Class)
-	if city == "" {
+	if ClassCity(c.Faction, c.Class) == "" {
 		return TrainPlace{}, false
 	}
 	var at questie.Where
@@ -61,6 +90,7 @@ func TrainAt(c character.Character, qx *questie.Index) (TrainPlace, bool) {
 		zone = c.Location.Zone // the capture names the zone but gave no position
 	}
 	zone = strings.TrimSpace(zone)
+	city := classCityFor(c.Faction, c.Class, zone)
 	pl := TrainPlace{City: city, Here: strings.EqualFold(zone, city)}
 	if t, ok := SeenClassTrainer(c); ok && (strings.EqualFold(t.Zone, city) || zone != "" && strings.EqualFold(t.Zone, zone)) {
 		pl.City, pl.Trainer, pl.Seen = t.Zone, &t, true

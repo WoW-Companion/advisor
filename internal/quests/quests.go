@@ -115,10 +115,10 @@ func Resolve(ds store.DataStore, text string) (id int64, name string, candidates
 }
 
 // resolveObserved matches a quest name against the titles players reported in quests_observed (Everloot),
-// for a dataset whose quests table carries no names: a title equal ignoring case, else a title that
+// for a dataset whose quests table carries no names: a title equal ignoring case, accents and apostrophes, else a title that
 // holds the text. One quest is an answer; several are candidates, "Title (id)", for the player to pick by id.
 func resolveObserved(ds store.DataStore, text string) (id int64, name string, candidates []string) {
-	want := strings.ToLower(text)
+	want := names.Normalize(text) // as the name index does: no case, accents or apostrophes
 	if ds == nil || want == "" {
 		return 0, "", nil
 	}
@@ -133,7 +133,7 @@ func resolveObserved(ds store.DataStore, text string) (id int64, name string, ca
 	var exact, partial []hit
 	for _, r := range rows {
 		title := str(r["title"])
-		low := strings.ToLower(title)
+		low := names.Normalize(title)
 		switch {
 		case title == "":
 		case low == want:

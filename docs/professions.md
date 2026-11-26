@@ -227,6 +227,16 @@ advisor names no pick), the points line, the dungeons offered to a level and eac
 guides, the quest XP share by level difference (Warcraft Wiki), the estimate flag, and the XP and rested XP line. The dataset
 holds no XP per level, quest XP, rested XP, zone level or points-by-level table; those cases check the advisor states none.
 
+`internal/paths/offline_mounts_cities_benchmark_test.go` (also `make offline-benchmark`, areas `advice-mount-by-name`,
+`advice-mount-ambiguous`, `advice-riding-*`, `advice-capital-*` and `advice-start-*`) checks, on the existing
+`testdata/consumables_snapshot`, `testdata/world_snapshot` and `testdata/places_snapshot`, how a mount is found by the name a
+player types and that no source is invented for it, that riding is never answered from a recipe, the capital a class is sent to
+for its trainer (the Warcraft Wiki's class trainer pages), the city errands of a capital of the player's side, the continent of
+each race's starting zone and starting area, and the first quests of the Horde's starting areas from `quests_observed`. The
+dataset holds no mount source, riding skill, trainer or cost, no class trainer, bank or auction house row and no first quest
+of the Alliance's starting areas; those cases check that the advisor states none and are listed as "differ (data)" when the
+dataset's gap shows.
+
 The run ends with one summary line, `advice-benchmark: N checks, S same, D differ (professions 90/39, costs 50/8,
 tailoring-guide 6/13, stats 99/0)`: every table row counts as same ("match") or differ, by area. Each area prints
 `advice-benchmark-count <area> same=N differ=M`, and `internal/benchsummary` adds them up. The share of

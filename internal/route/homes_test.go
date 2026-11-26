@@ -143,3 +143,15 @@ func TestCityRunGetsBankAndTrainErrands(t *testing.T) {
 		t.Errorf("errands outside a city: %+v", q.Errands)
 	}
 }
+
+func TestOtherSidesCapitalGetsNoErrands(t *testing.T) {
+	c := character.Character{Faction: "Horde"}
+	for zone, want := range map[string]bool{"Orgrimmar": true, "Stormwind City": false, "Shattrath City": true, "Durotar": false} {
+		if got := isHub(c, zone); got != want {
+			t.Errorf("Horde in %s: %v, want %v", zone, got, want)
+		}
+	}
+	if !isHub(character.Character{}, "Stormwind City") {
+		t.Error("a character with no known side gets every capital")
+	}
+}

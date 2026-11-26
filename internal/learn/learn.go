@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/WoW-Companion/advisor/internal/character"
+	"github.com/WoW-Companion/advisor/internal/names"
 	"github.com/WoW-Companion/advisor/internal/questie"
 	"github.com/WoW-Companion/advisor/internal/store"
 	"github.com/WoW-Companion/advisor/internal/vendors"
@@ -566,6 +567,22 @@ func text(r Result) string {
 	return b.String()
 }
 
+// isRidingQuery is true for a question about the riding skill ("riding", "apprentice riding", "riding skill"): not the
+// Enchant Gloves - Riding Skill recipe, which names the enchant.
+func isRidingQuery(q string) bool {
+	words := strings.Fields(names.Normalize(q))
+	riding := false
+	for _, w := range words {
+		switch w {
+		case "enchant", "formula":
+			return false
+		case "riding":
+			riding = true
+		}
+	}
+	return riding
+}
+
 // Find resolves a recipe or the item it makes by name and says where to learn it. A character's
 // own profession wins when several recipes share the name.
 func Find(c character.Character, ds store.DataStore, qx *questie.Index, query string) (Result, error) {
@@ -577,6 +594,10 @@ func Find(c character.Character, ds store.DataStore, qx *questie.Index, query st
 	}
 	if q == "" || ds == nil {
 		return Result{}, fmt.Errorf("name the recipe or the item it makes")
+	}
+	if isRidingQuery(q) {
+		return Result{Recipe: q, Ways: []Way{}, Text: "Riding is a skill from a riding trainer, not a recipe, and the game data you have lists no riding trainer, level or cost: " +
+			"it can't say where to learn it. Do not name a trainer, a price or a level."}, nil
 	}
 	var cands []store.Row
 	if rs, _ := ds.SearchName("recipes", q, 20); len(rs) > 0 {
