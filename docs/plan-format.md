@@ -274,8 +274,8 @@ commitment and is in exactly one of three places.
   `instance` set, when the player has a group plan; otherwise it is parked. A trip whose `map` is the
   player's own holds quests the run's caps left out ("Here, once the run is done"). `pickups` counts
   quests not in the log that could be picked up there; they are not in `questIDs`.
-- `parked` is `{ questID, quest, why, kind }`, quests set aside, with `kind`: `toohigh` (more than 3 levels
-  above the player: "level 37"), `grey` (grey to the player and nothing to hand in; with 30 or more of 40
+- `parked` is `{ questID, quest, why, kind }`, quests set aside, with `kind`: `toohigh` (open work more than 3 levels
+  above the player, never a done quest: "level 40 · doable around 37"), `grey` (grey to the player and nothing to hand in; with 30 or more of 40
   slots used, "grey at your level, worth abandoning"), `dungeon` (needs a group, and no group plan is set)
   or `seasonal` (a holiday quest). A parked quest is in no trip and in no step.
 
@@ -372,3 +372,35 @@ On each refresh the advisor:
 A stop the planner cannot place is written with `x = -1, y = -1` and `unplaced = true`; no stop is ever
 written at 0, 0. A stop placed at a subzone's centre, because the quest text names the subzone and the
 dataset has no spawn for the objective, carries `approx = true` and real coordinates.
+
+## Schema 1.7: every logged quest has a home, and a city has errands
+
+Every quest in the log is in exactly one of `steps`, `trips`, `find` or `parked`. Difficulty only matters for
+work not yet done: a quest whose objectives are all done is a free turn-in at any level, so it is a step (its
+finisher is in the run's zone), else counted `ready` in the trip for the finisher's zone, else a `find` entry.
+`parked` `toohigh` is for quests with open objectives only, and its `why` says when it becomes doable.
+
+A `find` entry for a quest with no known finisher or place carries the quest's own words, read from the
+player's Questie data at run time:
+
+```lua
+find = {
+  { n = 1, questID = 79624, quest = "Anyone Can Cook", hint = "Find an ogre who can read the Illegible Recipe", done = false },
+},
+```
+
+`zone` is added when the data narrows it down. Older find entries (an objective with no place) keep their keys.
+
+When the player's zone or the run's zone is a capital or major hub, `errands` tags the steps that are errands,
+in step order. The errand stops join `steps` as ordinary numbered stops (kind `errand`, and `errand` set on
+the step); `errands` only says which steps they are:
+
+```lua
+errands = {
+  { n = 4, kind = "train", label = "Train now at your class trainer", map = 1458, x = -1.0, y = -1.0, why = "2 new spells or ranks to train at this level" },
+  { n = 5, kind = "bank", label = "Open your bank once", map = 1458, x = -1.0, y = -1.0, why = "open your bank once so the advisor can see it" },
+},
+```
+
+`kind` is `train` (new ranks are trainable), `bank` (the bank is not captured), `class` (a class quest is
+offered here) or `turnin` (a ready turn-in here). `x` and `y` are -1 when the position is not known.

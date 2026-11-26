@@ -27,6 +27,7 @@ func OptionsFor(addonSV string, ds store.DataStore) Options {
 	opt.XP = questie.LoadXP(addonSV)
 	opt.Dungeons = dungeonLevels(ds)
 	opt.Places = placesFrom(ds)
+	opt.Data = ds
 	return opt
 }
 

@@ -121,8 +121,9 @@ func shapeSharedPlan(p *Plan, c character.Character, src source, opt Options, in
 		case q.event || q.festival:
 			park(ParkSeasonal, "holiday quest")
 			continue
-		case q.level > in.lvl+TooHighMargin:
-			park(ParkTooHigh, fmt.Sprintf("level %d", q.level))
+		case q.level > in.lvl+TooHighMargin && !ready:
+			// Difficulty only matters for work not yet done: a ready turn-in is free XP at any level.
+			park(ParkTooHigh, fmt.Sprintf("level %d · doable around %d", q.level, q.level-TooHighMargin))
 			continue
 		case q.level > 0 && q.level <= in.lvl-GreyGap && !ready:
 			why := "grey at your level"
@@ -210,7 +211,57 @@ func shapeSharedPlan(p *Plan, c character.Character, src source, opt Options, in
 		}
 		p.Exit = e
 	}
+	findHomeless(p, c, src, in.listed)
+	addErrands(p, c, src, opt, in)
 	p.Total = len(p.Steps)
+}
+
+// findHomeless gives every logged quest that is in no step, trip, parked entry or find entry a find entry
+// with the quest's own words: a done quest whose finisher is unknown, or one the data has never heard of.
+func findHomeless(p *Plan, c character.Character, src source, listed []*quest) {
+	placed := map[int]bool{}
+	for _, s := range p.Steps {
+		placed[s.QuestID] = true
+		for _, id := range s.QuestIDs {
+			placed[id] = true
+		}
+	}
+	for _, k := range p.Parked {
+		placed[k.QuestID] = true
+	}
+	for _, f := range p.Find {
+		placed[f.QuestID] = true
+	}
+	hints := map[int]string{}
+	for _, q := range listed {
+		hints[q.id] = q.hint
+	}
+	if qs, ok := src.(*questieSource); ok {
+		for _, lq := range c.Quests {
+			if qq := qs.qx.Quests[lq.QuestID]; qq != nil && qq.Objective != "" {
+				hints[lq.QuestID] = qq.Objective
+			}
+		}
+	}
+	for _, lq := range c.Quests {
+		if placed[lq.QuestID] {
+			continue
+		}
+		hasTrip := false
+		for _, t := range p.Trips {
+			hasTrip = hasTrip || slices.Contains(t.QuestIDs, lq.QuestID)
+		}
+		if hasTrip {
+			continue
+		}
+		placed[lq.QuestID] = true
+		hint := hints[lq.QuestID]
+		for _, o := range lq.Objectives {
+			hint = cmp.Or(hint, o.Text)
+		}
+		hint = cmp.Or(hint, "Find who takes "+cmp.Or(lq.Title, "this quest"))
+		p.Find = append(p.Find, FindStop{N: len(p.Find) + 1, QuestID: lq.QuestID, Quest: lq.Title, Label: hint, Hint: hint})
+	}
 }
 
 // nextAction is the map where the quest's next action happens, and whether it is a ready turn-in:

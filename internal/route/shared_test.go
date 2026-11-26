@@ -106,7 +106,7 @@ func TestSharedPlanKeepsTheRunHereAndGroupsTheRestByZone(t *testing.T) {
 	if t0 := p.Trips[0]; t0.Order != 1 || t0.Map != mapSouth || t0.Ready != 2 || t0.Todo != 0 || t0.Reason != "2 ready to turn in" || t0.Travel == "" {
 		t.Errorf("first trip %+v", t0)
 	}
-	if len(p.Parked) != 1 || p.Parked[0].QuestID != 501 || p.Parked[0].Kind != ParkTooHigh || p.Parked[0].Why != "level 14" {
+	if len(p.Parked) != 1 || p.Parked[0].QuestID != 501 || p.Parked[0].Kind != ParkTooHigh || p.Parked[0].Why != "level 14 · doable around 11" {
 		t.Errorf("parked %+v", p.Parked)
 	}
 }
