@@ -98,7 +98,8 @@ func (p *planner) guideTrainer(tier string) string {
 }
 
 // trainer is the best trainer for the profession: one in the character's zone when there is one,
-// else the one teaching the most recipes; a known faction that is not the character's is skipped.
+// else one in a zone known to be on the character's side, then the one teaching the most recipes; a known
+// faction that is not the character's is skipped.
 func (p *planner) trainer() string {
 	rows, _ := p.ds.Filter("trainers", store.Range{Column: "profession", Min: p.prof, Max: p.prof})
 	zone := ""
@@ -108,6 +109,7 @@ func (p *planner) trainer() string {
 	type cand struct {
 		name, zone string
 		here       bool
+		ownSide    bool // the zone is known to be on the character's side
 		recipes    int64
 		id         int64
 	}
@@ -132,7 +134,7 @@ func (p *planner) trainer() string {
 		if name == "" {
 			name = fmt.Sprintf("npc %d "+notNamed, asI64(r["npc_id"]))
 		}
-		cs = append(cs, cand{name, z, zone != "" && strings.EqualFold(z, zone), asI64(r["recipes"]), asI64(r["npc_id"])})
+		cs = append(cs, cand{name, z, zone != "" && strings.EqualFold(z, zone), sideOfZone(z) != "", asI64(r["recipes"]), asI64(r["npc_id"])})
 	}
 	if len(cs) == 0 {
 		return ""
@@ -141,6 +143,9 @@ func (p *planner) trainer() string {
 		a, b := cs[i], cs[j]
 		if a.here != b.here {
 			return a.here
+		}
+		if a.ownSide != b.ownSide { // a zone known to be on the character's side before one of no known side
+			return a.ownSide
 		}
 		if (a.zone != "") != (b.zone != "") {
 			return a.zone != ""

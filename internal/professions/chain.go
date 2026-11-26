@@ -139,7 +139,7 @@ func (p *planner) resolve(id int64, skill, depth int) (source, *makeChoice) {
 		if rc.LearnSkill != nil && have >= 0 && *rc.LearnSkill > have {
 			continue
 		}
-		if p.blockedRecipe(rc) || p.usesCooldown(rc.SpellID) {
+		if p.blockedRecipeIn(line, rc) || p.usesCooldown(rc.SpellID) {
 			continue
 		}
 		if _, _, _, ok := p.learnDetail(rc, rc.LearnedFrom, 300); !ok {

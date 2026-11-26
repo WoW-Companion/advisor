@@ -107,7 +107,7 @@ The skill gate is the trainer's required skill when the dataset has it. Where th
 - **Material cost.** A vendor-sold material costs its price; a gathered one 20 plus twice its node's skill; dust, essence and shard from disenchanting 100 ("disenchant level-N greens or buy"); anything else is weighted by tier (copper < tin < iron < mithril < thorium; linen < wool < silk < mageweave < runecloth; light < medium < heavy < thick < rugged leather). Gems and elemental, rare-drop or cooldown materials weigh 3000. A crafted material costs what its reagents cost; the expansion never follows a recipe inside itself.
 - **Choice.** Each band takes the recipe with the lowest cost per expected skill point, counting the skill-ups the intermediate crafts give. A band over 25 raw materials per skill point is rejected when another recipe fits.
 - **Recipe sources, in order:** trainer; vendor-sold recipe items; quest-reward recipes whose quest level and faction fit the character, named with the quest; drops and other patterns only as "if you have the pattern".
-- **Left out by default:** specialisation recipes (Dragonscale, Elemental and Tribal Leatherworking, Armorsmith, Weaponsmith, Goblin and Gnomish Engineering) unless the character knows them, and recipes that make or use a cooldown material (Mooncloth, Salt Shaker, Arcanite, transmutes).
+- **Left out by default:** specialisation recipes (Dragonscale, Elemental and Tribal Leatherworking, Armorsmith and Weaponsmith Blacksmithing, Goblin and Gnomish Engineering; a word counts only in its own profession, so Cooking's Goblin Deviled Clams stays) unless the character knows them, and recipes that make or use a cooldown material (Mooncloth, Salt Shaker, Arcanite, transmutes).
 - **Gaps.** When no recipe covers a stretch, the band says "No trainer or vendor recipe covers 285–300", names the patterns or quests that would, and the plan goes on to the target.
 - **Guide check.** The benchmark ends its band list with one "Guide check:" line: each band's recipe and how it is learnt (trainer, vendor pattern, quest recipe, known, or GAP).
 
@@ -176,6 +176,15 @@ elixir, potion or food, the price a vendor shows against `items.buy_price`, the 
 the level the advisor assumes a mount from (`session.MountLevel`), and the answer for a mount the dataset names no
 source for. The dataset holds no gem item, no enchant slot or stat, no flask duration or stat, and no mount
 source, faction or riding skill; those cases check that the advisor says so and states none.
+
+`internal/paths/offline_reputation_benchmark_test.go` and `internal/professions/offline_secondary_benchmark_test.go` (also
+`make offline-benchmark`, areas `advice-reputation-vendor-*`, `advice-class-quest-*`, `advice-secondary-*`,
+`advice-first-aid-ladder` and `advice-specialization-*`) check the price a vendor offer shows against `items.buy_price` (a
+reporter's discounted price is never shown; the dataset has no faction or standing on a vendor row), class quests by
+title, facts and quest line (the dataset has no class quest line), the Cooking, First Aid and Fishing steps for sixteen
+skills against `profession_routes`, the First Aid bandage ladder, the trainer town and next rank of those professions,
+where a Cooking or First Aid recipe is learned, and which recipes a plan leaves out as a specialization's. The dataset
+holds no specialization table, so the choice of branch is listed as "differ (data)" or checked as unnamed.
 
 The run ends with one summary line, `advice-benchmark: N checks, S same, D differ (professions 90/39, costs 50/8,
 tailoring-guide 6/13, stats 99/0)`: every table row counts as same ("match") or differ, by area. Each area prints
