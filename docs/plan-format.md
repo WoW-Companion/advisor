@@ -38,7 +38,10 @@ the player's local files. Nothing Questie-derived is stored in this repo.
   planned. With 2 or fewer free quest-log slots (40, or the client's size) only that many pick-ups are
   planned, dungeon quests first, then class quests, then by XP, and a note says the log is nearly full.
 - Quests more than 1 level above the character, stops on another map, and stops past the 20th go to `later`.
-  The map with the most `later` stops is named as a final `travel` stop ("Travel to <zone>"; a dungeon reads "Travel to <place> (<zone>)", never a map number).
+  The map with the most `later` stops is named as a final `travel` stop: "Fly to <place> (<flight master>), <zone>"
+  when the player knows a flight master there, else "Walk or ride to <zone> from <side>"; across continents the
+  hub comes first ("Zeppelin to Orgrimmar, then fly to ..."). A dungeon reads "Travel to <place> (<zone>)",
+  never a map number. An unknown flight point is never suggested as a flight. See "Schema 1.5".
 - Quests ready to turn in on the player's map are the first steps, nearest first. A ready turn-in in a town
   the player has a flight to (any town, when no flight is known) gets a `travel` step "Fly to <town>: turn in
   <quests>", one per town, before the final travel stop.
@@ -54,7 +57,7 @@ Data only: one assignment of tables, strings, numbers and booleans. Never code.
 
 ```lua
 WoWCompanionPlan = {
-  schema = "1.4",
+  schema = "1.5",
   generated = 1795363809,        -- unix seconds
   characters = {
     ["Hero"] = {                 -- the character name as captured, no realm
@@ -196,6 +199,32 @@ finishers = {
   objective is placed); at most 40 quests. A spawn with no known place is left out, and so is a quest
   whose finisher has none.
 - Rows of one quest are adjacent, in the log's order. Step order is unchanged. An older addon ignores the key.
+
+## Schema 1.5: one route per other zone
+
+Every zone other than the player's that holds `later` stops gets one connected route that starts where the
+player arrives. `later` lists the player's zone first, then each other zone's stops together, in route order.
+Per character, keyed by the zone's map id, data only:
+
+```lua
+zones = {
+  [1442] = {
+    zone = "Stonetalon Mountains",
+    travel = "Fly to Sun Rock Retreat (Tharm), Stonetalon Mountains",   -- the route step that goes there
+    arrival = { kind = "flight", npc = 3881, name = "Tharm", place = "Sun Rock Retreat", map = 1442, x = 45.0, y = 59.0 },
+    order = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 },   -- the `n` of the zone's stops in `later`, each once
+  },
+},
+```
+
+- `arrival.kind` is `flight` (the nearest known flight master in the zone, from the flight points the capture
+  recorded; `npc`, `name`, `x`, `y`, and `place` when the dataset places the NPC) or `walk` (no flight point
+  known there: the entrance on the player's side, `name` is the side; no `map`, `x`, `y` when the entrance is
+  not known). A flight is never suggested for an unknown flight point.
+- `order` is one path from the arrival point (nearest-neighbour with 2-opt above 12 stops, exact below) with
+  every quest's pick-up before its objectives before its turn-in. A stop with no position comes just before
+  the first stop that needs it. A dungeon map has no entry.
+- Stops past the 30-stop `later` cap are not in `order`. Readers ignore keys they do not know.
 
 ## Chain-aware plan
 

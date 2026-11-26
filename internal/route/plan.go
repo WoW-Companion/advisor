@@ -136,6 +136,7 @@ type Plan struct {
 	Guides    []Guide      `json:"guides,omitempty"`     // what each listed quest needs once accepted (Plan.lua 1.2)
 	Here      []Here       `json:"here,omitempty"`       // what can be done at each NPC stop (Plan.lua 1.3)
 	Finishers []Finisher   `json:"finishers,omitempty"`  // where each logged quest is handed in (Plan.lua 1.4)
+	Zones     []ZonePlan   `json:"zones,omitempty"`      // one connected route per other zone with stops (Plan.lua 1.5)
 }
 
 // Basis is the state a plan starts from. "Done" in a plan means done after Captured: a reader judges
@@ -531,12 +532,25 @@ func planWith(c character.Character, src source, opt Options) Plan {
 			next, best = m, n
 		}
 	}
+	// Every other zone with stops gets one connected route that starts where the player arrives.
+	var zoneIdx map[int][]int
+	later, p.Zones, zoneIdx = zoneRoutes(c, src, later, cur, known, p.Start)
+	zoneOf := map[int]*ZonePlan{}
+	for i := range p.Zones {
+		zoneOf[p.Zones[i].Map] = &p.Zones[i]
+	}
 	if best > 0 {
 		for _, s := range later {
 			if s.m == next {
 				st := Stop{N: len(p.Steps) + 1, Kind: KindTravel, Label: "Travel to " + travelName(src, next, s.place), Map: next, X: round1(s.x), Y: round1(s.y)}
 				if s.zoneOnly {
 					st.X, st.Y, st.ZoneOnly = 0, 0, true
+				}
+				if z := zoneOf[next]; z != nil {
+					st.Label, st.Place = z.Travel, z.Arrival.Place
+					if z.Arrival.Known {
+						st.X, st.Y, st.ZoneOnly = z.Arrival.X, z.Arrival.Y, false
+					}
 				}
 				p.Steps = append(p.Steps, st)
 				break
@@ -550,7 +564,15 @@ func planWith(c character.Character, src source, opt Options) Plan {
 	for i, s := range findSpots {
 		p.Find = append(p.Find, FindStop{N: i + 1, QuestID: s.quests[0], Quest: strings.Join(s.names, ", "), Label: s.label})
 	}
-	sort.SliceStable(later, func(i, j int) bool { return (later[i].m == cur) && (later[j].m != cur) })
+	for i := range p.Zones {
+		z := &p.Zones[i]
+		z.Order = []int{}
+		for _, k := range zoneIdx[z.Map] {
+			if k < MaxLater {
+				z.Order = append(z.Order, k+1)
+			}
+		}
+	}
 	for i, s := range later {
 		if i >= MaxLater {
 			p.Notes = append(p.Notes, fmt.Sprintf("%d more later stops not listed", len(later)-MaxLater))

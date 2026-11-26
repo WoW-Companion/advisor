@@ -146,7 +146,7 @@ func SlotName(slot string, invType int) string {
 var actionVerbs = map[string]bool{}
 
 func init() {
-	for _, w := range strings.Fields("kill slay collect gather speak talk use explore escort defeat reach visit discover find deliver protect clear loot obtain listen investigate search return bring recover retrieve acquire free rescue destroy burn place plant capture tame interrogate inspect examine survey light activate open ride fly travel go meet accompany follow help assist heal cleanse purify summon defend guard mine fish cook craft learn train equip wear complete finish pick turn continue") {
+	for _, w := range strings.Fields("kill slay collect gather speak talk use explore escort defeat reach visit discover find deliver protect clear loot obtain listen investigate search return bring recover retrieve acquire free rescue destroy burn place plant capture tame interrogate inspect examine survey light activate open ride fly walk zeppelin boat travel go meet accompany follow help assist heal cleanse purify summon defend guard mine fish cook craft learn train equip wear complete finish pick turn continue") {
 		actionVerbs[w] = true
 	}
 }

@@ -76,6 +76,17 @@ func (p *Places) describe(m int) (name, entrance string) {
 	return "", ""
 }
 
+// IsInstance reports whether UI map m shows an instance (a dungeon or raid).
+func (p *Places) IsInstance(m int) bool {
+	if classicDungeonUIMaps[m] != 0 {
+		return true
+	}
+	if p == nil {
+		return false
+	}
+	return p.UIMaps[m].Instance != 0
+}
+
 // Travel is the name for a travel target: "Shadowfang Keep (Silverpine Forest)" for an instance.
 func (p *Places) Travel(m int) string {
 	n, e := p.describe(m)

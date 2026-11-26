@@ -10,7 +10,7 @@ import (
 )
 
 // Schema is the Plan.lua format version (docs/plan-format.md).
-const Schema = "1.4"
+const Schema = "1.5"
 
 // File is the file name, next to Digest.lua.
 const File = "Plan.lua"
@@ -90,6 +90,10 @@ func (e Envelope) Lua() string {
 			}
 			fmt.Fprintf(&b, "        { questID = %d, quest = %s, %s, map = %d, x = %.1f, y = %.1f, place = %s },\n",
 				f.QuestID, digest.Quote(f.Quest), who, f.Map, f.X, f.Y, digest.Quote(f.Place))
+		}
+		b.WriteString("      },\n      zones = {\n")
+		for _, z := range p.Zones {
+			zoneLua(&b, "        ", z)
 		}
 		b.WriteString("      },\n    },\n")
 	}
@@ -249,4 +253,23 @@ func hereLua(b *strings.Builder, indent string, h Here) {
 		b.WriteString(" },\n")
 	}
 	fmt.Fprintf(b, "%s  },\n%s},\n", indent, indent)
+}
+
+// zoneLua is one zone's arrival and stop order, keyed by its map id (Plan.lua 1.5).
+func zoneLua(b *strings.Builder, indent string, z ZonePlan) {
+	a := z.Arrival
+	arr := "kind = " + digest.Quote(a.Kind)
+	if a.NPC != 0 {
+		arr += fmt.Sprintf(", npc = %d", a.NPC)
+	}
+	if a.Name != "" {
+		arr += ", name = " + digest.Quote(a.Name)
+	}
+	if a.Place != "" {
+		arr += ", place = " + digest.Quote(a.Place)
+	}
+	if a.Known {
+		arr += fmt.Sprintf(", map = %d, x = %.1f, y = %.1f", a.Map, a.X, a.Y)
+	}
+	fmt.Fprintf(b, "%s[%d] = { zone = %s, travel = %s, arrival = { %s }, order = %s },\n", indent, z.Map, digest.Quote(z.Zone), digest.Quote(z.Travel), arr, idList(z.Order))
 }

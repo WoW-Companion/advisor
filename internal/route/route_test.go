@@ -272,7 +272,7 @@ func TestPlanClustersAndOrders(t *testing.T) {
 		later = later || strings.Contains(s.Quest, "Quest 13")
 	}
 	for _, s := range p.Steps {
-		travel = travel || (s.Kind == KindTravel && s.Label == "Travel to Otherisle")
+		travel = travel || (s.Kind == KindTravel && s.Label == "Walk or ride to Otherisle")
 		if strings.Contains(s.Quest, "Quest 13") {
 			t.Errorf("a too-high quest is on the route: %+v", s)
 		}
@@ -306,7 +306,7 @@ func TestLuaIsDataOnly(t *testing.T) {
 	p := Build(hero(), hubIsle())
 	p.Character = `Evil"]=nil os.execute("x") --`
 	lua := Envelope{Generated: 7, Plans: []Plan{p}}.Lua()
-	if !strings.HasPrefix(lua, "-- Data only") || !strings.Contains(lua, "WoWCompanionPlan = {") || !strings.Contains(lua, `schema = "1.4"`) {
+	if !strings.HasPrefix(lua, "-- Data only") || !strings.Contains(lua, "WoWCompanionPlan = {") || !strings.Contains(lua, `schema = "1.5"`) {
 		t.Errorf("header: %s", lua)
 	}
 	if strings.Contains(lua, `Evil"]`) {

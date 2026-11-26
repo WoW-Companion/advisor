@@ -547,3 +547,22 @@ func (s *questieSource) dungeonLevels(d *questie.Dungeon) (lo, hi int) {
 	}
 	return 0, 0
 }
+
+// isInstance reports whether UI map m is a dungeon or other instance.
+func (s *questieSource) isInstance(m int) bool {
+	return s.opt.Places.IsInstance(m) || s.travelName(m, "") != s.mapName(m)
+}
+
+// flightPlace is the subzone a flight master stands in, "" when the dataset does not place the NPC.
+func (s *questieSource) flightPlace(npc int64) string {
+	e, ok := s.qx.Npcs[int(npc)]
+	if !ok {
+		return ""
+	}
+	for _, sp := range e.Spawns {
+		if a, ok := s.qx.Areas[sp.Area]; ok && a.Sub != "" {
+			return a.Sub
+		}
+	}
+	return ""
+}
