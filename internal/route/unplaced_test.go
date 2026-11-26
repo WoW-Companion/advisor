@@ -143,3 +143,57 @@ func TestNoPlanHasZeroZero(t *testing.T) {
 		t.Run(name, func(t *testing.T) { noZeroZero(t, p) })
 	}
 }
+
+func TestCapturedPOIPlacesTheFirstOpenObjective(t *testing.T) {
+	c := vantageChar()
+	at := int64(1000)
+	c.CapturedAt = &at
+	c.QuestPOI = map[int]character.QuestPOI{98: {Map: 7001, X: 62, Y: 41, SeenAt: 990}}
+	p := Build(c, vantageIndex("none"))
+	steps := objectiveSteps(p)
+	if len(steps) != 3 {
+		t.Fatalf("want 3 steps: %+v", p.Steps)
+	}
+	placed, unplaced := 0, 0
+	for _, s := range steps {
+		if s.Unplaced {
+			unplaced++
+			continue
+		}
+		placed++
+		if !s.Approx || s.Source != FromGame || s.X != 62 || s.Y != 41 || !strings.Contains(s.Label, "Western") {
+			t.Errorf("placed step %+v", s)
+		}
+	}
+	if placed != 1 || unplaced != 2 {
+		t.Errorf("placed %d, unplaced %d: %+v", placed, unplaced, steps)
+	}
+	if lua := (Envelope{Generated: 1, Plans: []Plan{p}}).Lua(); !strings.Contains(lua, `source = "game"`) {
+		t.Errorf("Plan.lua lacks the game source")
+	}
+	noZeroZero(t, p)
+}
+
+func TestStaleCapturedPOIIsIgnored(t *testing.T) {
+	c := vantageChar()
+	at := int64(1000000)
+	c.CapturedAt = &at
+	c.QuestPOI = map[int]character.QuestPOI{98: {Map: 7001, X: 62, Y: 41, SeenAt: 10}}
+	for _, s := range objectiveSteps(Build(c, vantageIndex("none"))) {
+		if !s.Unplaced || s.Source == FromGame {
+			t.Errorf("stale point used: %+v", s)
+		}
+	}
+}
+
+func TestCoverageCountsHowObjectivesArePlaced(t *testing.T) {
+	c := vantageChar()
+	c.QuestPOI = map[int]character.QuestPOI{98: {Map: 7001, X: 62, Y: 41}}
+	cov := CoverageOf(c, vantageIndex("none"), Options{})
+	if cov.Game != 1 || cov.Unplaced != 2 || cov.Questie != 0 || cov.Total() != 3 || !strings.Contains(cov.Line(), "1 from the game") {
+		t.Errorf("coverage %+v", cov)
+	}
+	if cov := CoverageOf(vantageChar(), vantageIndex("spawns"), Options{}); cov.Questie != 3 || cov.Unplaced != 0 {
+		t.Errorf("coverage %+v", cov)
+	}
+}

@@ -37,6 +37,11 @@ func doctor(ctx context.Context, args []string, stdout, stderr io.Writer, client
 	if *fixAddon {
 		return fixAddonCmd(ctx, stdout, client, *gameDir, cfg.FromEnv().SavedVariables)
 	}
+	if fs.NArg() == 1 && fs.Arg(0) == "quests" {
+		text, err := server.QuestCoverage(cfg.FromEnv())
+		fmt.Fprint(stdout, text)
+		return err
+	}
 	if fs.NArg() != 0 {
 		return errors.New("doctor takes no arguments\n" + usage)
 	}

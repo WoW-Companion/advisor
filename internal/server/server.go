@@ -1306,3 +1306,30 @@ func HTTPHandler(s *mcp.Server) http.Handler {
 func itoa(n int64) string { return strconv.FormatInt(n, 10) }
 
 func fmtAny(v any) string { return fmt.Sprint(v) }
+
+// QuestCoverage is the "doctor quests" report: for each captured character with quests in the log, how
+// many objectives are placed from Questie, from the game's quest map points, approximately, or not at all.
+func QuestCoverage(cfg Config) (string, error) {
+	f, res := load(cfg.SavedVariables)
+	if res != nil {
+		return "", errors.New(res.Content[0].(*mcp.TextContent).Text)
+	}
+	var ds store.DataStore
+	if cfg.Dataset != "" {
+		ds = store.NewDir(cfg.Dataset)
+	}
+	qx := questie.ForSavedVariables(cfg.SavedVariables)
+	ropt := route.OptionsFor(unlock.AddonSV(cfg.SavedVariables), ds)
+	var b strings.Builder
+	for _, c := range f.Characters {
+		if len(c.Quests) == 0 {
+			continue
+		}
+		c = withTotals(cfg, profile.Attach(cfg.profilesPath(), c))
+		fmt.Fprintf(&b, "%s %s\n", c.Name, route.CoverageOf(c, qx, ropt).Line())
+	}
+	if b.Len() == 0 {
+		return "quests: no character has quests in the log\n", nil
+	}
+	return b.String(), nil
+}

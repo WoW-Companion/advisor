@@ -364,7 +364,7 @@ func TestMissingObjectSectionGivesNoNodes(t *testing.T) {
 }
 
 func TestParseAreaObjective(t *testing.T) {
-	rows := append(fixtureRows(), row{"Quest", 2, "11", []any{"Reach the keep", map[int]any{901: []any{[]any{12.5, 34.5}}}}})
+	rows := append(fixtureRows(), row{"Quest", 2, "9", []any{"Reach the keep", map[int]any{901: []any{[]any{12.5, 34.5}}}}})
 	ix, st := OpenGame(install(t, header, rows))
 	if ix == nil {
 		t.Fatalf("not readable: %+v", st)
@@ -389,5 +389,72 @@ func TestParseExtraObjectives(t *testing.T) {
 	tr := ix.Quests[2].Triggers
 	if len(tr) != 2 || tr[0].Text != "Place the Western vial" || tr[1].Spawns[0].X != 30.5 {
 		t.Fatalf("triggers %+v", tr)
+	}
+}
+
+// writeMeta puts a questMeta.lua beside the fixture TOC, as the install has.
+func writeMeta(t *testing.T, game, body string) {
+	t.Helper()
+	dir := filepath.Join(game, "Interface", "AddOns", "QuestieDB", "src", "meta")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "questMeta.lua"), []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+const foreverMeta = `local keys = {
+    ['name'] = 1,
+    ['startedBy'] = 2,
+    ['finishedBy'] = 3,
+    ['objectivesText'] = 8,
+    ['triggerEnd'] = 9,
+    ['objectives'] = 10,
+    ['breadcrumbForQuestId'] = 27,
+    ['breadcrumbs'] = 28,
+    ['extraObjectives'] = 29,
+}
+`
+
+func extraRows(field string) []row {
+	spot := func(x, y float64) map[int]any { return map[int]any{901: []any{[]any{x, y}}} }
+	return append(fixtureRows(), row{"Quest", 2, field, []any{[]any{spot(10.5, 20.5), "icon", "Place the vial", 1}}})
+}
+
+func TestExtraObjectivesFollowTheMetaKeyMap(t *testing.T) {
+	game := install(t, header, extraRows("29"))
+	writeMeta(t, game, foreverMeta)
+	ix, st := OpenGame(game)
+	if ix == nil {
+		t.Fatalf("not readable: %+v", st)
+	}
+	if tr := ix.Quests[2].Triggers; len(tr) != 1 || tr[0].Text != "Place the vial" {
+		t.Fatalf("triggers %+v", tr)
+	}
+	if ix.Layout != "mixed" {
+		t.Fatalf("layout %q", ix.Layout)
+	}
+}
+
+func TestBreadcrumbFieldIsNeverObjectives(t *testing.T) {
+	game := install(t, header, extraRows("27")) // field 27 is breadcrumb ids in this install
+	writeMeta(t, game, foreverMeta)
+	ix, st := OpenGame(game)
+	if ix == nil {
+		t.Fatalf("not readable: %+v", st)
+	}
+	if tr := ix.Quests[2].Triggers; len(tr) != 0 {
+		t.Fatalf("breadcrumb field read as objectives: %+v", tr)
+	}
+}
+
+func TestClassicLayoutWithoutMeta(t *testing.T) {
+	ix, st := OpenGame(install(t, header, extraRows("27")))
+	if ix == nil {
+		t.Fatalf("not readable: %+v", st)
+	}
+	if ix.Layout != "classic" || len(ix.Quests[2].Triggers) != 1 {
+		t.Fatalf("layout %q triggers %+v", ix.Layout, ix.Quests[2].Triggers)
 	}
 }

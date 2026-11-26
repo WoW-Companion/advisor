@@ -345,6 +345,7 @@ func (s *questieSource) quests(c character.Character, at *questie.Where) []*ques
 			if len(q.objs) == 0 && len(q.unplaced) == 0 && len(lq.Objectives) == 0 && qq.Objective != "" {
 				q.unplaced = []*spot{{kind: KindObjective, unplaced: true, quests: []int{qq.ID}, names: []string{qq.Name}, label: objectiveLabel("", qq.Objective) + " (location unknown)"}}
 			}
+			q.objs, q.unplaced = s.fromGamePOI(c, qq.ID, q.objs, q.unplaced)
 			q.objs, q.unplaced = s.zoneOnly(qq, q, q.objs, q.unplaced)
 		}
 		// A turn-in is for a quest that is done. When the capture does not say so and no objective step
@@ -451,6 +452,29 @@ func (s *questieSource) quests(c character.Character, at *questie.Where) []*ques
 		return out
 	}
 	return out
+}
+
+// poiWindow is how long before the capture a quest map point may have been seen and still count as
+// this session's.
+const poiWindow = 12 * 60 * 60
+
+// fromGamePOI places the first unplaced objective of a quest in the log at the point the client's
+// quest map gave for it (captured as questPOI). The client gives one point per quest, for its current
+// objective, so only that first objective is placed, approximately; the others stay unplaced.
+func (s *questieSource) fromGamePOI(c character.Character, id int, objs, unplaced []*spot) ([]*spot, []*spot) {
+	p, ok := c.QuestPOI[id]
+	if !ok || len(unplaced) == 0 || p.Map == 0 {
+		return objs, unplaced
+	}
+	if c.CapturedAt != nil && p.SeenAt > 0 && p.SeenAt < *c.CapturedAt-poiWindow {
+		return objs, unplaced // from an earlier session
+	}
+	sp := *unplaced[0]
+	sp.unplaced, sp.approx, sp.game = false, true, true
+	sp.m, sp.x, sp.y = p.Map, p.X, p.Y
+	sp.place = s.mapName(p.Map)
+	sp.label = strings.TrimSuffix(sp.label, " (location unknown)")
+	return append(objs, &sp), unplaced[1:]
 }
 
 // zoneOnly turns the unplaced objectives of a quest in the log into steps that name only the zone:

@@ -31,8 +31,6 @@ type Node struct {
 
 const (
 	maxYields = 24
-	// itemLevelField is the item scalar that holds the required level.
-	itemLevelField = int64(10)
 )
 
 // nameKind classifies by the object's name: veins and deposits are ore; schools, wreckage and
@@ -50,7 +48,7 @@ func nameKind(name string) string {
 
 // linkNodes builds Nodes from the object rows and the items whose objectDrops name them. A missing
 // object section, or one no item points to, leaves NodesReason and no nodes.
-func (ix *Index) linkNodes(objects, itemRows map[int]rawRow) {
+func (ix *Index) linkNodes(lay Layout, objects, itemRows map[int]rawRow) {
 	ix.Nodes = map[int]Node{}
 	if len(objects) == 0 {
 		ix.NodesReason = "no object rows in the database"
@@ -58,11 +56,11 @@ func (ix *Index) linkNodes(objects, itemRows map[int]rawRow) {
 	}
 	yields := map[int][]Yield{}
 	for id, row := range itemRows {
-		objs := ints(row["3"])
+		objs := ints(row[lay.at("item", "objectDrops")])
 		if len(objs) == 0 {
 			continue
 		}
-		y := Yield{Item: id, Name: text(row.scalars()[int64(1)]), Level: num(row.scalars()[itemLevelField])}
+		y := Yield{Item: id, Name: text(row.scalars()[lay.sc("item", "name")]), Level: num(row.scalars()[lay.sc("item", "requiredLevel")])}
 		if y.Name == "" {
 			continue
 		}
@@ -73,7 +71,7 @@ func (ix *Index) linkNodes(objects, itemRows map[int]rawRow) {
 		}
 	}
 	for id, ys := range yields {
-		e := buildEntity(objects[id], "4")
+		e := buildEntity(objects[id], lay, "object")
 		if e.Name == "" || len(e.Spawns) == 0 {
 			continue
 		}

@@ -14,7 +14,7 @@ import (
 	"strings"
 )
 
-const indexSchema = 10 // bump when the cached index's shape changes
+const indexSchema = 11 // bump when the cached index's shape changes
 
 // Spawn is a place, as percent of the area's map.
 type Spawn struct {
@@ -93,6 +93,7 @@ type Area struct {
 type Index struct {
 	Schema  int
 	DB      string
+	Layout  string // which field numbering was read: "meta", "classic" or "mixed"
 	Quests  map[int]*Quest
 	Npcs    map[int]Entity
 	Objects map[int]Entity
@@ -197,39 +198,41 @@ func spawns(v any) []Spawn {
 
 const maxSpawns = 64
 
-func buildQuest(id int, r rawRow) *Quest {
+func buildQuest(id int, r rawRow, l Layout) *Quest {
 	s := r.scalars()
-	q := &Quest{ID: id, Name: text(s[int64(1)]), MinLevel: num(s[int64(4)]), Level: num(s[int64(5)]), Zone: num(s[int64(17)]),
-		Races: mask(s[int64(6)]), Classes: mask(s[int64(7)]), Next: num(s[int64(22)])}
-	q.Parent, q.Until, q.Disabled = num(s[int64(25)]), num(s[int64(33)]), num(s[int64(36)])
-	q.MaxLevel = num(s[int64(32)])
+	sc := func(name string) any { return s[l.sc("quest", name)] }
+	q := &Quest{ID: id, Name: text(sc("name")), MinLevel: num(sc("requiredLevel")), Level: num(sc("questLevel")), Zone: num(sc("zoneOrSort")),
+		Races: mask(sc("requiredRaces")), Classes: mask(sc("requiredClasses")), Next: num(sc("nextQuestInChain"))}
+	q.Parent, q.Until, q.Disabled = num(sc("parentQuest")), num(s[int64(33)]), num(s[int64(36)])
+	q.MaxLevel = num(sc("requiredMaxLevel"))
 	// A skill, reputation, spell, specialisation, rank, availability-by-quest or special flag.
-	for _, f := range []int64{18, 19, 20, 24, 30, 31, 34, 35} {
+	for _, f := range l.restricted() {
 		if v, ok := s[f]; ok && v != nil && v != int64(0) {
 			q.Restricted = true
 		}
 	}
-	for t, list := range []any{slot(r["2"], 1), slot(r["2"], 2)} {
+	field := func(name string) any { return r[l.at("quest", name)] }
+	for t, list := range []any{slot(field("startedBy"), 1), slot(field("startedBy"), 2)} {
 		q.Starters = append(q.Starters, refs(list, t == 1)...)
 	}
-	for t, list := range []any{slot(r["3"], 1), slot(r["3"], 2)} {
+	for t, list := range []any{slot(field("finishedBy"), 1), slot(field("finishedBy"), 2)} {
 		q.Finishers = append(q.Finishers, refs(list, t == 1)...)
 	}
-	q.Objective = objectiveText(r["8"])
-	if t := r["11"]; t != nil {
+	q.Objective = objectiveText(field("objectivesText"))
+	if t := field("triggerEnd"); t != nil {
 		if sp := spawns(slot(t, 2)); len(sp) > 0 {
 			q.Triggers = append(q.Triggers, Trigger{Text: strings.TrimSpace(text(slot(t, 1))), Spawns: sp})
 		}
 	}
-	// extraObjectives (field 27): {spawns by area, icon, text, index} per objective with a place on the
-	// map and no NPC, object or item behind it, such as a spot to use an item at.
-	for _, e := range asList(r["27"]) {
+	// extraObjectives: {spawns by area, icon, text, index} per objective with a place on the map and
+	// no NPC, object or item behind it, such as a spot to use an item at.
+	for _, e := range asList(field("extraObjectives")) {
 		if sp := spawns(slot(e, 1)); len(sp) > 0 {
 			q.Triggers = append(q.Triggers, Trigger{Text: strings.TrimSpace(text(slot(e, 3))), Spawns: sp})
 		}
 	}
-	q.PreGroup, q.PreSingle, q.Exclusive = ints(r["12"]), ints(r["13"]), ints(r["16"])
-	if o := r["10"]; o != nil {
+	q.PreGroup, q.PreSingle, q.Exclusive = ints(field("preQuestGroup")), ints(field("preQuestSingle")), ints(field("exclusiveTo"))
+	if o := field("objectives"); o != nil {
 		for _, row := range asList(slot(o, 1)) {
 			if id := num(slot(row, 1)); id != 0 {
 				q.Creatures = append(q.Creatures, Ref{false, id})
@@ -284,9 +287,11 @@ func objectiveText(v any) string {
 
 func asList(v any) []any { a, _ := v.([]any); return a }
 
-func buildEntity(r rawRow, spawnField string) Entity {
+func buildEntity(r rawRow, l Layout, tbl string) Entity {
 	s := r.scalars()
-	return Entity{Name: text(s[int64(1)]), Sub: text(s[int64(14)]), Level: num(s[int64(5)]), Rank: num(s[int64(6)]), Faction: text(s[int64(13)]), Flags: num(s[int64(15)]), Spawns: spawns(r[spawnField])}
+	sc := func(name string) any { return s[l.sc(tbl, name)] }
+	return Entity{Name: text(sc("name")), Sub: text(sc("subName")), Level: num(sc("maxLevel")), Rank: num(sc("rank")), Faction: text(sc("friendlyToFaction")),
+		Flags: num(sc("npcFlags")), Spawns: spawns(r[l.at(tbl, "spawns")])}
 }
 
 var areaLine = regexp.MustCompile(`^\s*\[(\d+)\]\s*=\s*(\d+),?\s*(?:--\s*(.*?))?\s*$`)
@@ -335,9 +340,11 @@ func Parse(st Status) (*Index, error) {
 		return nil, err
 	}
 	defer f.Close()
-	ix := &Index{Schema: indexSchema, DB: st.DB,
+	lay := ReadLayout(st)
+	ix := &Index{Schema: indexSchema, DB: st.DB, Layout: lay.Source,
 		Quests: map[int]*Quest{}, Npcs: map[int]Entity{}, Objects: map[int]Entity{}, Items: map[int]Item{}}
 	quests, npcs, objects, itemRows := map[int]rawRow{}, map[int]rawRow{}, map[int]rawRow{}, map[int]rawRow{}
+	wanted := lay.wantedFields()
 	good, bad := 0, 0
 	sc := bufio.NewScanner(f)
 	sc.Buffer(make([]byte, 1<<20), 16<<20)
@@ -389,7 +396,7 @@ func Parse(st Status) (*Index, error) {
 	}
 	named := 0
 	for id, r := range quests {
-		q := buildQuest(id, r)
+		q := buildQuest(id, r, lay)
 		if q.Name != "" {
 			named++
 		}
@@ -402,10 +409,10 @@ func Parse(st Status) (*Index, error) {
 	keep := func(r Ref) {
 		if r.Object {
 			if row, ok := objects[r.ID]; ok {
-				ix.Objects[r.ID] = buildEntity(row, "4")
+				ix.Objects[r.ID] = buildEntity(row, lay, "object")
 			}
 		} else if row, ok := npcs[r.ID]; ok {
-			ix.Npcs[r.ID] = buildEntity(row, "7")
+			ix.Npcs[r.ID] = buildEntity(row, lay, "npc")
 		}
 	}
 	for _, q := range ix.Quests {
@@ -424,7 +431,7 @@ func Parse(st Status) (*Index, error) {
 			if !ok {
 				continue
 			}
-			it := Item{Name: text(row.scalars()[int64(1)]), Npcs: capIDs(ints(row["2"])), Objects: capIDs(ints(row["3"]))}
+			it := Item{Name: text(row.scalars()[lay.sc("item", "name")]), Npcs: capIDs(ints(row[lay.at("item", "npcDrops")])), Objects: capIDs(ints(row[lay.at("item", "objectDrops")]))}
 			ix.Items[id] = it
 			for _, n := range it.Npcs {
 				keep(Ref{false, n})
@@ -437,8 +444,8 @@ func Parse(st Status) (*Index, error) {
 	zones := filepath.Join(filepath.Dir(st.TOC), "support", "Forever", "Zones", "areaIdToUiMapId.lua")
 	ix.Areas = parseAreas(zones)
 	ix.markEvents()
-	ix.linkDungeons(filepath.Dir(zones), npcs, itemRows)
-	ix.linkNodes(objects, itemRows)
+	ix.linkDungeons(filepath.Dir(zones), lay, npcs, itemRows)
+	ix.linkNodes(lay, objects, itemRows)
 	return ix, nil
 }
 
@@ -452,12 +459,25 @@ var CacheDir = func() string {
 	return filepath.Join(d, "wowc-advisor", "questie")
 }
 
+// metaStamp changes when any of the install's meta files does, so a cached index never outlives its layout.
+func metaStamp(st Status) string {
+	var b strings.Builder
+	for _, f := range []string{"questMeta.lua", "npcMeta.lua", "objectMeta.lua", "itemMeta.lua"} {
+		for _, base := range []string{filepath.Dir(st.TOC), filepath.Join(filepath.Dir(st.TOC), "support", "Forever")} {
+			if fi, err := os.Stat(filepath.Join(base, "src", "meta", f)); err == nil {
+				fmt.Fprintf(&b, "%s:%d:%d;", f, fi.Size(), fi.ModTime().UnixNano())
+			}
+		}
+	}
+	return b.String()
+}
+
 func cacheFile(st Status, fi os.FileInfo) string {
 	dir := CacheDir()
 	if dir == "" {
 		return ""
 	}
-	sum := sha256.Sum256([]byte(fmt.Sprintf("%d|%s|%d|%d|%s", indexSchema, st.TOC, fi.Size(), fi.ModTime().UnixNano(), st.DB)))
+	sum := sha256.Sum256([]byte(fmt.Sprintf("%d|%s|%d|%d|%s|%s", indexSchema, st.TOC, fi.Size(), fi.ModTime().UnixNano(), st.DB, metaStamp(st))))
 	return filepath.Join(dir, "index-"+hex.EncodeToString(sum[:8])+".gob")
 }
 

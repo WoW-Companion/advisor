@@ -336,6 +336,7 @@ func LoadCharacter(key string, rec lua.Table) Character {
 		c.BankCaptured = bank["items"] != nil || bank["scannedAt"] != nil
 	}
 	c.Quests, c.QuestsCaptured = each(snap["quests"], quest)
+	c.QuestPOI = questPOIs(cmpAny(rec["questPOI"], snap["questPOI"]))
 	for _, x := range lua.List(snap["questsCompleted"]) {
 		if i := asInt(x); i != nil {
 			c.CompletedQuests = append(c.CompletedQuests, *i)
@@ -388,3 +389,47 @@ const (
 	SourceWoWC = "WoW Companion addon"
 	SourceFS   = "ForeverScribe"
 )
+
+// cmpAny is the first of a and b that is present.
+func cmpAny(a, b any) any {
+	if a != nil {
+		return a
+	}
+	return b
+}
+
+// questPOIs reads questPOI[questID] = { map, x, y, seenAt }. A position given as a 0..1 fraction is
+// turned into percent; an entry with no map or no position is dropped.
+func questPOIs(v any) map[int]QuestPOI {
+	t, ok := v.(lua.Table)
+	if !ok {
+		return nil
+	}
+	out := map[int]QuestPOI{}
+	for k, e := range t {
+		id, ok := k.(int64)
+		et, ok2 := e.(lua.Table)
+		if !ok || !ok2 {
+			continue
+		}
+		m, x, y := asInt(et["map"]), asFloat(et["x"]), asFloat(et["y"])
+		if m == nil || *m == 0 || x == nil || y == nil {
+			continue
+		}
+		p := QuestPOI{Map: *m, X: *x, Y: *y}
+		if p.X <= 1 && p.Y <= 1 {
+			p.X, p.Y = p.X*100, p.Y*100
+		}
+		if p.X <= 0 && p.Y <= 0 {
+			continue
+		}
+		if at := asInt64(et["seenAt"]); at != nil {
+			p.SeenAt = *at
+		}
+		out[int(id)] = p
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}

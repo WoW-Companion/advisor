@@ -266,7 +266,7 @@ const (
 )
 
 // linkDungeons ties creatures, their drops and quests to each dungeon, keeping their rows in ix.
-func (ix *Index) linkDungeons(dir string, npcs, itemRows map[int]rawRow) {
+func (ix *Index) linkDungeons(dir string, lay Layout, npcs, itemRows map[int]rawRow) {
 	var reason string
 	ix.Dungeons, reason = parseDungeons(dir)
 	ix.DungeonReason = reason
@@ -288,13 +288,13 @@ func (ix *Index) linkDungeons(dir string, npcs, itemRows map[int]rawRow) {
 	}
 	var inside = map[int][]int{} // dungeon -> npc ids
 	for id, r := range npcs {
-		for _, a := range spawnAreas(r["7"]) {
+		for _, a := range spawnAreas(r[lay.at("npc", "spawns")]) {
 			for _, di := range byArea[a] {
 				inside[di] = append(inside[di], id)
 			}
 		}
 	}
-	rank := func(id int) int { return num(npcs[id].scalars()[int64(6)]) }
+	rank := func(id int) int { return num(npcs[id].scalars()[lay.sc("npc", "rank")]) }
 	kept := map[int]bool{}
 	for di, ids := range inside {
 		sort.Slice(ids, func(i, j int) bool {
@@ -307,16 +307,16 @@ func (ix *Index) linkDungeons(dir string, npcs, itemRows map[int]rawRow) {
 		ix.Dungeons[di].Creatures = ids
 		for _, id := range ids {
 			kept[id] = true
-			ix.Npcs[id] = buildEntity(npcs[id], "7")
+			ix.Npcs[id] = buildEntity(npcs[id], lay, "npc")
 		}
 	}
 	ix.Drops = map[int][]int{}
 	for id, r := range itemRows {
-		for _, n := range ints(r["2"]) {
+		for _, n := range ints(r[lay.at("item", "npcDrops")]) {
 			if kept[n] {
 				ix.Drops[n] = append(ix.Drops[n], id)
 				if _, ok := ix.Items[id]; !ok {
-					ix.Items[id] = Item{Name: text(r.scalars()[int64(1)])}
+					ix.Items[id] = Item{Name: text(r.scalars()[lay.sc("item", "name")])}
 				}
 			}
 		}

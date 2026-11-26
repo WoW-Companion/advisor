@@ -173,3 +173,14 @@ func TestTalentTreeFieldsTolerant(t *testing.T) {
 		t.Error("nil talents")
 	}
 }
+
+func TestQuestPOIsReadAndNormalised(t *testing.T) {
+	got := questPOIs(lua.Table{
+		int64(98):  lua.Table{"map": int64(7001), "x": 0.5, "y": 0.25, "seenAt": int64(99)},
+		int64(99):  lua.Table{"map": int64(7001), "x": 40.0, "y": 60.0},
+		int64(100): lua.Table{"x": 1.0, "y": 2.0},
+	})
+	if len(got) != 2 || got[98].X != 50 || got[98].Y != 25 || got[98].SeenAt != 99 || got[99].X != 40 {
+		t.Fatalf("got %+v", got)
+	}
+}
