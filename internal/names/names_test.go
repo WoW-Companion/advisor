@@ -31,6 +31,12 @@ type npcRow struct {
 	Name string `parquet:"name"`
 }
 
+type setRow struct {
+	SetID  int64  `parquet:"set_id"`
+	Name   string `parquet:"name"`
+	ItemID int64  `parquet:"item_id"`
+}
+
 type recipeRow struct {
 	SpellID int64  `parquet:"spell_id"`
 	Name    string `parquet:"name"`
@@ -58,10 +64,13 @@ var items = []itemRow{{1, "Linen Cloth"}, {2, "Linen Bandage"}, {3, "Thunderfury
 var npcs = []npcRow{{100, "Linen Thief"}, {101, "Timber Wolf"}}
 var recipes = []recipeRow{{300, "Heavy Linen Bandage"}}
 
+// sets has a row for each member of a set, as the item_sets table does.
+var sets = []setRow{{281, "Champion's Battlegear", 1}, {281, "Champion's Battlegear", 2}, {187, "The Elements", 3}, {1678, "The Elements", 4}}
+
 // fixture is a dataset with the index (a Bloom filter on norm, two row groups) or without it.
 func fixture(t *testing.T, index bool) store.DataStore {
 	t.Helper()
-	src := store.ReaderSource{"items": encode(t, items), "npcs": encode(t, npcs), "recipes": encode(t, recipes)}
+	src := store.ReaderSource{"items": encode(t, items), "npcs": encode(t, npcs), "recipes": encode(t, recipes), "item_sets": encode(t, sets)}
 	if index {
 		var rows []nameRow
 		for _, i := range items {
@@ -72,6 +81,9 @@ func fixture(t *testing.T, index bool) store.DataStore {
 		}
 		for _, r := range recipes {
 			rows = append(rows, nameRow{Normalize(r.Name), r.Name, Recipes, int32(r.SpellID)})
+		}
+		for _, r := range sets {
+			rows = append(rows, nameRow{Normalize(r.Name), r.Name, ItemSets, int32(r.SetID)})
 		}
 		sort.Slice(rows, func(a, b int) bool { return rows[a].Norm < rows[b].Norm })
 		src["names"] = encode(t, rows, parquet.MaxRowsPerRowGroup(3), parquet.BloomFilters(parquet.SplitBlockFilter(10, "norm")))
@@ -137,11 +149,13 @@ func TestFindFallback(t *testing.T) {
 		table, text string
 		want        []int64
 	}{
-		{Items, "linen", []int64{5}},     // exact first
-		{Items, "bandage", []int64{2}},   // scan matches any part
-		{Items, "Creme Brulee", nil},     // the scan does not fold accents
-		{Recipes, "linen", []int64{300}}, // recipes are keyed by spell_id
-		{"quests", "anything", nil},      // a missing table finds nothing
+		{Items, "linen", []int64{5}},                   // exact first
+		{Items, "bandage", []int64{2}},                 // scan matches any part
+		{Items, "Creme Brulee", nil},                   // the scan does not fold accents
+		{Recipes, "linen", []int64{300}},               // recipes are keyed by spell_id
+		{ItemSets, "battlegear", []int64{281}},         // a set is keyed by set_id and named once, not once a member
+		{ItemSets, "The Elements", []int64{187, 1678}}, // two sets may share a name
+		{"quests", "anything", nil},                    // a missing table finds nothing
 	} {
 		hits, _, err := Find(ds, tc.table, tc.text, 10)
 		if err != nil {

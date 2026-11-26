@@ -61,5 +61,5 @@ Material totals:
 Recipes to buy or find:
 - Pattern: Dark Tunic for Dark Tunic: vendor (a vendor), 60s
 
-Efficiency: 2487 materials in all, 7 distinct, vendor cost 39g 11s, 1 rare (296 units), 991 gathered, 0 bought; score 84362 (lower is better).
+Efficiency: 2487 materials in all, 7 distinct, vendor cost 39g 11s 15c, 1 rare (296 units), 991 gathered, 0 bought; score 84362 (lower is better).
 score = total materials + vendor silver + 250 per rare unit (no vendor, no gathering, fishing or disenchant source, no drop of 5% or more) + 4 per gathered unit (farming time) + 20 per unit bought at the Auction House (bars you could smelt yourself).
