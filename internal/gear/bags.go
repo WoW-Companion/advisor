@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/WoW-Companion/advisor/internal/character"
-	"github.com/WoW-Companion/advisor/internal/stats"
 	"github.com/WoW-Companion/advisor/internal/store"
 )
 
@@ -16,11 +15,15 @@ type BagUpgrade struct {
 	Item Item
 	// Name is the item's name with its random suffix ("of the Tiger") when the capture has one.
 	Name string
-	// Likely is true when the item is better only by quality, item level and required level, not
-	// by weighed stats: the advice says "likely better" and gives no number.
+	// Likely is true when the item is better only by item level (quality breaks a tie), not by
+	// weighed stats: the advice says "likely better (item level N vs M)" and gives no number.
 	Likely bool
 	Empty  bool // the slot is empty
 	Delta  float64
+	// ReplacesILvl is the worn item's item level; 0 for an empty slot.
+	ReplacesILvl int
+	// Notes are debug lines, such as an enchant left out of the weighing.
+	Notes []string `json:"-"`
 	// Replaces is the worn item's name; empty for an empty slot.
 	Replaces string
 	// Need is the weapon skill the item needs and the character can learn but has not; nil otherwise.
@@ -46,6 +49,7 @@ func bagItem(st character.ItemStack, ds store.DataStore, rl classRules, level in
 				!allowsClass(int32(i64(row["allowable_class_mask"])), rl.ID) {
 				return Item{}, false
 			}
+			it.Captured, it.Enchant = capturedStats(st.Stats), derefInt(st.Enchant)
 			it.ReqLevel = it.RequiredLevel
 			if est := EstimateRequiredLevel(it.ItemLevel); it.RequiredLevel == 0 || est-it.RequiredLevel > EstimateGap {
 				it.ReqLevel, it.Estimated = est, true
@@ -63,12 +67,15 @@ func bagItem(st character.ItemStack, ds store.DataStore, rl classRules, level in
 		return Item{}, false
 	}
 	return Item{ID: int64(st.ItemID), Name: st.Name, ItemLevel: *st.ItemLevel, RequiredLevel: *st.ReqLevel,
-		ReqLevel: *st.ReqLevel, Quality: *st.Quality, Slot: int(slot)}, true
+		ReqLevel: *st.ReqLevel, Quality: *st.Quality, Slot: int(slot),
+		Captured: capturedStats(st.Stats), Enchant: derefInt(st.Enchant)}, true
 }
 
-// tupleValue orders items without stats: quality first, then item level, then required level.
-func tupleValue(it Item) float64 {
-	return float64(it.Quality)*1e6 + float64(it.ItemLevel)*1e3 + float64(it.ReqLevel)
+func derefInt(p *int) int {
+	if p == nil {
+		return 0
+	}
+	return *p
 }
 
 // BagUpgrades lists the items in the character's bags that beat what they wear, best first by slot
@@ -89,12 +96,7 @@ func BagUpgrades(c character.Character, ds store.DataStore, group string) []BagU
 	} else {
 		rl.DualWield = false
 	}
-	var w map[int64]float64
-	if p, ok := stats.For(c, group); ok {
-		w = idWeights(p.ItemWeights())
-	} else if _, ww, _, ok := Weights(c.Class, group); ok {
-		w = ww
-	}
+	w := namedWeights(c, group)
 	wsk := LoadWeaponSkills(c, ds)
 	var lo loadout
 	if ds != nil {
@@ -154,17 +156,21 @@ func BagUpgrades(c character.Character, ds store.DataStore, group string) []BagU
 				if it.Slot == invTwoHand && lo.off != nil {
 					continue
 				}
-				gain = 1e9 + tupleValue(it)
-			case w != nil && it.StatsKnown && cur.StatsKnown:
-				gain = score(it, w, true) - score(cur, w, true)
+				gain = 1e12 + fallbackValue(it)
+			case w != nil && it.statMap() != nil && cur.statMap() != nil:
+				gain = statSum(it.statMap(), w) - statSum(cur.statMap(), w)
 				up.Likely = false
+				up.Notes = append(enchantNote(it, "bag item"), enchantNote(cur, "worn item")...)
+			case it.ItemLevel > cur.ItemLevel || it.ItemLevel == cur.ItemLevel && it.Quality > cur.Quality:
+				// No stats to weigh: item level decides, and quality only breaks a tie.
+				gain = fallbackValue(it) - fallbackValue(cur)
 			default:
-				gain = tupleValue(it) - tupleValue(cur)
+				continue
 			}
 			if worn && gain <= 0 {
 				continue
 			}
-			up.Delta = gain
+			up.Delta, up.ReplacesILvl = gain, cur.ItemLevel
 			opts = append(opts, option{up, gain})
 		}
 	}
@@ -230,5 +236,6 @@ func wornFor(c character.Character, ds store.DataStore, slot string) (it Item, w
 		it.Name = eq.Name
 	}
 	it.ReqLevel = it.RequiredLevel
+	it.Captured, it.Enchant = capturedStats(eq.Stats), derefInt(eq.Enchant)
 	return it, true, it.ItemLevel > 0
 }

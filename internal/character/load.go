@@ -108,7 +108,7 @@ func equipment(v any) map[string]EquippedItem {
 			Slot: s, ItemID: asInt(et["itemID"]), Enchant: asInt(et["enchant"]),
 			Link: asStr(et["link"]), Name: asStr(et["name"]), ItemLevel: asInt(et["ilvl"]),
 			Quality: asInt(et["quality"]), Durability: asInt(et["dur"]),
-			DurabilityMax: asInt(et["durMax"]),
+			DurabilityMax: asInt(et["durMax"]), Stats: itemStats(et["stats"]),
 		}
 	}
 	return out
@@ -427,6 +427,27 @@ func questPOIs(v any) map[int]QuestPOI {
 			p.SeenAt = *at
 		}
 		out[int(id)] = p
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+// itemStats reads an addon's per-item stats table (name to amount); nil when absent or empty.
+func itemStats(v any) map[string]float64 {
+	t, ok := v.(lua.Table)
+	if !ok {
+		return nil
+	}
+	out := map[string]float64{}
+	for k, e := range t {
+		switch n := e.(type) {
+		case int64:
+			out[asStr(k)] = float64(n)
+		case float64:
+			out[asStr(k)] = n
+		}
 	}
 	if len(out) == 0 {
 		return nil
