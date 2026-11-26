@@ -82,18 +82,30 @@ func lookup(q character.Quest, ds store.DataStore) questInfo {
 	return info
 }
 
-// isElite reads an optional boolean column of the dataset's quests table (elite, then group); false
-// when the dataset has none.
+// isElite reads an optional boolean column of the dataset's quests table (elite, then group); failing
+// that, whether players tagged the quest "group" or "dungeon" (or gave it a group size of two or more)
+// in quests_observed. False when the dataset has none.
 func isElite(q character.Quest, ds store.DataStore) bool {
 	if ds == nil || q.QuestID == 0 {
 		return false
 	}
-	row, err := ds.Get("quests", int64(q.QuestID))
+	if row, err := ds.Get("quests", int64(q.QuestID)); err == nil {
+		for _, col := range []string{"elite", "group"} {
+			if b, ok := row[col].(bool); ok && b {
+				return true
+			}
+		}
+	}
+	id := int64(q.QuestID)
+	rows, err := ds.Filter("quests_observed", store.Range{Column: "quest_id", Min: id, Max: id})
 	if err != nil {
 		return false
 	}
-	for _, col := range []string{"elite", "group"} {
-		if b, ok := row[col].(bool); ok && b {
+	for _, r := range rows {
+		if tag, _ := r["tag"].(string); tag == "group" || tag == "dungeon" {
+			return true
+		}
+		if n, ok := r["suggested_group"].(int64); ok && n >= 2 {
 			return true
 		}
 	}

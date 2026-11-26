@@ -186,6 +186,18 @@ skills against `profession_routes`, the First Aid bandage ladder, the trainer to
 where a Cooking or First Aid recipe is learned, and which recipes a plan leaves out as a specialization's. The dataset
 holds no specialization table, so the choice of branch is listed as "differ (data)" or checked as unnamed.
 
+`internal/paths/offline_sources_benchmark_test.go` (also `make offline-benchmark`, areas `advice-class-order-*`,
+`advice-elite-*`, `advice-creature-location`, `advice-elite-dungeon-bosses`, `advice-rare-no-answer` and `advice-recipe-*`) checks
+the order of a class's quests (the dataset's own class quest rows under a synthetic QuestieDB that gives the order:
+title, level and class of each quest, what it comes after and leads to), which quests and objectives are flagged as group
+content (a quest players tagged "group" or "dungeon" in `quests_observed`; an objective creature that is an elite, a rare
+elite or a boss, never a plain rare), where a creature stands (the dataset names no zone, level or rank for any creature
+that drops an item, so none is stated), the bosses and entrance zone of six dungeons, and where a recipe is obtained
+(a recipe item that drops from a named creature, an unnamed creature, a recipe a trainer and a recipe item both teach).
+`testdata/sources_snapshot` holds the recipes whose recipe item drops and the creatures that drop them (rebuild it with
+`testdata/sources_snapshot/build.sh <dataset dir>`, which needs duckdb). The dataset holds no class quest line, no rare or
+elite creature, no recipe vendor name and no quest that rewards a recipe; those cases check that the advisor says so.
+
 The run ends with one summary line, `advice-benchmark: N checks, S same, D differ (professions 90/39, costs 50/8,
 tailoring-guide 6/13, stats 99/0)`: every table row counts as same ("match") or differ, by area. Each area prints
 `advice-benchmark-count <area> same=N differ=M`, and `internal/benchsummary` adds them up. The share of
