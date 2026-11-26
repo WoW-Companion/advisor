@@ -194,6 +194,12 @@ type NextLine struct {
 	Objectives []NextObjective `json:"objectives,omitempty"`
 	Points     int             `json:"points,omitempty"`
 	Unlocks    []string        `json:"unlocks,omitempty"` // a turn-in's follow-ups: "Quest (from NPC, here)"
+	// A trip: a turn-in handed in elsewhere (Finisher, in FinisherPlace; Instance when inside a dungeon).
+	Trip          bool   `json:"trip,omitempty"`
+	Finisher      string `json:"finisher,omitempty"`
+	FinisherPlace string `json:"finisher_place,omitempty"`
+	Instance      string `json:"instance,omitempty"`
+	InstanceZone  string `json:"instance_zone,omitempty"`
 }
 
 // NextQuests is how many next quests each character carries.
@@ -800,7 +806,8 @@ func nextFrom(d digest.Digest) []NextLine {
 		}
 		var out []NextLine
 		for _, l := range sec.Lines[:min(len(sec.Lines), NextQuests)] {
-			n := NextLine{Text: l.Text, Kind: l.Kind, Title: l.Title, Level: l.Level, Class: l.Class, Elite: l.Elite, NPC: l.NPC, Zone: l.Zone, Points: l.Points, Unlocks: l.Unlocks}
+			n := NextLine{Text: l.Text, Kind: l.Kind, Title: l.Title, Level: l.Level, Class: l.Class, Elite: l.Elite, NPC: l.NPC, Zone: l.Zone, Points: l.Points, Unlocks: l.Unlocks,
+				Trip: l.Trip, Finisher: l.Finisher, FinisherPlace: l.FinisherPlace, Instance: l.Instance, InstanceZone: l.InstanceZone}
 			for _, o := range l.Objectives {
 				n.Objectives = append(n.Objectives, NextObjective{Text: o.Text, Have: o.Have, Need: o.Need, HasCount: o.HasCount})
 			}

@@ -53,6 +53,14 @@ type Step struct {
 	NPC    string `json:"-"` // the giver of a pick-up, or the turn-in NPC
 	Elite  bool   `json:"-"` // an elite or group quest
 	Points int    `json:"-"` // unspent talent points, for a talent step
+
+	// A trip is a quest with nothing to do that is handed in elsewhere: Finisher, FinisherPlace and
+	// Instance (the dungeon, when the finisher is inside one) say where.
+	Trip          bool   `json:"-"`
+	Finisher      string `json:"-"`
+	FinisherPlace string `json:"-"`
+	Instance      string `json:"-"`
+	InstanceZone  string `json:"-"` // the dungeon's zone
 }
 
 // AbandonPrefix starts the title of the step for a failed quest.
@@ -140,6 +148,17 @@ func withChain(s *Step, ds store.DataStore, q character.Quest, turnIn bool) bool
 	return turnIn && c.Unlocks()
 }
 
+// markTrip words a ready turn-in as the trip it is: where the finisher is, not "on your way".
+func markTrip(s *Step, t questie.Trip) {
+	s.Trip, s.Finisher, s.FinisherPlace, s.Instance, s.InstanceZone = true, t.Finisher, t.Place(), t.Instance, t.Zone
+	phrase := wording.Trip(t.Finisher, t.Place(), t.Instance, t.Zone)
+	if t.Instance != "" {
+		phrase += " (dungeon)"
+	}
+	s.Title = s.Name + ": " + phrase
+	s.Reason = phrase + " to turn in the quest"
+}
+
 func title(q character.Quest) string {
 	if q.Title != "" {
 		return q.Title
@@ -173,6 +192,10 @@ func WhatsNextWith(c character.Character, ds store.DataStore, qx *questie.Index)
 		here bool // shares a zone or subzone with the last known position
 	}
 	pos := c.LastKnownPosition()
+	var at *questie.Where
+	if w, ok := whereOf(c); ok {
+		at = &w
+	}
 	var open []scored
 	for _, q := range c.Quests {
 		info := lookup(q, ds)
@@ -181,6 +204,9 @@ func WhatsNextWith(c character.Character, ds store.DataStore, qx *questie.Index)
 			s := Step{Kind: KindTurnIn, Title: "Turn in " + title(q), Reason: "ready to turn in", Zone: info.zone, QuestID: q.QuestID, Sources: info.sources, Name: title(q), Level: lvl(info.level), Elite: info.elite}
 			if withChain(&s, ds, q, true) {
 				unlocking[q.QuestID] = true
+			}
+			if t, ok := qx.TripOf(q.QuestID, at); ok {
+				markTrip(&s, t)
 			}
 			turnIns = append(turnIns, s)
 		case isTrue(q.Failed):
@@ -225,6 +251,13 @@ func WhatsNextWith(c character.Character, ds store.DataStore, qx *questie.Index)
 	}
 	sort.SliceStable(turnIns, func(i, j int) bool {
 		a, b := turnIns[i], turnIns[j]
+		// A trip into a dungeon is never a quick turn-in: it follows the rest, grouped by dungeon.
+		if (a.Instance != "") != (b.Instance != "") {
+			return b.Instance != ""
+		}
+		if a.Instance != b.Instance {
+			return a.Instance < b.Instance
+		}
 		if a.Zone != b.Zone {
 			if (a.Zone == unknownZone) != (b.Zone == unknownZone) {
 				return b.Zone == unknownZone

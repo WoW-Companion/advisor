@@ -139,9 +139,15 @@ rest (where to learn the recipe, the materials) is in `details`.
 may carry `why`: one short reason, at most 70 characters, plain words, no ids, never cut and never ending in "...".
 It is built only from facts the advisor holds, and left out when none fits: a class quest says "Class quest — these
 are worth doing first" (the dataset names no quest rewards, so none is claimed); a turn-in says what it unlocks or
-"Done — hand it in on your way"; an unspent talent point says "Your plan's next pick: <talent>" or "Choose a play style
+"Done — hand it in on your way"; a turn-in that is a trip (below) says where to go instead; an unspent talent point says "Your plan's next pick: <talent>" or "Choose a play style
 to get a pick"; training says "New: <ability>"; an upgrade says the stat it adds that you are short on; a
-giver note gives the quest's level fit. The overlay, the addon panel and the card details show the same text.
+giver note gives the quest's level fit.
+
+**Trips.** A quest that asks for nothing countable and is handed in at a different NPC or object than its giver
+(a "go and find", a delivery, "speak to") is a trip, not a quick stop. Its next-quests entry says where: "Find
+Deathstalker Vincent inside Shadowfang Keep (Silverpine Forest)" for a finisher inside a dungeon, "Deliver to
+Sputtervalve in Ratchet (The Barrens)" otherwise. A dungeon trip is marked "(dungeon)" and ranks after the
+ordinary turn-ins, grouped by dungeon. "Ready to turn in" stays for a quest that is done where it is handed in. The overlay, the addon panel and the card details show the same text.
 
 **Companion API (for the overlay).** `GET /api/state` characters carry `suggestions`: at most 3, ranked (no play
 style, a ready turn-in or class quest, an unspent talent point, a plan older than the newest save or dataset), each

@@ -7,6 +7,7 @@ import (
 
 	"github.com/WoW-Companion/advisor/internal/character"
 	"github.com/WoW-Companion/advisor/internal/learn"
+	"github.com/WoW-Companion/advisor/internal/questie"
 )
 
 // Caps on the Plan.lua "finishers" table (docs/plan-format.md, schema 1.4).
@@ -26,6 +27,13 @@ type Finisher struct {
 	X       float64 `json:"x"`
 	Y       float64 `json:"y"`
 	Place   string  `json:"place"`
+
+	// A trip: the quest has nothing to do and is handed in elsewhere (Plan.lua 1.5). Finisher is this
+	// row's NPC or object, FinisherPlace where it is, Instance the dungeon it stands in, when one.
+	Trip          bool   `json:"trip,omitempty"`
+	Finisher      string `json:"finisher,omitempty"`
+	FinisherPlace string `json:"finisher_place,omitempty"`
+	Instance      string `json:"instance,omitempty"`
 }
 
 // finisherPt is one spawn of a quest's finisher, before ranking.
@@ -36,11 +44,14 @@ type finisherPt struct {
 	x, y   float64
 	place  string
 	zone   string
+	sub    string // the subzone, "" for a zone
+	inst   string // the dungeon the spawn is inside, "" in the open world
 }
 
 // finisherSource is a source that knows where a quest is handed in.
 type finisherSource interface {
 	finisherPts(questID int) []finisherPt
+	isTrip(questID int) bool
 }
 
 // buildFinishers lists, for every quest in the log that can still be handed in, up to MaxFinisherSpawns
@@ -124,12 +135,17 @@ func buildFinishers(c character.Character, src source, listed []*quest, zone str
 			pts = pts[:MaxFinisherSpawns]
 		}
 		name := cmp.Or(names[lq.QuestID], lq.Title)
+		trip := fs.isTrip(lq.QuestID)
 		for _, p := range pts {
 			f := Finisher{QuestID: lq.QuestID, Quest: name, Map: p.m, X: round1(p.x), Y: round1(p.y), Place: p.place}
 			if p.object {
 				f.Object = p.name
 			} else {
 				f.NPC = p.name
+			}
+			if trip {
+				f.Trip, f.Finisher, f.Instance = true, p.name, p.inst
+				f.FinisherPlace = questie.Trip{Sub: p.sub, Zone: p.zone}.Place()
 			}
 			out = append(out, f)
 		}
@@ -154,8 +170,18 @@ func (s *questieSource) finisherPts(questID int) []finisherPt {
 			if !ok || a.UIMap == 0 {
 				continue
 			}
-			out = append(out, finisherPt{object: r.Object, name: e.Name, m: a.UIMap, x: sp.X, y: sp.Y, place: cmp.Or(a.Sub, a.Zone), zone: a.Zone})
+			pt := finisherPt{object: r.Object, name: e.Name, m: a.UIMap, x: sp.X, y: sp.Y, place: cmp.Or(a.Sub, a.Zone), zone: a.Zone, sub: a.Sub}
+			if d := s.qx.DungeonOfArea(sp.Area); d != nil {
+				pt.inst = d.Name
+			}
+			out = append(out, pt)
 		}
 	}
 	return out
+}
+
+// isTrip reports whether the quest has nothing to do and is handed in at another NPC or object.
+func (s *questieSource) isTrip(questID int) bool {
+	_, ok := s.qx.TripOf(questID, nil)
+	return ok
 }

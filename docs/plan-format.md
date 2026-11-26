@@ -54,7 +54,7 @@ Data only: one assignment of tables, strings, numbers and booleans. Never code.
 
 ```lua
 WoWCompanionPlan = {
-  schema = "1.4",
+  schema = "1.5",
   generated = 1795363809,        -- unix seconds
   characters = {
     ["Hero"] = {                 -- the character name as captured, no realm
@@ -196,6 +196,27 @@ finishers = {
   objective is placed); at most 40 quests. A spawn with no known place is left out, and so is a quest
   whose finisher has none.
 - Rows of one quest are adjacent, in the log's order. Step order is unchanged. An older addon ignores the key.
+
+## Schema 1.5: trips
+
+A quest with no counted objectives (no kill, item, kill-credit or area objective) whose finisher is not one of
+its givers is a **trip**: a "go and find", a delivery, a "speak to". It is a journey to the finisher, never a
+quick stop on the way. The turn-in step's label says where: "Find Deathstalker Vincent inside Shadowfang Keep
+(Silverpine Forest) (dungeon) to turn in Deathstalkers in Shadowfang", or "Deliver to Sputtervalve in Ratchet
+(The Barrens) to turn in Further Instructions". A trip into a dungeon is never a fly-and-turn-in leg. A quest
+whose counted objectives are all done and that is handed in where it was given keeps "Turn in X to NPC".
+Each key appears only on a trip (additive; an older addon ignores them):
+
+| Field | On | Meaning |
+| ----- | -- | ------- |
+| `trip` | a `turnin` step, a `later` entry, a `finishers` row | `true` |
+| `finisher` | the same | the NPC or object that takes the quest in |
+| `finisherPlace` | the same | where it is: "Ratchet (The Barrens)", or the zone alone |
+| `instance` | the same, when the finisher is inside a dungeon | the dungeon's name |
+
+```lua
+{ n = 7, kind = "turnin", questID = 1098, quest = "Deathstalkers in Shadowfang", label = "Find Deathstalker Vincent inside Shadowfang Keep (Silverpine Forest) (dungeon) to turn in Deathstalkers in Shadowfang", map = 33, x = 30.0, y = 40.0, done = false, trip = true, finisher = "Deathstalker Vincent", finisherPlace = "Shadowfang Keep (Silverpine Forest)", instance = "Shadowfang Keep" },
+```
 
 ## Chain-aware plan
 
