@@ -71,10 +71,10 @@ func TestFriendlyNpcIsTalkedToNotKilled(t *testing.T) {
 		t.Errorf("no Talk to step for the friendly NPC: %+v", p.Steps)
 	}
 	// What the objective text says wins: a listen objective stays "Listen to".
-	if got := objectiveLabel(creatureVerb(ix.Npcs[3]), "Listen to what Test Windshaper has to say: 0/1"); got != "Listen to what Test Windshaper has to say (0/1)" {
+	if got := objectiveLabel(creatureVerb(ix.Npcs[3], "", ""), "Listen to what Test Windshaper has to say: 0/1"); got != "Listen to what Test Windshaper has to say (0/1)" {
 		t.Errorf("label %q", got)
 	}
-	if creatureVerb(ix.Npcs[5]) != "Kill" {
+	if creatureVerb(ix.Npcs[5], "", "") != "Kill" {
 		t.Errorf("a hostile mob is not killed")
 	}
 }
@@ -197,5 +197,63 @@ func TestOffPlanNearbyQuestHasGuidance(t *testing.T) {
 	hero := vars["WoWCompanionPlan"].(lua.Table)["characters"].(lua.Table)["Hero"].(lua.Table)
 	if len(lua.List(hero["here"])) == 0 {
 		t.Errorf("no here in Plan.lua")
+	}
+}
+
+func TestCreatureVerbFollowsLogThenPlayersSide(t *testing.T) {
+	alliance := questie.Entity{Name: "Blacksmith Verringtan", Faction: "A"}
+	both := questie.Entity{Name: "Test Windshaper", Faction: "AH"}
+	horde := questie.Entity{Name: "Test Grunt", Faction: "H"}
+	for _, tc := range []struct {
+		name string
+		e    questie.Entity
+		side string
+		log  string
+		want string
+	}{
+		{"enemy townsfolk, log says slain", alliance, "H", "Blacksmith Verringtan slain: 0/1", "Kill"},
+		{"enemy townsfolk, no log", alliance, "H", "", "Kill"},
+		{"friendly to both, Horde", both, "H", "", "Talk to"},
+		{"Horde NPC, Horde player", horde, "H", "", "Talk to"},
+		{"Horde NPC, Alliance player", horde, "A", "", "Kill"},
+		{"Alliance NPC, Alliance player", alliance, "A", "", "Talk to"},
+		{"log says talk", alliance, "H", "Talk to Blacksmith Verringtan: 0/1", "Talk to"},
+		{"log says placed", both, "H", "Banner placed: 0/1", ""},
+		{"side unknown keeps a named faction friendly", alliance, "", "", "Talk to"},
+		{"unfactioned quest giver", questie.Entity{Flags: flagQuestGiver}, "H", "", "Talk to"},
+		{"unfactioned mob", questie.Entity{}, "H", "", "Kill"},
+	} {
+		if got := creatureVerb(tc.e, tc.side, tc.log); got != tc.want {
+			t.Errorf("%s: %q, want %q", tc.name, got, tc.want)
+		}
+	}
+}
+
+func TestEnemyFactionObjectiveIsKilledInThePlan(t *testing.T) {
+	for _, tc := range []struct{ faction, text, want string }{
+		{"Horde", "Test Cultist slain: 0/1", "Kill Test Cultist (0/1)"},
+		{"Horde", "Test Cultist: 0/1", "Kill Test Cultist (0/1)"},
+		{"Alliance", "Test Cultist: 0/1", "Talk to Test Cultist (0/1)"},
+	} {
+		ix := constructIsle()
+		ix.Npcs[6] = questie.Entity{Name: "Test Cultist", Faction: "A", Spawns: ix.Npcs[6].Spawns}
+		c := hero()
+		c.Faction = tc.faction
+		no := false
+		c.Quests = []character.Quest{{QuestID: 32, Title: "Hill Errand", Complete: &no, Objectives: []character.Objective{{Text: tc.text, Done: &no}}}}
+		ix.Quests[32].Creatures = []questie.Ref{{ID: 6}}
+		p := Build(c, ix)
+		found := false
+		for _, s := range append(p.Steps, p.Later...) {
+			if s.Kind == KindObjective && strings.Contains(s.Label, "Test Cultist") {
+				found = true
+				if !strings.HasPrefix(s.Label, tc.want) {
+					t.Errorf("%s %q: label %q, want %q", tc.faction, tc.text, s.Label, tc.want)
+				}
+			}
+		}
+		if !found {
+			t.Errorf("%s %q: no objective step: %+v", tc.faction, tc.text, p.Steps)
+		}
 	}
 }

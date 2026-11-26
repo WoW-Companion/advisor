@@ -3,6 +3,7 @@ package route
 import (
 	"cmp"
 	"math"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -216,6 +217,7 @@ func (s *questieSource) quests(c character.Character, at *questie.Where) []*ques
 		cands = cands[:1+len(filterBig(cands[1:], cands[0].n))]
 		return near(cands, curMap, ax, ay, true)
 	}
+	side := playerSide(c)
 	// objectives resolves q's objectives to spots; an objective with no location is returned as an
 	// unplaced spot. done are the lower-cased texts of finished objectives; open the texts of the
 	// unfinished ones (nil: unknown, as for a quest not yet in the log).
@@ -263,7 +265,7 @@ func (s *questieSource) quests(c character.Character, at *questie.Where) []*ques
 		add := func(verb, name string, refs []questie.Ref) { addPts(verb, name, s.points(refs), false) }
 		for _, r := range q.Creatures {
 			if e, ok := s.entity(r); ok {
-				add(creatureVerb(e), e.Name, []questie.Ref{r})
+				add(creatureVerb(e, side, textOf(e.Name)), e.Name, []questie.Ref{r})
 			}
 		}
 		for _, id := range q.Items {
@@ -526,13 +528,53 @@ const (
 	flagRepair     = 0x1000
 )
 
-// friendly reports whether e is an NPC to talk to, not a mob to fight: Questie names a faction it is
-// friendly to, or it gives quests.
-func friendly(e questie.Entity) bool { return e.Faction != "" || e.Flags&flagQuestGiver != 0 }
+// friendly reports whether e is an NPC to talk to, not a mob to fight, for a player of side ("H", "A"
+// or "" when unknown). Questie's friendlyToFaction ("A", "H", "AH") must include the player's side, or
+// name no faction while the NPC gives quests. With the side unknown any named faction counts.
+func friendly(e questie.Entity, side string) bool {
+	if e.Faction != "" {
+		return side == "" || strings.Contains(e.Faction, side)
+	}
+	return e.Flags&flagQuestGiver != 0
+}
 
-// creatureVerb is the verb for a creature objective: a friendly NPC is talked to, never killed.
-func creatureVerb(e questie.Entity) string {
-	if friendly(e) {
+// playerSide is "H" for a Horde character and "A" for an Alliance one, from the captured faction, else
+// the race; "" when the capture says neither.
+func playerSide(c character.Character) string {
+	switch strings.ToLower(c.Faction) {
+	case "horde":
+		return "H"
+	case "alliance":
+		return "A"
+	}
+	switch strings.ToLower(strings.ReplaceAll(c.Race, " ", "")) {
+	case "orc", "undead", "scourge", "tauren", "troll", "bloodelf", "goblin", "nightborne", "highmountaintauren", "magharorc", "vulpera", "zandalaritroll":
+		return "H"
+	case "human", "dwarf", "nightelf", "gnome", "draenei", "worgen", "kultiran", "darkirondwarf", "lightforgeddraenei", "voidelf", "mechagnome", "dracthyr":
+		return "A"
+	}
+	return ""
+}
+
+var (
+	logKill  = regexp.MustCompile(`(?i)\b(slain|killed)\b`)
+	logTalk  = regexp.MustCompile(`(?i)^\s*(talk to|speak with|speak to)\b|\bspoken to\b`)
+	logOther = regexp.MustCompile(`(?i)\b(placed|used|explored|discovered|destroyed|freed|rescued|escorted|captured|defeated|delivered)\b`)
+)
+
+// creatureVerb is the verb for a creature objective. The game's own objective text (the quest log's
+// line for it, "" when none) decides first: "slain" is Kill, "Talk to" is Talk to, and another verb the
+// game uses is kept as written (""). Without it, an NPC friendly to the player's side is talked to and
+// any other is killed.
+func creatureVerb(e questie.Entity, side, logText string) string {
+	switch {
+	case logKill.MatchString(logText):
+		return "Kill"
+	case logTalk.MatchString(logText):
+		return "Talk to"
+	case logOther.MatchString(logText):
+		return ""
+	case friendly(e, side):
 		return "Talk to"
 	}
 	return "Kill"
