@@ -1,7 +1,6 @@
 package gather
 
 import (
-	"fmt"
 	"sort"
 	"strings"
 
@@ -33,12 +32,12 @@ func itemName(ds store.DataStore, id int64) string {
 	return ""
 }
 
-// zoneName is the zone of a map the capture knows, else a plain "map N" so the place is still named.
+// zoneName is the zone of a map the capture knows, else a plain "an unknown place" so the place is still named.
 func zoneName(c character.Character, mapID int) string {
 	if z := c.ZoneOfMap(mapID); z != "" {
 		return z
 	}
-	return fmt.Sprintf("map %d", mapID)
+	return "an unknown place"
 }
 
 // seenZones groups the rows by map into zones: the most loots first, the character's own map first.
