@@ -260,7 +260,8 @@ func TestOfflineBenchmarkInnAnchors(t *testing.T) {
 	s = qbSession(t, "", only(3), 30, nil)
 	add("a character with no known side: an inn of either side", s.EndsAt, "an inn is named: no side is assumed to exclude it", strings.Contains(s.EndsAt, "Synthetic Innkeeper East"))
 	s = qbSession(t, "Horde", only(2, 3), 30, nil)
-	add("a session's facts never prescribe a hearthstone", s.Facts(), "no hearthstone in the facts", !strings.Contains(strings.ToLower(s.Facts()), "hearth"))
+	said := strings.Contains(strings.ToLower(s.Facts()), "hearth")
+	add("a session's facts never prescribe a hearthstone", fmt.Sprintf("hearthstone mentioned: %v", said), "hearthstone mentioned: false", !said)
 	finish(t, "advice-inn-anchors", "Offline inn and flight point anchors", out)
 }
 
