@@ -70,11 +70,12 @@ type reagentRow struct {
 type buildRow struct {
 	Class     string `parquet:"class"`
 	Spec      string `parquet:"spec"`
-	Band      string `parquet:"band"`
-	Rationale string `parquet:"rationale"`
+	Level     int32  `parquet:"level"`
 	Order     int64  `parquet:"order"`
 	Node      int64  `parquet:"node_id"`
-	Points    int32  `parquet:"points"`
+	Name      string `parquet:"talent_name"`
+	RankAfter int32  `parquet:"rank_after"`
+	Source    string `parquet:"source"`
 }
 
 type nodeRow struct {

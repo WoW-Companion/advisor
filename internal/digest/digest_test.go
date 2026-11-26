@@ -77,12 +77,21 @@ type bossRow struct {
 type buildRow struct {
 	Class     string `parquet:"class"`
 	Spec      string `parquet:"spec"`
-	Band      string `parquet:"band"`
+	Level     int16  `parquet:"level"`
 	Order     int16  `parquet:"order"`
 	NodeID    int32  `parquet:"node_id"`
-	Points    int16  `parquet:"points"`
-	Rationale string `parquet:"rationale"`
+	Name      string `parquet:"talent_name"`
+	RankAfter int16  `parquet:"rank_after"`
 	Source    string `parquet:"source"`
+}
+
+type priorityRow struct {
+	Class  string `parquet:"class"`
+	Spec   string `parquet:"spec"`
+	Rank   int16  `parquet:"rank"`
+	NodeID int32  `parquet:"node_id"`
+	Name   string `parquet:"talent_name"`
+	Reason string `parquet:"reason"`
 }
 
 type nodeRow struct {
@@ -118,6 +127,8 @@ func tbl(t *testing.T, rows any) store.SizedReaderAt {
 	case []bossRow:
 		err = parquet.Write(&buf, r)
 	case []buildRow:
+		err = parquet.Write(&buf, r)
+	case []priorityRow:
 		err = parquet.Write(&buf, r)
 	case []nodeRow:
 		err = parquet.Write(&buf, r)
@@ -157,11 +168,13 @@ func synthStore(t *testing.T) store.DataStore {
 		}),
 		"instance_bosses": tbl(t, []bossRow{{1, "Near Wolf", &id501}, {2, "Nobody", nil}}),
 		"talent_builds": tbl(t, []buildRow{
-			{"PRIEST", "Discipline", "10-19", 1, 71, 1, "Core heal", "test"},
-			{"PRIEST", "Discipline", "10-19", 2, 72, 2, "Shield", "test"},
-			{"ROGUE", "Assassination", "10-19", 1, 81, 1, "Poison", "test"},
+			{"PRIEST", "Discipline", 10, 1, 71, "Penance", 1, "test"},
+			{"PRIEST", "Discipline", 11, 2, 72, "Power Word: Shield", 1, "test"},
+			{"PRIEST", "Discipline", 12, 3, 72, "Power Word: Shield", 2, "test"},
+			{"ROGUE", "Assassination", 10, 1, 81, "Deadly Poison", 1, "test"},
 		}),
-		"talent_nodes": tbl(t, []nodeRow{{71, i32p(1001), "Penance"}, {72, nil, "Power Word: Shield"}, {81, i32p(2001), "Deadly Poison"}}),
+		"talent_priorities": tbl(t, []priorityRow{{"PRIEST", "Discipline", 1, 71, "Penance", "Core heal"}, {"PRIEST", "Discipline", 2, 72, "Power Word: Shield", "Shield"}}),
+		"talent_nodes":      tbl(t, []nodeRow{{71, i32p(1001), "Penance"}, {72, nil, "Power Word: Shield"}, {81, i32p(2001), "Deadly Poison"}}),
 	})
 }
 

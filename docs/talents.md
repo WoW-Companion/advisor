@@ -1,24 +1,29 @@
 # talent_plan
 
-`talent_plan(character, spec?, limit=5)` compares the points a character has spent with the
-curated build for their spec and level band and lists the next points to spend.
+`talent_plan(character, spec?, limit=3)` follows the Icy Veins WoW Forever leveling build: the next
+pick is the first point in the guide's order the character has not taken, among the points whose level
+they have reached.
 
-- **Builds** come from the dataset's `talent_builds` table (class, spec, band, order, node_id,
-  points, rationale). They are advisor defaults, not authoritative. Node names come from
-  `talent_nodes`.
-- **Spec** is the `spec` argument, else the stored spec, else the spec matching the stored role,
-  else the talent group with the most points spent (a tie, or no points, needs the `spec`
-  argument). Group names are matched to build specs by name.
-- **Band** is the level band (for example `10-19`) holding the character's level. The plan covers
-  the build's steps from every band up to it, in order.
-- **Diff**: captured ranks (matched by node id, else by name) are credited against the build's
-  steps in order; what is left is the plan, one point per line with the rank it reaches and the
-  step's rationale. `limit` caps the list.
-- **Off-build** points (a node with more ranks than the build gives it over all its bands) are
-  listed with both numbers. They are a choice, not an error.
-- **No build** for the spec or level (or no `talent_builds` table): the plan says so and lists the
-  builds the dataset has, and the talents open now as options. Nothing is invented.
-- The digest's unspent-points note names the next node from the build.
+- **Builds** come from the dataset's `talent_builds` table, one row per point (class, spec, level, order,
+  node_id, talent_name, rank_after, source). The reference is Icy Veins' WoW Forever leveling guides, the
+  Operator's chosen source. Node names come from `talent_nodes`. **Priorities** come from
+  `talent_priorities` (class, spec, rank, node_id, talent_name, reason): the guide's key leveling talents
+  with a one-line reason in our own words, shown with each pick and in the AI's facts.
+- **Spec**: the `spec` argument, else the stored spec, else the spec matching the stored role, else the
+  build whose tree holds most of the points spent. A tie, or no points, goes to the class's default
+  leveling spec (the spec with the most build points).
+- **Next pick**: walk the build in `order`; a point is taken when the captured rank of its node (matched by
+  node id, spell id, then name) is at least its `rank_after`. The next picks are the first untaken points
+  with `level` at or below the character's level, up to three: "Spirit Tap 5/5 done · next: Improved Shadow
+  Word: Pain 1/2". With unspent points the Next line names the first one.
+- **Off-build** points (a node the build does not take, or takes fewer ranks of) are noted once, plainly:
+  "You have 2 points in Shadow Focus, which the Icy Veins leveling build skips". Advice continues from the
+  build and never suggests a respec unprompted.
+- **No checked build**: a dataset without the `level` and `rank_after` columns, a spec whose rows are marked
+  `curated (unverified)`, or a spec the dataset lacks says "I don't have a checked build for <spec> yet.",
+  lists the unspent points and names no pick.
+- The AI's facts carry the progress line, the priority list and the off-build note; the system prompt says
+  talent picks come from them, never from general knowledge.
 
 Operator check: run `talent_plan` against a real ForeverScribe capture and a built dataset.
 

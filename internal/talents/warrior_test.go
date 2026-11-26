@@ -12,12 +12,12 @@ import (
 // 12 Test Bloodthirst, 13 Test Shield Wall.
 func warriorData(t *testing.T) store.DataStore {
 	return store.New(store.ReaderSource{
-		"talent_builds": table(t, []buildRow{
-			{"Warrior", "Fury", "10-19", 1, 11, 2, "Rampage is your core damage button.", "curated"},
-			{"Warrior", "Fury", "10-19", 2, 12, 3, "Bloodthirst heals while you hit.", "curated"},
-			{"Warrior", "Protection", "10-19", 1, 13, 1, "Shield Wall is your panic button.", "curated"},
-		}),
-		"talent_nodes": table(t, []nodeRow{{11, "Test Rampage"}, {12, "Test Bloodthirst"}, {13, "Test Shield Wall"}}),
+		"talent_builds": table(t, append(append(
+			pts("Warrior", "Fury", 1, 10, 11, "Test Rampage", 2),
+			pts("Warrior", "Fury", 3, 12, 12, "Test Bloodthirst", 3)...),
+			pts("Warrior", "Protection", 1, 10, 13, "Test Shield Wall", 1)...)),
+		"talent_priorities": table(t, []priorityRow{{"Warrior", "Fury", 1, 11, "Test Rampage", "Rampage is your core damage button."}}),
+		"talent_nodes":      table(t, []nodeRow{{11, "Test Rampage"}, {12, "Test Bloodthirst"}, {13, "Test Shield Wall"}}),
 	})
 }
 
@@ -37,11 +37,11 @@ func ip2(n int) *int { return &n }
 func TestWarriorNextPick(t *testing.T) {
 	ds := warriorData(t)
 	fury := &character.Profile{Role: "damage", Focus: "leveling", Spec: "Fury"}
-	p := Plan(warrior(10, 1, fury), ds, Options{})
+	p := Plan(warrior(14, 1, fury), ds, Options{})
 	if p.Spec != "Fury" || len(p.Next) == 0 || p.Next[0].Name != "Test Rampage" || p.Next[0].Rank != 2 || p.Next[0].Rationale != "Rampage is your core damage button." {
-		t.Fatalf("level 10 Fury with 1 point: %+v", p)
+		t.Fatalf("level 14 Fury with 1 point: %+v", p)
 	}
-	if got := points(p); got != "Test Rampage=2,Test Bloodthirst=1,Test Bloodthirst=2,Test Bloodthirst=3" {
+	if got := points(p); got != "Test Rampage=2,Test Bloodthirst=1,Test Bloodthirst=2" {
 		t.Errorf("band picks = %s", got)
 	}
 }
@@ -64,7 +64,7 @@ func TestNoBuildGivesOptions(t *testing.T) {
 	c := warrior(10, 0, &character.Profile{Role: "damage", Focus: "leveling"})
 	c.Class = "HUNTER"
 	out := Render(Plan(c, warriorData(t), Options{}))
-	for _, want := range []string{"no curated talent builds for HUNTER", "options, not a recommendation", "Test Rampage (rank 1)", "Test Bloodthirst (rank 1)"} {
+	for _, want := range []string{"no talent builds for HUNTER", "options, not a recommendation", "Test Rampage (rank 1)", "Test Bloodthirst (rank 1)"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("render lacks %q:\n%s", want, out)
 		}

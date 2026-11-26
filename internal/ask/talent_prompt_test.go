@@ -28,6 +28,10 @@ func TestTalentAnswerNeedsNoFetch(t *testing.T) {
 var icyFiles = map[string]bool{"../ask/icy.go": true, "../ask/knowhow.go": true, "../ask/stream.go": true, "../ask/api.go": true, "../ask/ask.go": true,
 	"../companion/companion.go": true, "../../overlay/ui/asking.js": true, "../../overlay/ui/asking_logic_test.js": true, "../../docs/ask.md": true}
 
+// icyBuildFiles may say "Icy Veins" as the source of the dataset's leveling builds (the plan's text and docs);
+// they still must not name a guide URL or a fetch tool.
+var icyBuildFiles = map[string]bool{"../../docs/talents.md": true, "../ask/facts.go": true, "../ask/guide.go": true, "../talents/render.go": true, "../talents/talents.go": true}
+
 func TestNoGuideLookupTextAnywhere(t *testing.T) {
 	var files []string
 	for _, root := range []string{"../../clients", "../../docs", "../../overlay"} {
@@ -50,6 +54,9 @@ func TestNoGuideLookupTextAnywhere(t *testing.T) {
 		}
 		s := strings.ToLower(string(b))
 		for _, bad := range []string{"icy-veins", "icy veins", "guide url", "guide_url", "webfetch"} {
+			if bad == "icy veins" && icyBuildFiles[f] {
+				continue
+			}
 			if strings.Contains(s, bad) {
 				t.Errorf("%s names %q", f, bad)
 			}

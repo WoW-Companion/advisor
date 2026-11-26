@@ -114,13 +114,22 @@ func nodeID(class string, spec, j int) int64 {
 	return int64(map[string]int{"PRIEST": 1000, "ROGUE": 2000}[class] + spec*100 + j%4 + 1)
 }
 
+// talentTables writes one build row per point, as the dataset does: a band's five points take the levels
+// from the band's first, and rank_after counts the node's ranks so far.
 func talentTables() (builds []buildRow, nodes []nodeRow) {
 	for _, class := range []string{"PRIEST", "ROGUE"} {
 		for si, spec := range classSpecs[class] {
-			order := int64(0)
-			for _, band := range buildBands {
+			order, seq, ranks := int64(0), int64(0), map[int64]int32{}
+			for bi := range buildBands {
+				level := int32(10 + 10*bi)
 				for _, pts := range buildPoints {
-					builds = append(builds, buildRow{class, spec, band, "Eval rationale " + band, order + 1, nodeID(class, si, int(order)), int32(pts)})
+					id := nodeID(class, si, int(order))
+					for k := 0; k < pts; k++ {
+						ranks[id]++
+						seq++
+						builds = append(builds, buildRow{class, spec, level, seq, id, fmt.Sprintf("Eval %s %s node %d", class, spec, id), ranks[id], "Eval guide"})
+						level++
+					}
 					order++
 				}
 			}
