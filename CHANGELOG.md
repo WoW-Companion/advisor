@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.7.95
+
+- **Fixed** profession routes now list the materials each step needs, counted per craft.
+- **Fixed** Herbalism, Mining, Skinning and Fishing routes now name where to gather and what.
+- **Fixed** gear counts bonus healing and damage, extra armor, and armor for tanks.
+- **Changed** the addon update notice now says a /reload is required to load the new addon.
+- **Changed** when an addon update adds files, the notice says to fully exit and restart WoW.
+- **Changed** Your plan now has one shared list: the run here, trips by zone, and parked quests.
+- **Changed** The run here lists only stops on your map, ending with how to reach the next trip.
+- **Changed** Every quest in your log appears once: in the run, in a trip, or parked with a reason.
+- **Changed** New pick-ups are limited to 3, near your route or the hub, and fit your level.
+- **Fixed** A turn-in that is not ready is a stop on the route, not an action at the spot now.
+- **Added** every notice has a What's new button for all app and addon changes since you looked.
+- **Fixed** the notice after an automatic addon update now says /reload or a full restart is needed.
+- **Added** Settings has a What's new button that lists the same changes.
+
 ## 0.7.94
 
 - **Fixed** objectives Questie places on the map but the plan missed now get real spots.
