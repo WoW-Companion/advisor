@@ -393,8 +393,12 @@ func TestOfflineBenchmarkRaidAttunement(t *testing.T) {
 		if p != nil {
 			txt = dungeons.RenderNamed(c, *p, togo)
 		}
-		ok := p != nil && len(rows) == 0 && len(p.Pickups) == 0 && !strings.Contains(txt, "Quests to grab first") && instReset.FindString(stated(txt)) == ""
-		out = append(out, benchRow{tc.name + ": the attunement (" + tc.quest + ")", fmt.Sprintf("%d quests to take first", len(p.Pickups)), fmt.Sprintf("game: needs %s; %d instance_quests rows: %s", tc.quest, len(rows), instNoneWords), instLockSrc, resultIf(ok, "a quest or an attunement was named")})
+		pickups := -1 // no answer at all
+		if p != nil {
+			pickups = len(p.Pickups)
+		}
+		ok := p != nil && len(rows) == 0 && pickups == 0 && !strings.Contains(txt, "Quests to grab first") && instReset.FindString(stated(txt)) == ""
+		out = append(out, benchRow{tc.name + ": the attunement (" + tc.quest + ")", fmt.Sprintf("%d quests to take first", pickups), fmt.Sprintf("game: needs %s; %d instance_quests rows: %s", tc.quest, len(rows), instNoneWords), instLockSrc, resultIf(ok, "a quest or an attunement was named")})
 	}
 	finish(t, "advice-raid-attunement", "Offline raid attunement: not in the dataset", out)
 }
