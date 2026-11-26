@@ -121,14 +121,14 @@ func TestZoneIsOneChainFromTheKnownFlightMaster(t *testing.T) {
 	if stops[0].Kind != KindObjective {
 		t.Errorf("chain starts with an objective, never a turn-in: %+v", stops[0])
 	}
-	var travel *Stop
-	for i, s := range p.Steps {
-		if s.Kind == KindTravel {
-			travel = &p.Steps[i]
-		}
+	e := p.Exit
+	if e == nil || e.Map != mapStonetalon || e.X != 45 || e.Y != 59 || e.Label != z.Travel || e.Via != "flight" {
+		t.Errorf("exit %+v", e)
 	}
-	if travel == nil || travel.Map != mapStonetalon || travel.X != 45 || travel.Y != 59 || travel.Label != z.Travel {
-		t.Errorf("travel step %+v", travel)
+	for _, s := range p.Steps {
+		if s.Kind == KindTravel {
+			t.Errorf("a journey is never a step: %+v", s)
+		}
 	}
 }
 

@@ -18,7 +18,13 @@ const (
 	MaxSteps    = 20 // stops on the route; the rest go to "later"
 	MaxTotal    = 25 // stops on the route, locked follow-ups included
 	MaxLater    = 30 // stops listed in "later"
-	LevelMargin = 1  // a quest above the player's level + this goes to "later"
+	LevelMargin = 2  // a quest above the player's level + this goes to "later"
+	// PickupBelow is how far under the player's level a new pick-up may be; MaxPickups is how many new
+	// pick-ups the run takes; PickupDetour is how far (map percent, about 300 yards) a giver may be from the
+	// route or the player to be "on the way".
+	PickupBelow  = 3
+	MaxPickups   = 3
+	PickupDetour = 6.0
 	// DungeonReach is how far above the player's level a dungeon's minimum may be, and how far under
 	// the player's level its maximum may be, for its quests to be worth picking up in town.
 	DungeonReach = 3
@@ -123,6 +129,13 @@ type Options struct {
 	Places   *Places // the dataset's UI map and instance names, for maps Questie does not name
 	XP       map[int]int
 	LogCap   int
+	// GroupPlan is set when the player has a plan to run dungeons with a group: their quests become trips
+	// to the entrance zone. Otherwise a dungeon quest is parked.
+	GroupPlan bool
+	// PickupCap is how many new pick-ups the run takes (0 is MaxPickups, negative none); AnyPickup lifts the "on the way
+	// or in the hub" rule, for a caller that wants every pick-up of the map.
+	PickupCap int
+	AnyPickup bool
 }
 
 // DungeonLevel is a dungeon's level range; Map is its instance id (0 when unknown).
@@ -155,6 +168,9 @@ type Plan struct {
 	Here      []Here       `json:"here,omitempty"`       // what can be done at each NPC stop (Plan.lua 1.3)
 	Finishers []Finisher   `json:"finishers,omitempty"`  // where each logged quest is handed in (Plan.lua 1.4)
 	Zones     []ZonePlan   `json:"zones,omitempty"`      // one connected route per other zone with stops (Plan.lua 1.5)
+	Exit      *Exit        `json:"exit,omitempty"`       // the run's last line: the way to the next trip (Plan.lua 1.6)
+	Trips     []Trip       `json:"trips,omitempty"`      // logged quests outside the run, by destination zone (Plan.lua 1.6)
+	Parked    []Parked     `json:"parked,omitempty"`     // logged quests set aside, and why (Plan.lua 1.6)
 }
 
 // Basis is the state a plan starts from. "Done" in a plan means done after Captured: a reader judges
@@ -363,7 +379,7 @@ func planWith(c character.Character, src source, opt Options) Plan {
 			use = append(use, q)
 		}
 	}
-	use = append(use, choosePickups(c, lvl, opt, pickups, len(use), &later, &p.Notes)...)
+	use = append(use, choosePickups(c, lvl, opt, pickups, use, at, &later, &p.Notes)...)
 
 	// The map the route is on: the player's, else the one with the most stops.
 	cur, known := 0, false
@@ -535,49 +551,12 @@ func planWith(c character.Character, src source, opt Options) Plan {
 
 	// A ready turn-in on another map is worth a trip when its town can be reached: one leg per town
 	// names every turn-in there. The generic travel step then goes to the map with the most other stops.
-	flown := map[int]bool{}
-	for _, leg := range flyLegs(c, src, later, cur, lvl) {
-		leg.N = len(p.Steps) + 1
-		flown[leg.Map] = true
-		p.Steps = append(p.Steps, leg)
-	}
-	counts := map[int]int{}
-	for _, s := range later {
-		if s.m != cur && !flown[s.m] {
-			counts[s.m]++
-		}
-	}
-	next, best := 0, 0
-	for m, n := range counts {
-		if n > best || (n == best && m < next) {
-			next, best = m, n
-		}
-	}
+	// Since Plan.lua 1.6 the legs are not steps: the run here is the stops on this map, and each leg is
+	// the travel text of its zone's trip.
+	legs := flyLegs(c, src, later, cur, lvl)
 	// Every other zone with stops gets one connected route that starts where the player arrives.
 	var zoneIdx map[int][]int
 	later, p.Zones, zoneIdx = zoneRoutes(c, src, later, cur, known, p.Start)
-	zoneOf := map[int]*ZonePlan{}
-	for i := range p.Zones {
-		zoneOf[p.Zones[i].Map] = &p.Zones[i]
-	}
-	if best > 0 {
-		for _, s := range later {
-			if s.m == next {
-				st := Stop{N: len(p.Steps) + 1, Kind: KindTravel, Label: "Travel to " + travelName(src, next, s.place), Map: next, X: round1(s.x), Y: round1(s.y)}
-				if s.zoneOnly {
-					st.X, st.Y, st.ZoneOnly, st.Unplaced = NoPos, NoPos, true, true
-				}
-				if z := zoneOf[next]; z != nil {
-					st.Label, st.Place = z.Travel, z.Arrival.Place
-					if z.Arrival.Known {
-						st.X, st.Y, st.ZoneOnly, st.Unplaced = z.Arrival.X, z.Arrival.Y, false, false
-					}
-				}
-				p.Steps = append(p.Steps, st)
-				break
-			}
-		}
-	}
 	p.Total = len(p.Steps)
 	p.Guides = guides(append(listed, chosen...), p.Steps, p.Zone, src.mapName)
 	p.Here = buildHere(p, append(listed, chosen...), src)
@@ -601,6 +580,7 @@ func planWith(c character.Character, src source, opt Options) Plan {
 		}
 		p.Later = append(p.Later, stopOf(i+1, s))
 	}
+	shapeSharedPlan(&p, c, src, opt, sharedInput{listed: append(listed, chosen...), later: later, legs: legs, cur: cur, known: known, lvl: lvl})
 	return p
 }
 
@@ -1112,12 +1092,15 @@ func dungeonFits(q *quest, lvl int) bool {
 // Holiday and festival quests never outrank these: they wait unless nothing else is planned. A log
 // that is full or nearly full limits the pick-ups to its free slots, best first. others is how many
 // quests are already planned.
-func choosePickups(c character.Character, lvl int, opt Options, pickups []*quest, others int, later *[]*spot, notes *[]string) []*quest {
+func choosePickups(c character.Character, lvl int, opt Options, pickups []*quest, planned []*quest, at *questie.Where, later *[]*spot, notes *[]string) []*quest {
+	others := len(planned)
 	var want, fest []*quest
 	for _, q := range pickups {
 		fit := dungeonFits(q, lvl)
 		switch {
 		case q.level > lvl+LevelMargin && !q.must && !fit:
+			*later = append(*later, q.chain()...)
+		case q.level > 0 && q.level < lvl-PickupBelow && !q.must && !fit:
 			*later = append(*later, q.chain()...)
 		case q.festival && !q.must:
 			fest = append(fest, q)
@@ -1132,6 +1115,7 @@ func choosePickups(c character.Character, lvl int, opt Options, pickups []*quest
 			want = append(want, q)
 		}
 	}
+	want = earnPlace(opt, want, planned, at, later)
 	if len(want) == 0 && others == 0 {
 		want, fest = fest, nil // nothing else on the map: a festival quest is better than none
 	}
@@ -1202,4 +1186,38 @@ func townFirst(p *Problem, nodes []*spot, order []int) []int {
 		return na.xp > nb.xp
 	})
 	return append(head, rest...)
+}
+
+// earnPlace keeps the new pick-ups that earn a place in the run: those on the way (a giver within
+// PickupDetour of the player or of a stop of a quest already in the log) or in the zone's hub (within
+// NearbyRadius of the player), at most MaxPickups. Class quests and the dungeon quests of a town are exempt.
+// The rest wait in later.
+func earnPlace(opt Options, want []*quest, planned []*quest, at *questie.Where, later *[]*spot) []*quest {
+	var out []*quest
+	taken := 0
+	for _, q := range want {
+		if q.must || q.pickup.town {
+			out = append(out, q)
+			continue
+		}
+		onWay := false
+		if at != nil && at.MapID != nil && q.pickup.m == *at.MapID {
+			d := math.Hypot(q.pickup.x-at.X, q.pickup.y-at.Y)
+			onWay = d <= NearbyRadius
+		}
+		for _, pq := range planned {
+			for _, s := range pq.chain() {
+				if s.m == q.pickup.m && math.Hypot(s.x-q.pickup.x, s.y-q.pickup.y) <= PickupDetour {
+					onWay = true
+				}
+			}
+		}
+		if !(onWay || opt.AnyPickup) || taken >= cmp.Or(opt.PickupCap, MaxPickups) {
+			*later = append(*later, q.chain()...)
+			continue
+		}
+		taken++
+		out = append(out, q)
+	}
+	return out
 }

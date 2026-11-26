@@ -734,3 +734,19 @@ func (s *questieSource) pickSubzone(label string, named []subzone, i int, byOrde
 	}
 	return subzone{}, false
 }
+
+// entranceOf is the dungeon's name and the map of the zone its entrance stands in, for instance map m.
+func (s *questieSource) entranceOf(m int) (string, int) {
+	for _, d := range s.qx.Dungeons {
+		a, ok := s.qx.Areas[d.Area]
+		if d.Instance != m && !(ok && a.UIMap == m) {
+			continue
+		}
+		zone := 0
+		if pa, ok := s.qx.Areas[d.Parent]; ok {
+			zone = pa.UIMap
+		}
+		return d.Name, zone
+	}
+	return "", 0
+}

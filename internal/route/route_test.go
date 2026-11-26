@@ -228,7 +228,7 @@ func hubIsle() *questie.Index {
 	add(10, 9, []int{1}, []int{1}, []int{3}) // boars
 	add(11, 9, []int{1}, []int{2}, []int{3}) // boars again: shares the objective stop
 	add(12, 10, []int{2}, []int{2}, []int{4})
-	add(13, 11, []int{1}, []int{1}, []int{4}) // too high: later
+	add(13, 11, []int{1}, []int{1}, []int{4}) // level 11: the top of the available band
 	add(14, 9, []int{1}, []int{5}, nil)       // turn-in on another map
 	return ix
 }
@@ -267,18 +267,20 @@ func TestPlanClustersAndOrders(t *testing.T) {
 			}
 		}
 	}
-	var later, travel bool
-	for _, s := range p.Later {
-		later = later || strings.Contains(s.Quest, "Quest 13")
-	}
+	// At most MaxPickups new quests are picked up; the others wait in later.
+	picked := map[int]bool{}
 	for _, s := range p.Steps {
-		travel = travel || (s.Kind == KindTravel && s.Label == "Walk or ride to Otherisle")
-		if strings.Contains(s.Quest, "Quest 13") {
-			t.Errorf("a too-high quest is on the route: %+v", s)
+		if s.Kind == KindTravel {
+			t.Errorf("a journey is never a step: %+v", s)
+		}
+		if s.Kind == KindPickup {
+			for _, id := range s.QuestIDs {
+				picked[id] = true
+			}
 		}
 	}
-	if !later || !travel {
-		t.Errorf("later=%v travel=%v: %+v", later, travel, p)
+	if len(picked) > MaxPickups {
+		t.Errorf("%d pick-ups on the route, at most %d: %+v", len(picked), MaxPickups, p.Steps)
 	}
 	if p.Distance > p.Naive+1e-9 {
 		t.Errorf("route %.1f longer than naive %.1f", p.Distance, p.Naive)
@@ -306,7 +308,7 @@ func TestLuaIsDataOnly(t *testing.T) {
 	p := Build(hero(), hubIsle())
 	p.Character = `Evil"]=nil os.execute("x") --`
 	lua := Envelope{Generated: 7, Plans: []Plan{p}}.Lua()
-	if !strings.HasPrefix(lua, "-- Data only") || !strings.Contains(lua, "WoWCompanionPlan = {") || !strings.Contains(lua, `schema = "1.5"`) {
+	if !strings.HasPrefix(lua, "-- Data only") || !strings.Contains(lua, "WoWCompanionPlan = {") || !strings.Contains(lua, `schema = "`+Schema+`"`) {
 		t.Errorf("header: %s", lua)
 	}
 	if strings.Contains(lua, `Evil"]`) {
@@ -411,8 +413,11 @@ func TestKillObjectiveResolved(t *testing.T) {
 	}
 }
 
+// anyPickup plans every pick-up of the map, for tests of something other than which pick-ups earn a place.
+var anyPickup = Options{AnyPickup: true, PickupCap: 99}
+
 func TestUnresolvableObjectiveWithholdsTurnIn(t *testing.T) {
-	p := Build(hero(), objIsle())
+	p := BuildWith(hero(), objIsle(), anyPickup)
 	if find(p, KindTurnIn, 23) != nil {
 		t.Errorf("a turn-in for a quest with an unplaced objective: %+v", p.Steps)
 	}

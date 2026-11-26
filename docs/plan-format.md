@@ -57,7 +57,7 @@ Data only: one assignment of tables, strings, numbers and booleans. Never code.
 
 ```lua
 WoWCompanionPlan = {
-  schema = "1.5",
+  schema = "1.6",
   generated = 1795363809,        -- unix seconds
   characters = {
     ["Hero"] = {                 -- the character name as captured, no realm
@@ -247,6 +247,50 @@ Each key appears only on a trip (additive; an older addon ignores them):
 ```lua
 { n = 7, kind = "turnin", questID = 1098, quest = "Deathstalkers in Shadowfang", label = "Find Deathstalker Vincent inside Shadowfang Keep (Silverpine Forest) (dungeon) to turn in Deathstalkers in Shadowfang", map = 33, x = 30.0, y = 40.0, done = false, trip = true, finisher = "Deathstalker Vincent", finisherPlace = "Shadowfang Keep (Silverpine Forest)", instance = "Shadowfang Keep" },
 ```
+
+## Schema 1.6: one shared plan
+
+The panel and the map read one plan: **now, the run here, the bigger plan.** Every quest in the log is a
+commitment and is in exactly one of three places.
+
+- `steps` is the run here: the numbered stops on the player's map, the ones the map draws (1..N). A journey
+  is never a step: there are no `travel` steps any more. `exit = { label, map, x, y, via }` is the run's
+  last line, for example "Fly to Sun Rock Retreat (Tharm), Stonetalon Mountains". `via` is `flight`,
+  `zeppelin`, `boat` or `walk`; `x`, `y` are -1 when the arrival is not known. It is absent when the next
+  trip is in the player's own zone (or there is no trip).
+- `trips` is the logged quests that wait outside the run, one entry per destination zone, in suggested
+  travel order (`order` 1..n): ready turn-ins first, then quest XP (when the table is known), then travel
+  cost from the exit (a known flight, then a walk, then a zeppelin or boat).
+
+  ```lua
+  trips = {
+    { order = 1, map = 1434, zone = "Stranglethorn Vale", ready = 2, todo = 0, pickups = 0, questIDs = { 201, 202 },
+      reason = "2 ready to turn in", travel = "Fly to Booty Bay (Test Master), Stranglethorn Vale" },
+  },
+  ```
+
+  A quest belongs to the zone where its next action happens: a ready turn-in to its finisher's zone, open
+  objectives to the zone of the first one. A dungeon quest is a trip to the instance's entrance zone with
+  `instance` set, when the player has a group plan; otherwise it is parked. A trip whose `map` is the
+  player's own holds quests the run's caps left out ("Here, once the run is done"). `pickups` counts
+  quests not in the log that could be picked up there; they are not in `questIDs`.
+- `parked` is `{ questID, quest, why, kind }`, quests set aside, with `kind`: `toohigh` (more than 3 levels
+  above the player: "level 37"), `grey` (grey to the player and nothing to hand in; with 30 or more of 40
+  slots used, "grey at your level, worth abandoning"), `dungeon` (needs a group, and no group plan is set)
+  or `seasonal` (a holiday quest). A parked quest is in no trip and in no step.
+
+**Each quest appears once** across `steps` (its own stops, a quest with any stop here is a step quest and
+is not in a trip), `trips` and `parked`. `later`, `find`, `zones` and every older key keep their meaning;
+`later` still lists the stops off the run (it is not the parked list).
+
+New pick-ups must earn their place in the run: the quest is for the player's side, within 3 levels below and
+2 above the player, and its giver is on the way (within 6 map percent, about 300 yards, of the player or of
+a stop of a logged quest) or in the zone's hub (within 12 map percent of the player). At most 3 are taken;
+class quests and a town's dungeon quests are exempt. The rest wait in `later`.
+
+The `here` block holds only what can be done at the spot now: ready turn-ins, pick-ups, the trainer and the
+vendor. A turn-in that is not ready (the quest still needs something) is a stop in `steps` and is never a
+`here` line.
 
 ## Chain-aware plan
 

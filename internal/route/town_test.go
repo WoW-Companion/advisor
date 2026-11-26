@@ -40,8 +40,9 @@ func townIndex() *questie.Index {
 
 func townOpt() Options {
 	return Options{
-		Dungeons: []DungeonLevel{{Map: 33, Name: "Shadowfang Keep", Min: 22, Max: 30}, {Map: 44, Name: "Far Hold", Min: 40, Max: 50}},
-		XP:       map[int]int{1013: 2100},
+		Dungeons:  []DungeonLevel{{Map: 33, Name: "Shadowfang Keep", Min: 22, Max: 30}, {Map: 44, Name: "Far Hold", Min: 40, Max: 50}},
+		XP:        map[int]int{1013: 2100},
+		AnyPickup: true, PickupCap: 99,
 	}
 }
 
@@ -78,7 +79,8 @@ func TestTownDungeonPickupFirstAndFestivalLater(t *testing.T) {
 
 func TestTownFarDungeonStaysLater(t *testing.T) {
 	p := BuildWith(townHero(5), townIndex(), townOpt())
-	if strings.Contains(labels(p.Steps), "Far Business") || !strings.Contains(labels(p.Later), "Far Business") {
+	// Its dungeon is far above the player: the quest is no town-dungeon pick-up (no dungeon tag).
+	if strings.Contains(labels(p.Steps), "Far Hold") || strings.Contains(labels(p.Later), "Far Hold") {
 		t.Errorf("steps %s, later %s", labels(p.Steps), labels(p.Later))
 	}
 }

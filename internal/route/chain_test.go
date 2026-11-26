@@ -130,7 +130,7 @@ func TestStepCapCountsFollowUps(t *testing.T) {
 		add(200+i, []int{100 + i}, b, c)
 		add(300+i, []int{200 + i}, c, d)
 	}
-	p := Build(hero(), ix)
+	p := BuildWith(hero(), ix, anyPickup)
 	if len(p.Steps) > MaxTotal || len(p.Steps) <= MaxSteps-4 {
 		t.Fatalf("%d steps, cap %d", len(p.Steps), MaxTotal)
 	}

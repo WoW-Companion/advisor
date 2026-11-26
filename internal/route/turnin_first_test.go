@@ -83,26 +83,33 @@ func TestReadyTurnInsInAReachableTownAreOneFlightLeg(t *testing.T) {
 	c := readyChar(7001, 48, 49, 211, 212)
 	c.Seen = &character.Observed{Flights: []character.SeenFlight{{NPC: 9, Name: "Town Wing", Map: 7003, T: 1}}}
 	p := Build(c, readyWorld())
-	var legs []Stop
-	for _, s := range p.Steps {
-		if s.Kind == KindTravel {
-			legs = append(legs, s)
+	for _, st := range p.Steps {
+		if st.Kind == KindTravel {
+			t.Errorf("a journey is never a step: %+v", st)
 		}
 	}
-	if len(legs) != 1 || legs[0].Label != "Fly to Townville: turn in Quest 211, Quest 212" || len(legs[0].QuestIDs) != 2 || legs[0].Map != 7003 {
-		t.Fatalf("legs %+v", legs)
+	tr := tripTo(p, 7003)
+	if tr == nil || tr.Travel != "Fly to Townville: turn in Quest 211, Quest 212" || tr.Ready != 2 || len(tr.QuestIDs) != 2 || p.Exit == nil || p.Exit.Via != "flight" || p.Exit.Map != 7003 {
+		t.Fatalf("trip %+v, exit %+v", tr, p.Exit)
 	}
 	// Flight data that does not reach the town: no flight leg. No flight data at all: the town with turn-ins.
 	c.Seen = &character.Observed{Flights: []character.SeenFlight{{NPC: 9, Name: "Elsewhere", Map: 7004, T: 1}}}
-	for _, s := range Build(c, readyWorld()).Steps {
-		if strings.HasPrefix(s.Label, "Fly to") {
-			t.Errorf("unreachable town got a leg: %+v", s)
-		}
+	if tr := tripTo(Build(c, readyWorld()), 7003); tr == nil || strings.HasPrefix(tr.Travel, "Fly to Townville") {
+		t.Errorf("unreachable town got a leg: %+v", tr)
 	}
 	c.Seen = nil
-	if p := Build(c, readyWorld()); stepIndex(p, KindTravel, 211) < 0 {
-		t.Errorf("no flight data: want a leg to the town with the most turn-ins: %v", stepKinds(p))
+	if tr := tripTo(Build(c, readyWorld()), 7003); tr == nil || !strings.HasPrefix(tr.Travel, "Fly to Townville") {
+		t.Errorf("no flight data: want a leg to the town with the most turn-ins: %+v", tr)
 	}
+}
+
+func tripTo(p Plan, m int) *Trip {
+	for i := range p.Trips {
+		if p.Trips[i].Map == m {
+			return &p.Trips[i]
+		}
+	}
+	return nil
 }
 
 func TestArrivalInATownStartsWithItsReadyTurnIns(t *testing.T) {
@@ -115,17 +122,16 @@ func TestArrivalInATownStartsWithItsReadyTurnIns(t *testing.T) {
 	}
 }
 
-func TestTravelLabelNamesThePlace(t *testing.T) {
+func TestDungeonQuestIsParkedWithoutAGroupPlan(t *testing.T) {
 	c := readyChar(7001, 48, 49)
 	c.Quests = []character.Quest{{QuestID: 221, Title: "Quest 221", Objectives: []character.Objective{{Text: "Keep Ghoul slain: 0/1"}}}}
-	var label string
-	for _, s := range Build(c, readyWorld()).Steps {
-		if s.Kind == KindTravel {
-			label = s.Label
-		}
+	p := Build(c, readyWorld())
+	if len(p.Trips) != 0 || len(p.Parked) != 1 || p.Parked[0].Kind != ParkDungeon || !strings.Contains(p.Parked[0].Why, "Shadowfang Keep (Silverpine Forest)") {
+		t.Errorf("trips %+v, parked %+v", p.Trips, p.Parked)
 	}
-	if label != "Travel to Shadowfang Keep (Silverpine Forest)" {
-		t.Errorf("label %q", label)
+	p = BuildWith(c, readyWorld(), Options{GroupPlan: true})
+	if len(p.Trips) != 1 || p.Trips[0].Instance != "Shadowfang Keep (Silverpine Forest)" || len(p.Parked) != 0 {
+		t.Errorf("with a group plan: trips %+v, parked %+v", p.Trips, p.Parked)
 	}
 }
 
