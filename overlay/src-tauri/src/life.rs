@@ -369,7 +369,7 @@ pub fn shell_log_tail(text: &str) -> String {
 /// Reads the two files; a missing one is an empty string.
 pub fn diagnostics_files(log_dir: &Path, data_dir: &Path) -> DiagnosticsFiles {
     let read = |p: PathBuf| fs::read(p).map(|b| String::from_utf8_lossy(&b).to_string()).unwrap_or_default();
-    DiagnosticsFiles { shell_log: shell_log_tail(&read(log_dir.join(SHELL_LOG))), guard: read(data_dir.join("launch-guard.json")) }
+    DiagnosticsFiles { shell_log: redact_text(&shell_log_tail(&read(log_dir.join(SHELL_LOG)))), guard: redact_text(&read(data_dir.join("launch-guard.json"))) }
 }
 
 #[cfg(test)]
