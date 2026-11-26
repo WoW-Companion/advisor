@@ -900,10 +900,28 @@ func worldDrop(crs []creature) bool {
 	return true
 }
 
+// craftedConsumable is true for a flask, elixir, potion or food (the consumable class) that a profession's
+// recipe makes and no vendor sells: common quality, so no gear rule holds it back, yet it is sold on the Auction
+// House all the same.
+func (f *finder) craftedConsumable() bool {
+	if i64(f.item["class_id"]) != 0 {
+		return false
+	}
+	recs, err := f.ds.Filter("recipes", store.Range{Column: "creates_item_id", Min: f.itemID, Max: f.itemID})
+	if err != nil || len(recs) == 0 {
+		return false
+	}
+	_, sold := vendors.BestFor(f.c, f.ds, f.itemID)
+	return !sold
+}
+
 // auction is the Auction House path: a tradeable item of uncommon quality or better that is a world
 // drop, or Bind on Equip from any source. It never says or depends on a price.
 func (f *finder) auction(crs []creature) (Path, bool) {
 	bonding, quality := int(i64(f.item["bonding"])), int(i64(f.item["quality"]))
+	if _, known := f.item["bonding"].(int64); known && Tradeable(bonding, quality) && f.craftedConsumable() {
+		return Path{Kind: Auction, Line: "Crafters make it and sell it, so it is on the Auction House.", rank: rankAuction}, true
+	}
 	if _, known := f.item["bonding"].(int64); !known || !AuctionTradeable(bonding, quality) {
 		return Path{}, false // an unknown binding is not claimed tradeable
 	}

@@ -421,7 +421,7 @@ func TestNamedHasNoLevelGate(t *testing.T) {
 		t.Errorf("pickups %+v", p.Pickups)
 	}
 	text := RenderNamed(c, *p, togo)
-	for _, want := range []string{"You're 10; it opens around 17.", "Boss C", "Wailing Errand"} {
+	for _, want := range []string{"You're 10; it opens around 17.", "Boss C", "Wailing Errand", "Key or entry requirement: not known yet"} {
 		if !strings.Contains(text, want) {
 			t.Errorf("missing %q in:\n%s", want, text)
 		}
@@ -511,10 +511,13 @@ func TestARaidIsDescribedByNameNotPlanned(t *testing.T) {
 		t.Fatalf("%v %v", p, err)
 	}
 	text := RenderNamed(c, *p, 0)
-	for _, want := range []string{"Ash Citadel (about levels 60–60; entrance in Silithus; 40 players)", "All bosses: Raid Boss", "Lockout and attunement: not known yet"} {
+	for _, want := range []string{"Ash Citadel (level 60; entrance in Silithus; 40 players)", "All bosses: Raid Boss", "Lockout and attunement: not known yet"} {
 		if !strings.Contains(text, want) {
 			t.Errorf("missing %q in:\n%s", want, text)
 		}
+	}
+	if strings.Contains(text, "Key or entry requirement") {
+		t.Errorf("a raid was given the dungeon key line:\n%s", text)
 	}
 	if d := Mentioned(ds, nil, "what drops in Ash Citadel?"); d != "Ash Citadel" {
 		t.Errorf("mentioned %q", d)

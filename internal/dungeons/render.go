@@ -45,6 +45,9 @@ func (p DungeonPick) levels() string {
 	if p.MinLevel == nil || p.MaxLevel == nil {
 		return ""
 	}
+	if *p.MinLevel == *p.MaxLevel {
+		return fmt.Sprintf("level %d", *p.MinLevel) // a raid that opens at the top level: "levels 60\u201360" reads as a range
+	}
 	if p.Curated {
 		return fmt.Sprintf("about levels %d\u2013%d", *p.MinLevel, *p.MaxLevel)
 	}
@@ -222,6 +225,9 @@ func RenderNamed(c character.Character, p DungeonPick, togo int) string {
 	if p.Raid {
 		// the dataset has no reset period, lockout rule or attunement quest for a raid
 		b.WriteString("       Lockout and attunement: not known yet\n")
+	} else {
+		// nor a key or other entry requirement for a dungeon (the Shadowforge Key, the Scarlet Key)
+		b.WriteString("       Key or entry requirement: not known yet\n")
 	}
 	if len(p.Inside) > 0 {
 		var bosses, elites, rest []string
