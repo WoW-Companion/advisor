@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.7.93
+
+- **Changed** a quest handed in at another NPC, with nothing to do, now reads as a trip to that NPC.
+- **Changed** a trip into a dungeon is marked "(dungeon)" and ranks after quick turn-ins.
+- **Changed** a zone you are not in now gets one connected route that starts where you arrive.
+- **Changed** the route starts at a flight master you know, such as Tharm at Sun Rock Retreat.
+- **Changed** with no known flight point, the step says to walk or ride, never to fly.
+- **Changed** across continents, the step names the zeppelin or boat first, then the flight.
+
 ## 0.7.92
 
 - **Changed** talent advice now follows the Icy Veins leveling build, one next pick at a time.
