@@ -154,7 +154,7 @@ func TestTrainingLuaFields(t *testing.T) {
 	opt.PrevLevel = 8
 	d := Build(warrior(10), warriorStore(t), opt)
 	out := one(d).Lua()
-	for _, want := range []string{`schema = "1.9"`, `asks = { "Which new ability should I train first?"`, `ref = "training:10"`, `kind = "training"`, `level = 10`, `spells = { { id = 6546, name = "Rend", rank = 2, new = false }, { id = 355, name = "Taunt", new = true } }`, `details = {`} {
+	for _, want := range []string{`schema = "1.10"`, `asks = { "Which new ability should I train first?"`, `ref = "training:10"`, `kind = "training"`, `level = 10`, `spells = { { id = 6546, name = "Rend", rank = 2, new = false, state = "available", level = 10 }, { id = 355, name = "Taunt", new = true, state = "available", level = 10 } }`, `ahead = { { id = 72, name = "Shield Bash", rank = 1, new = true, state = "later", level = 12 } }`, `details = {`} {
 		if !strings.Contains(out, want) {
 			t.Errorf("lacks %s:\n%s", want, out)
 		}
@@ -341,5 +341,101 @@ func TestTrainerOfferedHighIDIsKept(t *testing.T) {
 	l, ok := trainingOf(Build(c, runeStore(t), synthOpt))
 	if !ok || !slices.Contains(spellNames(l), "Test Circle") {
 		t.Fatalf("a trainer-offered high id is dropped: %+v", l)
+	}
+}
+
+// twPriest is an Undead priest at 24 who visited Father Lankester; the dataset has three ranks of Touch
+// of Weakness, Rank 1 (quest 5658) at 10, Rank 2 at 20 and Rank 3 at 28.
+func twPriest(t *testing.T, rank2 string, known ...int64) (character.Character, store.DataStore, Options) {
+	ds := store.New(store.ReaderSource{"class_spells": tbl(t, []spellRow{
+		{5, 2652, "Touch of Weakness", i32p(1), 10, nil},
+		{5, 19261, "Touch of Weakness", i32p(2), 20, i32p(2652)},
+		{5, 19262, "Touch of Weakness", i32p(3), 28, i32p(19261)},
+	})})
+	st := []questie.Ref{{ID: 100}}
+	qx := &questie.Index{DB: "v0",
+		Quests: map[int]*questie.Quest{5658: {ID: 5658, Name: "Touch of Weakness", Level: 10, MinLevel: 10, Classes: 1 << 4, Races: 1 << 4, Starters: st, Finishers: st}},
+		Npcs:   map[int]questie.Entity{100: {Name: "Aelthalyste", Spawns: []questie.Spawn{{Area: 902, X: 50, Y: 60}}}},
+		Areas:  map[int]questie.Area{902: {UIMap: 7001, Zone: "Undercity"}}}
+	id, x, y := 7001, 40.0, 60.0
+	c := character.Character{Name: "Priest", Class: "PRIEST", Race: "Undead", Faction: "Horde", Level: ip(24), KnownSpells: map[int64]bool{2944: true},
+		Location: &character.Location{Zone: "Undercity", MapID: &id, X: &x, Y: &y},
+		Seen: &character.Observed{Trainers: []character.SeenTrainer{{NPC: 4607, Name: "Father Lankester", Faction: "Horde", Map: 7001, X: 62.5, Y: 43.5, T: 1,
+			Offers: []character.SeenOffer{{Spell: 19261, Name: "Touch of Weakness", Rank: "Rank 2", State: rank2, Cost: 3000, Level: 20}}}}}}
+	for _, k := range known {
+		c.KnownSpells[k] = true
+	}
+	opt := synthOpt
+	opt.Questie = qx
+	return c, ds, opt
+}
+
+func aheadByID(l Line, id int) (TrainSpell, bool) {
+	for _, s := range l.Ahead {
+		if s.ID == id {
+			return s, true
+		}
+	}
+	return TrainSpell{}, false
+}
+
+func TestTrainingOfferBlockedByQuestTaughtRank(t *testing.T) {
+	c, ds, opt := twPriest(t, "unavailable")
+	l, ok := trainingOf(Build(c, ds, opt))
+	if !ok {
+		t.Fatal("no training line")
+	}
+	r2, ok := aheadByID(l, 19261)
+	if !ok || r2.State != StateBlocked || r2.Requires != 2652 || r2.RequiresQuest != 5658 || r2.Level != 20 || r2.Rank != 2 || r2.Cost != 3000 && r2.Cost != 0 {
+		t.Errorf("rank 2 = %+v, %v", r2, ok)
+	}
+	if _, bad := aheadByID(l, 2652); bad {
+		t.Error("Rank 1 is taught by a quest, never offered by the trainer")
+	}
+	for _, s := range l.Spells {
+		if s.ID == 19261 {
+			t.Errorf("blocked offer listed as available: %+v", s)
+		}
+	}
+}
+
+func TestTrainingOfferAvailableOnceRankOneKnown(t *testing.T) {
+	c, ds, opt := twPriest(t, "available", 2652)
+	l, ok := trainingOf(Build(c, ds, opt))
+	if !ok {
+		t.Fatal("no training line")
+	}
+	var r2 TrainSpell
+	for _, s := range l.Spells {
+		if s.ID == 19261 {
+			r2 = s
+		}
+	}
+	if r2.State != StateAvailable || r2.Requires != 0 || r2.RequiresQuest != 0 || r2.Level != 20 || r2.Cost != 3000 {
+		t.Errorf("rank 2 = %+v", r2)
+	}
+}
+
+func TestTrainingOfferLaterRankAboveLevel(t *testing.T) {
+	c, ds, opt := twPriest(t, "unavailable")
+	l, _ := trainingOf(Build(c, ds, opt))
+	r3, ok := aheadByID(l, 19262)
+	if !ok || r3.State != StateLater || r3.Level != 28 || r3.Requires != 19261 || r3.RequiresQuest != 5658 {
+		t.Errorf("rank 3 = %+v, %v", r3, ok)
+	}
+}
+
+func TestTrainingLinePlaceFields(t *testing.T) {
+	c, ds, opt := twPriest(t, "unavailable")
+	l, _ := trainingOf(Build(c, ds, opt))
+	if l.NPC != "Father Lankester" || l.Map != 7001 || l.X != 62.5 || l.Y != 43.5 || !l.HasXY {
+		t.Errorf("place = %q map %d (%v, %v)", l.NPC, l.Map, l.X, l.Y)
+	}
+	var b strings.Builder
+	l.writeFields(&b)
+	for _, want := range []string{`map = 7001, x = 62.5, y = 43.5`, `ahead = {`, `state = "blocked", requires = 2652, requiresQuest = 5658, level = 20`, `state = "later"`} {
+		if !strings.Contains(b.String(), want) {
+			t.Errorf("lua lacks %q: %s", want, b.String())
+		}
 	}
 }

@@ -264,7 +264,7 @@ func TestWholeCutAndOneLineHow(t *testing.T) {
 
 func TestLuaCarriesAsksAndRef(t *testing.T) {
 	out := one(scoutDigest(t, true)).Lua()
-	for _, want := range []string{`schema = "1.9"`, `asks = { "What comes after I hand in Unwelcome Spirits?"`, `ref = "quest:700"`,
+	for _, want := range []string{`schema = "1.10"`, `asks = { "What comes after I hand in Unwelcome Spirits?"`, `ref = "quest:700"`,
 		`kind = "giver"`, `ref = "npc:1"`, `asks = { "Which talent should I take next for my play style?"`, `ref = "talents"`, `ref = "training:10"`, `asks = { "Which new ability should I train first?"`} {
 		if !strings.Contains(out, want) {
 			t.Errorf("lacks %s", want)

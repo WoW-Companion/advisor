@@ -38,6 +38,11 @@ type Spell struct {
 	SeenAt    int64
 	NeedLevel int
 	Blocked   bool // the trainer showed it as not yet available
+	// Requires is the spell id of the rank to learn first (0 when none or already known); RequiresQuest the
+	// quest that teaches that prerequisite (0 when none). State is set by Ahead: "blocked" or "later".
+	Requires      int64
+	RequiresQuest int
+	State         string
 	// Usually marks a spell from the dataset's class list, with no opened class trainer to confirm it.
 	Usually bool
 }
@@ -217,7 +222,11 @@ func trainerSpells(c character.Character, ds store.DataStore, t *character.SeenT
 			sp.New = sup == 0
 			if sup != 0 {
 				superseded[sup] = true
+				if !c.KnownSpells[sup] {
+					sp.Requires = sup
+				}
 			}
+			sp.RequiresQuest = questNeeded(c, sp.Name, sp.Rank)
 		}
 		if sp.Name == "" || sp.Level > to || sp.Level < from || c.KnownSpells[sp.ID] && sp.ID != 0 || questLocked(c, sp.Name, sp.Rank, sp.Blocked) {
 			continue
@@ -307,7 +316,7 @@ func SeenClassTrainer(c character.Character) (Trainer, bool) {
 	if best == nil {
 		return Trainer{}, false
 	}
-	return Trainer{Name: best.Name, Zone: c.ZoneOfMap(best.Map), X: best.X, Y: best.Y}, true
+	return Trainer{Name: best.Name, Zone: c.ZoneOfMap(best.Map), X: best.X, Y: best.Y, Map: best.Map}, true
 }
 
 func seenClassTrainer(c character.Character) *character.SeenTrainer {
@@ -381,6 +390,7 @@ func MoneyLine(c character.Character, total int64) string {
 type Trainer struct {
 	Name, Zone string
 	X, Y       float64
+	Map        int // the uiMapID the position is on, 0 when unknown
 }
 
 // NearestTrainer is the character's class trainer for their faction, in their zone first, else the
@@ -407,7 +417,7 @@ func NearestTrainer(c character.Character, qx *questie.Index) (Trainer, bool) {
 			rank = 1
 		}
 		if !found || rank < bestRank || (rank == bestRank && rank == 0 && p.Dist < bestDist) {
-			best, bestRank, bestDist, found = Trainer{t.Name, p.Zone, p.X, p.Y}, rank, p.Dist, true
+			best, bestRank, bestDist, found = Trainer{t.Name, p.Zone, p.X, p.Y, p.Map}, rank, p.Dist, true
 		}
 	}
 	return best, found
@@ -628,5 +638,81 @@ func QuestBlocked(c character.Character, ds store.DataStore, qx *questie.Index) 
 			out = append(out, fmt.Sprintf("%s: %s", m.Spell, where))
 		}
 	}
+	return out
+}
+
+// AheadLevels is how many levels above the character the Ahead offers reach.
+const AheadLevels = 6
+
+// questNeeded is the id of the quest that teaches the Rank 1 a later rank of the spell needs, while
+// the character does not know it; 0 for a trainer-taught spell or once learned.
+func questNeeded(c character.Character, name string, rank int) int {
+	sq, ok := advice.QuestSpellFor(name, int(ClassIDs[strings.ToUpper(c.Class)]))
+	if !ok || rank < 2 {
+		return 0
+	}
+	for _, id := range sq.Rank1 {
+		if c.KnownSpells[id] {
+			return 0
+		}
+	}
+	return sq.QuestID
+}
+
+// Ahead lists the offers the trainer cannot teach yet, from the dataset's class list: a rank behind
+// a quest-taught first rank ("blocked", at or below the character's level) and any rank within
+// AheadLevels above their level ("later"). Each carries the prerequisite spell id and quest, so a
+// reader can unlock it the moment the prerequisite is learned. Known spells are left out.
+func Ahead(c character.Character, ds store.DataStore) []Spell {
+	if c.Level == nil {
+		return nil
+	}
+	level := *c.Level
+	rows := classRows(c, ds, 1, level+AheadLevels)
+	if len(rows) == 0 {
+		return nil
+	}
+	quest := questTaught(ds)
+	lo, hi := int64(1<<62), int64(0)
+	for _, r := range rows {
+		if id, _ := r["spell_id"].(int64); id != 0 {
+			lo, hi = min(lo, id), max(hi, id)
+		}
+	}
+	costs := costsOf(ds, lo, hi)
+	var out []Spell
+	seen := map[int64]bool{}
+	for _, r := range rows {
+		id, _ := r["spell_id"].(int64)
+		name, _ := r["name"].(string)
+		lv, _ := r["level"].(int64)
+		rk, _ := r["rank"].(int64)
+		sup, _ := r["superseded_spell_id"].(int64)
+		if t, ok := r["trained"].(bool); ok && !t {
+			continue
+		}
+		if id == 0 || name == "" || seen[id] || c.KnownSpells[id] || quest[id].Quest != "" || isRuneAbility(id, lv) {
+			continue
+		}
+		s := Spell{ID: id, Name: name, Rank: int(rk), Level: int(lv), New: sup == 0, Cost: costs[id], Usually: true}
+		if sup != 0 && !c.KnownSpells[sup] {
+			s.Requires = sup
+		}
+		s.RequiresQuest = questNeeded(c, name, int(rk))
+		if rk <= 1 && questLocked(c, name, int(rk), false) {
+			continue // a quest teaches it: no trainer ever offers it
+		}
+		switch {
+		case int(lv) > level:
+			s.State = "later"
+		case questLocked(c, name, int(rk), false):
+			s.State = "blocked"
+		default:
+			continue // trainable now: Spells lists it
+		}
+		seen[id] = true
+		out = append(out, s)
+	}
+	sortSpells(out)
 	return out
 }

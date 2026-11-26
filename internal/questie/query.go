@@ -22,6 +22,7 @@ type Place struct {
 	Name string // the NPC or object
 	Sub  string // subzone, when the area has one
 	Zone string
+	Map  int // the uiMapID of the zone, 0 when unknown
 	X, Y float64
 	Dist float64 // distance from the character in map percent; -1 when unknown
 }
@@ -76,7 +77,7 @@ func (ix *Index) onMap(area int, w Where) bool {
 
 func (ix *Index) place(e Entity, s Spawn, w Where) Place {
 	a := ix.Areas[s.Area]
-	p := Place{Name: e.Name, Sub: a.Sub, Zone: a.Zone, X: s.X, Y: s.Y, Dist: -1}
+	p := Place{Name: e.Name, Sub: a.Sub, Zone: a.Zone, Map: a.UIMap, X: s.X, Y: s.Y, Dist: -1}
 	if ix.onMap(s.Area, w) {
 		p.Dist = math.Hypot(s.X-w.X, s.Y-w.Y)
 	}
