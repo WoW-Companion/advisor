@@ -139,8 +139,9 @@ Names and positions come from the dataset or the player's own capture, never inv
 ## Schema 1.3: places and "here" data
 
 Steps are a quest's open objectives, one per thing left to do, each with the verb its objective type
-implies and the place where it is done. A friendly or quest-giving NPC is "Talk to" (or the objective's
-own "Listen to"), never "Kill". A quest in the log that lists open objectives plans only those. Objective
+implies and the place where it is done. The quest log's own text decides the verb ("slain" is "Kill", "Talk to" stays,
+"placed" and the like are kept). Without it, an NPC whose Questie faction includes the player's side, or a
+quest giver with no faction, is "Talk to" (or the objective's own "Listen to"); any other is "Kill". A quest in the log that lists open objectives plans only those. Objective
 stops merge only when they say the same thing (the same label) within 3 map percent.
 
 Order: after the optimiser, a pick-up or turn-in within 3 map percent of the player's position, or of an
