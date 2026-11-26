@@ -360,12 +360,15 @@ func professionPlanFacts(cc loaded, text string) string {
 	if prof == "" || cc.ds == nil {
 		return ""
 	}
+	if route := professions.RouteFacts(cc.c, cc.ds, cc.qx, prof); route != "" {
+		return "The character HAS " + prof + " (it is one of their professions); never say they lack it. Skill-up paths come from these route facts, never from general knowledge; use the counts and trainers as written. " + route
+	}
 	pa := professions.ComputePathWith(cc.c, cc.ds, cc.qx, prof, 0, 1)
 	body := professions.RenderPath(pa)
 	if strings.TrimSpace(body) == "" {
 		return ""
 	}
-	return "The character HAS " + prof + " (it is one of their professions); never say they lack it. Their " + prof + " leveling plan from profession_plan; answer from it, not from general tips:\n" + capRunes(body, planRunes)
+	return "No fetched efficient route exists for " + prof + " in the game data, so say the path below is estimated. Profession trainers are never class trainers.\nThe character HAS " + prof + " (it is one of their professions); never say they lack it. Their " + prof + " leveling plan from profession_plan; answer from it, not from general tips:\n" + capRunes(body, planRunes)
 }
 
 // talentFacts states unspent class talent points, for "what next" answers to mention first; "" when there are none.

@@ -674,6 +674,13 @@ func NextSkillUp(c character.Character, ds store.DataStore, profession string) s
 	if ds == nil {
 		return ""
 	}
+	if sk, ok := skillOf(c, profession); ok && sk.Rank != nil {
+		if r, ok := LoadRoute(ds, profession); ok {
+			if i := r.Covering(*sk.Rank); i >= 0 {
+				return fmt.Sprintf("next skill-up: make %d × %s", r.Steps[i].craftsLeft(*sk.Rank), r.Steps[i].Recipe)
+			}
+		}
+	}
 	pa := ComputePath(c, ds, profession, 0, 1)
 	if len(pa.Bands) == 0 {
 		return ""
