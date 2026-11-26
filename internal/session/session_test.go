@@ -91,8 +91,8 @@ func TestTimeModel(t *testing.T) {
 		t.Errorf("walk = %v, want %v", got, want)
 	}
 	in.Char.Level = ip(40)
-	if got := in.WalkSecs(a, b); got != want/2 {
-		t.Errorf("mounted walk = %v", got)
+	if got, mounted := in.WalkSecs(a, b), want*WalkSpeed/MountSpeed; got != mounted {
+		t.Errorf("mounted walk = %v, want %v", got, mounted)
 	}
 	for sec, want := range map[float64]int{60: 5, 25 * 60: 25, 27 * 60: 25, 28 * 60: 30} {
 		if got := RoundMinutes(sec); got != want {
