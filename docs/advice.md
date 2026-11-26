@@ -16,7 +16,8 @@ row id).
 3. **Open quests** (`quest`): ordered by how close the quest level is to the character's. Quests
    more than 5 levels below (grey) or more than 3 above are skipped. A quest whose level is unknown
    (not in the capture, not in the dataset `quests` table) is listed after the others with the
-   reason "quest level unknown"; it is never guessed.
+   reason "quest level unknown"; it is never guessed. When the client table has no level, the level players
+reported (`quests_observed`, Everloot, CC BY-SA) is used and named in the step's sources.
 4. **Quests to pick up** (`quest`, "Pick up: ..."): up to 3 quests not in the log, see below.
 5. **Failed quests** (`quest`, "Abandon ..."): failed quests that cannot be completed.
 
