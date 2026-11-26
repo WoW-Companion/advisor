@@ -36,7 +36,14 @@
       const done = o.has_count && o.have >= o.need;
       rows.push({ cls: 'nx-obj' + (done ? ' nx-done' : ''), parts: [{ text: count + o.text + (o.optional ? ' (optional)' : '') }] });
     }
-    if (line.kind === 'turnin') {
+    if (line.kind === 'turnin' && line.trip) {
+      // A trip: handed in elsewhere, so say where, not "ready to turn in".
+      const where = line.instance
+        ? 'Find ' + line.finisher + ' inside ' + line.instance + (line.instance_zone && line.instance_zone !== line.instance ? ' (' + line.instance_zone + ')' : '') + ' (dungeon)'
+        : 'Deliver to ' + line.finisher + ' in ' + line.finisher_place;
+      rows.push({ cls: 'nx-sub nx-trip', parts: [{ text: where }] });
+      if (line.unlocks && line.unlocks.length) rows.push({ cls: 'nx-sub nx-unlocks', parts: [{ text: 'Unlocks: ' + line.unlocks.join('; ') }] });
+    } else if (line.kind === 'turnin') {
       rows.push({ cls: 'nx-sub nx-ready', parts: [{ text: 'Ready to turn in' }] });
       if (line.npc) rows.push({ cls: 'nx-sub', parts: [{ text: 'Turn in to ' + line.npc }] });
       if (line.unlocks && line.unlocks.length) rows.push({ cls: 'nx-sub nx-unlocks', parts: [{ text: 'Unlocks: ' + line.unlocks.join('; ') }] });

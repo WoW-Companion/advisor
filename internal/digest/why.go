@@ -49,6 +49,9 @@ func questWhy(c character.Character, l Line) string {
 	}
 	switch l.Kind {
 	case KindTurnIn:
+		if l.Trip {
+			return tripWhy(l)
+		}
 		if len(l.Unlocks) > 0 {
 			next, _, _ := strings.Cut(l.Unlocks[0], " (")
 			return firstWhy("Unlocks "+next, "Unlocks a follow-up quest", "Done — hand it in on your way")
@@ -75,6 +78,17 @@ func questWhy(c character.Character, l Line) string {
 		return firstWhy(fit)
 	}
 	return ""
+}
+
+// tripWhy is the why of a turn-in that is a journey. Longest wording that fits first; a dungeon trip is
+// never called a quick stop.
+func tripWhy(l Line) string {
+	phrase := wording.Trip(l.Finisher, l.FinisherPlace, l.Instance, l.InstanceZone)
+	if l.Instance == "" {
+		return firstWhy(phrase, "Deliver to "+l.Finisher)
+	}
+	short := wording.Trip(l.Finisher, l.FinisherPlace, l.Instance, "")
+	return firstWhy(phrase+" to turn in the quest", phrase, short+" to turn in the quest", short, "Dungeon: find "+l.Finisher)
 }
 
 // talentWhy is the why of the unspent-points line: the plan's next pick, or how to get one.

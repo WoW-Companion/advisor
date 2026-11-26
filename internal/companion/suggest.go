@@ -52,7 +52,7 @@ func suggest(in suggestInput) []Suggestion {
 	for _, e := range in.Entries {
 		var label string
 		switch {
-		case e.Group == "next" && e.Kind == digest.KindTurnIn:
+		case e.Group == "next" && e.Kind == digest.KindTurnIn && !e.Trip: // a trip is not a quick turn-in
 			label = "Turn in " + e.Title
 		case e.Group == "next" && e.Kind == digest.KindPickup && e.Class:
 			label = "Start the class quest " + e.Title

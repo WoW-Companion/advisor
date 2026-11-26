@@ -15,6 +15,7 @@ type PlanEntry struct {
 	Status string   `json:"status,omitempty"`
 	Why    string   `json:"why,omitempty"` // one short reason, at most 70 characters
 	Class  bool     `json:"class,omitempty"`
+	Trip   bool     `json:"trip,omitempty"` // a turn-in that is a journey, not a quick stop
 	Asks   []string `json:"asks,omitempty"`
 	Ref    string   `json:"ref,omitempty"`
 }
@@ -39,7 +40,7 @@ func entriesOf(d digest.Digest) []PlanEntry {
 			continue
 		}
 		for _, l := range sec.Lines {
-			e := PlanEntry{Group: g, Kind: l.Kind, Title: l.Title, Status: statusOf(l), Why: l.Why, Class: l.Class, Asks: l.Asks, Ref: l.Ref}
+			e := PlanEntry{Group: g, Kind: l.Kind, Title: l.Title, Status: statusOf(l), Why: l.Why, Class: l.Class, Trip: l.Trip, Asks: l.Asks, Ref: l.Ref}
 			if e.Title == "" {
 				e.Title, e.Status = l.Text, ""
 			}
@@ -61,6 +62,9 @@ func statusOf(l digest.Line) string {
 	case digest.KindPickup:
 		return "pick up"
 	case digest.KindTurnIn:
+		if l.Trip {
+			return "trip"
+		}
 		return "turn in"
 	case digest.KindProgress:
 		return "in progress"

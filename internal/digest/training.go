@@ -416,6 +416,13 @@ func questContext(c character.Character, l Line, reason string) []string {
 	var d []string
 	where := ""
 	switch {
+	case l.Kind == KindTurnIn && l.Trip:
+		where = wording.Trip(l.Finisher, l.FinisherPlace, l.Instance, l.InstanceZone)
+		if l.Instance != "" {
+			where += " (dungeon)"
+		}
+		d = append(d, where)
+		where = ""
 	case l.Kind == KindTurnIn && l.NPC != "":
 		where = "Turn in to " + l.NPC
 	case l.Kind == KindPickup && l.NPC != "":
@@ -424,7 +431,7 @@ func questContext(c character.Character, l Line, reason string) []string {
 	if where != "" {
 		where += spot(c, l.NPC)
 	}
-	if l.Zone != "" {
+	if l.Zone != "" && !l.Trip {
 		if where != "" {
 			where += " in " + l.Zone
 		} else {

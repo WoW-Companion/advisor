@@ -184,3 +184,17 @@ func Action(verb, text string) string {
 	}
 	return verb + " " + text
 }
+
+// Trip says where a quest with nothing to do is handed in, as a trip: "Find Vincent inside Shadowfang
+// Keep (Silverpine Forest)" for a finisher inside a dungeon, "Deliver to Sputtervalve in Ratchet (The
+// Barrens)" otherwise. place is the finisher's place in words; zone is the dungeon's zone.
+func Trip(finisher, place, instance, zone string) string {
+	if instance == "" {
+		return "Deliver to " + finisher + " in " + place
+	}
+	s := "Find " + finisher + " inside " + instance
+	if zone != "" && zone != instance {
+		s += " (" + zone + ")"
+	}
+	return s
+}

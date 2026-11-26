@@ -49,6 +49,12 @@ func stops(b *strings.Builder, indent string, list []Stop) {
 		if len(s.Unlocks) > 0 {
 			extra += ", unlocks = " + idList(s.Unlocks)
 		}
+		if s.Trip {
+			extra += ", trip = true, finisher = " + digest.Quote(s.Finisher) + ", finisherPlace = " + digest.Quote(s.FinisherPlace)
+			if s.Instance != "" {
+				extra += ", instance = " + digest.Quote(s.Instance)
+			}
+		}
 		fmt.Fprintf(b, "%s{ n = %d, kind = %s, questID = %d, quest = %s, label = %s, map = %d, x = %.1f, y = %.1f, done = %t%s },\n",
 			indent, s.N, digest.Quote(s.Kind), s.QuestID, digest.Quote(s.Quest), digest.Quote(s.Label), s.Map, s.X, s.Y, s.Done, extra)
 	}
@@ -88,8 +94,15 @@ func (e Envelope) Lua() string {
 			if f.Object != "" {
 				who = "object = " + digest.Quote(f.Object)
 			}
-			fmt.Fprintf(&b, "        { questID = %d, quest = %s, %s, map = %d, x = %.1f, y = %.1f, place = %s },\n",
-				f.QuestID, digest.Quote(f.Quest), who, f.Map, f.X, f.Y, digest.Quote(f.Place))
+			trip := ""
+			if f.Trip {
+				trip = ", trip = true, finisher = " + digest.Quote(f.Finisher) + ", finisherPlace = " + digest.Quote(f.FinisherPlace)
+				if f.Instance != "" {
+					trip += ", instance = " + digest.Quote(f.Instance)
+				}
+			}
+			fmt.Fprintf(&b, "        { questID = %d, quest = %s, %s, map = %d, x = %.1f, y = %.1f, place = %s%s },\n",
+				f.QuestID, digest.Quote(f.Quest), who, f.Map, f.X, f.Y, digest.Quote(f.Place), trip)
 		}
 		b.WriteString("      },\n      zones = {\n")
 		for _, z := range p.Zones {
