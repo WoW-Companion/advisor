@@ -31,6 +31,12 @@ the player's local files. Nothing Questie-derived is stored in this repo.
   spot; the panel's Next quests and the answers' facts follow the same order.
 - Order: a quest's pick-up comes before its objectives, and they come before its turn-in. Identical
   stops are merged (several turn-ins at one NPC, objectives within 3 map percent of each other).
+- Town dungeon pick-ups: a quest offered on the character's map that leads to a dungeon whose level
+  range fits (its minimum at most 3 levels above, its maximum at most 3 below) is a pick-up step even
+  above the 1-level margin, first on the route, labelled "Pick up X (Dungeon, 2,100 XP) from NPC" (no XP
+  when the quest XP table is missing). Holiday and festival quests wait in `later` unless nothing else is
+  planned. With 2 or fewer free quest-log slots (40, or the client's size) only that many pick-ups are
+  planned, dungeon quests first, then class quests, then by XP, and a note says the log is nearly full.
 - Quests more than 1 level above the character, stops on another map, and stops past the 20th go to `later`.
   The map with the most `later` stops is named as a final `travel` stop ("Travel to <zone>"; a dungeon reads "Travel to <place> (<zone>)", never a map number).
 - Quests ready to turn in on the player's map are the first steps, nearest first. A ready turn-in in a town

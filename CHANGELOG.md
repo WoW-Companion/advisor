@@ -1,8 +1,14 @@
 # Changelog
 
-## 0.7.85
+## 0.7.86
 
 - The plan file lists where each quest in your log is handed in, for live turn-in hints.
+
+## 0.7.85
+
+- In town, a dungeon quest at your level (The Book of Ur) is a pick-up step, first on the route.
+- A dungeon far above you, and holiday quests, stay under later.
+- With a nearly full quest log, only as many pick-ups as free slots are planned.
 
 ## 0.7.84
 
