@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.83
+
+- Ready turn-ins where you stand now come first on the route, nearest first, before pick-ups.
+- Ready turn-ins in a town you can fly to get one "Fly to <town>" step.
+- Travel steps name the place ("Shadowfang Keep (Silverpine Forest)"), never a map number.
+
 ## 0.7.82
 
 - Training lists only what your trainer shows as available.
