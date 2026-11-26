@@ -98,3 +98,22 @@ func TestGiverNameSeenFillsOnlyAMissingGiver(t *testing.T) {
 		t.Errorf("nothing seen: %q", n)
 	}
 }
+
+// A step the client tables do not name is named by the title players reported; one nobody reported stays unnamed.
+func TestChainStepsAreNamedFromObservedTitles(t *testing.T) {
+	ds := store.New(store.ReaderSource{
+		"quest_lines": table(t, []lineRow{{7, "Ember Line", 1, 95001}, {7, "Ember Line", 2, 95500}, {7, "Ember Line", 3, 95999}}),
+		"quests_observed": table(t, []obsRow{
+			{95001, "Fort Ember (seen)", 12, 0, "Alliance", "Quest line"},
+			{95500, "Seen Only", 8, 0, "Horde", "Daily"},
+		}),
+	})
+	c := Of(ds, 95001)
+	got := []string{c.Steps[0].Name, c.Steps[1].Name, c.Steps[2].Name}
+	if strings.Join(got, "|") != "Fort Ember (seen)|Seen Only|" {
+		t.Errorf("step names %q", got)
+	}
+	if r := Render(c, ""); !strings.Contains(r, "1. Fort Ember (seen) (quest 95001)") || !strings.Contains(r, "3. quest 95999\n") {
+		t.Errorf("render:\n%s", r)
+	}
+}

@@ -99,6 +99,7 @@ func tbl[T any](t *testing.T, rows []T) store.SizedReaderAt {
 const (
 	shawl, vest, bracers, belt, helm, bar, ore, blade, sword = 1, 2, 3, 4, 5, 10, 11, 6, 7
 	mail, cloak                                              = 3, 1
+	unsourced                                                = 12
 )
 
 func item(id int64, name string, ilvl, req, quality, subclass, slot, bonding int32) itemRow {
@@ -128,6 +129,7 @@ func fixture(t *testing.T) store.DataStore {
 			item(ore, "Copper Ore", 1, 0, 1, 0, 0, 0),
 			item(blade, "Fang Blade", 20, 8, 2, 1, 17, 1),
 			item(sword, "Mob's Pride", 21, 8, 2, mail, 8, 1),
+			item(unsourced, "Rank Gauntlets", 23, 8, 3, mail, 10, 1),
 		}),
 		"loot_sources": tbl(t, append(world, []lootRow{
 			{shawl, "quest", 500, 0, 0, nil},
@@ -203,6 +205,14 @@ func TestQuestOutranksOthers(t *testing.T) {
 	// A bind-on-pickup boss drop at 20%: the dungeon, then the creature itself.
 	if r := For(c, ds, helm, Options{}); kinds(r) != "dungeon,creature" {
 		t.Errorf("BoP boss item kinds = %q", kinds(r))
+	}
+}
+
+// An item the dataset lists no source for is not called a random drop: the answer says the data cannot place it.
+func TestUnsourcedItemIsNotCalledNotWorthChasing(t *testing.T) {
+	r := For(warrior(), fixture(t), unsourced, Options{})
+	if r.Dependable() || !strings.Contains(r.Reason, "lists no source") || strings.Contains(r.Reason, "worth chasing") {
+		t.Errorf("unsourced item: %+v", r)
 	}
 }
 

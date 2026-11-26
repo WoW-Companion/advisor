@@ -88,12 +88,15 @@ func Of(ds store.DataStore, questID int64) Chain {
 	return c
 }
 
+// questName is the quest's name in the client tables, else the title players reported in quests_observed, else "".
 func questName(ds store.DataStore, id int64) string {
-	row, err := ds.Get("quests", id)
-	if err != nil {
-		return ""
+	if row, err := ds.Get("quests", id); err == nil && str(row["name"]) != "" {
+		return str(row["name"])
 	}
-	return str(row["name"])
+	if f := observed(ds, id); f != nil {
+		return f.Name
+	}
+	return ""
 }
 
 // Resolve turns a quest id or name into a quest id and name. The name index lists no quests, so a

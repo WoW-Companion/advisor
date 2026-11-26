@@ -24,9 +24,20 @@ func (d Drop) String() string {
 		s += " (from your Questie database)"
 	}
 	if d.Chance != nil {
-		s += fmt.Sprintf(", drops %.0f%% of kills", *d.Chance)
+		s += ", drops " + percent(*d.Chance) + " of kills"
 	}
 	return s
+}
+
+// percent words a drop chance: whole percent from 1% up, one decimal below it so a rare drop is not "0%".
+func percent(ch float64) string {
+	switch {
+	case ch >= 1:
+		return fmt.Sprintf("%.0f%%", ch)
+	case ch >= 0.05:
+		return fmt.Sprintf("%.1f%%", ch)
+	}
+	return "under 0.1%"
 }
 
 // levels words a pick's range; a curated range is "about".
@@ -207,6 +218,10 @@ func RenderNamed(c character.Character, p DungeonPick, togo int) string {
 	p.describe(&b, 0)
 	if len(p.Bosses) > 0 {
 		b.WriteString("       All bosses: " + strings.Join(p.Bosses, ", ") + "\n")
+	}
+	if p.Raid {
+		// the dataset has no reset period, lockout rule or attunement quest for a raid
+		b.WriteString("       Lockout and attunement: not known yet\n")
 	}
 	if len(p.Inside) > 0 {
 		var bosses, elites, rest []string
