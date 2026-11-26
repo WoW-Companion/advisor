@@ -22,7 +22,7 @@ type Event struct {
 var Events = []Event{
 	{"midsummer", "Midsummer Fire Festival", -369, [2]int{6, 21}, [2]int{7, 5}},
 	{"hallows-end", "Hallow's End", -1003, [2]int{10, 18}, [2]int{11, 1}},
-	{"winter-veil", "Feast of Winter Veil", -1001, [2]int{12, 15}, [2]int{1, 2}},
+	{"winter-veil", "Feast of Winter Veil", -1001, [2]int{12, 16}, [2]int{1, 2}},
 	{"lunar-festival", "Lunar Festival", -366, [2]int{1, 21}, [2]int{2, 4}},
 	{"love-is-in-the-air", "Love is in the Air", -376, [2]int{2, 6}, [2]int{2, 20}},
 	{"noblegarden", "Noblegarden", -374, [2]int{4, 1}, [2]int{4, 14}},

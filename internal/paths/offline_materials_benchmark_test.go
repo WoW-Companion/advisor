@@ -512,7 +512,7 @@ var mbEvents = []struct {
 	key        string
 	start, end [2]int
 }{
-	{"midsummer", [2]int{6, 21}, [2]int{7, 5}}, {"hallows-end", [2]int{10, 18}, [2]int{11, 1}}, {"winter-veil", [2]int{12, 15}, [2]int{1, 2}},
+	{"midsummer", [2]int{6, 21}, [2]int{7, 5}}, {"hallows-end", [2]int{10, 18}, [2]int{11, 1}}, {"winter-veil", [2]int{12, 16}, [2]int{1, 2}},
 	{"childrens-week", [2]int{5, 1}, [2]int{5, 7}}, {"brewfest", [2]int{9, 20}, [2]int{10, 6}}, {"harvest-festival", [2]int{9, 22}, [2]int{9, 29}},
 }
 

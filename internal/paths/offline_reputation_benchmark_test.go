@@ -308,7 +308,11 @@ func TestOfflineBenchmarkSecondaryRecipeSource(t *testing.T) {
 			}
 		}
 		if skill > 1 {
-			ok = ok && strings.Contains(res.Text, fmt.Sprintf("It needs %s %d.", prof, skill))
+			about := ""
+			if text(r["learn_skill_source"]) == "estimate" {
+				about = "about " // an estimated skill is worded as one
+			}
+			ok = ok && strings.Contains(res.Text, fmt.Sprintf("It needs %s%s %d.", about, prof, skill))
 		}
 		out = append(out, benchRow{tc.name + ": where it is learned and the skill it needs", strings.ReplaceAll(res.Text, "\n", " "), ref, secLearnSrc, resultIf(ok, "the source or the skill needed")})
 	}

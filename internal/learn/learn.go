@@ -432,12 +432,21 @@ func line(w Way) string {
 func (f *finder) gate(r store.Row, prof string, trainerTaught bool) Gate {
 	need := f.need(r)
 	if need > 1 {
+		if f.estimated(r, need) {
+			return Gate{Skill: int(need), Line: fmt.Sprintf("It needs about %s %d.", prof, need)}
+		}
 		return Gate{Skill: int(need), Line: fmt.Sprintf("It needs %s %d.", prof, need)}
 	}
 	if trainerTaught {
 		return Gate{Unknown: true, Line: "The trainer will show whether you can learn it yet."}
 	}
 	return Gate{}
+}
+
+// estimated reports whether the need is the dataset's own guess: the number came from the recipe's learn_skill and
+// learn_skill_source says estimate (no trainer or recipe item gave one), so it is worded as "about".
+func (f *finder) estimated(r store.Row, need int64) bool {
+	return str(r["learn_skill_source"]) == "estimate" && i64(r["learn_skill"]) == need
 }
 
 // need is the skill the recipe needs, or 0 when no number is known.
