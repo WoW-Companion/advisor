@@ -43,6 +43,12 @@ func stops(b *strings.Builder, indent string, list []Stop) {
 		if s.Place != "" {
 			extra += ", place = " + digest.Quote(s.Place)
 		}
+		if s.Unplaced {
+			extra += ", unplaced = true"
+		}
+		if s.Approx {
+			extra += ", approx = true"
+		}
 		if len(s.QuestIDs) > 1 {
 			extra += ", questIDs = " + idList(s.QuestIDs)
 		}

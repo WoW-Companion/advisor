@@ -14,7 +14,7 @@ import (
 	"strings"
 )
 
-const indexSchema = 9 // bump when the cached index's shape changes
+const indexSchema = 10 // bump when the cached index's shape changes
 
 // Spawn is a place, as percent of the area's map.
 type Spawn struct {
@@ -219,6 +219,13 @@ func buildQuest(id int, r rawRow) *Quest {
 	if t := r["11"]; t != nil {
 		if sp := spawns(slot(t, 2)); len(sp) > 0 {
 			q.Triggers = append(q.Triggers, Trigger{Text: strings.TrimSpace(text(slot(t, 1))), Spawns: sp})
+		}
+	}
+	// extraObjectives (field 27): {spawns by area, icon, text, index} per objective with a place on the
+	// map and no NPC, object or item behind it, such as a spot to use an item at.
+	for _, e := range asList(r["27"]) {
+		if sp := spawns(slot(e, 1)); len(sp) > 0 {
+			q.Triggers = append(q.Triggers, Trigger{Text: strings.TrimSpace(text(slot(e, 3))), Spawns: sp})
 		}
 	}
 	q.PreGroup, q.PreSingle, q.Exclusive = ints(r["12"]), ints(r["13"]), ints(r["16"])

@@ -472,8 +472,17 @@ func (s *questieSource) zoneOnly(qq *questie.Quest, q *quest, objs, unplaced []*
 		return objs, unplaced // no zone known either: it stays under Find
 	}
 	zone = cmp.Or(zone, s.mapName(m))
-	for _, u := range unplaced {
+	named := s.subzonesIn(qq.Objective+" "+strings.Join(spotLabels(unplaced), " "), m)
+	byOrder := len(named) == len(unplaced)
+	for i, u := range unplaced {
 		sp := *u
+		// The text names a subzone: its centre is an approximate spot, never a guess at a point.
+		if c, ok := s.pickSubzone(u.label, named, i, byOrder); ok {
+			sp.unplaced, sp.approx, sp.m, sp.x, sp.y, sp.place = false, true, m, c.x, c.y, c.sub
+			sp.label = strings.TrimSuffix(u.label, " (location unknown)")
+			objs = append(objs, &sp)
+			continue
+		}
 		sp.unplaced, sp.zoneOnly, sp.m, sp.place = false, true, m, zone
 		sp.label = strings.TrimSuffix(u.label, " (location unknown)") + " (somewhere in " + zone + ")"
 		if q.turnin != nil {
@@ -591,4 +600,71 @@ func markTrip(qx *questie.Index, sp *spot, qq *questie.Quest, at *questie.Where)
 	if t, ok := qx.TripOf(qq.ID, at); ok {
 		sp.trip = &t
 	}
+}
+
+func spotLabels(spots []*spot) []string {
+	var out []string
+	for _, sp := range spots {
+		out = append(out, sp.label)
+	}
+	return out
+}
+
+// subzone is a named subzone of a map with the centre of the NPC spawns the dataset puts in it.
+type subzone struct {
+	name, sub string
+	x, y      float64
+	at        int // where the name first appears in the text
+}
+
+// subzonesIn lists, in the order the text names them, the subzones of UI map m whose name (without a
+// leading "the") appears in text and whose centre the dataset can give: the mean of the NPC spawns in it.
+func (s *questieSource) subzonesIn(text string, m int) []subzone {
+	low := strings.ToLower(text)
+	var out []subzone
+	seen := map[string]bool{}
+	for id, a := range s.qx.Areas {
+		if a.UIMap != m || a.Sub == "" {
+			continue
+		}
+		name := strings.ToLower(strings.TrimPrefix(strings.ToLower(a.Sub), "the "))
+		if len(name) < 4 || seen[name] {
+			continue
+		}
+		i := strings.Index(low, name)
+		if i < 0 {
+			continue
+		}
+		var sx, sy float64
+		n := 0
+		for _, e := range s.qx.Npcs {
+			for _, sp := range e.Spawns {
+				if sp.Area == id {
+					sx, sy, n = sx+sp.X, sy+sp.Y, n+1
+				}
+			}
+		}
+		if n == 0 {
+			continue
+		}
+		seen[name] = true
+		out = append(out, subzone{name: name, sub: a.Sub, x: round1(sx / float64(n)), y: round1(sy / float64(n)), at: i})
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].at < out[j].at })
+	return out
+}
+
+// pickSubzone is the subzone an unplaced objective belongs to: the one its own label names, else the
+// i-th named one when the text names exactly as many as there are objectives.
+func (s *questieSource) pickSubzone(label string, named []subzone, i int, byOrder bool) (subzone, bool) {
+	low := strings.ToLower(label)
+	for _, z := range named {
+		if strings.Contains(low, z.name) {
+			return z, true
+		}
+	}
+	if byOrder && i < len(named) {
+		return named[i], true
+	}
+	return subzone{}, false
 }

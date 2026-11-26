@@ -374,3 +374,20 @@ func TestParseAreaObjective(t *testing.T) {
 		t.Fatalf("triggers %+v", tr)
 	}
 }
+
+func TestParseExtraObjectives(t *testing.T) {
+	spot := func(x, y float64) map[int]any { return map[int]any{901: []any{[]any{x, y}}} }
+	rows := append(fixtureRows(), row{"Quest", 2, "27", []any{
+		[]any{spot(10.5, 20.5), "icon", "Place the Western vial", 1},
+		[]any{spot(30.5, 40.5), "icon", "Place the Northern vial", 2},
+		[]any{map[int]any{}, "icon", "Nowhere", 3},
+	}})
+	ix, st := OpenGame(install(t, header, rows))
+	if ix == nil {
+		t.Fatalf("not readable: %+v", st)
+	}
+	tr := ix.Quests[2].Triggers
+	if len(tr) != 2 || tr[0].Text != "Place the Western vial" || tr[1].Spawns[0].X != 30.5 {
+		t.Fatalf("triggers %+v", tr)
+	}
+}
