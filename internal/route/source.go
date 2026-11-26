@@ -49,6 +49,51 @@ func (s *questieSource) mapName(m int) string {
 	return best
 }
 
+// travelName names a map for a travel step: the zone, or "Sub (Zone)" for a place that is only a
+// subzone (a dungeon), else the stop's own place. Never a bare map number.
+func (s *questieSource) travelName(m int, place string) string {
+	ids := make([]int, 0, len(s.qx.Areas))
+	for id := range s.qx.Areas {
+		ids = append(ids, id)
+	}
+	sort.Ints(ids)
+	sub, zone := "", ""
+	for _, id := range ids {
+		a := s.qx.Areas[id]
+		if a.UIMap != m {
+			continue
+		}
+		if a.Sub == "" && a.Zone != "" {
+			return a.Zone
+		}
+		if sub == "" && a.Sub != "" {
+			sub, zone = a.Sub, a.Zone
+		}
+	}
+	switch {
+	case sub != "" && zone != "" && zone != sub:
+		return sub + " (" + zone + ")"
+	case sub != "":
+		return sub
+	case zone != "":
+		return zone
+	}
+	return cmp.Or(place, "another area")
+}
+
+// flights are the maps the player can fly to: the flight masters they opened, else none known.
+func (s *questieSource) flights(c character.Character) (map[int]bool, bool) {
+	fl := c.Seen.FlightsFor(c.Faction)
+	if len(fl) == 0 {
+		return nil, false
+	}
+	out := map[int]bool{}
+	for _, f := range fl {
+		out[f.Map] = true
+	}
+	return out, true
+}
+
 func (s *questieSource) entity(r questie.Ref) (questie.Entity, bool) {
 	if r.Object {
 		e, ok := s.qx.Objects[r.ID]
@@ -301,6 +346,9 @@ func (s *questieSource) quests(c character.Character, at *questie.Where) []*ques
 		}
 		// A turn-in is for a quest that is done. When the capture does not say so and no objective step
 		// explains what is left, the quest is listed under Find and its turn-in withheld.
+		if q.turnin != nil && ready && len(q.unplaced) == 0 {
+			q.turnin.ready, q.turnin.level = true, q.level
+		}
 		if !ready && len(q.objs) == 0 && len(q.unplaced) == 0 {
 			q.turnin = nil
 			q.unplaced = []*spot{{kind: KindObjective, unplaced: true, quests: []int{qq.ID}, names: []string{qq.Name}, label: "Finish " + qq.Name + " (location unknown)"}}

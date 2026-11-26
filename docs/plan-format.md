@@ -32,7 +32,10 @@ the player's local files. Nothing Questie-derived is stored in this repo.
 - Order: a quest's pick-up comes before its objectives, and they come before its turn-in. Identical
   stops are merged (several turn-ins at one NPC, objectives within 3 map percent of each other).
 - Quests more than 1 level above the character, stops on another map, and stops past the 20th go to `later`.
-  The map with the most `later` stops is named as a final `travel` stop ("Travel to <zone>").
+  The map with the most `later` stops is named as a final `travel` stop ("Travel to <zone>"; a dungeon reads "Travel to <place> (<zone>)", never a map number).
+- Quests ready to turn in on the player's map are the first steps, nearest first. A ready turn-in in a town
+  the player has a flight to (any town, when no flight is known) gets a `travel` step "Fly to <town>: turn in
+  <quests>", one per town, before the final travel stop.
 - Follow-ups: see "Chain-aware plan" below.
 - Optimiser: starts at the last known position; minimises the straight-line length in map percent.
   Up to 12 stops it is exact (Held-Karp with the order constraints); above that it is nearest-neighbour,
