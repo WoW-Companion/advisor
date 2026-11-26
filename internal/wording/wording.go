@@ -198,3 +198,12 @@ func Trip(finisher, place, instance, zone string) string {
 	}
 	return s
 }
+
+// A puts the right indefinite article before a name: "an Enchanting trainer", "a Tailoring trainer". It goes
+// by the first letter (a vowel takes "an"), which is right for every profession and crafter name.
+func A(word string) string {
+	if word != "" && strings.ContainsRune("AEIOUaeiou", rune(word[0])) {
+		return "an " + word
+	}
+	return "a " + word
+}

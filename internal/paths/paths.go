@@ -289,6 +289,9 @@ func For(c character.Character, ds store.DataStore, itemID int64, opt Options) R
 func (f *finder) why(crs []creature) string {
 	bonding := int(i64(f.item["bonding"]))
 	switch {
+	case len(f.loot) == 0 && isMount(f.item):
+		// a mount is bought from a vendor or trainer, or won: an empty table is no verdict on it
+		return "the game data lists no source for this mount, so it can't say where to get it"
 	case len(f.loot) == 0:
 		return "the game data knows no dependable way to get this, so it is not worth chasing"
 	case bonding == 1 && len(crs) > 0:
@@ -298,6 +301,9 @@ func (f *finder) why(crs []creature) string {
 	}
 	return "there is no dependable way to get this right now, so it is not worth chasing"
 }
+
+// isMount is true for an item of the mount subclass of miscellaneous items (class 15, subclass 5).
+func isMount(row store.Row) bool { return i64(row["class_id"]) == 15 && i64(row["subclass_id"]) == 5 }
 
 // quest is the quest reward path: a reward the character can earn now.
 func (f *finder) quest() (Path, bool) {
@@ -532,9 +538,12 @@ func (f *finder) craft() (Path, bool) {
 // item can be traded, and a crafter.
 func (f *finder) otherWays(prof string) string {
 	if f.tradeable() {
-		return "buy it on the Auction House (Bind on Equip) or ask a crafter."
+		if int(i64(f.item["bonding"])) == 2 {
+			return "buy it on the Auction House (Bind on Equip) or ask a crafter."
+		}
+		return "buy it on the Auction House or ask a crafter." // a flask or food binds to no one: no binding to name
 	}
-	return "ask a " + strings.TrimSuffix(crafters(prof), "s") + " to make it for you (it is bound when picked up, so not on the Auction House)."
+	return "ask " + wording.A(strings.TrimSuffix(crafters(prof), "s")) + " to make it for you (it is bound when picked up, so not on the Auction House)."
 }
 
 // learnSentence says where the recipe comes from, in the right tense for what the capture knows.

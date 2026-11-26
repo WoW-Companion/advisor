@@ -9,6 +9,7 @@ import (
 	"github.com/WoW-Companion/advisor/internal/professions"
 	"github.com/WoW-Companion/advisor/internal/store"
 	"github.com/WoW-Companion/advisor/internal/vendors"
+	"github.com/WoW-Companion/advisor/internal/wording"
 )
 
 // ShortMax is the most skill points a character may be short of a recipe for a skill-up path to be
@@ -111,7 +112,7 @@ func (f *finder) recipeSource(r store.Row, prof string) RecipeSource {
 		if res := learn.Recipe(f.c, f.ds, f.opt.Questie, r); len(res.Ways) > 0 && res.Ways[0].Kind == learn.Trainer {
 			return RecipeSource{Kind: "trainer", Line: strings.TrimPrefix(res.Ways[0].Line, "Learn it ")}
 		}
-		return RecipeSource{Kind: "trainer", Line: fmt.Sprintf("from a %s trainer", prof)}
+		return RecipeSource{Kind: "trainer", Line: fmt.Sprintf("from %s trainer", wording.A(prof))}
 	}
 	if o, ok := vendors.BestFor(f.c, f.ds, id); ok {
 		l := fmt.Sprintf("buy the recipe %s from %s", name, o.Vendor)
