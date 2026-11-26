@@ -35,6 +35,7 @@ type TrainPlace struct {
 	Trainer *Trainer // the class trainer's NPC and position, only when a capture or QuestieDB names one
 	Seen    bool     // the trainer is one the player opened
 	Here    bool     // the character is already in the city
+	Bound   bool     // the character's hearthstone is bound in the city, which the capture says
 }
 
 // ClassCity is the capital for the faction's class trainers, "" when none is known.
@@ -59,6 +60,7 @@ func TrainAt(c character.Character, qx *questie.Index) (TrainPlace, bool) {
 	if zone == "" && c.Location != nil {
 		zone = c.Location.Zone // the capture names the zone but gave no position
 	}
+	zone = strings.TrimSpace(zone)
 	pl := TrainPlace{City: city, Here: strings.EqualFold(zone, city)}
 	if t, ok := SeenClassTrainer(c); ok && (strings.EqualFold(t.Zone, city) || zone != "" && strings.EqualFold(t.Zone, zone)) {
 		pl.City, pl.Trainer, pl.Seen = t.Zone, &t, true
@@ -67,7 +69,8 @@ func TrainAt(c character.Character, qx *questie.Index) (TrainPlace, bool) {
 		pl.Trainer = &t
 	}
 	if !pl.Here {
-		pl.From = flightsTo[strings.ToLower(pl.City)][strings.ToLower(zone)]
+		pl.From = FlightFrom(pl.City, zone)
+		pl.Bound = c.Hearth != "" && strings.EqualFold(strings.TrimSpace(c.Hearth), pl.City)
 	}
 	return pl, true
 }
@@ -105,16 +108,23 @@ func (p TrainPlace) Line(class string) string {
 	default:
 		fmt.Fprintf(&b, ", your %s trainer there", class)
 	}
+	var how []string
+	if p.From != "" {
+		how = append(how, "fly from "+p.From)
+	}
+	if p.Bound {
+		how = append(how, "your hearthstone is bound there")
+	}
 	switch {
 	case p.Here:
 		b.WriteString(" (you are here)")
-	case p.From != "":
-		b.WriteString(" (fly from " + p.From + ")")
+	case len(how) > 0:
+		b.WriteString(" (" + strings.Join(how, "; ") + ")")
 	}
 	return b.String()
 }
 
 // FlightFrom is the flight point in zone with a direct flight to the city; "" when none is known.
 func FlightFrom(city, zone string) string {
-	return flightsTo[strings.ToLower(city)][strings.ToLower(zone)]
+	return flightsTo[strings.ToLower(strings.TrimSpace(city))][strings.ToLower(strings.TrimSpace(zone))]
 }

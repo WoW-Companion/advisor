@@ -389,6 +389,9 @@ func Character(c character.Character, client character.Client, now time.Time) st
 	if pos := c.LastKnownPosition(); pos != nil {
 		lines = append(lines, "Last known position: "+pos.Label())
 	}
+	if h := strings.TrimSpace(c.Hearth); h != "" {
+		lines = append(lines, "Hearthstone bound to: "+h)
+	}
 	if fl := flightLine(c, now); fl != "" {
 		lines = append(lines, fl)
 	}

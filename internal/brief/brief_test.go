@@ -136,3 +136,14 @@ func TestChooseAndList(t *testing.T) {
 		t.Errorf("a character with no realm is chosen by name: %v", err)
 	}
 }
+
+func TestCharacterBriefSaysWhereTheHearthstoneIsBound(t *testing.T) {
+	c := character.Character{Name: "Bound", Hearth: " Razor Hill "}
+	if got := Character(c, character.Client{}, fresh); !strings.Contains(got, "\nHearthstone bound to: Razor Hill\n") {
+		t.Errorf("brief names no bind:\n%s", got)
+	}
+	c.Hearth = ""
+	if got := Character(c, character.Client{}, fresh); strings.Contains(got, "Hearthstone") {
+		t.Errorf("a bind was guessed:\n%s", got)
+	}
+}

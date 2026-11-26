@@ -32,6 +32,19 @@ func TestTrainAtSendsADistantPriestToTheCity(t *testing.T) {
 	}
 }
 
+func TestTrainAtTrimsTheZoneAndSaysWhereTheHearthstoneIsBound(t *testing.T) {
+	c := priestIn(" Hillsbrad Foothills ")
+	c.Hearth = "Undercity"
+	p, _ := TrainAt(c, nil)
+	if got := p.Line("PRIEST"); got != "Train at: Undercity, your priest trainer there (fly from Tarren Mill; your hearthstone is bound there)" {
+		t.Errorf("line = %q", got)
+	}
+	c.Hearth = "Orgrimmar"
+	if p, _ = TrainAt(c, nil); p.Bound {
+		t.Errorf("a bind elsewhere is not the city: %+v", p)
+	}
+}
+
 func TestTrainAtNamesATrainerOnlyWhenADataSourceDoes(t *testing.T) {
 	qx := starterIndex()
 	qx.Npcs[21] = questie.Entity{Name: "City Cleric", Sub: "Priest Trainer", Faction: "H", Spawns: []questie.Spawn{{Area: 2, X: 70, Y: 58}}}
