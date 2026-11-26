@@ -2,7 +2,7 @@
 
 ## 0.7.91
 
-- After an addon update, the notice now says to type /reload in game to load it, and the line goes away once the game runs the new addon.
+- After an addon update, the notice now tells you to type /reload in game.
 
 ## 0.7.90
 
