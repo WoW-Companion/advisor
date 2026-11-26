@@ -54,11 +54,16 @@ var heavyWords = []string{
 // cooldownWords mark materials and recipes with a crafting cooldown, left out of a plan by default.
 var cooldownWords = []string{"mooncloth", "salt shaker", "arcanite bar", "transmute"}
 
-// specWords mark recipes only a specialisation teaches: Dragonscale, Elemental and Tribal
-// Leatherworking, Armorsmith, Weaponsmith (Swordsmith, Axesmith, Hammersmith), and Goblin and
-// Gnomish Engineering.
-var specWords = []string{"dragonscale", "elemental leather", "tribal leather", "gnomish", "goblin", "master swordsmith",
-	"master axesmith", "master hammersmith", "armorsmith", "weaponsmith", "dragonstrike"}
+// specWords mark recipes only a specialisation teaches, by the profession that has the specialisation:
+// Dragonscale, Elemental and Tribal Leatherworking, Armorsmith, Weaponsmith (Swordsmith, Axesmith,
+// Hammersmith) and Dragonstrike in Blacksmithing, and Gnomish and Goblin Engineering. A word counts
+// only in its own profession: Cooking's Goblin Deviled Clams and Alchemy's Goblin Rocket Fuel are
+// ordinary recipes.
+var specWords = map[string][]string{
+	"leatherworking": {"dragonscale", "elemental leather", "tribal leather", "dragonstrike"},
+	"blacksmithing":  {"master swordsmith", "master axesmith", "master hammersmith", "armorsmith", "weaponsmith", "dragonstrike"},
+	"engineering":    {"gnomish", "goblin"},
+}
 
 func containsAny(name string, words []string) bool {
 	n := strings.ToLower(name)
@@ -111,7 +116,11 @@ func (p *planner) baseEffort(id int64) int {
 
 // blockedRecipe says a recipe is left out by default: a specialisation recipe the character does
 // not know, or one that makes or uses a cooldown material.
-func (p *planner) blockedRecipe(r Recipe) bool {
+func (p *planner) blockedRecipe(r Recipe) bool { return p.blockedRecipeIn(p.prof, r) }
+
+// blockedRecipeIn is blockedRecipe for a recipe of the named profession (a material's recipe may belong to
+// another profession than the one planned).
+func (p *planner) blockedRecipeIn(profession string, r Recipe) bool {
 	name := r.Name
 	if name == "" && r.CreatesItem != 0 {
 		name = p.name(r.CreatesItem)
@@ -122,7 +131,8 @@ func (p *planner) blockedRecipe(r Recipe) bool {
 	if p.known[r.SpellID] {
 		return false
 	}
-	return containsAny(name, specWords) || (r.CreatesItem != 0 && containsAny(p.name(r.CreatesItem), specWords))
+	words := specWords[strings.ToLower(profession)]
+	return containsAny(name, words) || (r.CreatesItem != 0 && containsAny(p.name(r.CreatesItem), words))
 }
 
 func (p *planner) usesCooldown(spell int64) bool {

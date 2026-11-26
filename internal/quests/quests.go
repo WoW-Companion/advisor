@@ -104,7 +104,56 @@ func Resolve(ds store.DataStore, text string) (id int64, name string, candidates
 	if n, err := strconv.ParseInt(text, 10, 64); err == nil && n > 0 {
 		return n, questName(ds, n), nil
 	}
-	return names.Resolve(ds, "quests", text)
+	id, name, candidates = names.Resolve(ds, "quests", text)
+	if id != 0 || len(candidates) > 0 {
+		return id, name, candidates
+	}
+	return resolveObserved(ds, text)
+}
+
+// resolveObserved matches a quest name against the titles players reported in quests_observed (Everloot),
+// for a dataset whose quests table carries no names: a title equal ignoring case, else a title that
+// holds the text. One quest is an answer; several are candidates, "Title (id)", for the player to pick by id.
+func resolveObserved(ds store.DataStore, text string) (id int64, name string, candidates []string) {
+	want := strings.ToLower(text)
+	if ds == nil || want == "" {
+		return 0, "", nil
+	}
+	rows, err := ds.Filter("quests_observed", store.Range{Column: "quest_id", Min: int64(1)})
+	if err != nil {
+		return 0, "", nil
+	}
+	type hit struct {
+		id    int64
+		title string
+	}
+	var exact, partial []hit
+	for _, r := range rows {
+		title := str(r["title"])
+		low := strings.ToLower(title)
+		switch {
+		case title == "":
+		case low == want:
+			exact = append(exact, hit{i64(r["quest_id"]), title})
+		case strings.Contains(low, want):
+			partial = append(partial, hit{i64(r["quest_id"]), title})
+		}
+	}
+	hits := exact
+	if len(hits) == 0 {
+		hits = partial
+	}
+	sort.Slice(hits, func(i, j int) bool { return hits[i].id < hits[j].id })
+	if len(hits) == 1 {
+		return hits[0].id, hits[0].title, nil
+	}
+	for _, h := range hits {
+		if len(candidates) == 8 {
+			break
+		}
+		candidates = append(candidates, h.title+" ("+strconv.FormatInt(h.id, 10)+")")
+	}
+	return 0, "", candidates
 }
 
 // Render is the plain-text form. name is the asked-for quest's name, which may be empty.
