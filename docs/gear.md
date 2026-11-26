@@ -65,8 +65,11 @@ With the spec's weights and known stat types on both the item and the item it re
 averaged by how much of it the item has (an item that is mostly the stat the build wants fits better than one
 with a token amount of it). With no amounts in the dataset, fit is the plain mean weight of the item's stat types.
 The weights are the play style's (`stats.Prof.ItemWeights`): its five primary stats, plus Spell Power at the weight
-of Intellect for a caster or healer and Attack Power at four-fifths of the better of Strength and Agility for a
-melee, ranged or feral build. Otherwise `score = item_level + quality`, and the answer says it is ranked by item level only and
+of Intellect for a caster or healer (and the older bonus healing for a healer, bonus damage for a caster), Extra Armor
+at the weight of Armor for a tank, and Attack Power at four-fifths of the better of Strength and Agility for a
+melee, ranged or feral build. The item's own armor (the `armor` column) is not in the score: it follows from item
+level, armor type, quality and slot, so item level already orders it. A bag item compared by captured stats against a
+worn item known only from the dataset counts the dataset's armor on that side too. Otherwise `score = item_level + quality`, and the answer says it is ranked by item level only and
 why (no stats in the dataset, spec unknown, or no weights for the spec). The comparison for a slot
 always uses one basis for both items. A slot's candidates are the items whose score is higher than the
 equipped item's (an empty slot takes any item), best gain first. An equipped item the dataset does

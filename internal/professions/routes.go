@@ -13,7 +13,8 @@ import (
 	"github.com/WoW-Companion/advisor/internal/store"
 )
 
-// RouteMaterial is one material of a route step: the count for the whole step.
+// RouteMaterial is one material of a route step: the count one craft uses (the dataset's profession_routes
+// holds materials per craft).
 type RouteMaterial struct {
 	ItemID int64 `json:"item_id"`
 	Count  int   `json:"count"`
@@ -32,6 +33,10 @@ type RouteStep struct {
 	LearnedFrom string
 	Alternative int64 // the id or step number this row is an alternative of; 0 for a main step
 	Notes       string
+	// Gather is true for a gathering step (Herbalism, Mining, Skinning, Fishing): no recipe, the zones in
+	// Where, and the materials listed are what to gather (count 0).
+	Gather bool
+	Where  []string
 }
 
 // Route is the main steps of a profession in order, with each step's alternatives.
@@ -53,8 +58,42 @@ func asNum(v any) int64 {
 	return 0
 }
 
-// parseMaterials reads a materials cell: JSON ([{"item_id":1,"count":2}] or {"1":2}) or "1:2,3:4".
+// columnMaterials reads the dataset's materials column as the store returns it, a list of {item_id, name,
+// count} structs flattened column by column: every item id, then every name, then every count. A count of
+// 0 stays (a gathering step names what to gather, not how many).
+func columnMaterials(l []any) []RouteMaterial {
+	n := len(l) / 3
+	if n == 0 || len(l) != 3*n {
+		return nil
+	}
+	var out []RouteMaterial
+	for i := 0; i < n; i++ {
+		id, ok1 := l[i].(int64)
+		c, ok2 := l[2*n+i].(int64)
+		if ok1 && ok2 && id > 0 && c >= 0 {
+			out = append(out, RouteMaterial{id, int(c)})
+		}
+	}
+	return out
+}
+
+func asStrings(v any) []string {
+	var out []string
+	l, _ := v.([]any)
+	for _, x := range l {
+		if s, ok := x.(string); ok && strings.TrimSpace(s) != "" {
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
+// parseMaterials reads a materials cell: the dataset's struct list (see columnMaterials), JSON
+// ([{"item_id":1,"count":2}] or {"1":2}) or "1:2,3:4".
 func parseMaterials(v any) []RouteMaterial {
+	if l, ok := v.([]any); ok {
+		return columnMaterials(l)
+	}
 	s := strings.TrimSpace(asText(v))
 	if s == "" {
 		return nil
@@ -100,8 +139,9 @@ func LoadRoute(ds store.DataStore, profession string) (Route, bool) {
 		s := RouteStep{ID: asNum(row["id"]), Step: int(asNum(row["step"])), From: int(asNum(row["skill_from"])), To: int(asNum(row["skill_to"])),
 			SpellID: asNum(row["recipe_spell_id"]), Recipe: asText(row["recipe_name"]), Crafts: int(asNum(row["crafts"])),
 			Materials: parseMaterials(row["materials"]), LearnedFrom: asText(row["learned_from"]),
-			Alternative: asNum(row["alternative_of"]), Notes: asText(row["notes"])}
-		if s.To <= s.From || s.Recipe == "" {
+			Alternative: asNum(row["alternative_of"]), Notes: asText(row["notes"]),
+			Gather: asText(row["kind"]) == "gather", Where: asStrings(row["where"])}
+		if s.To <= s.From || s.Recipe == "" && !s.Gather {
 			continue
 		}
 		if s.Alternative > 0 {
@@ -218,12 +258,31 @@ func stockOf(c character.Character) map[int64]Stock {
 	return out
 }
 
+// gatherText is a gathering step: "Now: skill 20 to 70: gather in Durotar, Mulgore; gather: Peacebloom, Silverleaf".
+func (s RouteStep) gatherText(ds store.DataStore, lead string, from int) string {
+	t := fmt.Sprintf("%s: skill %d to %d: gather", lead, from, s.To)
+	if len(s.Where) > 0 {
+		t += " in " + strings.Join(s.Where, ", ")
+	}
+	var what []string
+	for _, m := range s.Materials {
+		name := itemName(ds, m.ItemID)
+		if name == "" {
+			name = fmt.Sprintf("item %d", m.ItemID)
+		}
+		what = append(what, name)
+	}
+	if len(what) > 0 {
+		t += "; gather: " + strings.Join(what, ", ")
+	}
+	return t
+}
+
 func (s RouteStep) materialsText(ds store.DataStore, stock map[int64]Stock, skill int) string {
 	crafts := s.craftsLeft(skill)
 	var parts []string
 	for _, m := range s.Materials {
-		per := float64(m.Count) / float64(max(s.Crafts, 1))
-		need := int(per*float64(crafts) + 0.999)
+		need := m.Count * crafts
 		name := itemName(ds, m.ItemID)
 		if name == "" {
 			name = fmt.Sprintf("item %d", m.ItemID)
@@ -272,14 +331,18 @@ func RouteFacts(c character.Character, ds store.DataStore, qx *questie.Index, pr
 			lead = "Then"
 		}
 		start := max(have, s.From)
-		fmt.Fprintf(&b, "%s: skill %d to %d: %d x %s", lead, start, s.To, s.craftsLeft(have), s.Recipe)
-		if s.SpellID == 0 {
-			b.WriteString(" (recipe not resolved in the game data)")
+		if s.Gather {
+			b.WriteString(s.gatherText(ds, lead, start))
+		} else {
+			fmt.Fprintf(&b, "%s: skill %d to %d: %d x %s", lead, start, s.To, s.craftsLeft(have), s.Recipe)
+			if s.SpellID == 0 {
+				b.WriteString(" (recipe not resolved in the game data)")
+			}
+			if m := s.materialsText(ds, stock, have); m != "" {
+				b.WriteString("; materials: " + m)
+			}
 		}
-		if m := s.materialsText(ds, stock, have); m != "" {
-			b.WriteString("; materials: " + m)
-		}
-		if s.LearnedFrom != "" && k == i && !c.KnownSpells[s.SpellID] {
+		if s.LearnedFrom != "" && k == i && !s.Gather && !c.KnownSpells[s.SpellID] {
 			b.WriteString("; learned from: " + s.LearnedFrom)
 		}
 		if s.Notes != "" {

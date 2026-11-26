@@ -76,6 +76,12 @@ func statWord(id int64) string {
 		return "Stamina"
 	case 45:
 		return "Spell Power"
+	case 41:
+		return "Spell Healing"
+	case 42:
+		return "Spell Damage"
+	case 50:
+		return "Extra Armor"
 	}
 	return fmt.Sprintf("stat %d", id)
 }
@@ -261,4 +267,172 @@ func TestOfflineBenchmarkWornTotals(t *testing.T) {
 	}
 	out = append(out, benchRow{"Mage worn totals: source", r.Source, stats.SourceGear, "no recorded totals: the dataset's items", res})
 	finish(t, "stats-totals", "Offline worn stat totals", out)
+}
+
+// armorCases are items with the stats and armor the dataset's items table holds for them: DATA-042's stat
+// amounts, and armor computed from item level, armor type, quality and slot (null for no armor).
+var armorCases = []struct {
+	id    int64
+	name  string
+	want  map[int64]int
+	armor int
+}{
+	{252434, "Defender's Leather Armor", map[int64]int{3: 3, 7: 5, 4: 7, 50: 33}, 85},
+	{252493, "Wisdom's Leather Armor", map[int64]int{5: 5, 6: 3, 7: 3, 41: 15, 42: 5}, 85},
+	{7930, "Heavy Mithril Breastplate", map[int64]int{7: 15, 50: 90}, 446},
+	{4820, "Guardian Buckler", map[int64]int{7: 3, 6: 3}, 495},
+	{250487, "Sterling Silver Breastplate", map[int64]int{45: 7, 7: 6, 4: 7}, 198},
+	{4324, "Azure Silk Vest", map[int64]int{5: 9, 87: 7}, 43},
+	{2568, "Brown Linen Vest", nil, 15},
+	{14158, "Pagan Vest", nil, 40},
+	{1193, "Banded Buckler", nil, 336},
+	{3750, "Ribbed Breastplate", map[int64]int{4: 5, 7: 5, 6: 5}, 94},
+}
+
+func TestOfflineBenchmarkItemArmor(t *testing.T) {
+	ds := snapshot()
+	var out []benchRow
+	for _, c := range armorCases {
+		row, err := ds.Get("items", c.id)
+		if err != nil {
+			t.Fatalf("%s is not in the snapshot: %v", c.name, err)
+		}
+		it := itemOf(row)
+		res := "match"
+		if describe(it.Stats) != describe(c.want) {
+			res = "differ"
+		}
+		out = append(out, benchRow{c.name + ": stat amounts", describe(it.Stats), describe(c.want), itemsSource, res})
+		res = "match"
+		if it.Armor != c.armor {
+			res = "differ"
+		}
+		out = append(out, benchRow{c.name + ": armor", fmt.Sprint(it.Armor), fmt.Sprint(c.armor), "dataset items.armor", res})
+	}
+	finish(t, "stats-armor", "Offline item armor and older stats", out)
+}
+
+func firstOf(t *testing.T, ds store.DataStore, c character.Character, slot string) (string, []string) {
+	t.Helper()
+	res, err := Find(c, ds, "", Options{Slot: slot, NoSources: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var names []string
+	for _, cd := range res.Slots[slot] {
+		names = append(names, cd.Item.Name)
+	}
+	if len(names) == 0 {
+		return "none", nil
+	}
+	return names[0], names
+}
+
+func indexOf(names []string, n string) int {
+	for i, x := range names {
+		if x == n {
+			return i
+		}
+	}
+	return -1
+}
+
+// TestOfflineBenchmarkOlderStats: a healer's bonus healing, a caster's bonus damage and a tank's extra armor count as
+// the stat they stand for; a stat the build cannot use does not.
+func TestOfflineBenchmarkOlderStats(t *testing.T) {
+	ds := snapshot()
+	var out []benchRow
+	for _, g := range []struct {
+		name, class, spec, role string
+		level                   int
+		ahead, behind, why      string
+	}{
+		{"Holy priest, empty chest", "PRIEST", "Holy", "healer", 15, "Filigreed Pristine Gown", "Filigreed Flame Gown",
+			"Spell Healing 13 is the healer's stat; the Flame Gown's Fire power (stat 85) is not"},
+		{"Feral druid tank, empty chest", "DRUID", "Feral Combat", "tank", 15, "Defender's Leather Armor", "Trapper's Leather Armor",
+			"Extra Armor 33 and Strength 7 serve a tank; Trapper's has Intellect and Spirit"},
+	} {
+		lvl := g.level
+		c := character.Character{Name: g.name, Class: g.class, Level: &lvl, Profile: &character.Profile{Role: g.role, Focus: "leveling", Spec: g.spec}}
+		got, names := firstOf(t, ds, c, "chest")
+		res := "match"
+		if indexOf(names, g.ahead) < 0 || indexOf(names, g.behind) >= 0 && indexOf(names, g.ahead) > indexOf(names, g.behind) {
+			res = "differ"
+		}
+		out = append(out, benchRow{g.name + ": " + g.ahead + " ahead of " + g.behind, fmt.Sprintf("%s first; %s at %d, %s at %d", got, g.ahead, indexOf(names, g.ahead)+1, g.behind, indexOf(names, g.behind)+1),
+			g.ahead + " ahead: " + g.why, itemsSource, res})
+	}
+	finish(t, "stats-older", "Offline older stats in gear comparisons", out)
+}
+
+// TestOfflineBenchmarkCapturedStats: the same worn and bag items weighed from the dataset's amounts and from the
+// addon's captured stats come to the same answer; armor counts on both sides when only one side is captured.
+func TestOfflineBenchmarkCapturedStats(t *testing.T) {
+	ds := snapshot()
+	var out []benchRow
+	lvl := 38
+	worn, bag := 250533, 250487 // Hard Gold Cuirass (armor 210), Sterling Silver Breastplate (armor 198, a lower item level)
+	mk := func(stats map[string]float64) character.Character {
+		c := character.Character{Name: "Tank", Class: "WARRIOR", Level: &lvl, Profile: &character.Profile{Role: "tank", Focus: "leveling", Spec: "Protection"},
+			Equipment: map[string]character.EquippedItem{"chest": {Slot: "chest", ItemID: &worn}},
+			Bags:      []character.ItemStack{{ItemID: bag, Count: 1, Name: "Sterling Silver Breastplate", Stats: stats}}}
+		return c
+	}
+	for _, c := range []struct {
+		name  string
+		stats map[string]float64
+	}{
+		{"bag item with captured stats (armor 198)", map[string]float64{"str": 7, "sta": 6, "armor": 198}},
+		{"bag item without captured stats", nil},
+	} {
+		got := BagUpgrades(mk(c.stats), ds, "Protection")
+		res := "match"
+		if len(got) != 0 {
+			res = "differ"
+		}
+		var names []string
+		for _, u := range got {
+			names = append(names, u.Name)
+		}
+		answer := "no upgrade"
+		if len(names) > 0 {
+			answer = "upgrade: " + strings.Join(names, ", ")
+		}
+		out = append(out, benchRow{"Protection warrior, Hard Gold Cuirass worn, " + c.name, answer,
+			"no upgrade: armor 210 worn against 198 in the bag, strength 11 against 7, stamina 0 against 6", "dataset items.armor, items.stats; the capture's stats", res})
+	}
+	// the capture's total beats the dataset's guess for the same item: a captured item with more armor than worn is an upgrade
+	got := BagUpgrades(mk(map[string]float64{"str": 11, "sta": 9, "armor": 260}), ds, "Protection")
+	res := "match"
+	if len(got) != 1 {
+		res = "differ"
+	}
+	out = append(out, benchRow{"Protection warrior, bag item captured with armor 260 and stamina 9", fmt.Sprintf("%d upgrades", len(got)), "1 upgrade: armor 260 against 210, stamina 9 against 0", "the capture's stats against dataset items.armor", res})
+	finish(t, "stats-captured", "Offline gear comparison with and without captured stats", out)
+}
+
+// TestOfflineBenchmarkUnknownStats: an item the dataset lists no stats for (status none or unknown) is
+// ranked by the level needed to wear it, and the answer says so.
+func TestOfflineBenchmarkUnknownStats(t *testing.T) {
+	ds := snapshot()
+	lvl := 25
+	worn := 14158 // Pagan Vest: stats unknown
+	c := character.Character{Name: "Mage", Class: "MAGE", Level: &lvl, Profile: &character.Profile{Role: "damage", Focus: "leveling", Spec: "Frost"},
+		Equipment: map[string]character.EquippedItem{"chest": {Slot: "chest", ItemID: &worn}}}
+	res, err := Find(c, ds, "", Options{Slot: "chest", NoSources: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var out []benchRow
+	basis := "none"
+	for _, cd := range res.Slots["chest"] {
+		basis = cd.Basis
+		break
+	}
+	r := "match"
+	if basis != BasisItemLevel {
+		r = "differ"
+	}
+	out = append(out, benchRow{"Mage wearing Pagan Vest (stats unknown): basis of the ranking", basis, BasisItemLevel + ": the worn item's stats are unknown in the dataset", "dataset items.stats_status", r})
+	finish(t, "stats-unknown", "Offline gear comparison when stats are unknown", out)
 }

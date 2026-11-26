@@ -3,15 +3,15 @@
   "specs": {
     "PRIEST/Discipline": {
       "rationale": "Healer that shields and heals: intellect and spell power drive output, spirit and haste help sustain and cast speed.",
-      "weights": {"intellect": 1, "spell_power": 1, "spirit": 0.7, "haste": 0.6, "crit": 0.5, "mastery": 0.5, "versatility": 0.4, "mp5": 0.4, "stamina": 0.2}
+      "weights": {"intellect": 1, "spell_power": 1, "spell_healing": 1, "spirit": 0.7, "haste": 0.6, "crit": 0.5, "mastery": 0.5, "versatility": 0.4, "mp5": 0.4, "stamina": 0.2}
     },
     "PRIEST/Holy": {
       "rationale": "Pure healer: intellect and spell power first, then spirit for mana and haste or crit for throughput.",
-      "weights": {"intellect": 1, "spell_power": 1, "spirit": 0.8, "mp5": 0.5, "haste": 0.5, "crit": 0.5, "mastery": 0.4, "versatility": 0.4, "stamina": 0.2}
+      "weights": {"intellect": 1, "spell_power": 1, "spell_healing": 1, "spirit": 0.8, "mp5": 0.5, "haste": 0.5, "crit": 0.5, "mastery": 0.4, "versatility": 0.4, "stamina": 0.2}
     },
     "PRIEST/Shadow": {
       "rationale": "Damage-over-time caster: intellect and spell power, with haste and crit speeding up damage; spirit matters little.",
-      "weights": {"intellect": 1, "spell_power": 1, "haste": 0.7, "crit": 0.6, "mastery": 0.5, "hit": 0.5, "versatility": 0.4, "stamina": 0.2, "spirit": 0.1}
+      "weights": {"intellect": 1, "spell_power": 1, "spell_damage": 1, "haste": 0.7, "crit": 0.6, "mastery": 0.5, "hit": 0.5, "versatility": 0.4, "stamina": 0.2, "spirit": 0.1}
     },
     "ROGUE/Assassination": {
       "rationale": "Melee poison and bleed damage: agility and attack power lead, with crit and mastery next.",

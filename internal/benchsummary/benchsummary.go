@@ -7,6 +7,7 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 )
 
@@ -57,4 +58,28 @@ func Total(r io.Reader) (line string, ok bool) {
 		return "", false
 	}
 	return fmt.Sprintf("advice-benchmark: %d checks, %d same, %d differ (%s)", same+differ, same, differ, strings.Join(areas, ", ")), true
+}
+
+// Row is one line of a benchmark table: the check, the advisor's answer, the reference value, where the
+// reference comes from, and the result ("match", or "differ" with a reason).
+type Row struct{ Check, Advisor, Reference, Source, Result string }
+
+// AppendTable appends the rows to the Markdown file at path as a table under title. It does nothing for
+// an empty path or no rows.
+func AppendTable(path, title string, rows []Row) error {
+	if path == "" || len(rows) == 0 {
+		return nil
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "### %s\n\n| Check | Advisor | Reference | Source | Result |\n| --- | --- | --- | --- | --- |\n", title)
+	for _, r := range rows {
+		fmt.Fprintf(&b, "| %s | %s | %s | %s | %s |\n", r.Check, r.Advisor, r.Reference, r.Source, r.Result)
+	}
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	_, err = f.WriteString(b.String() + "\n")
+	return err
 }
