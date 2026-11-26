@@ -6,7 +6,7 @@ const win = window.__TAURI__.window.getCurrentWindow();
 
 const $ = id => document.getElementById(id);
 const log = $('log'), who = $('who'), badge = $('badge'), text = $('text'), send = $('send');
-const DEFAULTS = { schema: 1, opacity: 92, solidHover: false, mode: 'overlay', keyVis: 'Ctrl+Shift+W', keyCt: 'Ctrl+Shift+T', nextOpen: null, settingsOpen: false, chatOpen: true, size: 'M', checkUpdates: true, updateNow: false, autoUpdate: false, skipped: [], later: {}, cleared: [], who: '', setupSeen: false, setupHidden: [], gameDir: '', length: 'standard', byClient: {}, usage: true, follow: true, pinned: '', groups: { ai: true }, quickBar: true, dismissedSugg: {}, notesSeen: { app: '', addon: '' } };
+const DEFAULTS = { schema: 1, opacity: 92, solidHover: false, mode: 'overlay', keyVis: 'Ctrl+Shift+W', keyCt: 'Ctrl+Shift+T', nextOpen: null, settingsOpen: false, chatOpen: true, size: 'M', checkUpdates: true, updateNow: false, autoUpdate: false, skipped: [], later: {}, cleared: [], who: '', setupSeen: false, setupHidden: [], gameDir: '', length: 'standard', byClient: {}, usage: true, follow: true, pinned: '', groups: { ai: true }, quickBar: true, dismissedSugg: {}, notesSeen: { app: '', addon: '' }, notesSeedFixed: false };
 // nextOpen null means automatic: open until the chat has a message, then collapsed. A click makes it a choice.
 const cfg = { ...DEFAULTS, ...JSON.parse(localStorage.getItem('wowc') || '{}') };
 cfg.settingsOpen = false; // the settings open from the gear for this session only; a launch starts calm
@@ -736,7 +736,11 @@ async function refreshAddon() {
     upd.addon = r.ok ? await r.json() : null;
   } catch { upd.addon = null; }
   upd.addonAutoFailed = '';
-  if (upd.addon && WowcUpdates.seedNotesSeen(cfg, '', upd.addon.installed)) save();
+  if (upd.addon && upd.addon.installed) {
+    const prev = { addon: localStorage.getItem('wowc-addonlast') || '', upgrade: hadLastVersion };
+    if (WowcUpdates.seedNotesSeen(cfg, '', upd.addon.installed, prev)) save();
+    localStorage.setItem('wowc-addonlast', upd.addon.installed);
+  }
   renderUpdates(); renderVersionList(); autoAddon();
 }
 async function installAddon(goback) {
@@ -783,37 +787,57 @@ async function gameSnap() {
 let reloadTimer = null;
 // The version of the app that is running, for the notes view.
 let appVer = '';
-// The "What's new" button: opens the notes of every app and addon version since they were last viewed
-// into box, and marks them seen. A second click closes it.
+// Whether an earlier start left its version behind: an update, not a fresh install (read before this start writes it).
+const hadLastVersion = !!localStorage.getItem('wowc-lastver');
+// The "What's new" button: opens the release history (app and addon) into box, with a divider above
+// what was not seen yet. The versions are marked seen when the view is closed, or after it has been
+// open for NOTES_READ_MS, never on open, so the divider stays put while the player reads.
 function whatsNewButton(box) {
   const b = Object.assign(document.createElement('button'), { type: 'button', textContent: 'What’s new' });
+  let timer = 0;
+  const seen = () => { clearTimeout(timer); timer = 0; if (WowcUpdates.markSeen(cfg, appVer, (upd.addon && upd.addon.installed) || '')) save(); };
   b.onclick = async () => {
-    if (box.hidden || !box.hasChildNodes()) { await openNotesView(box); box.hidden = false; } else box.hidden = true;
+    if (box.hidden || !box.hasChildNodes()) {
+      await openNotesView(box); box.hidden = false; scrollToDivider(box);
+      clearTimeout(timer); timer = setTimeout(seen, WowcUpdates.NOTES_READ_MS);
+    } else { box.hidden = true; seen(); }
   };
   return b;
 }
-async function openNotesView(box) {
+// Open scrolled so the divider is in view (and the newest entry too when they fit together).
+function scrollToDivider(box) {
+  const d = box.querySelector('.notes-divider');
+  if (!d || d.offsetTop + d.offsetHeight <= box.clientHeight) return;
+  box.scrollTop = Math.max(0, d.offsetTop + d.offsetHeight + 8 - box.clientHeight);
+}
+async function loadNotes() {
   const app = appVer, addon = (upd.addon && upd.addon.installed) || '';
-  WowcUpdates.seedNotesSeen(cfg, app, addon);
-  let view = WowcUpdates.notesView(null);
+  let resp = null;
   try {
     const r = await api('/api/notes-since' + WowcUpdates.notesQuery(cfg, app, addon));
-    if (r.ok) view = WowcUpdates.notesView(await r.json());
-  } catch { /* offline and nothing kept: the empty line below */ }
+    if (r.ok) resp = await r.json();
+  } catch { /* offline and nothing kept: only the up-to-date line */ }
+  return WowcUpdates.historyView(resp, cfg);
+}
+async function openNotesView(box) {
+  const view = await loadNotes();
   box.replaceChildren();
-  if (view.empty) box.append(Object.assign(document.createElement('div'), { textContent: 'Nothing new since you last looked.' }));
-  for (const sec of view.sections) for (const e of sec.entries) {
-    box.append(Object.assign(document.createElement('b'), { textContent: sec.component + ' ' + e.version }));
-    const ul = document.createElement('ul');
-    for (const t of e.bullets) ul.append(Object.assign(document.createElement('li'), { textContent: t }));
-    box.append(ul);
+  box.classList.add('notes-history');
+  for (const it of view.items) {
+    if (it.type === 'entry') {
+      const head = Object.assign(document.createElement('b'), { textContent: it.component + ' ' + it.version + (it.date ? ' · ' + it.date : '') });
+      const ul = document.createElement('ul');
+      for (const t of it.bullets) ul.append(Object.assign(document.createElement('li'), { textContent: t }));
+      box.append(head, ul);
+    } else {
+      box.append(Object.assign(document.createElement('div'), { className: it.type === 'divider' ? 'notes-divider' : 'notes-uptodate', textContent: it.text }));
+    }
   }
   if (view.more) {
     const a = Object.assign(document.createElement('a'), { href: '#', textContent: view.more.text });
     a.onclick = ev => { ev.preventDefault(); invoke('open_install_page', { url: view.more.url }).catch(e => notice(String(e))); };
     box.append(a);
   }
-  if (WowcUpdates.openNotes(cfg, app, addon)) save();
 }
 function drawUpdated(n, base) {
   const bar = $('updated-note');
@@ -824,7 +848,10 @@ function drawUpdated(n, base) {
   bar.replaceChildren(text);
   if (line) { text.append(document.createElement('br'), line); }
   const body = Object.assign(document.createElement('div'), { hidden: true });
-  if (n.whatsNew) bar.append(whatsNewButton(body));
+  if (n.whatsNew) {
+    bar.append(whatsNewButton(body));
+    loadNotes().then(v => { if (v.unseen) text.firstChild.textContent += WowcUpdates.newCount(v.unseen); });
+  }
   const x = Object.assign(document.createElement('button'), { type: 'button', textContent: 'Dismiss' });
   x.onclick = () => { clearInterval(reloadTimer); bar.hidden = true; };
   bar.append(x, body);
@@ -1093,7 +1120,7 @@ $('check-now').onclick = async () => {
 versionLine.startTimer();
 versionLine.render();
 renderVersionList();
-window.__TAURI__.app.getVersion().then(v => { appVer = v; WowcUpdates.seedNotesSeen(cfg, v, ''); save(); versionLine.setAppVersion(v); showUpdatedNote(v); });
+window.__TAURI__.app.getVersion().then(v => { appVer = v; WowcUpdates.fixBuggySeed(cfg); WowcUpdates.seedNotesSeen(cfg, v, '', { app: localStorage.getItem('wowc-lastver') || '', upgrade: hadLastVersion }); save(); versionLine.setAppVersion(v); showUpdatedNote(v); });
 
 // --- start ---------------------------------------------------------------------------------
 

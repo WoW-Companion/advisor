@@ -67,6 +67,11 @@ func (s *Server) notesSince(w http.ResponseWriter, r *http.Request) {
 	}
 	res := map[string]notesPart{"app": {Entries: []whatsnew.Release{}}, "addon": {Entries: []whatsnew.Release{}}}
 	if e, more := whatsnew.Since(advisor.Changelog, q.Get("app_from"), q.Get("app"), pulled, dates, now); e != nil {
+		for i := range e {
+			if t := dates[e[i].Version]; !t.IsZero() {
+				e[i].Date = t.UTC().Format("2006-01-02")
+			}
+		}
 		res["app"] = notesPart{Entries: e, More: more}
 	}
 	if from, to := q.Get("addon_from"), strings.TrimPrefix(q.Get("addon"), "v"); from != "" && to != "" && to != "unknown" {
