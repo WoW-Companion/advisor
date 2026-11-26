@@ -15,6 +15,7 @@ func TestCrossing(t *testing.T) {
 	for _, tc := range []struct{ side, from, to, want string }{
 		{"Horde", "Eastern Kingdoms", "Kalimdor", "Zeppelin to Orgrimmar"},
 		{"Alliance", "Kalimdor", "Eastern Kingdoms", "Boat to Menethil Harbor"},
+		{"horde", "Eastern Kingdoms", "Kalimdor", "Zeppelin to Orgrimmar"}, // a side spelled in lower case
 		{"Horde", "Eastern Kingdoms", "Eastern Kingdoms", ""},
 		{"Horde", "", "Kalimdor", ""},
 		{"", "Eastern Kingdoms", "Kalimdor", ""},

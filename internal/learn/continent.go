@@ -32,13 +32,13 @@ func continentOf(zone string) string { return continents[strings.ToLower(strings
 // ContinentOf is the zone's continent, or "" when the zone is not known.
 func ContinentOf(zone string) string { return continentOf(zone) }
 
-// crossings are the ways between continents, by faction, from and to: the zeppelin or boat that joins
+// crossings are the ways between continents, by lower-case faction, from and to: the zeppelin or boat that joins
 // Eastern Kingdoms and Kalimdor, and the Dark Portal that leads to Outland from the Blasted Lands.
 var crossings = map[[3]string]string{
-	{"Horde", "Eastern Kingdoms", "Kalimdor"}:    "Zeppelin to Orgrimmar",
-	{"Horde", "Kalimdor", "Eastern Kingdoms"}:    "Zeppelin to Undercity",
-	{"Alliance", "Eastern Kingdoms", "Kalimdor"}: "Boat to Auberdine",
-	{"Alliance", "Kalimdor", "Eastern Kingdoms"}: "Boat to Menethil Harbor",
+	{"horde", "Eastern Kingdoms", "Kalimdor"}:    "Zeppelin to Orgrimmar",
+	{"horde", "Kalimdor", "Eastern Kingdoms"}:    "Zeppelin to Undercity",
+	{"alliance", "Eastern Kingdoms", "Kalimdor"}: "Boat to Auberdine",
+	{"alliance", "Kalimdor", "Eastern Kingdoms"}: "Boat to Menethil Harbor",
 }
 
 const (
@@ -53,6 +53,7 @@ func Crossing(faction, from, to string) string {
 	if from == "" || to == "" || from == to {
 		return ""
 	}
+	faction = strings.ToLower(strings.TrimSpace(faction)) // the capture says "Horde", a setting may say "horde"
 	switch {
 	case to == "Outland":
 		if from == "Eastern Kingdoms" {
