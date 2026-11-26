@@ -27,3 +27,6 @@ var continents = func() map[string]string {
 
 // continentOf is the zone's continent, or "" when the zone is not known.
 func continentOf(zone string) string { return continents[strings.ToLower(strings.TrimSpace(zone))] }
+
+// ContinentOf is the zone's continent, or "" when the zone is not known.
+func ContinentOf(zone string) string { return continentOf(zone) }

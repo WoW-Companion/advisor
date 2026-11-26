@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.86
+
+- The plan file lists where each quest in your log is handed in, for live turn-in hints.
+
 ## 0.7.85
 
 - In town, a dungeon quest at your level (The Book of Ur) is a pick-up step, first on the route.
