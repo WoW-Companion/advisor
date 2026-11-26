@@ -136,6 +136,10 @@ func buildHere(p Plan, all []*quest, src source) []Here {
 			if sp == nil || sp.npc == 0 {
 				continue
 			}
+			// Here is only what can be done at the spot now: a turn-in that is not ready is a step, not a line here.
+			if s.Kind == KindTurnIn && !sp.ready {
+				continue
+			}
 			k := key{sp.npc, sp.m}
 			i, ok := idx[k]
 			if !ok {

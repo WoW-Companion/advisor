@@ -64,7 +64,7 @@ func TestFinishersForLoggedQuests(t *testing.T) {
 		t.Fatal(err)
 	}
 	root := vars["WoWCompanionPlan"].(lua.Table)
-	if root["schema"] != "1.5" {
+	if root["schema"] != Schema {
 		t.Errorf("schema %v", root["schema"])
 	}
 	rows := lua.List(root["characters"].(lua.Table)["Hero"].(lua.Table)["finishers"])

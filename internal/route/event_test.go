@@ -37,7 +37,7 @@ func TestEventQuestsJoinTheRouteOnlyWhenOptedInAndRunning(t *testing.T) {
 		c := hero()
 		at := tc.when.Unix()
 		c.CapturedAt, c.Seasonal = &at, tc.set
-		p := Build(c, eventIsle())
+		p := BuildWith(c, eventIsle(), anyPickup)
 		flames, boars := stepIndex(p, KindPickup, 61), stepIndex(p, KindPickup, 60)
 		if (flames >= 0) != tc.want || boars < 0 {
 			t.Errorf("%s: flames at %d, boars at %d: %+v", tc.name, flames, boars, p.Steps)

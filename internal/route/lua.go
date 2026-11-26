@@ -10,7 +10,7 @@ import (
 )
 
 // Schema is the Plan.lua format version (docs/plan-format.md).
-const Schema = "1.5"
+const Schema = "1.6"
 
 // File is the file name, next to Digest.lua.
 const File = "Plan.lua"
@@ -83,6 +83,18 @@ func (e Envelope) Lua() string {
 		fmt.Fprintf(&b, "      basis = { captured = %d, inLog = %s },\n", p.Basis.Captured, idList(p.Basis.InLog))
 		fmt.Fprintf(&b, "      zone = %s,\n      distance = %.1f,\n      steps = {\n", digest.Quote(p.Zone), p.Distance)
 		stops(&b, "        ", p.Steps)
+		b.WriteString("      },\n")
+		if e := p.Exit; e != nil {
+			fmt.Fprintf(&b, "      exit = { label = %s, map = %d, x = %.1f, y = %.1f, via = %s },\n", digest.Quote(e.Label), e.Map, e.X, e.Y, digest.Quote(e.Via))
+		}
+		b.WriteString("      trips = {\n")
+		for _, t := range p.Trips {
+			tripLua(&b, "        ", t)
+		}
+		b.WriteString("      },\n      parked = {\n")
+		for _, k := range p.Parked {
+			fmt.Fprintf(&b, "        { questID = %d, quest = %s, why = %s, kind = %s },\n", k.QuestID, digest.Quote(k.Quest), digest.Quote(k.Why), digest.Quote(k.Kind))
+		}
 		b.WriteString("      },\n      later = {\n")
 		stops(&b, "        ", p.Later)
 		b.WriteString("      },\n      find = {\n")
@@ -294,4 +306,14 @@ func zoneLua(b *strings.Builder, indent string, z ZonePlan) {
 		arr += fmt.Sprintf(", map = %d, x = %.1f, y = %.1f", a.Map, a.X, a.Y)
 	}
 	fmt.Fprintf(b, "%s[%d] = { zone = %s, travel = %s, arrival = { %s }, order = %s },\n", indent, z.Map, digest.Quote(z.Zone), digest.Quote(z.Travel), arr, idList(z.Order))
+}
+
+// tripLua is one trip: the logged quests that wait in a zone outside the run (Plan.lua 1.6).
+func tripLua(b *strings.Builder, indent string, t Trip) {
+	extra := ""
+	if t.Instance != "" {
+		extra = ", instance = " + digest.Quote(t.Instance)
+	}
+	fmt.Fprintf(b, "%s{ order = %d, map = %d, zone = %s, ready = %d, todo = %d, pickups = %d, questIDs = %s, reason = %s, travel = %s%s },\n",
+		indent, t.Order, t.Map, digest.Quote(t.Zone), t.Ready, t.Todo, t.Pickups, idList(t.QuestIDs), digest.Quote(t.Reason), digest.Quote(t.Travel), extra)
 }

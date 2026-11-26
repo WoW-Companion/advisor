@@ -37,7 +37,7 @@ func TestPlanStepWording(t *testing.T) {
 	c.Quests = []character.Quest{{QuestID: 10, Title: "Quest 10", Objectives: []character.Objective{{Text: "Test Wolf slain: 1/8"}}}}
 	ix := hubIsle()
 	ix.Quests[10].Creatures = []questie.Ref{{ID: 4}}
-	p := Build(c, ix)
+	p := BuildWith(c, ix, anyPickup)
 	var kill, pick, turn string
 	for _, s := range p.Steps {
 		switch {
@@ -49,7 +49,7 @@ func TestPlanStepWording(t *testing.T) {
 			turn = s.Label
 		}
 	}
-	if kill != "Kill Test Wolf (1/8)" || pick != "Pick up Quest 11, Quest 14 from Elder Test" || turn != "Turn in Quest 10 to Elder Test" {
+	if kill != "Kill Test Wolf (1/8)" || pick != "Pick up Quest 11, Quest 13, Quest 14 from Elder Test" || turn != "Turn in Quest 10, Quest 13 to Elder Test" {
 		t.Errorf("kill %q, pick %q, turn %q", kill, pick, turn)
 	}
 	lines, summary := Lines(p, 20)

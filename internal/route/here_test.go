@@ -141,30 +141,27 @@ func hereOf(p Plan, npc string) *Here {
 	return nil
 }
 
-func TestHereBlockListsMissingItemsAndWhere(t *testing.T) {
+func TestHereHoldsOnlyWhatCanBeDoneNow(t *testing.T) {
 	p := Build(constructChar(), constructIsle())
-	h := hereOf(p, "Test Windshaper")
-	if h == nil {
-		t.Fatalf("no here block: %+v", p.Here)
+	// Quest 30 is not ready: its turn-in is a step on the route, never a "here" line.
+	step := false
+	for _, s := range p.Steps {
+		step = step || (s.Kind == KindTurnIn && s.QuestID == 30)
 	}
-	var q *HereQuest
-	for i := range h.Quests {
-		if h.Quests[i].QuestID == 30 {
-			q = &h.Quests[i]
+	if !step {
+		t.Errorf("a not-ready turn-in is a step: %+v", p.Steps)
+	}
+	for _, h := range p.Here {
+		for _, q := range h.Quests {
+			if q.QuestID == 30 {
+				t.Errorf("a turn-in that is not ready is in a here block: %+v", h)
+			}
 		}
 	}
-	if q == nil || q.Role != KindTurnIn || len(q.Missing) != 2 {
-		t.Fatalf("quest 30 here: %+v", h.Quests)
-	}
-	for _, want := range []string{"Turn in The Test Construct once you have done", "Collect Test Gyro (0/1) (Test Lake)", "Collect Test Core (0/1) (Test Camp)"} {
-		if !strings.Contains(q.Text, want) {
-			t.Errorf("text %q lacks %q", q.Text, want)
-		}
-	}
-	for _, want := range []string{"turn in", "buy and sell", "repair"} {
-		if !contains(h.Can, want) {
-			t.Errorf("can %v lacks %q", h.Can, want)
-		}
+	// A ready turn-in is.
+	h := hereOf(p, "Test Captain")
+	if h == nil || !contains(h.Can, "turn in") {
+		t.Fatalf("the ready turn-in has no here block: %+v", p.Here)
 	}
 }
 
@@ -179,9 +176,9 @@ func contains(l []string, s string) bool {
 
 func TestOffPlanNearbyQuestHasGuidance(t *testing.T) {
 	ix := constructIsle()
-	ix.Quests[32].Level = 11 // above the level margin: listed, but not on the route
-	p := Build(constructChar(), ix)
-	h := hereOf(p, "Test Windshaper")
+	ix.Quests[32].Level = 11 // a new pick-up the run leaves out (no pick-ups allowed): listed, but not on the route
+	p := BuildWith(constructChar(), ix, Options{PickupCap: -1})
+	h := hereOf(p, "Test Captain")
 	if h == nil || len(h.Nearby) != 1 || h.Nearby[0].QuestID != 32 {
 		t.Fatalf("nearby: %+v", p.Here)
 	}
