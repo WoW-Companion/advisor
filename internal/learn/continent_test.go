@@ -29,3 +29,20 @@ func TestCrossing(t *testing.T) {
 		}
 	}
 }
+
+func TestContinentOfNamesTheStartingAreas(t *testing.T) {
+	for area, want := range map[string]string{"Deathknell": "Eastern Kingdoms", "Valley of Trials": "Kalimdor", "Shadowglen": "Kalimdor", "Northshire Valley": "Eastern Kingdoms"} {
+		if got := ContinentOf(area); got != want {
+			t.Errorf("ContinentOf(%q) = %q, want %q", area, got, want)
+		}
+	}
+}
+
+func TestIsRidingQuery(t *testing.T) {
+	for q, want := range map[string]bool{"Riding": true, "apprentice riding": true, "Riding Skill": true, "Enchant Gloves - Riding Skill": false,
+		"Formula: Enchant Gloves - Riding Skill": false, "Riding Gloves": true, "Linen Bandage": false} {
+		if got := isRidingQuery(q); got != want {
+			t.Errorf("isRidingQuery(%q) = %v, want %v", q, got, want)
+		}
+	}
+}

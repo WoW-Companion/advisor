@@ -33,24 +33,34 @@ type Errand struct {
 // KindErrand is the kind of a stop that is only an errand: a trainer, the bank.
 const KindErrand = "errand"
 
-// capitals are the capitals and major capitals where a visit gets errands, lower case.
-var capitals = map[string]bool{
-	"undercity": true, "orgrimmar": true, "thunder bluff": true, "silvermoon city": true,
-	"stormwind city": true, "ironforge": true, "darnassus": true, "the exodar": true,
-	"shattrath city": true, "dalaran": true,
+// capitals are the capitals and major capitals where a visit gets errands, lower case, by the side they serve:
+// "H" Horde, "A" Alliance, "" both.
+var capitals = map[string]string{
+	"undercity": "H", "orgrimmar": "H", "thunder bluff": "H", "silvermoon city": "H",
+	"stormwind city": "A", "ironforge": "A", "darnassus": "A", "the exodar": "A",
+	"shattrath city": "", "dalaran": "",
 }
 
-func isHub(zone string) bool { return capitals[strings.ToLower(strings.TrimSpace(zone))] }
+// isHub is true for a capital the character can use: a city of the other side has no trainer or bank for them.
+// A character whose side is not known gets every capital.
+func isHub(c character.Character, zone string) bool {
+	side, ok := capitals[strings.ToLower(strings.TrimSpace(zone))]
+	if !ok {
+		return false
+	}
+	mine := playerSide(c)
+	return side == "" || mine == "" || side == mine
+}
 
 // addErrands adds the city errands to the run when the player's zone or the run's zone is a capital or a
 // major hub: the stops that are only errands (a trainer, the bank) join the steps, and every errand,
 // those and the ordinary stops that are one (a class quest, a ready turn-in), is listed in p.Errands.
 func addErrands(p *Plan, c character.Character, src source, opt Options, in sharedInput) {
 	zone := p.Zone
-	if pos := c.LastKnownPosition(); pos != nil && isHub(pos.Zone) {
+	if pos := c.LastKnownPosition(); pos != nil && isHub(c, pos.Zone) {
 		zone = pos.Zone
 	}
-	if !isHub(zone) {
+	if !isHub(c, zone) {
 		return
 	}
 	cur := in.cur
