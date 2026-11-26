@@ -93,7 +93,7 @@ func TestNoPositionAnywhereGivesTheZoneOnly(t *testing.T) {
 		t.Fatalf("the accepted quest has no step: %+v", p.Steps)
 	}
 	s := p.Steps[i]
-	if !s.ZoneOnly || s.X != 0 || s.Y != 0 || s.Place != "Testisle" || !strings.Contains(s.Label, "somewhere in Testisle") {
+	if !s.ZoneOnly || !s.Unplaced || s.X != NoPos || s.Y != NoPos || s.Place != "Testisle" || !strings.Contains(s.Label, "somewhere in Testisle") {
 		t.Errorf("step %+v", s)
 	}
 	if strings.Contains(Render(p, 20), "(0.0, 0.0)") {

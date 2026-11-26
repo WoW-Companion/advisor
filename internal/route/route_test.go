@@ -460,7 +460,7 @@ func TestLoggedUnfinishedQuestWithUnknownObjective(t *testing.T) {
 	// With no position anywhere, each open objective is still a step, by its zone alone.
 	n := 0
 	for _, s := range p.Steps {
-		if s.Kind == KindObjective && s.QuestID == 23 && s.ZoneOnly && s.Place == "Testisle" && s.X == 0 && s.Y == 0 {
+		if s.Kind == KindObjective && s.QuestID == 23 && s.ZoneOnly && s.Place == "Testisle" && s.X == NoPos && s.Y == NoPos && s.Unplaced {
 			n++
 		}
 	}

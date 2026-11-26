@@ -41,6 +41,10 @@ const (
 	KindTravel    = "travel"
 )
 
+// NoPos is the X and Y of a stop with no position: the addon reads it as "do not draw". A stop is never
+// emitted at 0, 0.
+const NoPos = -1
+
 // Stop is one place on the route.
 type Stop struct {
 	N       int    `json:"n"`
@@ -59,8 +63,12 @@ type Stop struct {
 	Priority bool `json:"priority,omitempty"`
 	// Optional is set on a holiday-event quest's stops: the player opted in, and they come after the rest.
 	Optional bool `json:"optional,omitempty"`
-	// ZoneOnly is a stop with no known position: X and Y are 0 and only Place is known.
+	// ZoneOnly is a stop with no known position: X and Y are -1 and only Place is known.
 	ZoneOnly bool `json:"zone_only,omitempty"`
+	// Unplaced marks a stop with no position: X and Y are -1, the "no position" marker. Approx marks a
+	// position taken from a subzone's centre, not from the objective's own spawn.
+	Unplaced bool `json:"unplaced,omitempty"`
+	Approx   bool `json:"approx,omitempty"`
 	// Source names where a position came from when it is not the usual NPC or object spawn.
 	Source string `json:"source,omitempty"`
 
@@ -204,6 +212,7 @@ type spot struct {
 	dungeon  string        // with town: the dungeon, to keep its pick-ups together
 	xp       int           // with town: the quest's XP, for the order
 	areaObj  bool          // placed by an area objective of the player's Questie database, not an NPC or object
+	approx   bool          // placed at a subzone's centre named in the quest text, not at the objective's own spot
 	zoneOnly bool          // no position anywhere: the zone is all that is known, so no coordinates are shown
 	trip     *questie.Trip // a turn-in that is a journey: nothing to do, handed in elsewhere (never merged with an ordinary one)
 	unplaced bool          // an objective with no known location: never routed, listed under Find
@@ -552,12 +561,12 @@ func planWith(c character.Character, src source, opt Options) Plan {
 			if s.m == next {
 				st := Stop{N: len(p.Steps) + 1, Kind: KindTravel, Label: "Travel to " + travelName(src, next, s.place), Map: next, X: round1(s.x), Y: round1(s.y)}
 				if s.zoneOnly {
-					st.X, st.Y, st.ZoneOnly = 0, 0, true
+					st.X, st.Y, st.ZoneOnly, st.Unplaced = NoPos, NoPos, true, true
 				}
 				if z := zoneOf[next]; z != nil {
 					st.Label, st.Place = z.Travel, z.Arrival.Place
 					if z.Arrival.Known {
-						st.X, st.Y, st.ZoneOnly = z.Arrival.X, z.Arrival.Y, false
+						st.X, st.Y, st.ZoneOnly, st.Unplaced = z.Arrival.X, z.Arrival.Y, false, false
 					}
 				}
 				p.Steps = append(p.Steps, st)
@@ -615,8 +624,9 @@ func mustSet(nodes []*spot, preds [][]int) map[int]bool {
 func stopOf(n int, s *spot) Stop {
 	st := Stop{N: n, Kind: s.kind, Map: s.m, X: round1(s.x), Y: round1(s.y), Place: s.place, Priority: s.must, Optional: s.event}
 	if s.zoneOnly {
-		st.X, st.Y, st.ZoneOnly = 0, 0, true
+		st.X, st.Y, st.ZoneOnly, st.Unplaced = NoPos, NoPos, true, true
 	}
+	st.Approx = s.approx
 	if s.areaObj {
 		st.Source = FromQuestie
 	}

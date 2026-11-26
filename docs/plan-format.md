@@ -321,3 +321,9 @@ On each refresh the advisor:
   It fills the gaps where Questie and the dataset are silent (an unlock they do not list, or a giver Questie
   has no position for) and the plan then says "observed". It stays on the player's machine: no network, and
   it is never copied into the dataset or the repo.
+
+## Stops with no position
+
+A stop the planner cannot place is written with `x = -1, y = -1` and `unplaced = true`; no stop is ever
+written at 0, 0. A stop placed at a subzone's centre, because the quest text names the subzone and the
+dataset has no spawn for the objective, carries `approx = true` and real coordinates.
