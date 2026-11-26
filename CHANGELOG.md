@@ -1,11 +1,19 @@
 # Changelog
 
-## 0.7.82
+## 0.7.83
 
 - The app now records why it ended: quit, window close, update restart, go back, shutdown and crashes.
 - After an unexpected end, the next start says "closed unexpectedly at <time>" with Open logs.
 - The helper's output has its own log, and it restarts itself if it dies.
 - Settings > Updates: Open logs folder and Copy diagnostics (a zip in Downloads, secrets left out).
+
+## 0.7.82
+
+- Training lists only what your trainer shows as available.
+- A spell that needs an earlier rank is noted, not listed as new.
+- Gold needed counts only the spells you can train now.
+- Talent picks skip ranks you already took, matched by spell.
+- If it can't tell which talents you took, it says so.
 
 ## 0.7.81
 

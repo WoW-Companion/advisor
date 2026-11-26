@@ -199,3 +199,14 @@ func TestWoWCTalentPoints(t *testing.T) {
 		}
 	}
 }
+
+func TestWoWCTalentNodeSpellID(t *testing.T) {
+	tr := wowcTalentTrees(lua.Table{int64(1): lua.Table{"tree": "Shadow", "nodes": lua.Table{int64(1): lua.Table{"spell": int64(7001), "rank": int64(3), "max": int64(5)}}}})
+	if tr == nil {
+		t.Fatal("no trees")
+	}
+	n := tr.Trees[0].Talents[0]
+	if n.SpellID == nil || *n.SpellID != 7001 || n.Rank != 3 || n.Name != "" || *tr.Trees[0].Points != 3 {
+		t.Errorf("node %+v", n)
+	}
+}
