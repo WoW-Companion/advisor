@@ -234,7 +234,7 @@
   function reloadDone(note, game, base) {
     if (!note || !note.reload || !game) return false;
     const v = bare(game.addon || '');
-    if (v && v !== 'unknown' && note.addon) return cmp(v, note.addon) >= 0;
+    if (v && v !== 'unknown' && note.addon) return cmp(v, note.addon) <= 0; // cmp is 1 when v is older
     return (game.savedAt || 0) > (base || 0);
   }
   // When to look again: on start, every CHECK_EVERY, after the PC slept (a late one-minute tick), and
