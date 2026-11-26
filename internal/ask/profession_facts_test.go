@@ -47,3 +47,10 @@ func TestProfessionQuestionCarriesThePlanFacts(t *testing.T) {
 		t.Errorf("a profession the character lacks got plan facts: %s", got)
 	}
 }
+
+func TestProfessionWithoutARouteSaysEstimated(t *testing.T) {
+	got := professionPlanFacts(profLoaded(t), "How do I level tailoring?")
+	if !strings.Contains(got, "estimated") {
+		t.Errorf("a profession with no route is not marked estimated:\n%s", got)
+	}
+}

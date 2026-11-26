@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.7.88
+
+- Profession skill-up advice follows the efficient routes from your game data (wow-professions.com guides).
+- Enchanting at 51 now says: Enchant Chest - Inferior Stamina to 70 (1 Strange Dust each), then Journeyman.
+- Trainers named are your profession's own trainers, never a class trainer.
+- Material counts add bags and bank together and say where they are.
+- The rod, pick or knife is mentioned only when you are missing it.
+- With no route in your game data, the AI says the path is estimated and picks the cheaper recipe.
+
 ## 0.7.87
 
 - Weapon rules now come from your game data, not the AI's memory.

@@ -610,3 +610,31 @@ func CountsText(m map[string]int) string {
 // FactionOK reports whether an NPC's faction ("A", "H", "Alliance", "Horde", neutral or empty) serves
 // the character's faction.
 func FactionOK(npc, char string) bool { return factionOK(npc, char) }
+
+// ProfessionTrainers lists the trainers of one profession open to the character's faction, nearest
+// first. It is the profession's own trainers only, never a class trainer or a quest NPC.
+func ProfessionTrainers(c character.Character, ds store.DataStore, qx *questie.Index, prof string) []Way {
+	f := &finder{c: c, ds: ds, qx: qx}
+	if p := c.LastKnownPosition(); p != nil {
+		f.at = questie.Where{MapID: p.MapID, Zone: p.Zone, X: p.X, Y: p.Y}
+		f.hasAt, f.zone = true, p.Zone
+	}
+	if f.zone == "" && c.Location != nil {
+		f.zone = c.Location.Zone
+	}
+	f.cont = continentOf(f.zone)
+	for _, p := range c.Professions {
+		if strings.EqualFold(p.Name, prof) && p.Rank != nil {
+			f.skill = *p.Rank
+		}
+	}
+	ways := f.trainers(prof, 0, "trainer", 0)
+	sortWays(ways)
+	if len(ways) > MaxWays {
+		ways = ways[:MaxWays]
+	}
+	for i := range ways {
+		ways[i].Line = line(ways[i])
+	}
+	return ways
+}

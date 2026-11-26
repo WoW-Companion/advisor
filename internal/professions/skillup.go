@@ -23,6 +23,9 @@ type SkillUpStep struct {
 	LearnFirst      bool   // the capture lists known recipes and this is not one: learn it at a trainer
 	Reagents        []Reagent
 	MissingReagents int // reagents the character is short of
+
+	per  map[int64]int // reagent item id -> count per craft
+	cost float64       // vendor copper of the reagents per expected skill point
 }
 
 // Skill-up chances by colour: a craft gives a point for sure while the recipe is orange, three times in
@@ -127,6 +130,8 @@ func SkillUp(c character.Character, ds store.DataStore, profession string, targe
 				s.Recipe = fmt.Sprintf("spell %d", r.SpellID)
 			}
 		}
+		s.per = map[int64]int{}
+		chance := chanceAt(r, have)
 		for _, row := range reagentsOf(ds, r.SpellID) {
 			id, _ := row["reagent_item_id"].(int64)
 			per := 1
@@ -134,6 +139,10 @@ func SkillUp(c character.Character, ds store.DataStore, profession string, targe
 				per = *n
 			}
 			need := per * crafts
+			s.per[id] = per
+			if chance > 0 {
+				s.cost += float64(per) * float64(basePrice(ds, id, 0)) / chance
+			}
 			name := itemName(ds, id)
 			if name == "" {
 				name = fmt.Sprintf("item %d", id)
@@ -145,6 +154,7 @@ func SkillUp(c character.Character, ds store.DataStore, profession string, targe
 		}
 		out = append(out, s)
 	}
+	out = dropDominated(out)
 	sort.SliceStable(out, func(i, j int) bool {
 		a, b := out[i], out[j]
 		if (a.MissingReagents == 0) != (b.MissingReagents == 0) {
@@ -156,6 +166,9 @@ func SkillUp(c character.Character, ds store.DataStore, profession string, targe
 		if a.Difficulty != b.Difficulty {
 			return a.Difficulty == Orange
 		}
+		if a.cost != b.cost {
+			return a.cost < b.cost
+		}
 		if a.Crafts != b.Crafts {
 			return a.Crafts < b.Crafts
 		}
@@ -163,6 +176,31 @@ func SkillUp(c character.Character, ds store.DataStore, profession string, targe
 	})
 	if len(out) > SkillUpMax {
 		out = out[:SkillUpMax]
+	}
+	return out
+}
+
+// dropDominated removes an orange recipe that needs more of a reagent per craft than another orange
+// recipe that uses the same reagent: every craft of it gives a point, so it only costs more.
+func dropDominated(in []SkillUpStep) []SkillUpStep {
+	var out []SkillUpStep
+	for i, a := range in {
+		dominated := false
+		if a.Difficulty == Orange {
+			for j, b := range in {
+				if i == j || b.Difficulty != Orange {
+					continue
+				}
+				for id, pa := range a.per {
+					if pb, ok := b.per[id]; ok && pa > pb {
+						dominated = true
+					}
+				}
+			}
+		}
+		if !dominated {
+			out = append(out, a)
+		}
 	}
 	return out
 }
