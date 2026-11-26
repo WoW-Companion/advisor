@@ -113,7 +113,7 @@ func TestOfflineBenchmarkPetSources(t *testing.T) {
 			ref += fmt.Sprintf(" (%s %d)", profession, learn)
 		}
 		ref += fmt.Sprintf(", %d sold-by rows, %d vendor rows, buy_price %d", soldRows, len(vend), num(item["buy_price"]))
-		out = append(out, benchRow{name + ": where the pet comes from", firstLine(txt) + " | " + strings.ReplaceAll(strings.TrimSpace(strings.SplitN(txt, "\n", 2)[1]), "\n", " "), ref, compPetSrc,
+		out = append(out, benchRow{name + ": where the pet comes from", strings.ReplaceAll(strings.TrimSpace(txt), "\n", "; "), ref, compPetSrc,
 			resultIf(ok, "a creature, a vendor or a crafted source the dataset does not hold, or a crafted pet called dropped")})
 		if hasOffer {
 			t.Errorf("%s: a vendor %q named from vendor rows with no name", name, offer.Vendor)
