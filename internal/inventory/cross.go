@@ -421,9 +421,22 @@ func decide(chars []character.Character, i int, e Entry, row store.Row, ds store
 		}
 	}
 	if i64(row["slot"]) != 0 {
-		return gearAction(chars, i, e, row)
+		a, to, why, ah := gearAction(chars, i, e, row)
+		if a == Sell && auctionGear(row) {
+			// a Bind on Equip piece of uncommon quality or better sells for more on the Auction House than to a vendor
+			return a, to, why + ": it is tradeable, so sell it on the Auction House", true
+		}
+		return a, to, why, ah
 	}
 	return Unsure, "", "no rule places it", false
+}
+
+// auctionGear reports whether a piece of gear can be sold on the Auction House: not bound on pickup and of
+// uncommon quality or better (the same rule the item paths use).
+func auctionGear(row store.Row) bool {
+	q, _ := rowInt(row, "quality")
+	b, _ := rowInt(row, "bonding")
+	return q >= 2 && (b == 0 || b == 2)
 }
 
 func gearAction(chars []character.Character, i int, e Entry, row store.Row) (Action, string, string, bool) {

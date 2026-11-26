@@ -588,7 +588,11 @@ func learnSentence(src RecipeSource, known, listed bool) string {
 func matsLine(rs []Reagent) string {
 	var mats []string
 	for _, g := range rs {
-		mats = append(mats, fmt.Sprintf("%d/%d %s", min(g.Have, g.Need), g.Need, g.Name))
+		l := fmt.Sprintf("%d/%d %s", min(g.Have, g.Need), g.Need, g.Name)
+		if g.InBank > 0 {
+			l += fmt.Sprintf(" (%d in your bank)", g.InBank)
+		}
+		mats = append(mats, l)
 	}
 	return strings.Join(mats, ", ")
 }
@@ -684,40 +688,134 @@ func gatherer(name string) string {
 	return ""
 }
 
-// getReagent is how to get a missing reagent: gather it with the character's own gathering skill,
-// buy it from a vendor, or buy it on the Auction House when it can be traded. "" when none applies.
+// node is a gathering node that yields an item: its name, the zone it stands in and the skill it needs (0 when unknown).
+type node struct {
+	name, zone, prof string
+	skill            int
+}
+
+// nodesOf are the nodes the item's gathered and object rows name. The dataset's gathered rows carry the node's name,
+// skill and profession and its gathering_nodes rows the zones; an object row names a node by id only.
+func (f *finder) nodesOf(rows []store.Row) []node {
+	var out []node
+	at := map[int64]int{}
+	for _, l := range rows {
+		if !kindHas(str(l["source_kind"]), "object", "gather", "node") {
+			continue
+		}
+		id := i64(l["node_id"])
+		if id == 0 {
+			id = i64(l["source_id"])
+		}
+		n := node{name: str(l["node_name"]), prof: str(l["profession"]), skill: int(i64(l["skill_required"]))}
+		if i, ok := at[id]; ok { // the object row and the gathered row of one node are one node
+			o := &out[i]
+			o.name, o.prof = cmpOr(o.name, n.name), cmpOr(o.prof, n.prof)
+			if o.skill == 0 {
+				o.skill = n.skill
+			}
+			continue
+		}
+		if zs, err := f.ds.Filter("gathering_nodes", store.Range{Column: "node_id", Min: id, Max: id}); err == nil {
+			for _, z := range zs {
+				n.name, n.prof = cmpOr(n.name, str(z["name"])), cmpOr(n.prof, str(z["profession"]))
+				if n.skill == 0 {
+					n.skill = int(i64(z["skill_required"]))
+				}
+				if zn := str(z["zone_name"]); zn != "" {
+					n.zone = appendZone(n.zone, zn)
+				}
+			}
+		}
+		if o, err := f.ds.Get("objects", id); err == nil {
+			n.name = cmpOr(n.name, str(o["name"]))
+			n.zone = cmpOr(n.zone, str(o["zone_name"]))
+		}
+		at[id] = len(out)
+		out = append(out, n)
+	}
+	return out
+}
+
+func cmpOr(a, b string) string {
+	if a != "" {
+		return a
+	}
+	return b
+}
+
+func appendZone(zones, z string) string {
+	if zones == "" {
+		return z
+	}
+	for _, x := range strings.Split(zones, "|") {
+		if x == z {
+			return zones
+		}
+	}
+	return zones + "|" + z
+}
+
+// getReagent is how to get a missing reagent: gather it with the character's own gathering skill (when a node
+// that yields it is within that skill), buy it from a vendor (the dataset's sold-by rows), or buy it on the Auction
+// House when it can be traded. "" when none applies.
 func (f *finder) getReagent(id int64, it store.Row) string {
 	rows, _ := f.ds.Filter("loot_sources", store.Range{Column: "item_id", Min: id, Max: id})
 	name := str(it["name"])
-	if g := gatherer(name); g != "" {
-		if _, _, ok := f.profession(g); ok {
-			how := "gather it with your " + g
-			var nodes, zones []string
-			for _, l := range rows {
-				if !kindHas(str(l["source_kind"]), "object", "gather", "node") {
-					continue
+	nodes := f.nodesOf(rows)
+	g := gatherer(name)
+	if g == "" {
+		for _, n := range nodes {
+			if n.prof != "" {
+				g = n.prof
+				break
+			}
+		}
+	}
+	short := ""
+	if g != "" {
+		if _, sk, ok := f.profession(g); ok {
+			have := 0
+			if sk.Rank != nil {
+				have = *sk.Rank
+			}
+			var within []node
+			least := 0
+			for _, n := range nodes {
+				if n.skill <= have {
+					within = append(within, n)
 				}
-				if o, err := f.ds.Get("objects", i64(l["source_id"])); err == nil {
-					nodes = appendUnique(nodes, str(o["name"]))
-					zones = appendUnique(zones, str(o["zone_name"]))
+				if least == 0 || n.skill < least {
+					least = n.skill
 				}
 			}
-			if len(nodes) > 0 {
-				how += ": " + strings.Join(cut(nodes, 2), " or ")
+			if len(nodes) == 0 || len(within) > 0 {
+				how := "gather it with your " + g
+				var names, zones []string
+				for _, n := range within {
+					names = appendUnique(names, n.name)
+					for _, z := range strings.Split(n.zone, "|") {
+						zones = appendUnique(zones, z)
+					}
+				}
+				if len(names) > 0 {
+					how += ": " + strings.Join(cut(names, 2), " or ")
+				}
+				if len(zones) > 0 {
+					how += " in " + strings.Join(cut(zones, 3), ", ")
+				}
+				return how
 			}
-			if len(zones) > 0 {
-				how += " in " + strings.Join(cut(zones, 3), ", ")
-			}
-			return how
+			short = fmt.Sprintf(" (gathering it needs %s %d; yours is %d)", g, least, have)
 		}
 	}
 	for _, l := range rows {
-		if kindHas(str(l["source_kind"]), "vendor") {
-			return "buy it from a vendor"
+		if kindHas(str(l["source_kind"]), "vendor", "sold by") {
+			return "buy it from a vendor" + short
 		}
 	}
 	if Tradeable(int(i64(it["bonding"])), int(i64(it["quality"]))) {
-		return "buy it on the Auction House"
+		return "buy it on the Auction House" + short
 	}
 	return ""
 }

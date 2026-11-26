@@ -32,10 +32,10 @@ import (
 
 // The time model.
 const (
-	WalkSpeed    = 7.0    // yards a second on foot
-	MountSpeed   = 14.0   // yards a second mounted
+	WalkSpeed    = 7.0    // yards a second on foot (the game's run speed)
+	MountSpeed   = 11.2   // yards a second mounted: the 60% ground mount of level 40 (the 100% mount costs far more)
 	MountLevel   = 40     // the level a mount is assumed from
-	MapYards     = 1200.0 // yards across a zone map, so one map percent is MapYards/100 yards
+	MapYards     = 4000.0 // yards across a typical zone map (3,500 to 5,300 for the starting zones): one map percent is MapYards/100 yards
 	PathFactor   = 1.3    // real paths are longer than the straight line
 	TalkSecs     = 20.0   // a pick-up or turn-in
 	KillSecs     = 25.0   // one creature: find, fight, recover
