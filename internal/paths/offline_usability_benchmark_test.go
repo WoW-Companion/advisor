@@ -140,10 +140,10 @@ func whoCan(r store.Row, level int, ref func(class string, id int64) bool) (advi
 	var a, b []string
 	for _, c := range usabClasses {
 		if ok, known := gear.CanUse(c.token, level, r); ok && known {
-			a = append(a, strings.ToLower(c.token[:3]))
+			a = append(a, strings.ToLower(c.token[:4]))
 		}
 		if ref(c.token, c.id) {
-			b = append(b, strings.ToLower(c.token[:3]))
+			b = append(b, strings.ToLower(c.token[:4]))
 		}
 	}
 	return strings.Join(a, " "), strings.Join(b, " ")
