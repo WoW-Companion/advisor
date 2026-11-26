@@ -71,6 +71,9 @@ type Result struct {
 	// name), so an answer with no place does not send the player to a trainer.
 	fromItem bool
 	item     string
+	// altItem names the recipe item of a recipe a trainer also teaches ("" when none), so a trainer answer with no
+	// place still says the item teaches it.
+	altItem string
 }
 
 func i64(v any) int64 { n, _ := v.(int64); return n }
@@ -499,6 +502,8 @@ func Recipe(c character.Character, ds store.DataStore, qx *questie.Index, r stor
 				if res.item == "" {
 					res.item = name
 				}
+			} else if res.altItem == "" {
+				res.altItem = name
 			}
 			vw := f.vendorWays(id, name)
 			if seen := f.seenVendors(id, name); len(seen) > 0 {
@@ -537,6 +542,9 @@ func text(r Result) string {
 		fmt.Fprintf(&b, "It is learned from %s, but the game data you have names no place that sells or drops it.", item)
 	} else if len(r.Ways) == 0 {
 		fmt.Fprintf(&b, "Ask %s trainer in a city or starter zone.", wording.A(r.Profession))
+		if r.altItem != "" {
+			fmt.Fprintf(&b, " It is also taught by the recipe item %s, but the game data you have names no place that sells or drops it.", r.altItem)
+		}
 	} else {
 		b.WriteString(r.Ways[0].Line + ".")
 		for _, w := range r.Ways[1:] {

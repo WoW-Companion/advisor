@@ -73,7 +73,7 @@ func Live(c character.Character, ds store.DataStore, qx *questie.Index, plan rou
 				if !ok || r.Object {
 					continue
 				}
-				if e.Rank == 1 || e.Rank == 2 {
+				if e.Rank == 1 || e.Rank == 2 || e.Rank == 3 { // elite, rare elite or boss: group content; a plain rare is not
 					return true
 				}
 				for _, sp := range e.Spawns {
