@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.7.88
+
+- Nearby-quest picks skip holiday quests outside their event, or when holiday quests are off.
+- Quests that need a higher level than yours are never picked.
+
 ## 0.7.87
 
 - Weapon rules now come from your game data, not the AI's memory.
