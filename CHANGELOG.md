@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.7.90
+
+- Profession skill-up advice follows the efficient routes from your game data.
+- Enchanting at 51 now says: Enchant Chest - Inferior Stamina to 70, then Journeyman.
+- Trainers named are your profession's own trainers, never a class trainer.
+- Material counts add bags and bank together and say where they are.
+- The rod, pick or knife is mentioned only when you are missing it.
+- With no route in your game data, the AI says the path is estimated and picks the cheaper recipe.
+- Release notes now collect several changes per update.
+
 ## 0.7.89
 
 - The app now records why it ended: quit, window close, update restart, go back, shutdown and crashes.
