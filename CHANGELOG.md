@@ -2,8 +2,8 @@
 
 ## 0.7.88
 
-- Profession skill-up advice follows the efficient routes from your game data (wow-professions.com guides).
-- Enchanting at 51 now says: Enchant Chest - Inferior Stamina to 70 (1 Strange Dust each), then Journeyman.
+- Skill-up advice follows the efficient routes in your game data (wow-professions.com guides).
+- Enchanting at 51: Enchant Chest - Inferior Stamina (1 Strange Dust) to 70, then Journeyman.
 - Trainers named are your profession's own trainers, never a class trainer.
 - Material counts add bags and bank together and say where they are.
 - The rod, pick or knife is mentioned only when you are missing it.
