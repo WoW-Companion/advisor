@@ -272,7 +272,7 @@ func TestPlanClustersAndOrders(t *testing.T) {
 		later = later || strings.Contains(s.Quest, "Quest 13")
 	}
 	for _, s := range p.Steps {
-		travel = travel || (s.Kind == KindTravel && s.Label == "Travel to Otherisle")
+		travel = travel || (s.Kind == KindTravel && s.Label == "Walk or ride to Otherisle")
 		if strings.Contains(s.Quest, "Quest 13") {
 			t.Errorf("a too-high quest is on the route: %+v", s)
 		}
