@@ -212,40 +212,72 @@
   const RESTART_TEXT = "This addon update adds new files: fully exit and restart WoW to load it (/reload isn't enough).";
   const reloadLine = restart => restart ? RESTART_TEXT : RELOAD_TEXT;
 
-  // --- "What's new" since the notes were last viewed -------------------------------------------
-  // cfg.notesSeen = { app, addon } holds the versions whose notes the player has seen. The first run
-  // seeds it with what is installed, so a fresh install has no backlog. Both are kept in the settings.
-  function seedNotesSeen(cfg, app, addon) {
+  // --- "What's new": the release history with a "New since you last looked" divider ------------
+  // cfg.notesSeen = { app, addon } holds the newest version of each component the player has seen.
+  // The view always lists the history; seen versions (<= notesSeen) sit under the divider.
+  const BELOW_ALL = '0.0.0'; // seeded when the previous version is unknown: every capped note is new
+  const known = v => !!bare(v) && bare(v) !== 'unknown';
+  // Seeds an empty notesSeen[component]. prev = { app, addon: the version before the update ("" when
+  // unknown), upgrade: whether this is an update rather than a fresh install }. An upgrade seeds the
+  // previous version (or below everything when unknown); only a fresh install seeds the installed one.
+  function seedNotesSeen(cfg, app, addon, prev) {
     const seen = cfg.notesSeen = Object.assign({ app: '', addon: '' }, cfg.notesSeen);
+    const p = prev || {};
     let changed = false;
-    if (!seen.app && bare(app)) { seen.app = bare(app); changed = true; }
-    if (!seen.addon && bare(addon) && bare(addon) !== 'unknown') { seen.addon = bare(addon); changed = true; }
+    for (const [k, v] of [['app', app], ['addon', addon]]) {
+      if (seen[k] || !known(v)) continue;
+      seen[k] = known(p[k]) ? bare(p[k]) : p.upgrade ? BELOW_ALL : bare(v);
+      changed = true;
+    }
     return changed;
   }
-  // The query for /api/notes-since: from the last seen version up to the installed one.
+  // One-time fix: the first 0.7.95 run seeded notesSeen.app with the version it had just installed,
+  // which hid that release. That value is treated as unseeded once (cfg.notesSeedFixed).
+  function fixBuggySeed(cfg) {
+    if (cfg.notesSeedFixed) return false;
+    cfg.notesSeedFixed = true;
+    const seen = cfg.notesSeen = Object.assign({ app: '', addon: '' }, cfg.notesSeen);
+    if (bare(seen.app) === '0.7.95') seen.app = BELOW_ALL;
+    return true;
+  }
+  // The query for /api/notes-since: the whole history within the server's cap, up to the installed one.
   function notesQuery(cfg, app, addon) {
-    const seen = cfg.notesSeen || {};
     const a = bare(app), d = bare(addon);
-    const q = { app_from: bare(seen.app) || a, app: a, addon_from: bare(seen.addon) || d, addon: d };
+    const q = { app_from: BELOW_ALL, app: a, addon_from: BELOW_ALL, addon: d };
     return '?' + Object.keys(q).map(k => k + '=' + encodeURIComponent(q[k])).join('&');
   }
   const OLDER_TEXT = 'Older changes: see the release page';
-  // The server's answer as a list to draw: App then Addon, each newest first with its versions and
-  // bullets. more adds the closing line that links the releases page.
-  function notesView(resp) {
-    const sections = [];
+  const DIVIDER_TEXT = 'New since you last looked';
+  const UPTODATE_TEXT = 'You’re up to date';
+  // The server's answer as a list to draw, top to bottom: App and Addon releases interleaved by date
+  // (newest first), the unseen ones above the divider, the seen ones below. Items are
+  // { type: 'uptodate' } | { type: 'divider', text } | { type: 'entry', component, version, date,
+  // bullets, unseen }. With nothing unseen the list opens with "You're up to date"; with everything
+  // unseen the divider is last. unseen counts the new entries; more is the older-releases link.
+  function historyView(resp, cfg) {
+    const seen = (cfg && cfg.notesSeen) || {};
+    const entries = [];
     let more = false;
     for (const [key, title] of [['app', 'App'], ['addon', 'Addon']]) {
       const part = (resp && resp[key]) || {};
-      const entries = (part.entries || []).filter(e => (e.lines || []).length).map(e => ({ version: bare(e.version), bullets: e.lines.slice() }));
-      if (entries.length) sections.push({ component: title, entries });
       if (part.more) more = true;
+      let date = '9999-12-31'; // an undated release follows the one above it in its own component
+      for (const e of part.entries || []) {
+        if (!(e.lines || []).length) continue;
+        if (e.date) date = e.date;
+        entries.push({ type: 'entry', component: title, version: bare(e.version), date, bullets: e.lines.slice(), unseen: cmp(e.version, seen[key] || '') < 0, n: entries.length });
+      }
     }
-    return { sections, empty: !sections.length, more: more ? { text: OLDER_TEXT, url: CHANGELOG_URL } : null };
+    entries.sort((x, y) => (x.date < y.date ? 1 : x.date > y.date ? -1 : x.n - y.n));
+    entries.forEach(e => delete e.n);
+    const fresh = entries.filter(e => e.unseen), old = entries.filter(e => !e.unseen);
+    const items = fresh.length ? [...fresh, { type: 'divider', text: DIVIDER_TEXT }, ...old] : [{ type: 'uptodate', text: UPTODATE_TEXT }, ...old];
+    return { items, unseen: fresh.length, more: more ? { text: OLDER_TEXT, url: CHANGELOG_URL } : null };
   }
-  // Viewing the notes marks them seen: notesSeen becomes the installed versions (a component whose
-  // installed version is not known keeps its mark). True when it changed.
-  function openNotes(cfg, app, addon) {
+  // Closing the view (or reading it for NOTES_READ_MS) marks the installed versions seen. A component
+  // whose installed version is not known keeps its mark. True when it changed.
+  const NOTES_READ_MS = 3000;
+  function markSeen(cfg, app, addon) {
     const seen = cfg.notesSeen = Object.assign({ app: '', addon: '' }, cfg.notesSeen);
     const a = bare(app), d = bare(addon);
     const next = { app: a || seen.app, addon: d && d !== 'unknown' ? d : seen.addon };
@@ -253,6 +285,8 @@
     cfg.notesSeen = next;
     return changed;
   }
+  // The notice's count: " · 3 new" when there are unseen entries, "" otherwise.
+  const newCount = n => n > 0 ? ' · ' + n + ' new' : '';
 
   // The note at the top of the chat on the first start of a different version than the last one.
   // last is the version seen at the previous start ("" the first time ever: no note).
@@ -302,7 +336,7 @@
     };
   }
 
-  const api = { addonOffer, addonView, addonAuto, CHECK_EVERY, LATER_MS, WAKE_GAP, TICK, updateQuery, bannerState, bannerView, turnOnAuto, autoArgs, skip, later, plainNotes, noteView, NOTICE_BULLETS, versionRows, noticeView, updatedNote, addonDoneNote, reloadDone, whatsNewQuery, seedNotesSeen, notesQuery, notesView, openNotes, OLDER_TEXT, CHANGELOG_URL, cmp, createSchedule };
+  const api = { addonOffer, addonView, addonAuto, CHECK_EVERY, LATER_MS, WAKE_GAP, TICK, updateQuery, bannerState, bannerView, turnOnAuto, autoArgs, skip, later, plainNotes, noteView, NOTICE_BULLETS, versionRows, noticeView, updatedNote, addonDoneNote, reloadDone, whatsNewQuery, seedNotesSeen, fixBuggySeed, notesQuery, historyView, markSeen, newCount, NOTES_READ_MS, BELOW_ALL, OLDER_TEXT, CHANGELOG_URL, cmp, createSchedule };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.WowcUpdates = api;
 })(typeof window !== 'undefined' ? window : globalThis);

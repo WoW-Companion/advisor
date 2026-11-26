@@ -24,6 +24,8 @@ const (
 type Release struct {
 	Version string   `json:"version"`
 	Lines   []string `json:"lines"`
+	// Date is the release date (YYYY-MM-DD) when known, for ordering app and addon notes together.
+	Date string `json:"date,omitempty"`
 }
 
 var (
