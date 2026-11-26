@@ -178,7 +178,13 @@ type Options struct {
 	Unlocks map[int][]string
 	// Order is the quest ids in route order; Next quests follows it, so the panel and the route agree.
 	Order []int
+	// Far is, per quest id, the label of a quest on another continent ("Stonetalon Mountains,
+	// Kalimdor: boat or zeppelin from Undercity"); those lines come last, under FurtherAway.
+	Far map[int]string
 }
+
+// FurtherAway is the sub-heading of the Next quests lines that need a trip to another continent.
+const FurtherAway = "Further away"
 
 // NoDataText is what NEXT says when no game dataset has downloaded.
 const NoDataText = "Game data not downloaded yet; see Setup"
@@ -347,7 +353,7 @@ func Build(c character.Character, ds store.DataStore, opt Options) Digest {
 		notes = append(notes, l)
 	}
 
-	quests = routeOrder(quests, opt.Order)
+	quests = furtherAway(routeOrder(quests, opt.Order), opt.Far)
 	quests = withWeaponTraining(quests, weaponTraining(c, ds, link.trains))
 	for _, s := range []Section{
 		{NextQuests, capLines(quests, MaxQuests), ""},
@@ -543,6 +549,32 @@ func PlanNPCs(steps []advice.Step) map[string]bool {
 		}
 	}
 	return out
+}
+
+// furtherAway moves the lines on another continent to the end, each naming its place, under a
+// "Further away" heading. The rest keep their order.
+func furtherAway(lines []Line, far map[int]string) []Line {
+	if len(far) == 0 {
+		return lines
+	}
+	var near, away []Line
+	for _, l := range lines {
+		label, ok := far[l.Quest]
+		if !ok || l.Quest == 0 {
+			near = append(near, l)
+			continue
+		}
+		if l.Zone != "" {
+			l.Text = strings.TrimSuffix(l.Text, " ("+l.Zone+")")
+		}
+		l.Text = clip(l.Text + " (" + label + ")")
+		away = append(away, l)
+	}
+	if len(away) == 0 {
+		return lines
+	}
+	head := Line{Text: FurtherAway, Kind: KindNote, Ref: noteRef("further-away")}
+	return append(append(near, head), away...)
 }
 
 // routeOrder puts the quest lines in route order. A line that moves ahead of where it stood and has no

@@ -27,3 +27,25 @@ func TestNextQuestsFollowRouteOrderAndSayWhy(t *testing.T) {
 		t.Errorf("no route, no reorder")
 	}
 }
+
+func TestFurtherAwayComesLastAndNamesItsPlace(t *testing.T) {
+	lines := []Line{
+		{Text: "Blood Feeders: ready to turn in (Stonetalon Mountains)", Quest: 1, Kind: KindTurnIn, Zone: "Stonetalon Mountains"},
+		{Text: "Pick up Light's Justice", Quest: 2, Kind: KindPickup},
+		{Text: "Turn in here", Quest: 3, Kind: KindTurnIn},
+	}
+	far := map[int]string{1: "Stonetalon Mountains, Kalimdor: boat or zeppelin from Undercity"}
+	got := furtherAway(routeOrder(lines, []int{3, 2, 1}), far)
+	want := []string{"Turn in here", "Pick up Light's Justice", FurtherAway, "Blood Feeders: ready to turn in (Stonetalon Mountains, Kalimdor: boat or zeppelin from Undercity)"}
+	if len(got) != len(want) {
+		t.Fatalf("got %v", got)
+	}
+	for i := range want {
+		if got[i].Text != want[i] {
+			t.Errorf("line %d = %q, want %q", i, got[i].Text, want[i])
+		}
+	}
+	if same := furtherAway(lines, nil); len(same) != 3 {
+		t.Errorf("nothing far, nothing added")
+	}
+}

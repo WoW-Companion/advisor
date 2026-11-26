@@ -104,7 +104,7 @@ func (l loaded) digest() digest.Digest {
 	opt := digest.Options{Now: time.Now(), Client: l.f.ClientOf(l.c), Questie: l.qx}
 	if l.qx != nil {
 		p := route.BuildWith(l.c, l.qx, route.OptionsFor(l.sv, l.ds))
-		opt.Unlocks, opt.Order = route.UnlockNotes(p), route.QuestOrder(p)
+		opt.Unlocks, opt.Order, opt.Far = route.UnlockNotes(p), route.QuestOrder(p), route.FarAway(p)
 	}
 	return digest.Build(l.c, l.ds, opt)
 }

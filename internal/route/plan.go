@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/WoW-Companion/advisor/internal/character"
+	"github.com/WoW-Companion/advisor/internal/learn"
 	"github.com/WoW-Companion/advisor/internal/questie"
 	"github.com/WoW-Companion/advisor/internal/unlock"
 )
@@ -911,7 +912,7 @@ func prioritize(p *Problem, nodes []*spot, order []int) []int {
 func QuestOrder(p Plan) []int {
 	var out []int
 	seen := map[int]bool{}
-	for _, s := range p.Steps {
+	for _, s := range append(slices.Clone(p.Steps), p.Later...) { // the steps first, then later in its cost order
 		for _, id := range s.QuestIDs {
 			if !seen[id] {
 				seen[id] = true
@@ -924,6 +925,36 @@ func QuestOrder(p Plan) []int {
 		}
 	}
 	return out
+}
+
+// FarAway is, for each quest whose stops are all on another continent than the player's zone, the
+// place's label: "Stonetalon Mountains, Kalimdor: boat or zeppelin from Undercity". A quest with a
+// stop on the player's continent, or in a zone whose continent is unknown, is not far.
+func FarAway(p Plan) map[int]string {
+	home := learn.ContinentOf(p.Zone)
+	if home == "" {
+		return nil
+	}
+	far, near := map[int]string{}, map[int]bool{}
+	for _, s := range append(slices.Clone(p.Steps), p.Later...) {
+		ids := s.QuestIDs
+		if len(ids) == 0 && s.QuestID != 0 {
+			ids = []int{s.QuestID}
+		}
+		c := learn.ContinentOf(s.Place)
+		for _, id := range ids {
+			switch {
+			case c == "" || c == home:
+				near[id] = true
+			case far[id] == "":
+				far[id] = s.Place + ", " + c + ": boat or zeppelin from " + p.Zone
+			}
+		}
+	}
+	for id := range near {
+		delete(far, id)
+	}
+	return far
 }
 
 // travelName is the place a travel step names: never a bare map number.
