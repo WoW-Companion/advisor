@@ -163,10 +163,7 @@ func (f *finder) skillUpSteps(prof string, have, need int, spell int64) []SkillU
 				miss = append(miss, fmt.Sprintf("%d %s", g.Missing, g.Name))
 			}
 		}
-		per := "about 1 point per craft"
-		if s.Difficulty == professions.Yellow {
-			per = "about 1 point per 2 crafts"
-		}
+		per := professions.SkillPerCraft(s.Difficulty)
 		st.Line = fmt.Sprintf("%s (%s, %s): about %d crafts to reach %d", s.Recipe, s.Difficulty, per, s.Crafts, s.Reaches)
 		if s.LearnFirst {
 			st.Line += "; learn it at a trainer first"

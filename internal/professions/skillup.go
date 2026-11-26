@@ -16,7 +16,7 @@ const SkillUpMax = 3
 type SkillUpStep struct {
 	Recipe          string
 	Creates         string
-	Difficulty      string // Orange or Yellow at the character's skill
+	Difficulty      string // Orange, Yellow or Green at the character's skill, as the game colours it
 	Crafts          int    // estimated crafts to reach Reaches
 	Reaches         int    // the skill the crafts reach: the target, or where the recipe turns grey
 	Known           bool   // the capture says the recipe is known
@@ -112,8 +112,8 @@ func SkillUp(c character.Character, ds store.DataStore, profession string, targe
 		if r.SpellID == exclude || r.LearnSkill == nil || *r.LearnSkill > have {
 			continue
 		}
-		d := difficulty(r, have)
-		if d != Orange && d != Yellow {
+		d := colourAt(r, have)
+		if d != Orange && d != Yellow && d != Green {
 			continue
 		}
 		crafts, reaches := craftsFor(r, have, target)
@@ -164,7 +164,7 @@ func SkillUp(c character.Character, ds store.DataStore, profession string, targe
 			return a.Known
 		}
 		if a.Difficulty != b.Difficulty {
-			return a.Difficulty == Orange
+			return colourRank(a.Difficulty) < colourRank(b.Difficulty)
 		}
 		if a.cost != b.cost {
 			return a.cost < b.cost
@@ -178,6 +178,28 @@ func SkillUp(c character.Character, ds store.DataStore, profession string, targe
 		out = out[:SkillUpMax]
 	}
 	return out
+}
+
+// colourRank orders the colours of a skill-up path: orange, yellow, green.
+func colourRank(d string) int {
+	switch d {
+	case Orange:
+		return 0
+	case Yellow:
+		return 1
+	}
+	return 2
+}
+
+// SkillPerCraft words how often a craft of the colour gives a skill point.
+func SkillPerCraft(d string) string {
+	switch d {
+	case Yellow:
+		return "about 3 points per 4 crafts"
+	case Green:
+		return "about 1 point per 4 crafts"
+	}
+	return "about 1 point per craft"
 }
 
 // dropDominated removes an orange recipe that needs more of a reagent per craft than another orange

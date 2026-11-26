@@ -60,14 +60,6 @@ type placeSource interface {
 	flightPlace(npc int64) string
 }
 
-// hubs are the crossings between continents: faction, from, to.
-var hubs = map[[3]string]string{
-	{"Horde", "Eastern Kingdoms", "Kalimdor"}:    "Zeppelin to Orgrimmar",
-	{"Horde", "Kalimdor", "Eastern Kingdoms"}:    "Zeppelin to Undercity",
-	{"Alliance", "Eastern Kingdoms", "Kalimdor"}: "Boat to Auberdine",
-	{"Alliance", "Kalimdor", "Eastern Kingdoms"}: "Boat to Menethil Harbor",
-}
-
 func kindRank(k string) int {
 	switch k {
 	case KindPickup:
@@ -229,7 +221,7 @@ func travelLabel(c character.Character, src source, m int, a Arrival, cur int, c
 	zone := src.mapName(m)
 	hub := ""
 	if curKnown {
-		hub = hubs[[3]string{c.Faction, learn.ContinentOf(src.mapName(cur)), learn.ContinentOf(zone)}]
+		hub = learn.Crossing(c.Faction, learn.ContinentOf(src.mapName(cur)), learn.ContinentOf(zone))
 	}
 	if a.Kind == ArriveFlight {
 		where := cmp.Or(a.Place, a.Name, zone)

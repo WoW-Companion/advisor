@@ -57,3 +57,13 @@ func TestClassCityCoversEveryClass(t *testing.T) {
 		}
 	}
 }
+
+// A capture that names the zone but holds no position still tells the player where to fly from.
+func TestTrainAtUsesTheZoneWhenTheCaptureHasNoPosition(t *testing.T) {
+	c := priestIn("Silverpine Forest")
+	c.Location.X, c.Location.Y = nil, nil
+	p, ok := TrainAt(c, starterIndex())
+	if !ok || p.From != "The Sepulcher" {
+		t.Fatalf("place = %+v %v", p, ok)
+	}
+}
