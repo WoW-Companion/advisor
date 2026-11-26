@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.7.88
+## 0.7.89
 
 - Skill-up advice follows the efficient routes in your game data (wow-professions.com guides).
 - Enchanting at 51: Enchant Chest - Inferior Stamina (1 Strange Dust) to 70, then Journeyman.
@@ -8,6 +8,11 @@
 - Material counts add bags and bank together and say where they are.
 - The rod, pick or knife is mentioned only when you are missing it.
 - With no route in your game data, the AI says the path is estimated and picks the cheaper recipe.
+
+## 0.7.88
+
+- Nearby-quest picks skip holiday quests outside their event, or when holiday quests are off.
+- Quests that need a higher level than yours are never picked.
 
 ## 0.7.87
 
