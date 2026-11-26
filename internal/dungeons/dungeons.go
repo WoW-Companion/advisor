@@ -319,18 +319,25 @@ func meanwhile(c character.Character) string {
 // fill adds the boss drops that are upgrades, and the linked open quests, to a pick.
 func fill(p *DungeonPick, c character.Character, ds store.DataStore, cands map[int64]gear.Candidate, qx *questie.Index) {
 	bosses, _ := ds.Filter("instance_bosses", store.Range{Column: "map_id", Min: p.MapID, Max: p.MapID})
+	named := map[string]bool{}
 	for _, b := range bosses {
-		if name, _ := b["name"].(string); name != "" {
+		if name, _ := b["name"].(string); name != "" && !named[strings.ToLower(name)] {
+			named[strings.ToLower(name)] = true
 			p.Bosses = append(p.Bosses, name)
 		}
 	}
 	seen := map[[2]int64]bool{}
 	items := map[int64]bool{}
+	unlinked := map[string]bool{}
 	for _, b := range bosses {
 		name, _ := b["name"].(string)
 		cid, ok := b["creature_id"].(int64)
 		if !ok {
-			p.UnlinkedBosses = append(p.UnlinkedBosses, name)
+			// the dataset keeps one encounter row per difficulty: a boss is named once
+			if !unlinked[strings.ToLower(name)] {
+				unlinked[strings.ToLower(name)] = true
+				p.UnlinkedBosses = append(p.UnlinkedBosses, name)
+			}
 			continue
 		}
 		loot, _ := ds.Filter("loot_sources", store.Range{Column: "source_id", Min: cid, Max: cid})

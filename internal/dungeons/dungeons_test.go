@@ -124,6 +124,7 @@ func synth(t *testing.T) store.DataStore {
 		"instance_quests": table(t, []iqRow{{2, 950, "category"}, {2, 951, "category"}, {2, 952, "category"}, {7, 953, "category"}}),
 		"instance_bosses": table(t, []bossRow{
 			{1, "Boss A", i32(100)}, {1, "Boss B", i32(101)}, {1, "Lost Boss", nil},
+			{1, "Boss A", i32(100)}, {1, "lost boss", nil}, // one encounter row per difficulty repeats a name
 			{2, "Boss C", i32(102)}, {4, "Boss D", i32(103)},
 		}),
 		"quests": table(t, []questRow{{900, i32(1), nil, "", 0, "", ""}, {901, nil, &[]string{"wailing caverns"}[0], "", 0, "", ""}, {902, i32(9), nil, "", 0, "", ""},
@@ -442,5 +443,18 @@ func TestEntranceLessGroupLessRowIsNotADungeon(t *testing.T) {
 	row["max_players"] = int64(5)
 	if _, ok := pickOf(row, nil); !ok {
 		t.Error("a row with a group size was dropped")
+	}
+}
+
+func TestABossIsNamedOnce(t *testing.T) {
+	p, _, err := Named(warrior(20, "Horde"), synth(t), nil, "Deadmines")
+	if err != nil || p == nil {
+		t.Fatalf("%v %v", p, err)
+	}
+	if got := strings.Join(p.Bosses, ","); got != "Boss A,Boss B,Lost Boss" {
+		t.Errorf("bosses %q", got)
+	}
+	if len(p.UnlinkedBosses) != 1 || p.UnlinkedBosses[0] != "Lost Boss" {
+		t.Errorf("unlinked %v", p.UnlinkedBosses)
 	}
 }
