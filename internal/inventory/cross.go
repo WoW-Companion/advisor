@@ -428,19 +428,29 @@ func decide(chars []character.Character, i int, e Entry, row store.Row, ds store
 
 func gearAction(chars []character.Character, i int, e Entry, row store.Row) (Action, string, string, bool) {
 	rl, rlOK := requiredLevel(row)
+	levelless := gear.Levelless(row) // a shirt, a tabard or cosmetic armor has no level to fall behind
 	anyKnown := false
-	useful := ""
+	useful, from := "", 0
 	for k := 0; k < len(chars); k++ {
 		j := (i + k) % len(chars) // this character first
 		o := chars[j]
-		ok, known := gear.CanUse(o.Class, level(o), row)
+		// An item above the character's level is judged at the level it needs: a warrior's plate helm
+		// that needs level 40 can be worn from 40, when plate is theirs, though mail is theirs now.
+		at := level(o)
+		if rlOK && !levelless && rl > at {
+			at = rl
+		}
+		ok, known := gear.CanUse(o.Class, at, row)
 		if !known {
 			continue
 		}
 		anyKnown = true
-		far := rlOK && level(o) > 0 && rl <= level(o)-FarBelow
+		far := !levelless && rlOK && level(o) > 0 && rl <= level(o)-FarBelow
 		if ok && !far {
 			useful = displayName(o)
+			if !levelless && rlOK && level(o) > 0 && rl > level(o) {
+				from = rl // not wearable yet: the item's required level is above theirs
+			}
 			break
 		}
 	}
@@ -449,8 +459,12 @@ func gearAction(chars []character.Character, i int, e Entry, row store.Row) (Act
 		return Unsure, "", "gear rules are unknown for these classes", false
 	case useful == "":
 		return Sell, "", "no character can use it, or it is far below their level", false
+	case useful == displayName(chars[i]) && from > 0:
+		return Keep_, "", fmt.Sprintf("you can wear it from level %d", from), false
 	case useful == displayName(chars[i]):
 		return Keep_, "", "you can wear it and it is not far below your level", false
+	case from > 0:
+		return Mail, useful, fmt.Sprintf("%s can wear it from level %d", useful, from), false
 	}
 	return Mail, useful, useful + " can wear it", false
 }

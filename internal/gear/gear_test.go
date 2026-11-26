@@ -508,3 +508,32 @@ func TestShieldLeftOutForADamageBuild(t *testing.T) {
 		t.Error("a Protection warrior is refused a shield")
 	}
 }
+
+// TestCanUseOddGear: relics go to their class, shirts, tabards and cosmetic armor to every class, and a bag is no
+// worn gear (no verdict).
+func TestCanUseOddGear(t *testing.T) {
+	row := func(class, sub, slot, mask int64) store.Row {
+		return store.Row{"class_id": class, "subclass_id": sub, "slot": slot, "allowable_class_mask": mask}
+	}
+	for _, tc := range []struct {
+		name, class   string
+		row           store.Row
+		usable, known bool
+	}{
+		{"libram, paladin", "PALADIN", row(4, 7, 28, 32767), true, true},
+		{"libram, warrior", "WARRIOR", row(4, 7, 28, 32767), false, true},
+		{"idol, druid", "DRUID", row(4, 8, 28, -1), true, true},
+		{"totem, shaman", "SHAMAN", row(4, 9, 28, -1), true, true},
+		{"totem, druid", "DRUID", row(4, 9, 28, -1), false, true},
+		{"tabard, mage", "MAGE", row(4, 0, 19, -1), true, true},
+		{"shirt, warrior", "WARRIOR", row(4, 0, 4, -1), true, true},
+		{"cosmetic hat, rogue", "ROGUE", row(4, 5, 1, -1), true, true},
+		{"cosmetic hat, class mask", "ROGUE", row(4, 5, 1, 1), false, true},
+		{"bag, priest", "PRIEST", row(1, 0, 18, -1), false, false},
+		{"plate, mage", "MAGE", row(4, 4, 5, -1), false, true},
+	} {
+		if u, k := CanUse(tc.class, 60, tc.row); u != tc.usable || k != tc.known {
+			t.Errorf("%s: usable %v known %v, want %v %v", tc.name, u, k, tc.usable, tc.known)
+		}
+	}
+}
