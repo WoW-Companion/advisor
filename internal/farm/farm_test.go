@@ -186,6 +186,10 @@ func TestRender(t *testing.T) {
 	if got := Render("X", nil, false, 5); !strings.Contains(got, "No creature or object") {
 		t.Errorf("empty = %q", got)
 	}
+	// an item nothing drops that is crafted is said to be crafted, not "also" crafted
+	if got := Render("X", nil, true, 5); !strings.Contains(got, "it is crafted, see profession_plan") || strings.Contains(got, "also") {
+		t.Errorf("crafted only = %q", got)
+	}
 	if got := Render("X", Spots(at(10), ds, 1)[4:5], false, 5); !strings.Contains(got, "object 50: level unknown, zone unknown, 80.0%") {
 		t.Errorf("object line = %q", got)
 	}

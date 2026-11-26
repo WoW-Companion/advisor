@@ -247,8 +247,13 @@ func (p *planner) prep(pa *Path, bands []Band) {
 		if rows := rowsBy(p.ds, "fishing_catches", "item_id", id); len(rows) > 0 {
 			sort.SliceStable(rows, func(i, j int) bool { return asFloat(rows[i]["rate"]) > asFloat(rows[j]["rate"]) })
 			var zs []string
-			for _, r := range rows[:min(2, len(rows))] {
-				zs = append(zs, asText(r["zone_name"]))
+			for _, r := range rows {
+				if z := asText(r["zone_name"]); p.zoneOpen(z) && len(zs) < 2 {
+					zs = append(zs, z)
+				}
+			}
+			if len(zs) == 0 {
+				continue // every zone the catches were seen in is the other side's home zone
 			}
 			how := "Fish in " + strings.Join(zs, " or ") + " for " + name
 			if fs, ok := skillOf(p.c, "Fishing"); ok && fs.Rank != nil {
@@ -347,14 +352,55 @@ func (p *planner) gatherLine(id int64, name string) (string, bool) {
 
 // sideOfZone says which faction's home zones a zone is among, "horde" or "alliance", or "" for a neutral or
 // unknown zone. A trainer in a capital or starting zone serves that faction only.
-func sideOfZone(zone string) string {
-	switch zone {
-	case "Orgrimmar", "Durotar", "Undercity", "Tirisfal Glades", "Silverpine Forest", "Mulgore", "Thunder Bluff":
-		return "horde"
-	case "Stormwind City", "Elwynn Forest", "Westfall", "Ironforge", "Dun Morogh", "Loch Modan", "Darnassus", "Teldrassil":
-		return "alliance"
+func sideOfZone(zone string) string { return gather.SideOfZone(zone) }
+
+// zoneOpen says a zone is not the other faction's capital or starting zone, which a character of a known
+// faction cannot fish in at ease. A neutral or unknown zone is open to both.
+func (p *planner) zoneOpen(zone string) bool {
+	side := sideOfZone(zone)
+	return side == "" || p.c.Faction == "" || strings.EqualFold(side, p.c.Faction)
+}
+
+// tierAccess says how the dataset's profession_tiers has a rank gained when it is not a trainer's: a "book"
+// bought from a vendor or a "quest", with the guide NPC and place of the character's side. how is "" when the
+// rank is taught by a trainer or the table has no row for it.
+func tierAccess(ds store.DataStore, profession, tier, faction string) (how, text string) {
+	if ds == nil {
+		return "", ""
 	}
-	return ""
+	rows, _ := ds.Filter("profession_tiers", store.Range{Column: "profession", Min: profession, Max: profession})
+	for _, r := range rows {
+		if !strings.EqualFold(asText(r["tier"]), tier) {
+			continue
+		}
+		if f := asText(r["faction"]); f != "" && !strings.EqualFold(f, "both") && faction != "" && !strings.EqualFold(f, faction) {
+			continue
+		}
+		h := asText(r["how"])
+		if h != "book" && h != "quest" {
+			continue
+		}
+		who, place := asText(r["trainer_name"]), asText(r["place"])
+		switch {
+		case who != "" && place != "":
+			who += " in " + place
+		case who == "":
+			who = place
+		}
+		if h == "book" {
+			text = "it is a book"
+			if who != "" {
+				text += " from " + who
+			}
+		} else {
+			text = "it comes from a quest"
+			if who != "" {
+				text += ": " + who
+			}
+		}
+		return h, text
+	}
+	return "", ""
 }
 
 // curatedTrainers names the profession trainers the dataset lists by id only, from the WoW: Forever guides:

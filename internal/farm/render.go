@@ -25,6 +25,10 @@ func Render(item string, spots []Spot, crafted bool, limit int) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "Farm spots for %s\n", item)
 	if len(spots) == 0 {
+		if crafted {
+			b.WriteString("No creature or object drops it in the dataset: it is crafted, see profession_plan.\n")
+			return b.String()
+		}
 		b.WriteString("No creature or object drops it in the dataset.\n")
 	}
 	for i, s := range spots {

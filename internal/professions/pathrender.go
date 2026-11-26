@@ -36,6 +36,15 @@ func renderOption(b *strings.Builder, o Option, indent string) {
 	}
 }
 
+// rankLine is the line that says how to gain the rank a band starts: a trainer, or what the dataset's
+// profession_tiers names when a book or a quest gives it.
+func rankLine(b Band) string {
+	if b.RankVia != "" {
+		return fmt.Sprintf("   First get %s (character level %d): %s.\n", b.Rank, b.RankLevel, b.RankVia)
+	}
+	return fmt.Sprintf("   First train %s at your trainer (character level %d).\n", b.Rank, b.RankLevel)
+}
+
 // RenderPath is the plain-text answer: the next step first, then where you are, the bands, and prep.
 func RenderPath(pa Path) string {
 	var b strings.Builder
@@ -51,14 +60,14 @@ func RenderPath(pa Path) string {
 		if band.Gap != "" {
 			fmt.Fprintf(&b, "\n%d. Skill %d→%d: %s\n", (pa.Part-1)*MaxBands+i+1, band.From, band.To, band.Gap)
 			if band.Rank != "" {
-				fmt.Fprintf(&b, "   First train %s at your trainer (character level %d).\n", band.Rank, band.RankLevel)
+				b.WriteString(rankLine(band))
 			}
 			continue
 		}
 		fmt.Fprintf(&b, "\n%d. Make ~%d × %s (skill %d→%d)", (pa.Part-1)*MaxBands+i+1, band.Best.Crafts, band.Best.Recipe, band.From, band.To)
 		fmt.Fprintf(&b, ", %s there.\n", band.Best.Difficulty)
 		if band.Rank != "" {
-			fmt.Fprintf(&b, "   First train %s at your trainer (character level %d).\n", band.Rank, band.RankLevel)
+			b.WriteString(rankLine(band))
 		}
 		renderOption(&b, band.Best, "   ")
 		if band.Or != nil {

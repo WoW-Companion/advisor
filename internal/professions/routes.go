@@ -358,9 +358,17 @@ func RouteFacts(c character.Character, ds store.DataStore, qx *questie.Index, pr
 		}
 	}
 	if tier, need := tierTraining(sk, route, i, end, notes, have); need {
-		fmt.Fprintf(&b, "Before step %s you must train %s %s (character level %d, skill %d). ", route.Steps[i].Recipe, profession, tier.Name, tier.MinLevel, tier.SkillMin)
-		b.WriteString(trainerLine(c, ds, qx, profession))
-		b.WriteString("\n")
+		lead := "Before the skill " + fmt.Sprintf("%d to %d", route.Steps[i].From, route.Steps[i].To) + " step"
+		if route.Steps[i].Recipe != "" {
+			lead = "Before step " + route.Steps[i].Recipe
+		}
+		if how, text := tierAccess(ds, profession, tier.Name, c.Faction); how != "" {
+			fmt.Fprintf(&b, "%s you must get %s %s (character level %d, skill %d): %s.\n", lead, profession, tier.Name, tier.MinLevel, tier.SkillMin, text)
+		} else {
+			fmt.Fprintf(&b, "%s you must train %s %s (character level %d, skill %d). ", lead, profession, tier.Name, tier.MinLevel, tier.SkillMin)
+			b.WriteString(trainerLine(c, ds, qx, profession))
+			b.WriteString("\n")
+		}
 	} else if k := firstUnknown(c, route, i, end); k >= 0 && strings.Contains(strings.ToLower(route.Steps[k].LearnedFrom), "trainer") {
 		b.WriteString("Learn " + route.Steps[k].Recipe + " at a " + profession + " trainer. " + trainerLine(c, ds, qx, profession) + "\n")
 	}
