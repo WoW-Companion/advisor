@@ -31,6 +31,15 @@ func observed(ds store.DataStore, id int64) *Facts {
 	return f
 }
 
+// ObservedLevel is the level players reported for quest id in the dataset's quests_observed table
+// (Everloot); false when the table or the row is missing or holds no level.
+func ObservedLevel(ds store.DataStore, id int64) (int, bool) {
+	if f := observed(ds, id); f != nil && f.Level > 0 {
+		return f.Level, true
+	}
+	return 0, false
+}
+
 // npcLabel is "Name (Zone)" for an NPC the dataset knows, else "".
 func npcLabel(ds store.DataStore, id int64) string {
 	n, err := ds.Get("npcs", id)

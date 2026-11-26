@@ -311,3 +311,25 @@ func TestSeenVendorLeadsWithItsPrice(t *testing.T) {
 		t.Errorf("%+v / %s", w, res.Text)
 	}
 }
+
+// A recipe a recipe item teaches, with no vendor or drop the dataset can name, is not sent to a trainer.
+func TestItemRecipeWithNoNamedPlace(t *testing.T) {
+	ds := store.New(store.ReaderSource{
+		"recipes":      table(t, []recipeRow{{502, "Blacksmithing", "Synthetic Plates", 92, 1, "item"}, {501, "Blacksmithing", "Synthetic Bar", 91, 90, "trainer"}}),
+		"items":        table(t, []itemRow{{70, "Plans: Synthetic Plates"}}),
+		"recipe_items": table(t, []recipeItem{{70, 502, 0}}),
+		"trainers":     table(t, []trainerRow{}),
+	})
+	res, err := Find(char("Horde", ""), ds, nil, "Synthetic Plates")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "It is learned from the recipe item Plans: Synthetic Plates, but the game data you have names no place that sells or drops it."
+	if len(res.Ways) != 0 || res.Text != want {
+		t.Errorf("text %q, %d ways", res.Text, len(res.Ways))
+	}
+	res, err = Find(char("Horde", ""), ds, nil, "Synthetic Bar")
+	if err != nil || !strings.HasPrefix(res.Text, "Ask a Blacksmithing trainer") {
+		t.Errorf("a trainer recipe still points to the trainers: %v %q", err, res.Text)
+	}
+}

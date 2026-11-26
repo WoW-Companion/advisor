@@ -223,3 +223,35 @@ func TestOpenQuestsRankNearlyDoneThenHere(t *testing.T) {
 		t.Errorf("reason lacks progress: %q", steps[0].Reason)
 	}
 }
+
+type observedRow struct {
+	QuestID int64  `parquet:"quest_id"`
+	Title   string `parquet:"title"`
+	Level   *int32 `parquet:"level,optional"`
+}
+
+// The client quests table holds no level, so the level players reported (quests_observed) decides whether an
+// open quest is in reach: a hard one is left out, a near one is worded with its level, an unreported one says so.
+func TestOpenQuestLevelFromObserved(t *testing.T) {
+	ds := store.New(store.ReaderSource{
+		"quests":          encode(t, []questRow{{200, nil, nil}, {201, nil, nil}, {202, nil, nil}, {203, nil, nil}}),
+		"quests_observed": encode(t, []observedRow{{200, "Near Errand", i32(24)}, {201, "Far Errand", i32(40)}, {203, "Old Errand", i32(10)}}),
+	})
+	c := character.Character{Level: ip(24), Quests: []character.Quest{
+		{QuestID: 200, Title: "Near Errand"}, {QuestID: 201, Title: "Far Errand"}, {QuestID: 202, Title: "Silent Errand"}, {QuestID: 203, Title: "Old Errand"}}}
+	var got []string
+	var near Step
+	for _, s := range WhatsNext(c, ds) {
+		got = append(got, s.Title+": "+s.Reason)
+		if s.QuestID == 200 {
+			near = s
+		}
+	}
+	want := "Near Errand: level 24 quest, you are 24 | Silent Errand: quest level unknown"
+	if g := strings.Join(got, " | "); g != want {
+		t.Errorf("steps =\n%s\nwant\n%s", g, want)
+	}
+	if !strings.Contains(strings.Join(near.Sources, "; "), "quests_observed id 200 (Everloot (CC BY-SA))") || near.Level != 24 {
+		t.Errorf("level %d from sources %v", near.Level, near.Sources)
+	}
+}

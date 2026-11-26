@@ -65,6 +65,11 @@ type Result struct {
 	Ways       []Way  `json:"ways"`
 	Gate       Gate   `json:"gate"`
 	Text       string `json:"text"`
+
+	// fromItem is set when the recipe is learned from a recipe item: item names it ("" when the dataset has no
+	// name), so an answer with no place does not send the player to a trainer.
+	fromItem bool
+	item     string
 }
 
 func i64(v any) int64 { n, _ := v.(int64); return n }
@@ -488,6 +493,12 @@ func Recipe(c character.Character, ds store.DataStore, qx *questie.Index, r stor
 			if it, err := ds.Get("items", id); err == nil {
 				name = str(it["name"])
 			}
+			if from == "item" {
+				res.fromItem = true
+				if res.item == "" {
+					res.item = name
+				}
+			}
 			vw := f.vendorWays(id, name)
 			if seen := f.seenVendors(id, name); len(seen) > 0 {
 				vw = append(dropSeen(vw, seen), seen...)
@@ -516,7 +527,14 @@ func Recipe(c character.Character, ds store.DataStore, qx *questie.Index, r stor
 
 func text(r Result) string {
 	var b strings.Builder
-	if len(r.Ways) == 0 {
+	if len(r.Ways) == 0 && r.fromItem {
+		// a recipe item teaches it, and the dataset names no vendor, creature or quest for the item
+		item := "a recipe item"
+		if r.item != "" {
+			item = "the recipe item " + r.item
+		}
+		fmt.Fprintf(&b, "It is learned from %s, but the game data you have names no place that sells or drops it.", item)
+	} else if len(r.Ways) == 0 {
 		fmt.Fprintf(&b, "Ask a %s trainer in a city or starter zone.", r.Profession)
 	} else {
 		b.WriteString(r.Ways[0].Line + ".")

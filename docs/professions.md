@@ -158,6 +158,16 @@ specs' real nodes written one row per point) beside the next rows of the table; 
 Forever leveling build yet, so each class is listed as a dataset-side difference. The tests also run
 in `make verify`; `BENCH_REPORT=<file>` receives the tables.
 
+`internal/professions/offline_advice_benchmark_test.go` (also `make offline-benchmark`, areas `advice-quest-*`,
+`advice-gear-*` and `advice-recipe-*`) checks three kinds of advice a player acts on directly, on the quest, quest
+line and Everloot tables of `testdata/places_snapshot` and the item, recipe and loot tables of `testdata/advice_snapshot`:
+the next quest in a line (its position, what a turn-in unlocks, the level window an open quest must sit in, the
+faction and level the advisor states), the gear offered for a slot (slot, armor type, class mask, required level,
+item level against the worn item, and no item with none of the class's stats ahead of one that has some), and where a
+recipe is learned or a material drops (vendors and trainers the dataset names, the skill a recipe needs, drop
+counts). Cases the dataset has no answer for check that the advisor says so and names nothing. The dataset names no
+recipe vendor, trainer or most dropping creatures, which the run lists as "differ (data)".
+
 The run ends with one summary line, `advice-benchmark: N checks, S same, D differ (professions 90/39, costs 50/8,
 tailoring-guide 6/13, stats 99/0)`: every table row counts as same ("match") or differ, by area. Each area prints
 `advice-benchmark-count <area> same=N differ=M`, and `internal/benchsummary` adds them up. The share of

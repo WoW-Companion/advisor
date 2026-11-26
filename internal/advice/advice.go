@@ -107,13 +107,17 @@ func lookupBase(q character.Quest, ds store.DataStore) questInfo {
 	}
 	row, err := ds.Get("quests", int64(q.QuestID))
 	if err != nil {
-		return info
+		row = nil // not a client quest: quests_observed may still know its level
 	}
 	used := false
 	if info.level == nil {
 		if n, ok := row["level"].(int64); ok && n > 0 {
 			l := int(n)
 			info.level, used = &l, true
+		} else if l, ok := quests.ObservedLevel(ds, int64(q.QuestID)); ok {
+			// the client table holds no quest level: take what players reported to Everloot
+			info.level = &l
+			info.sources = append(info.sources, fmt.Sprintf("dataset: quests_observed id %d (%s)", q.QuestID, quests.Credit))
 		}
 	}
 	if info.zone == "" {
