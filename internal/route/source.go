@@ -373,7 +373,7 @@ func (s *questieSource) quests(c character.Character, at *questie.Where) []*ques
 		sort.Ints(ids)
 		for _, id := range ids {
 			qq := s.qx.Quests[id]
-			if inLog[id] || !qq.Eligible(who) || items.Unobtainable(qq.Name) {
+			if inLog[id] || !qq.Eligible(who) || s.qx.Hostile(qq, who) || items.Unobtainable(qq.Name) {
 				continue
 			}
 			pick := spotFrom(KindPickup, qq, qq.Starters, x, y, true)
@@ -557,7 +557,7 @@ const (
 // name no faction while the NPC gives quests. With the side unknown any named faction counts.
 func friendly(e questie.Entity, side string) bool {
 	if e.Faction != "" {
-		return side == "" || strings.Contains(e.Faction, side)
+		return questie.FactionAdmits(e.Faction, side)
 	}
 	return e.Flags&flagQuestGiver != 0
 }

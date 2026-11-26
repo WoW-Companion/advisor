@@ -38,8 +38,12 @@ func (p Place) String() string {
 type Who struct {
 	Level           int
 	ClassID, RaceID int // 0 when not captured: that rule is not checked
-	Done, InLog     map[int]bool
-	Below, Above    int
+	// RaceMask is the player's race bit (wins over RaceID); SideMask is the faction's full race mask,
+	// used only when the race is unknown. Side is "A" or "H" for the giver-faction check.
+	RaceMask, SideMask uint64
+	Side               string
+	Done, InLog        map[int]bool
+	Below, Above       int
 	// Now is the player's clock (the capture's time); Seasonal is their holiday-event setting. A
 	// holiday quest is eligible only when its event is running at Now and the setting opts in.
 	Now      time.Time
@@ -157,7 +161,7 @@ func (q *Quest) Eligible(w Who) bool {
 	if q.Level < w.Level-w.Below || q.Level > w.Level+w.Above || q.MinLevel > w.Level || (q.MaxLevel > 0 && w.Level > q.MaxLevel) {
 		return false
 	}
-	if q.Races != 0 && w.RaceID > 0 && q.Races&(1<<(w.RaceID-1)) == 0 {
+	if !w.raceAllows(q.Races) {
 		return false
 	}
 	if q.Classes != 0 && w.ClassID > 0 && q.Classes&(1<<(w.ClassID-1)) == 0 {
@@ -189,7 +193,7 @@ func (ix *Index) Available(w Who, at Where, skip func(name string) bool) []Offer
 	}
 	var out []Offer
 	for _, q := range ix.Quests {
-		if !q.Eligible(w) || (skip != nil && skip(q.Name)) {
+		if !q.Eligible(w) || ix.Hostile(q, w) || (skip != nil && skip(q.Name)) {
 			continue
 		}
 		p, ok := ix.nearest(q.Starters, at)
