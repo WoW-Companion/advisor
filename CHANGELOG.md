@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.96
+
+- A finished quest is never "too high": it gets a trip to turn it in, or a Find line with its hint.
+- Quests too high to do say when you can, such as "level 40 · doable around 37".
+- A visit to a capital lists errands: train new ranks, open your bank, class quests, turn-ins.
+
 ## 0.7.95
 
 - **Fixed** profession routes now list the materials each step needs, counted per craft.
