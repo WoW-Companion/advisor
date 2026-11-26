@@ -149,3 +149,24 @@ func TestPlayStyleNotSet(t *testing.T) {
 		t.Errorf("after clearing: %+v, %v", n, ok)
 	}
 }
+
+// The Settings toggle: on opts the character in, off clears it, an unknown character is refused, and the
+// play style stays.
+func TestSeasonalToggleRoundTrip(t *testing.T) {
+	s := New(Config{Profiles: filepath.Join(t.TempDir(), "profiles.json")})
+	s.chars = []CharInfo{{Key: "Realm:Testwar", Name: "Testwar"}}
+	post := func(body string) int {
+		w := httptest.NewRecorder()
+		s.setSeasonal(w, httptest.NewRequest("POST", "/api/seasonal", strings.NewReader(body)))
+		return w.Code
+	}
+	if post(`{"character":"Realm:Nobody","on":true}`) != 400 {
+		t.Error("unknown character accepted")
+	}
+	if post(`{"character":"Realm:Testwar","on":true}`) != 200 || profile.Get(s.profilesPath(), "Realm:Testwar").Seasonal != "on" {
+		t.Error("on not saved")
+	}
+	if post(`{"character":"Realm:Testwar","on":false}`) != 200 || profile.Get(s.profilesPath(), "Realm:Testwar").Seasonal != "" {
+		t.Error("off not saved")
+	}
+}

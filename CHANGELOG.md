@@ -1,11 +1,24 @@
 # Changelog
 
-## 0.7.84
+## 0.7.86
 
 - The NEXT line names the item in your bags to equip, instead of only saying you have an upgrade.
 - Rune abilities (engravings) are no longer listed as spells to train.
 - Spell lists show each spell once, at its highest rank.
 - With no trainer visit on record, training points you to your trainer's list.
+
+## 0.7.85
+
+- In town, a dungeon quest at your level (The Book of Ur) is a pick-up step, first on the route.
+- A dungeon far above you, and holiday quests, stay under later.
+- With a nearly full quest log, only as many pick-ups as free slots are planned.
+
+## 0.7.84
+
+- Holiday event quests are opt-in, off by default. Turn them on in Settings, or just ask the AI.
+- While an event runs, the panel shows one line: "Midsummer Fire Festival is on (until July 5)".
+- Opted in, a running event's quests join your plan as optional steps, after your level quests.
+- When an event ends, its quests drop out. Your choice stays for the next one.
 
 ## 0.7.83
 

@@ -57,7 +57,7 @@ func Facts(cfg Config, q Question) string {
 	if g, ok := digest.FindGiver(c, cc.qx, digest.PlanQuests(all), digest.PlanNPCs(all)); ok {
 		giver = "Quest giver with something for the character now (not in the plan): " + g.Text() + "."
 	}
-	return capRunes(subjectFacts(cfg, cc, q)+brief.Character(c, f.ClientOf(c), time.Now())+"\n\n"+styleLine(c)+join(bagFacts(c, cc.ds))+join(professionPlanFacts(cc, q.Text))+join(talentFacts(c, cc.ds))+"\n\n"+next+join(trainFacts(cc))+join(giver), FactsBudget)
+	return capRunes(subjectFacts(cfg, cc, q)+brief.Character(c, f.ClientOf(c), time.Now())+"\n\n"+styleLine(c)+join(seasonalFacts(c, cc.qx))+join(bagFacts(c, cc.ds))+join(professionPlanFacts(cc, q.Text))+join(talentFacts(c, cc.ds))+"\n\n"+next+join(trainFacts(cc))+join(giver), FactsBudget)
 }
 
 func join(s string) string {
@@ -411,4 +411,29 @@ func planCoords(s route.Stop) string {
 		return ""
 	}
 	return fmt.Sprintf(" (%.0f, %.0f)", s.X, s.Y)
+}
+
+// seasonalFacts says which holiday events run today and the player's setting. With the setting on, the
+// event's quests are already in the plan; with it off the AI may explain the event and offer to add it
+// (seasonal_events), never listing quests as steps.
+func seasonalFacts(c character.Character, qx *questie.Index) string {
+	now := digest.ClockOf(c, time.Now())
+	run := questie.RunningEvents(now)
+	if len(run) == 0 {
+		return ""
+	}
+	set := questie.Seasonal(c.Seasonal)
+	var b strings.Builder
+	b.WriteString("\nHoliday event quests: " + set.Describe() + " (off is the default; change it only with the seasonal_events tool when the player clearly asks).\n")
+	who := advice.WhoOf(c)
+	for _, e := range run {
+		fmt.Fprintf(&b, "Running today: %s (until %s).", e.Name, e.Until())
+		if set.Wants(e.Key) && qx != nil && c.Level != nil {
+			for _, q := range qx.EventQuests(e.Key, who) {
+				fmt.Fprintf(&b, "\n- %s (level %d), starts with %s", q.Name, q.Level, q.Start)
+			}
+		}
+		b.WriteString("\n")
+	}
+	return strings.TrimRight(b.String(), "\n")
 }

@@ -127,3 +127,37 @@ func (s *Server) setProfile(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(s.snapshot().Characters)
 }
+
+// setSeasonal takes {"character","on"}: the overlay's "Include holiday event quests" box. On opts the
+// character in to every event; off clears any choice, scoped ones too. The next steps are re-read.
+func (s *Server) setSeasonal(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Character string `json:"character"`
+		On        bool   `json:"on"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, MaxBody)).Decode(&req); err != nil {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+	s.mu.Lock()
+	known := slices.ContainsFunc(s.chars, func(c CharInfo) bool { return c.Key == req.Character })
+	s.mu.Unlock()
+	if !known {
+		http.Error(w, "unknown character", http.StatusBadRequest)
+		return
+	}
+	set := ""
+	if req.On {
+		set = "on"
+	}
+	if _, err := profile.Update(s.profilesPath(), req.Character, func(e *profile.Entry) error {
+		e.Seasonal = set
+		return nil
+	}); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	s.profileChanged(true)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(s.snapshot().Characters)
+}

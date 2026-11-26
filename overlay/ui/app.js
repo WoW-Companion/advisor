@@ -396,6 +396,7 @@ function showStyle() {
   for (const sp of specs) sel.append(Object.assign(document.createElement('option'), { value: sp, textContent: sp }));
   sel.value = specs.find(sp => sp.toLowerCase() === String(st.spec || '').toLowerCase()) || ''; // the sidecar already normalised an old typed spec
   $('style-pref').value = st.stat_pref || 'balanced';
+  $('seasonal').checked = !!(c && c.seasonal);
 }
 // saveStyle stores a play style for one character; the settings section and the inline card both use it.
 async function saveStyle(character, vals) {
@@ -428,6 +429,16 @@ async function pushStyle() {
   if (!who.value) return;
   showSaved(await styleFlow(who.value, { role: $('style-role').value, focus: $('style-focus').value, spec: $('style-spec').value, stat_pref: $('style-pref').value }));
 }
+// Include holiday event quests: opt-in per character; the advisor re-reads the next steps.
+$('seasonal').onchange = async ev => {
+  if (!who.value) return;
+  const on = ev.target.checked;
+  try {
+    const r = await api('/api/seasonal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ character: who.value, on }) });
+    showSaved(r.ok ? { ok: true } : { ok: false, error: await r.text() });
+    if (r.ok) { state.characters = await r.json(); showNext(); }
+  } catch (e) { showSaved({ ok: false, error: String(e) }); }
+};
 for (const id of ['style-role', 'style-focus', 'style-spec', 'style-pref']) $(id).onchange = pushStyle;
 
 function showNext() {

@@ -3,6 +3,7 @@ package route
 import (
 	"os"
 
+	"github.com/WoW-Companion/advisor/internal/questie"
 	"github.com/WoW-Companion/advisor/internal/store"
 	"github.com/WoW-Companion/advisor/internal/unlock"
 )
@@ -23,5 +24,32 @@ func OptionsFor(addonSV string, ds store.DataStore) Options {
 		}
 	}
 	opt.Obs = st.Obs
+	opt.XP = questie.LoadXP(addonSV)
+	opt.Dungeons = dungeonLevels(ds)
 	return opt
+}
+
+// dungeonLevels reads the level ranges of the dataset's dungeons (ds may be nil).
+func dungeonLevels(ds store.DataStore) []DungeonLevel {
+	if ds == nil {
+		return nil
+	}
+	rows, err := ds.Filter("instances", store.Range{Column: "map_id", Min: int64(0)})
+	if err != nil {
+		return nil
+	}
+	var out []DungeonLevel
+	for _, r := range rows {
+		if r["instance_type"] != "dungeon" {
+			continue
+		}
+		lo, ok1 := r["min_level"].(int64)
+		hi, ok2 := r["max_level"].(int64)
+		m, _ := r["map_id"].(int64)
+		name, _ := r["name"].(string)
+		if ok1 && ok2 && lo > 0 && hi >= lo {
+			out = append(out, DungeonLevel{Map: int(m), Name: name, Min: int(lo), Max: int(hi)})
+		}
+	}
+	return out
 }

@@ -15,13 +15,19 @@ import (
 
 // Limits.
 const (
-	MaxSteps    = 20  // stops on the route; the rest go to "later"
-	MaxTotal    = 25  // stops on the route, locked follow-ups included
-	MaxLater    = 30  // stops listed in "later"
-	LevelMargin = 1   // a quest above the player's level + this goes to "later"
-	MergeRadius = 3.0 // objective stops this close (map percent) on one map are one stop
-	ClusterSize = 8.0 // spawns this close (map percent) are one cluster
-	pinRadius   = 0.05
+	MaxSteps    = 20 // stops on the route; the rest go to "later"
+	MaxTotal    = 25 // stops on the route, locked follow-ups included
+	MaxLater    = 30 // stops listed in "later"
+	LevelMargin = 1  // a quest above the player's level + this goes to "later"
+	// DungeonReach is how far above the player's level a dungeon's minimum may be, and how far under
+	// the player's level its maximum may be, for its quests to be worth picking up in town.
+	DungeonReach = 3
+	// DefaultLogCap is the quest log's size; NearlyFull is how many free slots or fewer limit pick-ups.
+	DefaultLogCap = 40
+	NearlyFull    = 2
+	MergeRadius   = 3.0 // objective stops this close (map percent) on one map are one stop
+	ClusterSize   = 8.0 // spawns this close (map percent) are one cluster
+	pinRadius     = 0.05
 )
 
 // FromQuestie marks a position that came from the player's own Questie database rather than the dataset.
@@ -51,6 +57,8 @@ type Stop struct {
 	Place    string  `json:"place,omitempty"` // the subzone or zone the stop is in, in words (Plan.lua 1.3)
 	// Priority is set on a class quest's stops: they are worth doing first, so they come early.
 	Priority bool `json:"priority,omitempty"`
+	// Optional is set on a holiday-event quest's stops: the player opted in, and they come after the rest.
+	Optional bool `json:"optional,omitempty"`
 	// ZoneOnly is a stop with no known position: X and Y are 0 and only Place is known.
 	ZoneOnly bool `json:"zone_only,omitempty"`
 	// Source names where a position came from when it is not the usual NPC or object spawn.
@@ -89,6 +97,20 @@ type Options struct {
 	Obs    []unlock.Obs   // unlocks learned in game (the local file)
 	Events []unlock.Event // the addon's observation log
 	Depth  int            // follow-up links to look ahead; 0 is unlock.DefaultDepth
+
+	// Dungeons are the dungeons' level ranges: a pick-up in town for a dungeon the player fits is a
+	// current step. XP is the quest XP table (nil: no XP is shown). LogCap is the quest log's size
+	// (0 is DefaultLogCap).
+	Dungeons []DungeonLevel
+	XP       map[int]int
+	LogCap   int
+}
+
+// DungeonLevel is a dungeon's level range; Map is its instance id (0 when unknown).
+type DungeonLevel struct {
+	Map      int
+	Name     string
+	Min, Max int
 }
 
 // followSource is a source that can name the follow-ups of the planned quests.
@@ -164,15 +186,20 @@ type spot struct {
 	x, y     float64
 	quests   []int
 	names    []string
-	label    string // the NPC or mob
-	must     bool   // part of a class quest: always on the route, never cut to "later"
-	areaObj  bool   // placed by an area objective of the player's Questie database, not an NPC or object
-	zoneOnly bool   // no position anywhere: the zone is all that is known, so no coordinates are shown
-	unplaced bool   // an objective with no known location: never routed, listed under Find
-	npc      int    // the NPC's id, on a pick-up or turn-in; 0 when unknown
-	ready    bool   // a turn-in for a quest in the log that is done: it can be handed in now
-	level    int    // the quest's level on a ready turn-in; 0 when unknown
-	place    string // where it is in words: the subzone, else the zone; empty when unknown
+	label    string   // the NPC or mob
+	must     bool     // part of a class quest: always on the route, never cut to "later"
+	event    bool     // only holiday-event quests use this stop: optional, cut before any other
+	tags     []string // on a pick-up: per quest in names, the dungeon and XP in brackets; "" for none
+	town     bool     // a dungeon quest's pick-up in the player's town: first on the route
+	dungeon  string   // with town: the dungeon, to keep its pick-ups together
+	xp       int      // with town: the quest's XP, for the order
+	areaObj  bool     // placed by an area objective of the player's Questie database, not an NPC or object
+	zoneOnly bool     // no position anywhere: the zone is all that is known, so no coordinates are shown
+	unplaced bool     // an objective with no known location: never routed, listed under Find
+	npc      int      // the NPC's id, on a pick-up or turn-in; 0 when unknown
+	ready    bool     // a turn-in for a quest in the log that is done: it can be handed in now
+	level    int      // the quest's level on a ready turn-in; 0 when unknown
+	place    string   // where it is in words: the subzone, else the zone; empty when unknown
 
 	locked     bool // a follow-up's stop: never merged with an ordinary one
 	depth      int
@@ -192,6 +219,15 @@ type quest struct {
 	unplaced []*spot // unfinished objectives with no location
 	turnin   *spot
 	must     bool // a class quest: its stops are must-include
+	event    bool // a holiday-event quest the player opted in to: optional, after the rest
+
+	// Pick-up facts (an unstarted quest): the dungeon it leads to with its level range, the quest's
+	// XP from the table (0: unknown) and whether it is a holiday or festival quest.
+	dungeon  string
+	dMin     int
+	dMax     int
+	xp       int
+	festival bool
 
 	locked     bool // a follow-up the planned turn-ins unlock
 	depth      int
@@ -236,7 +272,7 @@ func BuildWith(c character.Character, qx *questie.Index, opt Options) Plan {
 	if c.Level == nil {
 		return Plan{Character: nameOf(c), Steps: []Stop{}, Notes: []string{"The capture has no level, so no quest can be called eligible."}}
 	}
-	return planWith(c, &questieSource{qx: qx}, opt)
+	return planWith(c, &questieSource{qx: qx, opt: opt}, opt)
 }
 
 func (q *quest) chain() []*spot {
@@ -270,7 +306,7 @@ func planWith(c character.Character, src source, opt Options) Plan {
 	}
 
 	var later []*spot
-	var use, listed []*quest
+	var use, listed, pickups []*quest
 	var findSpots []*spot
 	if !c.QuestsCaptured && len(c.Quests) == 0 {
 		p.Notes = append(p.Notes, "The quest log is not in the capture yet, so no pick-ups are planned (a quest you already have would show as one).")
@@ -287,15 +323,23 @@ func planWith(c character.Character, src source, opt Options) Plan {
 				sp.must = true
 			}
 		}
+		if q.event {
+			for _, sp := range q.chain() {
+				sp.event = true
+			}
+		}
 		if len(q.chain()) > 0 || len(q.unplaced) > 0 {
 			listed = append(listed, q)
 		}
-		if q.level > lvl+LevelMargin && !q.must {
+		if q.pickup != nil && !q.locked {
+			pickups = append(pickups, q) // decided below, with the quest log's room
+		} else if q.level > lvl+LevelMargin && !q.must {
 			later = append(later, q.chain()...)
 		} else if len(q.chain()) > 0 {
 			use = append(use, q)
 		}
 	}
+	use = append(use, choosePickups(c, lvl, opt, pickups, len(use), &later, &p.Notes)...)
 
 	// The map the route is on: the player's, else the one with the most stops.
 	cur, known := 0, false
@@ -375,7 +419,9 @@ func planWith(c character.Character, src source, opt Options) Plan {
 	order = adjacent(prob, nodes, order)
 	order = groupByPlace(prob, nodes, order)
 	order = prioritize(prob, nodes, order)
+	order = townFirst(prob, nodes, order)
 	order = readyFirst(prob, nodes, order, cur)
+	order = eventsLast(nodes, preds, order)
 	p.Naive = round1(prob.Length(naive))
 	// The cap counts ordinary stops; a follow-up stays when everything it needs does.
 	reg := 0
@@ -389,6 +435,15 @@ func planWith(c character.Character, src source, opt Options) Plan {
 		cutSet := map[int]bool{}
 		keep := mustSet(nodes, preds)
 		room := MaxSteps - len(keep)
+		// Holiday-event stops get only the room the others leave.
+		others := 0
+		for i, n := range nodes {
+			if !n.locked && !n.event && !keep[i] {
+				others++
+			}
+		}
+		eventRoom := max(0, room-others)
+		room -= eventRoom
 		for _, i := range order {
 			cut := false
 			switch {
@@ -397,7 +452,9 @@ func planWith(c character.Character, src source, opt Options) Plan {
 				for _, q := range preds[i] {
 					cut = cut || cutSet[q]
 				}
-			case room > 0:
+			case nodes[i].event && eventRoom > 0:
+				eventRoom--
+			case !nodes[i].event && room > 0:
 				room--
 			default:
 				cut = true
@@ -523,7 +580,7 @@ func mustSet(nodes []*spot, preds [][]int) map[int]bool {
 }
 
 func stopOf(n int, s *spot) Stop {
-	st := Stop{N: n, Kind: s.kind, Map: s.m, X: round1(s.x), Y: round1(s.y), Place: s.place, Priority: s.must}
+	st := Stop{N: n, Kind: s.kind, Map: s.m, X: round1(s.x), Y: round1(s.y), Place: s.place, Priority: s.must, Optional: s.event}
 	if s.zoneOnly {
 		st.X, st.Y, st.ZoneOnly = 0, 0, true
 	}
@@ -543,7 +600,14 @@ func stopOf(n int, s *spot) Stop {
 		st.QuestIDs = slices.Clone(s.quests)
 	}
 	with := func(prefix, sep string) string {
-		l := prefix + strings.Join(s.names, ", ")
+		names := make([]string, len(s.names))
+		for i, n := range s.names {
+			names[i] = n
+			if i < len(s.tags) && s.tags[i] != "" {
+				names[i] += " (" + s.tags[i] + ")"
+			}
+		}
+		l := prefix + strings.Join(names, ", ")
 		if s.label != "" {
 			l += sep + s.label
 		}
@@ -575,8 +639,9 @@ func merge(qs []*quest, cur int, later *[]*spot) (nodes []*spot, preds [][]int, 
 			tol = MergeRadius
 		}
 		for i, n := range nodes {
-			if n.kind == s.kind && (s.kind != KindObjective || n.label == s.label) && n.locked == s.locked && n.depth == s.depth && n.m == s.m && math.Hypot(n.x-s.x, n.y-s.y) <= tol {
+			if n.kind == s.kind && (s.kind != KindObjective || n.label == s.label) && n.locked == s.locked && n.town == s.town && n.depth == s.depth && n.m == s.m && math.Hypot(n.x-s.x, n.y-s.y) <= tol {
 				n.quests = append(n.quests, s.quests...)
+				n.tags = append(padTags(n.tags, len(n.names)), padTags(s.tags, len(s.names))...)
 				n.names = append(n.names, s.names...)
 				n.unlocks = append(n.unlocks, s.unlocks...)
 				for _, u := range s.unlockedBy {
@@ -585,6 +650,7 @@ func merge(qs []*quest, cur int, later *[]*spot) (nodes []*spot, preds [][]int, 
 					}
 				}
 				n.must = n.must || s.must
+				n.event = n.event && s.event
 				return i
 			}
 		}
@@ -753,6 +819,31 @@ func groupByPlace(p *Problem, nodes []*spot, order []int) []int {
 		}
 	}
 	return order
+}
+
+// eventsLast moves the stops only holiday-event quests use after every other stop, keeping their
+// order. A stop another quest's stop needs first stays where it is.
+func eventsLast(nodes []*spot, preds [][]int, order []int) []int {
+	late := map[int]bool{}
+	for i, n := range nodes {
+		late[i] = n.event
+	}
+	for j, n := range nodes {
+		if !n.event {
+			for _, p := range preds[j] {
+				late[p] = false
+			}
+		}
+	}
+	var first, last []int
+	for _, i := range order {
+		if late[i] {
+			last = append(last, i)
+		} else {
+			first = append(first, i)
+		}
+	}
+	return append(first, last...)
 }
 
 // prioritize puts the objectives of class quests (and what they need first) early: after whatever can
@@ -948,4 +1039,115 @@ func flyLegs(c character.Character, src source, later []*spot, cur, lvl int) []S
 			Map: t.m, X: round1(first.x), Y: round1(first.y), QuestID: ids[0], Quest: strings.Join(names, ", "), QuestIDs: ids, Place: first.place})
 	}
 	return out
+}
+
+func padTags(t []string, n int) []string {
+	for len(t) < n {
+		t = append(t, "")
+	}
+	return t
+}
+
+// dungeonFits reports whether the dungeon's level range suits a player of level lvl: it opens at most
+// DungeonReach levels above them, and closes at most DungeonReach levels below them.
+func dungeonFits(q *quest, lvl int) bool {
+	return q.dungeon != "" && q.dMin > 0 && q.dMax >= q.dMin && q.dMin <= lvl+DungeonReach && lvl <= q.dMax+DungeonReach
+}
+
+// choosePickups decides which pick-ups in the player's town are current steps; the rest go to later.
+// A pick-up is worth taking when the quest is within the level margin, a class quest, or leads to a
+// dungeon the player fits (it is then tagged with the dungeon and XP, and goes first on the route).
+// Holiday and festival quests never outrank these: they wait unless nothing else is planned. A log
+// that is full or nearly full limits the pick-ups to its free slots, best first. others is how many
+// quests are already planned.
+func choosePickups(c character.Character, lvl int, opt Options, pickups []*quest, others int, later *[]*spot, notes *[]string) []*quest {
+	var want, fest []*quest
+	for _, q := range pickups {
+		fit := dungeonFits(q, lvl)
+		switch {
+		case q.level > lvl+LevelMargin && !q.must && !fit:
+			*later = append(*later, q.chain()...)
+		case q.festival && !q.must:
+			fest = append(fest, q)
+		default:
+			if fit {
+				tag := q.dungeon
+				if q.xp > 0 {
+					tag += ", " + thousands(q.xp) + " XP"
+				}
+				q.pickup.town, q.pickup.dungeon, q.pickup.xp, q.pickup.tags = true, q.dungeon, q.xp, []string{tag}
+			}
+			want = append(want, q)
+		}
+	}
+	if len(want) == 0 && others == 0 {
+		want, fest = fest, nil // nothing else on the map: a festival quest is better than none
+	}
+	for _, q := range fest {
+		*later = append(*later, q.chain()...)
+	}
+	logCap := cmp.Or(opt.LogCap, DefaultLogCap)
+	if free := max(logCap-len(c.Quests), 0); free <= NearlyFull && len(want) > 0 {
+		sort.SliceStable(want, func(i, j int) bool {
+			a, b := want[i], want[j]
+			if fa, fb := a.pickup.town, b.pickup.town; fa != fb {
+				return fa
+			}
+			if a.must != b.must {
+				return a.must
+			}
+			if a.xp != b.xp {
+				return a.xp > b.xp
+			}
+			return a.level > b.level
+		})
+		if len(want) > free {
+			for _, q := range want[free:] {
+				*later = append(*later, q.chain()...)
+			}
+			want = want[:free]
+		}
+		*notes = append(*notes, fmt.Sprintf("The quest log is nearly full (%d of %d): %d pick-ups planned at most.", len(c.Quests), logCap, free))
+	}
+	return want
+}
+
+// thousands writes n with a comma between thousands: 2100 is "2,100".
+func thousands(n int) string {
+	s := fmt.Sprint(n)
+	for i := len(s) - 3; i > 0; i -= 3 {
+		s = s[:i] + "," + s[i:]
+	}
+	return s
+}
+
+// townFirst puts the dungeon pick-ups of the player's town at the head of the route, a dungeon's
+// together, the best XP first. A pick-up needs nothing before it, so every precedence holds.
+func townFirst(p *Problem, nodes []*spot, order []int) []int {
+	var head, rest []int
+	for _, i := range order {
+		if nodes[i].town && len(p.Nodes[i].Pred) == 0 {
+			head = append(head, i)
+		} else {
+			rest = append(rest, i)
+		}
+	}
+	if len(head) == 0 {
+		return order
+	}
+	best := map[string]int{}
+	for _, i := range head {
+		best[nodes[i].dungeon] = max(best[nodes[i].dungeon], nodes[i].xp)
+	}
+	sort.SliceStable(head, func(a, b int) bool {
+		na, nb := nodes[head[a]], nodes[head[b]]
+		if na.dungeon != nb.dungeon {
+			if best[na.dungeon] != best[nb.dungeon] {
+				return best[na.dungeon] > best[nb.dungeon]
+			}
+			return na.dungeon < nb.dungeon
+		}
+		return na.xp > nb.xp
+	})
+	return append(head, rest...)
 }

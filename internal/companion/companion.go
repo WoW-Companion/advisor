@@ -143,6 +143,8 @@ type CharInfo struct {
 	PlanSteps []PlanStep `json:"plan_steps,omitempty"`
 	// Style is the saved play style (the overlay's "Play style" row); nil until the player sets one.
 	Style *character.Profile `json:"style,omitempty"`
+	// Seasonal is the holiday-event setting ("" off, "on", or "on:<events>"); the overlay's "Include holiday event quests" box is checked when it is not empty.
+	Seasonal string `json:"seasonal,omitempty"`
 	// Specs is the class's spec names for the Spec dropdown; an old free-text spec in Style is
 	// already migrated to the matching one, or "" for "Not sure yet".
 	Specs []string `json:"specs,omitempty"`
@@ -315,6 +317,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/auto-digest", s.autoDigest)
 	mux.HandleFunc("POST /api/settings", s.setSettings)
 	mux.HandleFunc("POST /api/profile", s.setProfile)
+	mux.HandleFunc("POST /api/seasonal", s.setSeasonal)
 	mux.HandleFunc("GET /api/suggestions", s.suggestions)
 	mux.HandleFunc("POST /api/refresh-plan", s.refreshPlanHandler)
 	mux.HandleFunc("GET /api/update", s.update)
@@ -476,7 +479,7 @@ func (s *Server) reload() {
 	s.planKeys = map[string]map[string]bool{}
 	for _, c := range f.Characters {
 		c = character.AttachTotals(unlock.AddonSV(s.cfg.Ask.SavedVariables), profile.Attach(s.profilesPath(), c))
-		ci := CharInfo{Key: c.Key, Name: c.Name, Class: c.Class, Next: []string{NoDataMessage}, Style: c.Profile}
+		ci := CharInfo{Key: c.Key, Name: c.Name, Class: c.Class, Next: []string{NoDataMessage}, Style: c.Profile, Seasonal: c.Seasonal}
 		ci.Specs = talents.Specs(ds, c)
 		if c.Profile != nil && len(ci.Specs) > 0 {
 			p := *c.Profile

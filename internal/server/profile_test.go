@@ -9,6 +9,8 @@ import (
 	"testing"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+
+	"github.com/WoW-Companion/advisor/internal/profile"
 )
 
 func profileSession(t *testing.T, store string) func(string, map[string]any) (string, bool) {
@@ -136,5 +138,39 @@ func TestSetProfileClear(t *testing.T) {
 	}
 	if text, isErr := call("set_character_profile", map[string]any{"character": "testpriest", "clear": []string{"colour"}}); !isErr || !strings.HasPrefix(text, "Not saved:") {
 		t.Errorf("unknown clear field = %q", text)
+	}
+}
+
+func TestSeasonalToolChangesTheSettingBothWays(t *testing.T) {
+	store := filepath.Join(t.TempDir(), "profiles.json")
+	call := profileSession(t, store)
+	var out SeasonalOutput
+	read := func(args map[string]any) SeasonalOutput {
+		t.Helper()
+		args["character"] = "testpriest"
+		text, isErr := call("seasonal_events", args)
+		if isErr || json.Unmarshal([]byte(text), &out) != nil {
+			t.Fatalf("seasonal_events %v = %s", args, text)
+		}
+		return out
+	}
+	if o := read(map[string]any{}); o.Setting != "off" || o.Changed || o.SavedNote != "" {
+		t.Errorf("default: %+v", o)
+	}
+	if o := read(map[string]any{"set": "on", "event": "Midsummer"}); o.Setting != "on for Midsummer Fire Festival" || !o.Changed ||
+		o.SavedNote != "Midsummer Fire Festival quests are now in your plan. Say 'drop them' anytime." {
+		t.Errorf("on: %+v", o)
+	}
+	if e := profile.Get(store, "Testpriest"); e.Seasonal != "on:midsummer" {
+		t.Errorf("stored %q", e.Seasonal)
+	}
+	if o := read(map[string]any{"set": "off"}); o.Setting != "off" || !o.Changed {
+		t.Errorf("off: %+v", o)
+	}
+	if e := profile.Get(store, "Testpriest"); e.Seasonal != "" {
+		t.Errorf("stored after off: %q", e.Seasonal)
+	}
+	if text, isErr := call("seasonal_events", map[string]any{"character": "testpriest", "set": "maybe"}); !isErr || !strings.HasPrefix(text, "Not saved:") {
+		t.Errorf("bad value: %q", text)
 	}
 }
