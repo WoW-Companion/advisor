@@ -307,7 +307,7 @@ var raidCases = []struct {
 // TestOfflineBenchmarkRaidFacts: a raid asked by name: its group size, level, entrance and bosses.
 func TestOfflineBenchmarkRaidFacts(t *testing.T) {
 	ds := instStore()
-		c := character.Character{Faction: "Horde", Class: "WARRIOR"}
+	c := character.Character{Faction: "Horde", Class: "WARRIOR"}
 	var out []benchRow
 	for _, tc := range raidCases {
 		r := rowByName(t, ds, "instances", tc.name)
@@ -360,7 +360,7 @@ func stated(txt string) string {
 // does not word a saved-instance rule.
 func TestOfflineBenchmarkRaidLockout(t *testing.T) {
 	ds := instStore()
-		c := character.Character{Faction: "Horde", Class: "WARRIOR"}
+	c := character.Character{Faction: "Horde", Class: "WARRIOR"}
 	var out []benchRow
 	for _, tc := range raidCases {
 		p, togo, _ := dungeons.Named(c, ds, nil, tc.name)
@@ -383,7 +383,7 @@ func TestOfflineBenchmarkRaidLockout(t *testing.T) {
 // take before the raid and states no attunement.
 func TestOfflineBenchmarkRaidAttunement(t *testing.T) {
 	ds := instStore()
-		c := character.Character{Faction: "Horde", Class: "WARRIOR"}
+	c := character.Character{Faction: "Horde", Class: "WARRIOR"}
 	var out []benchRow
 	for _, tc := range attuneCases {
 		r := rowByName(t, ds, "instances", tc.name)
