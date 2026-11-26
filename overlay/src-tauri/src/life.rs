@@ -327,106 +327,49 @@ pub fn redact_text(text: &str) -> String {
     text.lines().map(redact_line).collect::<Vec<_>>().join("\n")
 }
 
-// --- the diagnostics zip --------------------------------------------------------------------------
+// --- the diagnostics text -------------------------------------------------------------------------
 
-fn crc32(data: &[u8]) -> u32 {
-    let mut c = 0xFFFF_FFFFu32;
-    for &b in data {
-        c ^= b as u32;
-        for _ in 0..8 {
-            c = if c & 1 != 0 { (c >> 1) ^ 0xEDB8_8320 } else { c >> 1 };
-        }
-    }
-    !c
+/// What the page needs from disk for its "Copy diagnostics" text: the shell log's tail and the
+/// crash-check record. The advisor strips names, paths and keys before anything is shown.
+#[derive(Serialize)]
+pub struct DiagnosticsFiles {
+    pub shell_log: String,
+    pub guard: String,
 }
 
-/// A zip with every entry stored (not compressed): enough for text logs, and no extra dependency.
-pub fn zip_stored(entries: &[(String, Vec<u8>)]) -> Vec<u8> {
-    let mut out: Vec<u8> = Vec::new();
-    let mut central: Vec<u8> = Vec::new();
-    let le16 = |v: &mut Vec<u8>, x: u16| v.extend_from_slice(&x.to_le_bytes());
-    let le32 = |v: &mut Vec<u8>, x: u32| v.extend_from_slice(&x.to_le_bytes());
-    for (name, data) in entries {
-        let offset = out.len() as u32;
-        let crc = crc32(data);
-        let n = name.as_bytes();
-        // local header
-        le32(&mut out, 0x0403_4b50);
-        le16(&mut out, 20);
-        le16(&mut out, 0x0800); // names are UTF-8
-        le16(&mut out, 0); // stored
-        le16(&mut out, 0); // time
-        le16(&mut out, 0x0021); // date: 1980-01-01
-        le32(&mut out, crc);
-        le32(&mut out, data.len() as u32);
-        le32(&mut out, data.len() as u32);
-        le16(&mut out, n.len() as u16);
-        le16(&mut out, 0);
-        out.extend_from_slice(n);
-        out.extend_from_slice(data);
-        // central directory entry
-        le32(&mut central, 0x0201_4b50);
-        le16(&mut central, 20);
-        le16(&mut central, 20);
-        le16(&mut central, 0x0800);
-        le16(&mut central, 0);
-        le16(&mut central, 0);
-        le16(&mut central, 0x0021);
-        le32(&mut central, crc);
-        le32(&mut central, data.len() as u32);
-        le32(&mut central, data.len() as u32);
-        le16(&mut central, n.len() as u16);
-        le16(&mut central, 0); // extra
-        le16(&mut central, 0); // comment
-        le16(&mut central, 0); // disk
-        le16(&mut central, 0); // internal attributes
-        le32(&mut central, 0); // external attributes
-        le32(&mut central, offset);
-        central.extend_from_slice(n);
+/// Lines in the shell log that record how the app started, ended or crashed.
+fn is_record(line: &str) -> bool {
+    let l = line.to_lowercase();
+    ["exit", "crash", "panic", "unexpected", "giving up", "restart try", "silent", "start "].iter().any(|k| l.contains(k))
+}
+
+/// The last 20 lines of the shell log, then up to 10 earlier crash and exit records.
+pub fn shell_log_tail(text: &str) -> String {
+    let lines: Vec<&str> = text.lines().collect();
+    let split = lines.len().saturating_sub(20);
+    let mut older: Vec<&str> = lines[..split].iter().copied().filter(|l| is_record(l)).collect();
+    let skip = older.len().saturating_sub(10);
+    older.drain(..skip);
+    let mut out = String::new();
+    if !older.is_empty() {
+        out.push_str("-- earlier records --\n");
+        for l in older {
+            out.push_str(l);
+            out.push('\n');
+        }
+        out.push_str("-- last 20 lines --\n");
     }
-    let cd_offset = out.len() as u32;
-    out.extend_from_slice(&central);
-    le32(&mut out, 0x0605_4b50);
-    le16(&mut out, 0);
-    le16(&mut out, 0);
-    le16(&mut out, entries.len() as u16);
-    le16(&mut out, entries.len() as u16);
-    le32(&mut out, central.len() as u32);
-    le32(&mut out, cd_offset);
-    le16(&mut out, 0);
+    for l in &lines[split..] {
+        out.push_str(l);
+        out.push('\n');
+    }
     out
 }
 
-/// The files a diagnostics zip holds, as (name in the zip, text, redacted). Log files are those in
-/// `log_dir` that start with `wowc-`; the crash-check record and the heartbeat come from `data_dir`.
-pub fn diagnostics_entries(log_dir: &Path, data_dir: &Path) -> Vec<(String, Vec<u8>)> {
-    let mut paths: Vec<(String, PathBuf)> = Vec::new();
-    if let Ok(rd) = fs::read_dir(log_dir) {
-        for e in rd.flatten() {
-            let n = e.file_name().to_string_lossy().to_string();
-            if n.starts_with("wowc-") && n.contains(".log") {
-                paths.push((format!("logs/{n}"), e.path()));
-            }
-        }
-    }
-    paths.sort();
-    for n in ["launch-guard.json", HEARTBEAT_FILE] {
-        paths.push((n.to_string(), data_dir.join(n)));
-    }
-    paths
-        .into_iter()
-        .filter_map(|(name, p)| fs::read(&p).ok().map(|b| (name, redact_text(&String::from_utf8_lossy(&b)).into_bytes())))
-        .collect()
-}
-
-/// Writes the diagnostics zip into `dest_dir` and returns its path.
-pub fn write_diagnostics(log_dir: &Path, data_dir: &Path, dest_dir: &Path, now: u64) -> Result<PathBuf, String> {
-    let mut entries = diagnostics_entries(log_dir, data_dir);
-    entries.push(("about.txt".to_string(), format!("WoW Companion diagnostics, made {}.\nKeys, tokens and prompts are never included; lines that might hold one are replaced.\n", iso(now, offset_secs())).into_bytes()));
-    fs::create_dir_all(dest_dir).map_err(|e| e.to_string())?;
-    let path = dest_dir.join(format!("wowc-diagnostics-{now}.zip"));
-    fs::write(&path, zip_stored(&entries)).map_err(|e| e.to_string())?;
-    Ok(path)
+/// Reads the two files; a missing one is an empty string.
+pub fn diagnostics_files(log_dir: &Path, data_dir: &Path) -> DiagnosticsFiles {
+    let read = |p: PathBuf| fs::read(p).map(|b| String::from_utf8_lossy(&b).to_string()).unwrap_or_default();
+    DiagnosticsFiles { shell_log: shell_log_tail(&read(log_dir.join(SHELL_LOG))), guard: read(data_dir.join("launch-guard.json")) }
 }
 
 #[cfg(test)]
@@ -507,27 +450,15 @@ mod tests {
     }
 
     #[test]
-    fn diagnostics_zip_holds_the_logs_and_redacts_secrets() {
-        let (logs, data, dl) = (tmp("zl"), tmp("zd"), tmp("zo"));
-        fs::write(logs.join(SHELL_LOG), "1 a start\n2 b api_key=sk-abc123 leaked\n").unwrap();
-        fs::write(logs.join(HELPER_LOG), "3 c ok\nAuthorization: Bearer zzz\n").unwrap();
-        fs::write(logs.join("other.txt"), "not a log").unwrap();
-        fs::write(data.join("launch-guard.json"), "{\"open\":true}").unwrap();
-        fs::write(data.join(HEARTBEAT_FILE), "{\"alive_at\":5}").unwrap();
-        let zip = fs::read(write_diagnostics(&logs, &data, &dl, 1_795_647_127).unwrap()).unwrap();
-        let s = String::from_utf8_lossy(&zip).to_string();
-        for want in ["logs/wowc-shell.log", "logs/wowc-advisor.log", "launch-guard.json", HEARTBEAT_FILE, "about.txt", "1 a start", "3 c ok"] {
-            assert!(s.contains(want), "missing {want}");
+    fn the_shell_log_tail_keeps_the_last_lines_and_earlier_records() {
+        let mut text = String::from("1 exit requested: tray quit\n");
+        for i in 0..40 {
+            text.push_str(&format!("{} plain line {i}\n", i + 2));
         }
-        for bad in ["sk-abc123", "api_key", "Bearer zzz", "other.txt"] {
-            assert!(!s.contains(bad), "leaked {bad}");
-        }
-        assert_eq!(&zip[..4], &[0x50, 0x4b, 0x03, 0x04]);
-        assert_eq!(&zip[zip.len() - 22..zip.len() - 18], &[0x50, 0x4b, 0x05, 0x06]);
-        assert_eq!(crc32(b"123456789"), 0xCBF4_3926);
-        for d in [logs, data, dl] {
-            let _ = fs::remove_dir_all(&d);
-        }
+        let out = shell_log_tail(&text);
+        assert!(out.contains("exit requested") && out.contains("plain line 39") && !out.contains("plain line 5\n"));
+        assert_eq!(out.lines().filter(|l| l.contains("plain line")).count(), 20);
+        assert_eq!(shell_log_tail(""), "");
     }
 
     #[test]

@@ -325,6 +325,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/suggestions", s.suggestions)
 	mux.HandleFunc("POST /api/refresh-plan", s.refreshPlanHandler)
 	mux.HandleFunc("GET /api/update", s.update)
+	mux.HandleFunc("POST /api/diagnostics", s.diagnostics)
 	mux.HandleFunc("GET /api/whats-new", s.whatsNew)
 	mux.HandleFunc("GET /api/stream/{id}", s.stream)
 	mux.HandleFunc("GET /api/setup", s.setupState)
