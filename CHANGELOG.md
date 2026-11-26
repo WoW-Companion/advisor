@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.7.92
+
+- **Changed** talent advice now follows the Icy Veins leveling build, one next pick at a time.
+- **Fixed** plans no longer say "map 310" or "map 279" for dungeons like Shadowfang Keep.
+- **Changed** a travel step to a dungeon now names its entrance zone, e.g. Silverpine Forest.
+- **Changed** a place the app cannot name now reads "an unknown place".
+
 ## 0.7.91
 
 - After an addon update, the notice says to type /reload in game.
