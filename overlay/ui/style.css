@@ -267,4 +267,5 @@ button.primary { background: #3f7d46; border-color: #5d8a62; color: #fff; }
 .notes-divider { display: flex; align-items: center; gap: 8px; margin: 6px 0; color: #e5534b; font-size: 11px; font-weight: 600; }
 .notes-divider::before, .notes-divider::after { content: ''; flex: 1; border-top: 1px solid currentColor; }
 .notes-divider::before { display: none; }
+.notes-heading { font-size: 11px; font-weight: 600; margin: 2px 0 4px; }
 .notes-uptodate { opacity: .75; font-size: 11px; margin: 2px 0 4px; }

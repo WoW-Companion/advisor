@@ -229,7 +229,7 @@ assert.strictEqual(U.CHANGELOG_URL, 'https://github.com/WoW-Companion/advisor/re
     app: { entries: [{ version: '0.7.95', date: '2026-11-20', lines: ['Added b.'] }, { version: '0.7.94', date: '2026-11-10', lines: ['Fixed c.'] }], more: true },
     addon: { entries: [{ version: '0.6.70', date: '2026-11-02', lines: ['x'] }, { version: '0.6.69', date: '2026-11-01', lines: ['y'] }] },
   };
-  const order = v => v.items.map(i => i.type === 'entry' ? (i.component === 'App' ? 'A' : 'D') + i.version : i.type === 'divider' ? '--' : '==');
+  const order = v => v.items.map(i => i.type === 'entry' ? (i.component === 'App' ? 'A' : 'D') + i.version : i.type === 'divider' ? '--' : i.type === 'heading' ? '##' : '==');
   // An upgrade from 0.7.94 with no seed: the previous version is seeded, the divider is above 0.7.95.
   let c = cfg();
   assert.strictEqual(U.seedNotesSeen(c, '0.7.95', '', { app: '0.7.94', upgrade: true }), true);
@@ -237,7 +237,7 @@ assert.strictEqual(U.CHANGELOG_URL, 'https://github.com/WoW-Companion/advisor/re
   assert.strictEqual(U.seedNotesSeen(c, '0.7.99', '', { app: '0.7.95', upgrade: true }), false, 'a later start does not move it');
   assert.strictEqual(U.notesQuery(c, '0.7.95', '0.6.70'), '?app_from=0.0.0&app=0.7.95&addon_from=0.0.0&addon=0.6.70');
   const one = { app: resp.app, addon: { entries: [] } };
-  assert.deepStrictEqual(order(U.historyView(one, c)), ['A0.7.95', '--', 'A0.7.94']);
+  assert.deepStrictEqual(order(U.historyView(one, c)), ['##', 'A0.7.95', '--', 'A0.7.94']);
   // Unknown previous version on an upgrade: everything capped is new; the divider sits at the bottom.
   c = cfg();
   U.seedNotesSeen(c, '0.7.95', '0.6.70', { upgrade: true });
@@ -245,6 +245,9 @@ assert.strictEqual(U.CHANGELOG_URL, 'https://github.com/WoW-Companion/advisor/re
   const all = U.historyView(resp, c);
   assert.strictEqual(all.items[all.items.length - 1].type, 'divider');
   assert.strictEqual(all.unseen, 4);
+  assert.deepStrictEqual(all.items[0], { type: 'heading', text: '4 new since you last looked' });
+  assert.strictEqual(all.items[all.items.length - 1].text, 'You’re caught up: everything below you’ve seen');
+  assert.strictEqual(U.notesScrollTop(), 0, 'opens at the top');
   assert.deepStrictEqual(all.more, { text: 'Older changes: see the release page', url: U.CHANGELOG_URL });
   // A fresh install: seeded with the installed versions; history shows with "You're up to date".
   c = cfg();
@@ -254,13 +257,14 @@ assert.strictEqual(U.CHANGELOG_URL, 'https://github.com/WoW-Companion/advisor/re
   assert.deepStrictEqual(order(fresh), ['==', 'A0.7.95', 'A0.7.94', 'D0.6.70', 'D0.6.69']);
   assert.strictEqual(fresh.items[0].text, 'You’re up to date');
   assert.strictEqual(fresh.unseen, 0);
+  assert.ok(!fresh.items.some(i => i.type === 'divider' || i.type === 'heading'), 'nothing unseen: no divider');
   assert.strictEqual(U.newCount(0), '');
   assert.strictEqual(U.newCount(2), ' · 2 new');
   // Mixed app and addon unseen entries: one divider, interleaved by date, unseen above, seen below.
   c = cfg(); c.notesSeen = { app: '0.7.94', addon: '0.6.69' };
   const mixed = { app: resp.app, addon: { entries: [{ version: '0.6.70', date: '2026-11-15', lines: ['x'] }, { version: '0.6.69', date: '2026-11-05', lines: ['y'] }] } };
   const mv = U.historyView(mixed, c);
-  assert.deepStrictEqual(order(mv), ['A0.7.95', 'D0.6.70', '--', 'A0.7.94', 'D0.6.69']);
+  assert.deepStrictEqual(order(mv), ['##', 'A0.7.95', 'D0.6.70', '--', 'A0.7.94', 'D0.6.69']);
   assert.strictEqual(mv.unseen, 2);
   // The migration un-seeds the buggy 0.7.95 seed exactly once.
   c = cfg(); c.notesSeen = { app: '0.7.95', addon: '0.6.70' };
