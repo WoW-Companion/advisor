@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.91
+
+- After an addon update, the notice says to type /reload in game.
+- **Added** a "Copy diagnostics" button in Settings that copies a private, plain-text summary.
+- **Added** training lines now carry spell ids, prerequisites and the trainer's map position.
+
 ## 0.7.90
 
 - Profession skill-up advice follows the efficient routes from your game data.
