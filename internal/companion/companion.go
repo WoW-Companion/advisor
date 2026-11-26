@@ -333,6 +333,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/update", s.update)
 	mux.HandleFunc("POST /api/diagnostics", s.diagnostics)
 	mux.HandleFunc("GET /api/whats-new", s.whatsNew)
+	mux.HandleFunc("GET /api/notes-since", s.notesSince)
 	mux.HandleFunc("GET /api/stream/{id}", s.stream)
 	mux.HandleFunc("GET /api/setup", s.setupState)
 	mux.HandleFunc("POST /api/setup/install-addon", s.setupInstall)

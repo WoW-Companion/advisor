@@ -212,6 +212,48 @@
   const RESTART_TEXT = "This addon update adds new files: fully exit and restart WoW to load it (/reload isn't enough).";
   const reloadLine = restart => restart ? RESTART_TEXT : RELOAD_TEXT;
 
+  // --- "What's new" since the notes were last viewed -------------------------------------------
+  // cfg.notesSeen = { app, addon } holds the versions whose notes the player has seen. The first run
+  // seeds it with what is installed, so a fresh install has no backlog. Both are kept in the settings.
+  function seedNotesSeen(cfg, app, addon) {
+    const seen = cfg.notesSeen = Object.assign({ app: '', addon: '' }, cfg.notesSeen);
+    let changed = false;
+    if (!seen.app && bare(app)) { seen.app = bare(app); changed = true; }
+    if (!seen.addon && bare(addon) && bare(addon) !== 'unknown') { seen.addon = bare(addon); changed = true; }
+    return changed;
+  }
+  // The query for /api/notes-since: from the last seen version up to the installed one.
+  function notesQuery(cfg, app, addon) {
+    const seen = cfg.notesSeen || {};
+    const a = bare(app), d = bare(addon);
+    const q = { app_from: bare(seen.app) || a, app: a, addon_from: bare(seen.addon) || d, addon: d };
+    return '?' + Object.keys(q).map(k => k + '=' + encodeURIComponent(q[k])).join('&');
+  }
+  const OLDER_TEXT = 'Older changes: see the release page';
+  // The server's answer as a list to draw: App then Addon, each newest first with its versions and
+  // bullets. more adds the closing line that links the releases page.
+  function notesView(resp) {
+    const sections = [];
+    let more = false;
+    for (const [key, title] of [['app', 'App'], ['addon', 'Addon']]) {
+      const part = (resp && resp[key]) || {};
+      const entries = (part.entries || []).filter(e => (e.lines || []).length).map(e => ({ version: bare(e.version), bullets: e.lines.slice() }));
+      if (entries.length) sections.push({ component: title, entries });
+      if (part.more) more = true;
+    }
+    return { sections, empty: !sections.length, more: more ? { text: OLDER_TEXT, url: CHANGELOG_URL } : null };
+  }
+  // Viewing the notes marks them seen: notesSeen becomes the installed versions (a component whose
+  // installed version is not known keeps its mark). True when it changed.
+  function openNotes(cfg, app, addon) {
+    const seen = cfg.notesSeen = Object.assign({ app: '', addon: '' }, cfg.notesSeen);
+    const a = bare(app), d = bare(addon);
+    const next = { app: a || seen.app, addon: d && d !== 'unknown' ? d : seen.addon };
+    const changed = next.app !== seen.app || next.addon !== seen.addon;
+    cfg.notesSeen = next;
+    return changed;
+  }
+
   // The note at the top of the chat on the first start of a different version than the last one.
   // last is the version seen at the previous start ("" the first time ever: no note).
   // reason is why an automatic go-back happened ("" when the player went back themselves).
@@ -219,16 +261,16 @@
   // the app, the addon or both. restart is true when the addon update added files.
   function updatedNote(last, running, reason, addon, restart) {
     const a = bare(last), b = bare(running), d = bare(addon || '');
-    if (!a || !b || a === b || cmp(a, b) === 0) return d ? { kind: 'up', version: '', addon: d, text: '✓ Updated: addon ' + d, reload: reloadLine(restart), whatsNew: false } : null;
+    if (!a || !b || a === b || cmp(a, b) === 0) return d ? { kind: 'up', version: '', addon: d, text: '✓ Updated: addon ' + d, reload: reloadLine(restart), restart: !!restart, whatsNew: true } : null;
     if (cmp(b, a) >= 0) return { kind: 'back', version: b, text: '✓ Went back to ' + b + (reason ? ': ' + String(reason).replace(/[.\s]+$/, '') : ''), whatsNew: false };
-    return { kind: 'up', version: b, from: a, addon: d, text: '✓ Updated: app ' + b + (d ? ' and addon ' + d : ''), ...(d ? { reload: reloadLine(restart) } : {}), whatsNew: true };
+    return { kind: 'up', version: b, from: a, addon: d, text: '✓ Updated: app ' + b + (d ? ' and addon ' + d : ''), ...(d ? { reload: reloadLine(restart), restart: !!restart } : {}), whatsNew: true };
   }
   // The notice for an addon installed while the app keeps running; addon is "" or "unknown" when the
   // version is not known (the reload line then clears on the next save).
   function addonDoneNote(addon, message, restart) {
     const d = bare(addon || '');
     const known = d && d !== 'unknown';
-    return { kind: 'up', version: '', addon: known ? d : '', text: '✓ ' + (known ? 'Updated: addon ' + d : message), reload: reloadLine(restart), whatsNew: false };
+    return { kind: 'up', version: '', addon: known ? d : '', text: '✓ ' + (known ? 'Updated: addon ' + d : message), reload: reloadLine(restart), restart: !!restart, whatsNew: true };
   }
   // Whether the game now runs the addon the notice named. game is the app's view of the last save:
   // { addon: the addonVersion it recorded ("" when none), savedAt: when the file was written }, and
@@ -238,7 +280,8 @@
     if (!note || !note.reload || !game) return false;
     const v = bare(game.addon || '');
     if (v && v !== 'unknown' && note.addon) return cmp(v, note.addon) <= 0; // cmp is 1 when v is older
-    return (game.savedAt || 0) > (base || 0);
+    if (note.restart) return false; // a save after a /reload does not show a restart happened
+    return base != null && (game.savedAt || 0) > base;
   }
   // When to look again: on start, every CHECK_EVERY, after the PC slept (a late one-minute tick), and
   // when the window gains focus more than CHECK_EVERY after the last look. now() is the clock.
@@ -259,7 +302,7 @@
     };
   }
 
-  const api = { addonOffer, addonView, addonAuto, CHECK_EVERY, LATER_MS, WAKE_GAP, TICK, updateQuery, bannerState, bannerView, turnOnAuto, autoArgs, skip, later, plainNotes, noteView, NOTICE_BULLETS, versionRows, noticeView, updatedNote, addonDoneNote, reloadDone, whatsNewQuery, CHANGELOG_URL, cmp, createSchedule };
+  const api = { addonOffer, addonView, addonAuto, CHECK_EVERY, LATER_MS, WAKE_GAP, TICK, updateQuery, bannerState, bannerView, turnOnAuto, autoArgs, skip, later, plainNotes, noteView, NOTICE_BULLETS, versionRows, noticeView, updatedNote, addonDoneNote, reloadDone, whatsNewQuery, seedNotesSeen, notesQuery, notesView, openNotes, OLDER_TEXT, CHANGELOG_URL, cmp, createSchedule };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.WowcUpdates = api;
 })(typeof window !== 'undefined' ? window : globalThis);
