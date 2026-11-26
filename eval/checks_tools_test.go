@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
@@ -245,13 +244,13 @@ func profUnknownThresholds(e *env) error {
 
 func talentPlan(e *env) talents.Result { return talents.Plan(e.c, e.ds, talents.Options{}) }
 
-// The spec is the group with the most points; on a tie or none the answer asks which spec instead of guessing.
+// The spec is the group with the most points; on a tie or none it is the class's default leveling spec.
 func talentSpecFromPoints(e *env) error {
 	r := talentPlan(e)
 	g, pts := topGroup(e.c)
 	if g == "" {
-		if r.Missing == "" || len(r.Next) != 0 {
-			return fmt.Errorf("no single top spec (%d points) but the plan has spec %q, %d points to spend and Missing %q", pts, r.Spec, len(r.Next), r.Missing)
+		if !r.SpecDefault || r.Spec == "" || r.Missing != "" {
+			return fmt.Errorf("no single top spec (%d points) but the plan has spec %q (default %v, missing %q)", pts, r.Spec, r.SpecDefault, r.Missing)
 		}
 		return nil
 	}
@@ -289,20 +288,15 @@ func specOf(e *env) string {
 	return classSpecs[e.c.Class][0]
 }
 
-// Every point comes from a build band the character has reached, and the band holds the level.
+// Every point is one the character has reached the level for.
 func talentBandFitsLevel(e *env) error {
 	r := talents.Plan(e.c, e.ds, talents.Options{Spec: specOf(e)})
 	if r.Missing != "" {
 		return fmt.Errorf("no plan for level %d: %s", level(e), r.Missing)
 	}
-	want := fmt.Sprintf("%d0-%d9", level(e)/10, level(e)/10)
-	if r.Band != want {
-		return fmt.Errorf("level %d is in band %s, the plan says %s", level(e), want, r.Band)
-	}
 	for _, p := range r.Next {
-		lo, err := strconv.Atoi(strings.SplitN(p.Band, "-", 2)[0])
-		if err != nil || lo > level(e) {
-			return fmt.Errorf("point %q is from band %s, above level %d", p.Name, p.Band, level(e))
+		if p.Level > level(e) {
+			return fmt.Errorf("point %q is for level %d, above level %d", p.Name, p.Level, level(e))
 		}
 	}
 	return nil
@@ -320,10 +314,10 @@ func talentUnspentStated(e *env) error {
 	return nil
 }
 
-// A spec the dataset has no build for gets no plan, and the answer lists the builds there are.
+// A spec the dataset has no build for gets no plan, and the answer says it has no checked build.
 func talentUnknownSpecNone(e *env) error {
 	r := talents.Plan(e.c, e.ds, talents.Options{Spec: "Nonexistent"})
-	if r.Missing == "" || len(r.Next) != 0 || len(r.Available) != len(classSpecs[e.c.Class]) {
+	if !strings.Contains(r.Missing, "I don't have a checked build for Nonexistent yet.") || len(r.Next) != 0 || len(r.Available) != len(classSpecs[e.c.Class]) {
 		return fmt.Errorf("spec Nonexistent: Missing %q, %d points, %d builds available (want %d)", r.Missing, len(r.Next), len(r.Available), len(classSpecs[e.c.Class]))
 	}
 	return nil

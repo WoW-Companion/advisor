@@ -17,6 +17,7 @@ import (
 	"github.com/WoW-Companion/advisor/internal/questie"
 	"github.com/WoW-Companion/advisor/internal/route"
 	"github.com/WoW-Companion/advisor/internal/store"
+	"github.com/WoW-Companion/advisor/internal/talents"
 	"github.com/WoW-Companion/advisor/internal/unlock"
 )
 
@@ -57,7 +58,7 @@ func Facts(cfg Config, q Question) string {
 	if g, ok := digest.FindGiver(c, cc.qx, digest.PlanQuests(all), digest.PlanNPCs(all)); ok {
 		giver = "Quest giver with something for the character now (not in the plan): " + g.Text() + "."
 	}
-	return capRunes(subjectFacts(cfg, cc, q)+brief.Character(c, f.ClientOf(c), time.Now())+"\n\n"+styleLine(c)+join(seasonalFacts(c, cc.qx))+join(bagFacts(c, cc.ds))+join(weaponFacts(c, cc.ds, q.Text))+join(professionPlanFacts(cc, q.Text))+join(talentFacts(c, cc.ds))+"\n\n"+next+join(trainFacts(cc))+join(giver), FactsBudget)
+	return capRunes(subjectFacts(cfg, cc, q)+brief.Character(c, f.ClientOf(c), time.Now())+"\n\n"+styleLine(c)+join(seasonalFacts(c, cc.qx))+join(bagFacts(c, cc.ds))+join(weaponFacts(c, cc.ds, q.Text))+join(professionPlanFacts(cc, q.Text))+join(talentFacts(c, cc.ds))+join(talentBuildFacts(c, cc.ds, q.Text))+"\n\n"+next+join(trainFacts(cc))+join(giver), FactsBudget)
 }
 
 func join(s string) string {
@@ -377,6 +378,30 @@ func talentFacts(c character.Character, ds store.DataStore) string {
 		return ""
 	}
 	return "Unspent talent points (mention this FIRST in any \"what next\" answer; spending them takes no travel): " + advice.TalentTitle(c, ds, *c.Talents.Unspent) + "."
+}
+
+// talentBuildFacts is the Icy Veins leveling build's state for a talent question: the progress line, the guide's
+// key talents with the reason for each, and the off-build note; "" for any other question or with no checked build.
+func talentBuildFacts(c character.Character, ds store.DataStore, question string) string {
+	if ds == nil || !TalentQuestion(question) {
+		return ""
+	}
+	p := talents.Plan(c, ds, talents.Options{})
+	if p.Missing != "" {
+		if p.NoBuild {
+			return "Talent build: " + p.Missing + " Mention only the unspent points; name no specific pick."
+		}
+		return ""
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "Talent build (Icy Veins WoW Forever leveling, %s): %s.", p.Spec, talents.Progress(p))
+	for _, pr := range p.Priorities {
+		fmt.Fprintf(&b, " Key talent %d: %s (%s).", pr.Rank, pr.Name, pr.Reason)
+	}
+	if n := talents.OffBuildNote(p); n != "" {
+		b.WriteString(" " + n + " (say so once; do not suggest a respec).")
+	}
+	return b.String()
 }
 
 // trainFacts is the nearest place to train class spells, when the character has spells to train, ; "" otherwise.

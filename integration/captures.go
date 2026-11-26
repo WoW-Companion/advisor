@@ -202,19 +202,30 @@ func (s charSpec) capture(ds store.DataStore, build string) (string, error) {
 	}
 	tree := map[string]any{"name": s.class, "points": spent, "currency": map[string]any{"spent": spent, "unspent": 1}, "groups": groups}
 	if s.tree {
-		rows, err := ds.Filter("talent_builds", store.Range{Column: "class", Min: "Priest", Max: "Priest"}, store.Range{Column: "spec", Min: "Shadow Magic", Max: "Shadow Magic"})
+		// "Shadow" (the Icy Veins builds, one row per point) or "Shadow Magic" (the older banded builds).
+		rows, err := ds.Filter("talent_builds", store.Range{Column: "class", Min: "Priest", Max: "Priest"}, store.Range{Column: "spec", Min: "Shadow", Max: "Shadow Magic"})
 		if err != nil {
 			return "", err
 		}
 		var ts []any
+		at, total := map[int64]int{}, 0
 		for _, r := range rows {
 			nid := num(r["node_id"])
 			n, err := ds.Filter("talent_nodes", store.Range{Column: "node_id", Min: nid, Max: nid})
 			if err != nil || len(n) == 0 {
 				continue
 			}
-			ts = append(ts, map[string]any{"nodeID": nid, "spellID": num(n[0]["spell_id"]), "name": text(n[0]["name"]), "rank": int(num(r["points"])), "max": int(num(n[0]["max_rank"])), "group": "Shadow Magic"})
-			if len(ts) == spent {
+			rank, gain := int(num(r["points"])), int(num(r["points"]))
+			if _, perPoint := r["rank_after"]; perPoint {
+				rank, gain = int(num(r["rank_after"])), 1
+			}
+			if i, seen := at[nid]; seen {
+				ts[i].(map[string]any)["rank"] = rank
+			} else {
+				at[nid] = len(ts)
+				ts = append(ts, map[string]any{"nodeID": nid, "spellID": num(n[0]["spell_id"]), "name": text(n[0]["name"]), "rank": rank, "max": int(num(n[0]["max_rank"])), "group": "Shadow Magic"})
+			}
+			if total += gain; total >= spent {
 				break
 			}
 		}

@@ -1,14 +1,14 @@
-// Package talents says where a character's next talent points go, from the dataset's curated
-// talent_builds table and the captured points. The rules are in docs/talents.md.
+// Package talents says where a character's next talent points go, from the dataset's talent_builds
+// (Icy Veins' WoW Forever leveling builds, one row per point) and talent_priorities tables and the
+// captured points. The rules are in docs/talents.md.
 //
-// A build is never invented: with no build for the spec and level band the plan says so and
-// lists the builds the dataset does have. Points spent off-build are listed, not judged.
+// A build is never invented: with no checked build for the spec the plan says so and lists only
+// the unspent points. Points spent off-build are noted, not judged.
 package talents
 
 import (
 	"fmt"
 	"sort"
-	"strconv"
 	"strings"
 
 	"github.com/WoW-Companion/advisor/internal/brief"
@@ -17,7 +17,7 @@ import (
 )
 
 // DefaultLimit is how many points a plan lists when none is asked for.
-const DefaultLimit = 5
+const DefaultLimit = 3
 
 // Options are the caller's choices; the zero value infers the spec and lists DefaultLimit points.
 type Options struct {
@@ -25,12 +25,14 @@ type Options struct {
 	Limit int
 }
 
-// Point is one talent point to spend: Rank is the node's rank once it is spent.
+// Point is one talent point to spend: Rank is the node's rank once it is spent, Max the most
+// ranks the build gives the node.
 type Point struct {
 	NodeID    int64
 	Name      string
 	Rank      int
-	Band      string // the build band that adds it
+	Max       int
+	Level     int // the character level at which the build spends it
 	Rationale string
 }
 
@@ -38,45 +40,51 @@ type Point struct {
 type OffBuild struct {
 	Name  string
 	Rank  int
-	Build int // ranks the build gives the node over the character's bands; 0 when not in it
+	Build int // ranks the build gives the node; 0 when it is not in it
 }
+
+// Priority is one of the guide's key leveling talents, with our own one-line reason.
+type Priority struct {
+	Rank   int
+	NodeID int64
+	Name   string
+	Reason string
+}
+
+// The "no checked build" line is noBuildPre + spec + noBuildPost.
+const noBuildPre, noBuildPost = "I don't have a checked build for ", " yet."
 
 // Result is the result of Plan.
 type Result struct {
 	Class        string
 	Spec         string
-	SpecInferred bool
+	SpecInferred bool // the spec was taken from the most points spent
+	SpecDefault  bool // no points, or a tie: the class's default leveling spec
 	Level        *int
-	Band         string
 	Unspent      *int
+	Done         string // the last build point already taken, "Spirit Tap 5/5"
 	Next         []Point
 	OffBuild     []OffBuild
-	Remaining    int      // points the build still adds, through the character's band
+	Priorities   []Priority
+	Remaining    int      // points the build adds at or below the character's level that are not taken yet
+	NoBuild      bool     // Missing is the "no checked build" line: only the unspent points are listed
 	Missing      string   // why no plan could be made; empty when there is one
 	Options      []string // with Missing: talents open now (rank below max, can be bought), as options, not a recommendation
-	Available    []string // builds in the dataset, for Missing
+	Available    []string // specs the dataset has builds for, for Missing
 	Notes        []string
 }
 
-// buildStep is one talent_builds row.
+// buildStep is one talent_builds row: the point that takes node to rankAfter at level.
 type buildStep struct {
-	spec, band, rationale string
-	order                 int64
-	node                  int64
-	points                int
+	spec, name, source string
+	level, rankAfter   int
+	order, node        int64
+	hasLevel           bool
 }
 
 func text(v any) string { s, _ := v.(string); return s }
 
 func num(v any) int64 { n, _ := v.(int64); return n }
-
-// parseBand reads "10-19".
-func parseBand(b string) (lo, hi int, ok bool) {
-	l, h, found := strings.Cut(b, "-")
-	lo, err1 := strconv.Atoi(l)
-	hi, err2 := strconv.Atoi(h)
-	return lo, hi, found && err1 == nil && err2 == nil
-}
 
 // classRows reads the builds of a class (every class when empty), by spec and order.
 func classRows(ds store.DataStore, class string) ([]buildStep, error) {
@@ -89,7 +97,10 @@ func classRows(ds store.DataStore, class string) ([]buildStep, error) {
 		if class != "" && !strings.EqualFold(text(r["class"]), class) {
 			continue
 		}
-		out = append(out, buildStep{text(r["spec"]), text(r["band"]), text(r["rationale"]), num(r["order"]), num(r["node_id"]), int(num(r["points"]))})
+		_, hasLevel := r["level"]
+		_, hasRank := r["rank_after"]
+		out = append(out, buildStep{spec: text(r["spec"]), name: text(r["talent_name"]), source: text(r["source"]),
+			level: int(num(r["level"])), rankAfter: int(num(r["rank_after"])), order: num(r["order"]), node: num(r["node_id"]), hasLevel: hasLevel && hasRank})
 	}
 	sort.SliceStable(out, func(i, j int) bool {
 		if out[i].spec != out[j].spec {
@@ -100,35 +111,67 @@ func classRows(ds store.DataStore, class string) ([]buildStep, error) {
 	return out, nil
 }
 
-// available lists "Spec 10-19, 20-29" per spec, in spec order.
-func available(steps []buildStep) []string {
-	var specs []string
-	bands := map[string][]string{}
+// checked is true when the steps are a verified build: DATA-045's columns are there and the rows are not
+// marked unverified.
+func checked(steps []buildStep) bool {
 	for _, s := range steps {
-		if len(bands[s.spec]) == 0 {
-			specs = append(specs, s.spec)
-		}
-		if l := bands[s.spec]; len(l) == 0 || l[len(l)-1] != s.band {
-			bands[s.spec] = append(l, s.band)
+		if !s.hasLevel || strings.Contains(strings.ToLower(s.source), "unverified") {
+			return false
 		}
 	}
-	out := make([]string, len(specs))
-	for i, s := range specs {
-		out[i] = s + " " + strings.Join(bands[s], ", ")
+	return len(steps) > 0
+}
+
+// available lists the build specs, in spec order.
+func available(steps []buildStep) []string {
+	var out []string
+	for _, s := range steps {
+		if len(out) == 0 || out[len(out)-1] != s.spec {
+			out = append(out, s.spec)
+		}
 	}
 	return out
 }
 
-// inferSpec is the one group with the most points, or why there is none.
-func inferSpec(c character.Character) (string, string) {
-	names, pts := brief.TopGroups(c.Talents)
-	switch {
-	case pts == 0:
-		return "", "No talent points captured: say which spec to plan for."
-	case len(names) > 1:
-		return "", fmt.Sprintf("%s are tied at %d points: say which spec to plan for.", strings.Join(names, ", "), pts)
+// defaultSpec is the class's default leveling spec: the checked spec with the most build points (the
+// first by name on a tie).
+func defaultSpec(steps []buildStep) string {
+	count := map[string]int{}
+	for _, s := range steps {
+		count[s.spec]++
 	}
-	return names[0], ""
+	best := ""
+	for _, sp := range available(steps) {
+		if best == "" || count[sp] > count[best] {
+			best = sp
+		}
+	}
+	return best
+}
+
+// inferSpec is the one group with the most points, or "" when there is none or several tie.
+func inferSpec(c character.Character) string {
+	names, pts := brief.TopGroups(c.Talents)
+	if pts == 0 || len(names) != 1 {
+		return ""
+	}
+	return names[0]
+}
+
+// priorities reads the guide's key talents for a class and spec, by rank.
+func priorities(ds store.DataStore, class, spec string) []Priority {
+	rows, err := ds.Filter("talent_priorities", store.Range{Column: "rank", Min: 1})
+	if err != nil {
+		return nil
+	}
+	var out []Priority
+	for _, r := range rows {
+		if strings.EqualFold(text(r["class"]), class) && strings.EqualFold(text(r["spec"]), spec) {
+			out = append(out, Priority{int(num(r["rank"])), num(r["node_id"]), text(r["talent_name"]), text(r["reason"])})
+		}
+	}
+	sort.SliceStable(out, func(i, j int) bool { return out[i].Rank < out[j].Rank })
+	return out
 }
 
 // matchSpec finds the build spec a group name or an override names, by name, case-insensitively.
@@ -203,12 +246,12 @@ func nodeName(ds store.DataStore, id int64) string {
 	return text(rows[0]["name"])
 }
 
-// Plan compares the build for the character's spec and level band with the captured points and
-// lists the next points to spend.
+// Plan walks the build for the character's spec in order and lists the first points the character has
+// not taken whose level they have reached.
 func Plan(c character.Character, ds store.DataStore, opt Options) (p Result) {
 	p = Result{Class: c.Class, Level: c.Level}
 	defer func() {
-		if p.Missing != "" {
+		if p.Missing != "" && !p.NoBuild {
 			p.Options = openOptions(c, 5)
 		}
 	}()
@@ -220,12 +263,12 @@ func Plan(c character.Character, ds store.DataStore, opt Options) (p Result) {
 		limit = DefaultLimit
 	}
 	if ds == nil {
-		p.Missing = "No dataset: there are no curated talent builds to compare with."
+		p.Missing = "No dataset: there are no talent builds to compare with."
 		return p
 	}
 	all, err := classRows(ds, c.Class)
 	if err != nil || len(all) == 0 {
-		p.Missing = "The dataset has no curated talent builds" + map[bool]string{true: " for " + c.Class, false: ""}[c.Class != ""] + "."
+		p.Missing = "The dataset has no talent builds" + map[bool]string{true: " for " + c.Class, false: ""}[c.Class != ""] + "."
 		return p
 	}
 	p.Available = available(all)
@@ -242,45 +285,49 @@ func Plan(c character.Character, ds store.DataStore, opt Options) (p Result) {
 		want = specForRole(all, c, c.Profile.Role)
 	}
 	if want == "" {
-		var why string
-		if want, why = inferSpec(c); why != "" {
-			p.Missing = why
-			return p
+		if want = inferSpec(c); want != "" {
+			p.SpecInferred = true
+		} else {
+			want, p.SpecDefault = defaultSpec(all), true
 		}
-		p.SpecInferred = true
 	}
 	p.Spec = matchSpec(all, want)
 	if p.Spec == "" {
-		p.Spec = want
-		p.Missing = "No curated build for " + want + "."
-		return p
-	}
-	if c.Level == nil {
-		p.Missing = "Level not captured: cannot pick a level band."
+		p.Spec, p.NoBuild = want, true
+		p.Missing = noBuildPre + want + noBuildPost
 		return p
 	}
 	var build []buildStep
-	band := -1 // index of the character's band among the spec's bands, by low level
 	for _, s := range all {
-		if s.spec != p.Spec {
-			continue
-		}
-		build = append(build, s)
-		if lo, hi, ok := parseBand(s.band); ok && *c.Level >= lo && *c.Level <= hi {
-			p.Band = s.band
-			band = len(build)
+		if s.spec == p.Spec {
+			build = append(build, s)
 		}
 	}
-	if p.Band == "" {
-		p.Missing = fmt.Sprintf("No curated %s build for level %d.", p.Spec, *c.Level)
+	if !checked(build) {
+		p.NoBuild = true
+		p.Missing = noBuildPre + p.Spec + noBuildPost
 		return p
 	}
+	if c.Level == nil {
+		p.Missing = "Level not captured: cannot tell which build points are due."
+		return p
+	}
+	p.Priorities = priorities(ds, c.Class, p.Spec)
+	why := map[int64]string{}
+	for _, pr := range p.Priorities {
+		if _, ok := why[pr.NodeID]; !ok {
+			why[pr.NodeID] = pr.Reason
+		}
+	}
 
-	// Credit the captured ranks against the build's steps, in order; what is left is next.
+	// The captured ranks, by node id, else spell id, else name.
 	ranks, byName := map[int64]int{}, map[string]int{}
 	bySpell, _ := nodeSpells(ds)
 	if c.Talents != nil {
 		for _, t := range c.Talents.Trees {
+			if t.IsProfession() {
+				continue
+			}
 			for _, tl := range t.Talents {
 				switch {
 				case tl.NodeID != nil:
@@ -288,79 +335,79 @@ func Plan(c character.Character, ds store.DataStore, opt Options) (p Result) {
 				case tl.SpellID != nil && bySpell[int64(*tl.SpellID)] != 0:
 					ranks[bySpell[int64(*tl.SpellID)]] += tl.Rank
 				default:
-					byName[strings.ToLower(tl.Name)] += tl.Rank
+					byName[strings.ToLower(strings.TrimSpace(tl.Name))] += tl.Rank
 				}
 			}
 		}
 	}
-	names := map[int64]string{}
-	name := func(id int64) string {
-		if n, ok := names[id]; ok {
-			return n
-		}
-		n := nodeName(ds, id)
+	names, maxRank := map[int64]string{}, map[int64]int{}
+	for _, s := range build {
+		n := s.name
 		if n == "" {
-			n = fmt.Sprintf("node %d", id)
+			if n = nodeName(ds, s.node); n == "" {
+				n = fmt.Sprintf("node %d", s.node)
+			}
 		}
-		names[id] = n
-		return n
+		names[s.node] = n
+		maxRank[s.node] = max(maxRank[s.node], s.rankAfter)
+	}
+	for id, n := range names {
+		if _, ok := ranks[id]; !ok {
+			if r, ok := byName[strings.ToLower(n)]; ok {
+				ranks[id] = r
+			}
+		}
 	}
 	for _, s := range build {
-		if _, ok := ranks[s.node]; !ok {
-			if r, ok := byName[strings.ToLower(name(s.node))]; ok {
-				ranks[s.node] = r
-			}
-		}
-	}
-	credit, total := map[int64]int{}, map[int64]int{}
-	for id, r := range ranks {
-		credit[id] = r
-	}
-	running := map[int64]int{}
-	for i, s := range build {
-		take := min(s.points, credit[s.node])
-		credit[s.node] -= take
-		running[s.node] += s.points
-		total[s.node] += s.points
-		if i >= band {
+		if ranks[s.node] >= s.rankAfter {
+			p.Done = fmt.Sprintf("%s %d/%d", names[s.node], min(ranks[s.node], maxRank[s.node]), maxRank[s.node])
 			continue
 		}
-		for j := take; j < s.points; j++ {
-			p.Remaining++
-			if len(p.Next) < limit {
-				p.Next = append(p.Next, Point{s.node, name(s.node), running[s.node] - s.points + j + 1, s.band, s.rationale})
-			}
+		if s.level > *c.Level {
+			continue
+		}
+		p.Remaining++
+		if len(p.Next) < limit {
+			p.Next = append(p.Next, Point{s.node, names[s.node], s.rankAfter, maxRank[s.node], s.level, why[s.node]})
 		}
 	}
-	// Nodes whose later bands the build still adds are not off-build.
+	// Points spent outside the build, once per node.
 	if c.Talents != nil {
+		byBuildName := map[string]int64{}
+		for id, n := range names {
+			byBuildName[strings.ToLower(n)] = id
+		}
 		seen := map[string]bool{}
 		for _, t := range c.Talents.Trees {
+			if t.IsProfession() {
+				continue
+			}
 			for _, tl := range t.Talents {
 				if tl.Rank <= 0 {
 					continue
 				}
-				id := int64(0)
-				if tl.NodeID != nil {
+				id, name := int64(0), strings.TrimSpace(tl.Name)
+				switch {
+				case tl.NodeID != nil:
 					id = int64(*tl.NodeID)
+				case tl.SpellID != nil && bySpell[int64(*tl.SpellID)] != 0:
+					id = bySpell[int64(*tl.SpellID)]
+				default:
+					id = byBuildName[strings.ToLower(name)]
 				}
-				have := total[id]
-				if tl.NodeID == nil {
-					for nid := range total {
-						if strings.EqualFold(name(nid), tl.Name) {
-							id, have = nid, total[nid]
-						}
-					}
+				if name == "" {
+					name = nodeName(ds, id)
 				}
-				if tl.Rank > have && !seen[fmt.Sprint(id, tl.Name)] {
-					seen[fmt.Sprint(id, tl.Name)] = true
-					p.OffBuild = append(p.OffBuild, OffBuild{tl.Name, tl.Rank, have})
+				key := fmt.Sprint(id, strings.ToLower(name))
+				if have := maxRank[id]; tl.Rank > have && !seen[key] {
+					seen[key] = true
+					p.OffBuild = append(p.OffBuild, OffBuild{name, tl.Rank, have})
 				}
 			}
 		}
 	}
 	if p.Remaining == 0 {
-		p.Notes = append(p.Notes, fmt.Sprintf("The %s build has nothing left to add through level band %s.", p.Spec, p.Band))
+		p.Notes = append(p.Notes, fmt.Sprintf("The Icy Veins %s build has nothing more to take at level %d.", p.Spec, *c.Level))
 	}
 	if p.Unspent == nil {
 		p.Notes = append(p.Notes, "Unspent points not captured: the points listed may not all be affordable yet.")
@@ -398,7 +445,7 @@ func specForRole(all []buildStep, c character.Character, role string) string {
 		return match[0]
 	}
 	if len(match) > 1 {
-		if g, why := inferSpec(c); why == "" {
+		if g := inferSpec(c); g != "" {
 			return matchSpec(buildsOf(match), g)
 		}
 	}

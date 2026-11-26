@@ -14,14 +14,12 @@ type spellNodeRow struct {
 	Name    string `parquet:"name"`
 }
 
-// withSpells is synth with a spell id on the first two nodes (1 Shadow Focus 7001, 2 Improved Mind Blast 7002).
+// withSpells is a two-node Shadow build with a spell id on each node (1 Spirit Tap 7001, 2 Mind Flay 7002).
 func withSpells(t *testing.T) store.DataStore {
-	b := func(order int16, node int32, pts int16) buildRow {
-		return buildRow{"Priest", "Shadow Magic", "10-19", order, node, pts, "why", "curated"}
-	}
+	rows := append(pts("Priest", "Shadow", 1, 10, 1, "Spirit Tap", 5), pts("Priest", "Shadow", 6, 15, 2, "Mind Flay", 1)...)
 	return store.New(store.ReaderSource{
-		"talent_builds": table(t, []buildRow{b(1, 1, 5), b(2, 2, 5)}),
-		"talent_nodes":  table(t, []spellNodeRow{{1, 7001, "Shadow Focus"}, {2, 7002, "Improved Mind Blast"}}),
+		"talent_builds": table(t, rows),
+		"talent_nodes":  table(t, []spellNodeRow{{1, 7001, "Spirit Tap"}, {2, 7002, "Mind Flay"}}),
 	})
 }
 
@@ -31,11 +29,11 @@ func spellNode(spell, rank int) character.Talent {
 
 func TestCapturedNodesBySpellID(t *testing.T) {
 	ds := withSpells(t)
-	// Shadow Focus is maxed, captured by spell id only: the next pick skips it.
-	c := priest(12, 1, spellNode(7001, 5))
+	// Spirit Tap is maxed, captured by spell id only: the next pick skips it.
+	c := priest(20, 1, spellNode(7001, 5))
 	c.Talents.Trees[0].Groups[1].Spent = 5
 	p := Plan(c, ds, Options{Limit: 1})
-	if p.Missing != "" || points(p) != "Improved Mind Blast=1" {
+	if p.Missing != "" || points(p) != "Mind Flay=1" {
 		t.Errorf("missing %q next %q", p.Missing, points(p))
 	}
 }
