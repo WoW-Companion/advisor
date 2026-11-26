@@ -17,6 +17,15 @@ const (
 	flagFlight    = 0x2000
 )
 
+// friendlyTo is whether an NPC Questie marks friendly to "A", "H" or "AH" serves the character's side ("Alliance" or
+// "Horde"); an NPC with no side or a character with none serves everyone.
+func friendlyTo(npc, side string) bool {
+	if npc == "" || side == "" || npc == "AH" || npc == "HA" {
+		return true
+	}
+	return strings.HasPrefix(strings.ToUpper(side), npc)
+}
+
 // ParseXP reads a quest XP table; see questie.ParseXP.
 func ParseXP(src string) map[int]int { return questie.ParseXP(src) }
 
@@ -79,6 +88,9 @@ func Live(c character.Character, ds store.DataStore, qx *questie.Index, plan rou
 		Chain:   func(id int) bool { return follows[id] },
 	}
 	for _, e := range qx.Npcs {
+		if !friendlyTo(e.Faction, c.Faction) {
+			continue // the other side's inn or flight point is no place to end a session
+		}
 		kind := ""
 		switch {
 		case e.Flags&flagFlight != 0:

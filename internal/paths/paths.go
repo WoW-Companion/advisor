@@ -14,6 +14,7 @@ import (
 	"github.com/WoW-Companion/advisor/internal/gear"
 	"github.com/WoW-Companion/advisor/internal/items"
 	"github.com/WoW-Companion/advisor/internal/questie"
+	"github.com/WoW-Companion/advisor/internal/quests"
 	"github.com/WoW-Companion/advisor/internal/store"
 	"github.com/WoW-Companion/advisor/internal/vendors"
 	"github.com/WoW-Companion/advisor/internal/wording"
@@ -329,12 +330,32 @@ func (f *finder) quest() (Path, bool) {
 			continue
 		}
 		cd := cand{id: id, rank: 2}
-		row, err := f.ds.Get("quests", id)
-		if err == nil {
-			cd.name, cd.zone, cd.giver = str(row["name"]), str(row["zone"]), firstText(row, "giver_name", "giver")
-			if lv := optInt(row["level"]); lv != nil && f.level > 0 && *lv > f.level+2 {
-				continue // too far above the character to finish
+		// the client's quests table first, then what players saw (quests_observed) and the player's QuestieDB:
+		// the client table holds no quest name, giver or level, so a name comes from the later two
+		facts := quests.FactsOf(f.ds, f.opt.Questie, id)
+		level := 0
+		if row, err := f.ds.Get("quests", id); err == nil {
+			cd.name, cd.zone, cd.giver = str(row["name"]), firstText(row, "zone", "zone_name"), firstText(row, "giver_name", "giver")
+			if lv := optInt(row["level"]); lv != nil {
+				level = *lv
 			}
+		}
+		if facts != nil {
+			if cd.name == "" {
+				cd.name = facts.Name
+			}
+			if cd.zone == "" {
+				cd.zone = facts.Category
+			}
+			if cd.giver == "" {
+				cd.giver = quests.GiverName(f.ds, id)
+			}
+			if level == 0 {
+				level = facts.Level
+			}
+		}
+		if level > 0 && f.level > 0 && level > f.level+2 {
+			continue // too far above the character to finish
 		}
 		for _, q := range f.c.Quests {
 			if int64(q.QuestID) != id {
@@ -351,13 +372,11 @@ func (f *finder) quest() (Path, bool) {
 				cd.zone = q.Zone
 			}
 		}
+		if cd.rank != 0 && facts != nil && facts.Faction != "" && f.c.Faction != "" && !strings.EqualFold(facts.Faction, f.c.Faction) {
+			continue // a quest of the other side's: not for this character
+		}
 		if cd.rank == 2 && f.opt.PlanQuests[int(id)] {
 			cd.rank = 1
-		}
-		if cd.name == "" && f.opt.Questie != nil {
-			if q := f.opt.Questie.Quests[int(id)]; q != nil { // an available quest the dataset has no row for: QuestieDB names it
-				cd.name = q.Name
-			}
 		}
 		if cd.name == "" {
 			continue // never name a quest by its number
