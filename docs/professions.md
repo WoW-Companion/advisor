@@ -206,6 +206,18 @@ that drops an item, so none is stated), the bosses and entrance zone of six dung
 `testdata/sources_snapshot/build.sh <dataset dir>`, which needs duckdb). The dataset holds no class quest line, no rare or
 elite creature, no recipe vendor name and no quest that rewards a recipe; those cases check that the advisor says so.
 
+`internal/paths/offline_tradeskills_benchmark_test.go` (also `make offline-benchmark`, areas `advice-trainer-location`,
+`advice-profession-tool`, `advice-reagent-source`, `advice-skillup-route`, `advice-skillup-gate`,
+`advice-tradeskill-no-answer` and `advice-tradeskill-data-gaps`) checks, on `testdata/tradeskills_snapshot` (rebuild it
+from a built dataset with `testdata/tradeskills_snapshot/build.sh <dataset dir>`, which needs duckdb), the trainer and
+place a skill-up route names for the rank to train next on both sides (`profession_tiers`), the tool a profession needs
+(named as the dataset's tool item, with the vendor price from `items.buy_price`, and nothing said when one is carried or
+worn), how a missing crafting material is got (make it with a profession the character has at the recipe's skill, a
+vendor, a node, or the Auction House), and the step of the guide's route that covers a skill (recipe, crafts left,
+material counts from `recipe_reagents`). The dataset's `trainers` table holds no name or coordinates and the tiers name no
+Mining, Skinning or Herbalism trainer, so those cases check that the advisor names nobody; they and the vendors the
+dataset names by id only are listed as "differ (data)".
+
 The run ends with one summary line, `advice-benchmark: N checks, S same, D differ (professions 90/39, costs 50/8,
 tailoring-guide 6/13, stats 99/0)`: every table row counts as same ("match") or differ, by area. Each area prints
 `advice-benchmark-count <area> same=N differ=M`, and `internal/benchsummary` adds them up. The share of
