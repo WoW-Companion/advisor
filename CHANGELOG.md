@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.7.88
+
+- The app now records why it ended: quit, window close, update restart, go back, shutdown and crashes.
+- After an unexpected end, the next start says "closed unexpectedly at <time>" with Open logs.
+- The helper's output has its own log, and it restarts itself if it dies.
+- Settings > Updates: Open logs folder and Copy diagnostics (a zip in Downloads, secrets left out).
+- A missed class or racial spell quest, like Touch of Weakness, now gets a plan step.
+- A trainer rank blocked by that quest says so, not listed as trainable.
+- The training line in the digest names the quest that teaches the spell.
+- The NEXT line names the item in your bags to equip, instead of only saying you have an upgrade.
+- Rune abilities (engravings) are no longer listed as spells to train.
+- Spell lists show each spell once, at its highest rank.
+- With no trainer visit on record, training points you to your trainer's list.
+
 ## 0.7.87
 
 - Weapon rules now come from your game data, not the AI's memory.
