@@ -52,6 +52,14 @@ type Quest struct {
 	Observed bool
 }
 
+// QuestPOI is one captured quest map point: a map, a position as percent of that map, and when
+// the client gave it (0 when not recorded).
+type QuestPOI struct {
+	Map    int
+	X, Y   float64
+	SeenAt int64
+}
+
 // Spot is one place an NPC was seen (map percent) and when.
 type Spot struct {
 	X, Y *float64
@@ -193,9 +201,12 @@ type Character struct {
 	Bank         []ItemStack
 	BankCaptured bool // false until the player has opened the bank with ForeverScribe running
 
-	NPCs            []NPC // nil when the capture holds no npcs table
-	Quests          []Quest
-	QuestsCaptured  bool
+	NPCs           []NPC // nil when the capture holds no npcs table
+	Quests         []Quest
+	QuestsCaptured bool
+	// QuestPOI is the point the client's quest map gave for a quest in the log, by quest id: the
+	// area of its current objective. Nil when the capture holds none.
+	QuestPOI        map[int]QuestPOI
 	CompletedQuests []int
 	Talents         *Talents
 	Skills          []Skill

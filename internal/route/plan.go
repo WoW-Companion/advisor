@@ -30,6 +30,9 @@ const (
 	pinRadius     = 0.05
 )
 
+// FromGame marks a position taken from the game's own quest map point, captured by the addon.
+const FromGame = "game"
+
 // FromQuestie marks a position that came from the player's own Questie database rather than the dataset.
 const FromQuestie = "from your Questie database"
 
@@ -212,6 +215,7 @@ type spot struct {
 	dungeon  string        // with town: the dungeon, to keep its pick-ups together
 	xp       int           // with town: the quest's XP, for the order
 	areaObj  bool          // placed by an area objective of the player's Questie database, not an NPC or object
+	game     bool          // placed at the quest map point the client gave for the quest
 	approx   bool          // placed at a subzone's centre named in the quest text, not at the objective's own spot
 	zoneOnly bool          // no position anywhere: the zone is all that is known, so no coordinates are shown
 	trip     *questie.Trip // a turn-in that is a journey: nothing to do, handed in elsewhere (never merged with an ordinary one)
@@ -627,6 +631,9 @@ func stopOf(n int, s *spot) Stop {
 		st.X, st.Y, st.ZoneOnly, st.Unplaced = NoPos, NoPos, true, true
 	}
 	st.Approx = s.approx
+	if s.game {
+		st.Source = FromGame
+	}
 	if s.areaObj {
 		st.Source = FromQuestie
 	}

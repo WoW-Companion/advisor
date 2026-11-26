@@ -1,0 +1,68 @@
+package route
+
+import (
+	"fmt"
+
+	"github.com/WoW-Companion/advisor/internal/character"
+	"github.com/WoW-Companion/advisor/internal/questie"
+)
+
+// Coverage counts how the objectives of the quests in the character's log are placed.
+type Coverage struct {
+	Quests    int // quests in the log
+	NoData    int // of those, quests the Questie database does not know
+	Questie   int // objectives placed from the Questie database
+	Game      int // objectives placed from the game's own quest map point
+	Approx    int // objectives placed approximately, at a subzone named in the quest text
+	Unplaced  int // objectives with no position at all
+	Layout    string
+	Available bool // false: no Questie database to read
+}
+
+// Total is the number of objectives counted.
+func (c Coverage) Total() int { return c.Questie + c.Game + c.Approx + c.Unplaced }
+
+// Line is the one-line summary.
+func (c Coverage) Line() string {
+	if !c.Available {
+		return "quests: no readable Questie database, so objectives cannot be placed"
+	}
+	return fmt.Sprintf("quests: %d in the log, %d objectives: %d placed from Questie, %d from the game's quest map points, %d approximately, %d not placed (%d quests unknown to Questie; field layout %s)",
+		c.Quests, c.Total(), c.Questie, c.Game, c.Approx, c.Unplaced, c.NoData, c.Layout)
+}
+
+// CoverageOf walks the quests in c's log the way the route does and counts their objectives.
+func CoverageOf(c character.Character, qx *questie.Index, opt Options) Coverage {
+	cov := Coverage{Quests: len(c.Quests)}
+	if qx == nil {
+		return cov
+	}
+	cov.Available, cov.Layout = true, qx.Layout
+	inLog := map[int]bool{}
+	for _, lq := range c.Quests {
+		inLog[lq.QuestID] = true
+		if qx.Quests[lq.QuestID] == nil {
+			cov.NoData++
+		}
+	}
+	src := &questieSource{qx: qx, opt: opt}
+	for _, q := range src.quests(c, nil) {
+		if !inLog[q.id] {
+			continue
+		}
+		for _, sp := range q.objs {
+			switch {
+			case sp.zoneOnly:
+				cov.Unplaced++
+			case sp.game:
+				cov.Game++
+			case sp.approx:
+				cov.Approx++
+			default:
+				cov.Questie++
+			}
+		}
+		cov.Unplaced += len(q.unplaced)
+	}
+	return cov
+}

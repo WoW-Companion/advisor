@@ -49,6 +49,9 @@ func stops(b *strings.Builder, indent string, list []Stop) {
 		if s.Approx {
 			extra += ", approx = true"
 		}
+		if s.Source == FromGame {
+			extra += ", source = " + digest.Quote(FromGame)
+		}
 		if len(s.QuestIDs) > 1 {
 			extra += ", questIDs = " + idList(s.QuestIDs)
 		}
