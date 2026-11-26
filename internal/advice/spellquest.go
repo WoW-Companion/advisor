@@ -61,7 +61,7 @@ func MissedSpellQuests(c character.Character, qx *questie.Index) []MissedSpellQu
 			known = known || c.KnownSpells[id]
 		}
 		q := qx.Quests[sq.QuestID]
-		if known || q == nil || q.Name == "" || q.MinLevel > *c.Level || (q.Races != 0 && w.RaceID > 0 && q.Races&(1<<(w.RaceID-1)) == 0) ||
+		if known || q == nil || q.Name == "" || q.MinLevel > *c.Level || !w.RaceAllows(q.Races) || qx.Hostile(q, w) ||
 			q.Classes != 0 && q.Classes&(1<<(w.ClassID-1)) == 0 {
 			continue
 		}

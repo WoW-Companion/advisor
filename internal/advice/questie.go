@@ -38,8 +38,15 @@ func whereOf(c character.Character) (questie.Where, bool) {
 
 func whoOf(c character.Character) questie.Who {
 	w := questie.Who{Level: *c.Level, Below: AvailBelow, Above: AvailAbove,
-		ClassID: classIDs[strings.ToUpper(c.Class)], RaceID: raceIDs[strings.ToLower(strings.ReplaceAll(c.Race, " ", ""))],
-		Done: map[int]bool{}, InLog: map[int]bool{}, Seasonal: questie.Seasonal(c.Seasonal)}
+		ClassID: classIDs[strings.ToUpper(c.Class)],
+		Done:    map[int]bool{}, InLog: map[int]bool{}, Seasonal: questie.Seasonal(c.Seasonal)}
+	w.RaceMask, w.SideMask, _ = questie.RaceMasks(c.Race, c.Faction)
+	switch strings.ToLower(c.Faction) {
+	case "horde":
+		w.Side = "H"
+	case "alliance":
+		w.Side = "A"
+	}
 	if c.CapturedAt != nil {
 		w.Now = time.Unix(*c.CapturedAt, 0)
 	}
