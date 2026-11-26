@@ -789,8 +789,8 @@ let reloadTimer = null;
 let appVer = '';
 // Whether an earlier start left its version behind: an update, not a fresh install (read before this start writes it).
 const hadLastVersion = !!localStorage.getItem('wowc-lastver');
-// The "What's new" button: opens the release history (app and addon) into box, with a divider above
-// what was not seen yet. The versions are marked seen when the view is closed, or after it has been
+// The "What's new" button: opens the release history (app and addon) into box, opened at the top (newest first), with a line
+// under the unseen entries saying the rest was seen. The versions are marked seen when the view is closed, or after it has been
 // open for NOTES_READ_MS, never on open, so the divider stays put while the player reads.
 function whatsNewButton(box) {
   const b = Object.assign(document.createElement('button'), { type: 'button', textContent: 'What’s new' });
@@ -798,17 +798,11 @@ function whatsNewButton(box) {
   const seen = () => { clearTimeout(timer); timer = 0; if (WowcUpdates.markSeen(cfg, appVer, (upd.addon && upd.addon.installed) || '')) save(); };
   b.onclick = async () => {
     if (box.hidden || !box.hasChildNodes()) {
-      await openNotesView(box); box.hidden = false; scrollToDivider(box);
+      await openNotesView(box); box.hidden = false; box.scrollTop = WowcUpdates.notesScrollTop();
       clearTimeout(timer); timer = setTimeout(seen, WowcUpdates.NOTES_READ_MS);
     } else { box.hidden = true; seen(); }
   };
   return b;
-}
-// Open scrolled so the divider is in view (and the newest entry too when they fit together).
-function scrollToDivider(box) {
-  const d = box.querySelector('.notes-divider');
-  if (!d || d.offsetTop + d.offsetHeight <= box.clientHeight) return;
-  box.scrollTop = Math.max(0, d.offsetTop + d.offsetHeight + 8 - box.clientHeight);
 }
 async function loadNotes() {
   const app = appVer, addon = (upd.addon && upd.addon.installed) || '';
@@ -830,7 +824,7 @@ async function openNotesView(box) {
       for (const t of it.bullets) ul.append(Object.assign(document.createElement('li'), { textContent: t }));
       box.append(head, ul);
     } else {
-      box.append(Object.assign(document.createElement('div'), { className: it.type === 'divider' ? 'notes-divider' : 'notes-uptodate', textContent: it.text }));
+      box.append(Object.assign(document.createElement('div'), { className: it.type === 'divider' ? 'notes-divider' : it.type === 'heading' ? 'notes-heading' : 'notes-uptodate', textContent: it.text }));
     }
   }
   if (view.more) {

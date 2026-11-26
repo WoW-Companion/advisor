@@ -247,13 +247,16 @@
     return '?' + Object.keys(q).map(k => k + '=' + encodeURIComponent(q[k])).join('&');
   }
   const OLDER_TEXT = 'Older changes: see the release page';
-  const DIVIDER_TEXT = 'New since you last looked';
+  const DIVIDER_TEXT = 'You’re caught up: everything below you’ve seen';
+  const headingText = n => n + ' new since you last looked';
+  // The view always opens at the top, the newest release.
+  const notesScrollTop = () => 0;
   const UPTODATE_TEXT = 'You’re up to date';
   // The server's answer as a list to draw, top to bottom: App and Addon releases interleaved by date
   // (newest first), the unseen ones above the divider, the seen ones below. Items are
-  // { type: 'uptodate' } | { type: 'divider', text } | { type: 'entry', component, version, date,
-  // bullets, unseen }. With nothing unseen the list opens with "You're up to date"; with everything
-  // unseen the divider is last. unseen counts the new entries; more is the older-releases link.
+  // { type: 'heading', text } | { type: 'uptodate' } | { type: 'divider', text } | { type: 'entry', component, version, date,
+  // bullets, unseen }. Unseen entries open under "N new since you last looked"; with nothing unseen the list
+  // opens with "You're up to date" and has no divider; with everything unseen the divider is last. unseen counts the new entries; more is the older-releases link.
   function historyView(resp, cfg) {
     const seen = (cfg && cfg.notesSeen) || {};
     const entries = [];
@@ -271,7 +274,7 @@
     entries.sort((x, y) => (x.date < y.date ? 1 : x.date > y.date ? -1 : x.n - y.n));
     entries.forEach(e => delete e.n);
     const fresh = entries.filter(e => e.unseen), old = entries.filter(e => !e.unseen);
-    const items = fresh.length ? [...fresh, { type: 'divider', text: DIVIDER_TEXT }, ...old] : [{ type: 'uptodate', text: UPTODATE_TEXT }, ...old];
+    const items = fresh.length ? [{ type: 'heading', text: headingText(fresh.length) }, ...fresh, { type: 'divider', text: DIVIDER_TEXT }, ...old] : [{ type: 'uptodate', text: UPTODATE_TEXT }, ...old];
     return { items, unseen: fresh.length, more: more ? { text: OLDER_TEXT, url: CHANGELOG_URL } : null };
   }
   // Closing the view (or reading it for NOTES_READ_MS) marks the installed versions seen. A component
@@ -336,7 +339,7 @@
     };
   }
 
-  const api = { addonOffer, addonView, addonAuto, CHECK_EVERY, LATER_MS, WAKE_GAP, TICK, updateQuery, bannerState, bannerView, turnOnAuto, autoArgs, skip, later, plainNotes, noteView, NOTICE_BULLETS, versionRows, noticeView, updatedNote, addonDoneNote, reloadDone, whatsNewQuery, seedNotesSeen, fixBuggySeed, notesQuery, historyView, markSeen, newCount, NOTES_READ_MS, BELOW_ALL, OLDER_TEXT, CHANGELOG_URL, cmp, createSchedule };
+  const api = { addonOffer, addonView, addonAuto, CHECK_EVERY, LATER_MS, WAKE_GAP, TICK, updateQuery, bannerState, bannerView, turnOnAuto, autoArgs, skip, later, plainNotes, noteView, NOTICE_BULLETS, versionRows, noticeView, updatedNote, addonDoneNote, reloadDone, whatsNewQuery, seedNotesSeen, fixBuggySeed, notesQuery, historyView, notesScrollTop, DIVIDER_TEXT, markSeen, newCount, NOTES_READ_MS, BELOW_ALL, OLDER_TEXT, CHANGELOG_URL, cmp, createSchedule };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.WowcUpdates = api;
 })(typeof window !== 'undefined' ? window : globalThis);
