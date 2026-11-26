@@ -218,6 +218,10 @@ func RenderNamed(c character.Character, p DungeonPick, togo int) string {
 	if togo > 0 && p.MinLevel != nil && c.Level != nil {
 		fmt.Fprintf(&b, "You're %d; it opens around %d. Here's the plan for when you're ready.\n", *c.Level, *p.MinLevel)
 	}
+	if c.Level != nil && p.MaxLevel != nil && *c.Level > *p.MaxLevel+LevelWindow {
+		// a dungeon far below the character is not offered by the plan, so a named one says it is past its range
+		fmt.Fprintf(&b, "You're %d; it tops out around %d, so it is well below your level.\n", *c.Level, *p.MaxLevel)
+	}
 	p.describe(&b, 0)
 	if len(p.Bosses) > 0 {
 		b.WriteString("       All bosses: " + strings.Join(p.Bosses, ", ") + "\n")
