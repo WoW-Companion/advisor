@@ -106,7 +106,11 @@ type Line struct {
 	Train string
 	// Unlocks is on a turn-in line: the follow-ups turning it in unlocks (not written to Digest.lua).
 	Unlocks []string
-	Spells  []TrainSpell // training: the abilities and ranks
+	// Trip is a turn-in that is a journey: the quest asks for nothing and is handed in elsewhere, at
+	// Finisher in FinisherPlace, inside the dungeon Instance when there is one (InstanceZone is its zone).
+	Trip                                            bool
+	Finisher, FinisherPlace, Instance, InstanceZone string
+	Spells                                          []TrainSpell // training: the abilities and ranks
 	// Schema 1.10, training: Ahead is the blocked and later offers (State, Requires, RequiresQuest, Level), Map the
 	// trainer's uiMapID with X, Y its map percent, when HasXY.
 	Ahead []TrainSpell
@@ -303,6 +307,11 @@ func Build(c character.Character, ds store.DataStore, opt Options) Digest {
 		case s.Kind == advice.KindTurnIn:
 			l.Kind = KindTurnIn
 			l.Unlocks = opt.Unlocks[s.QuestID]
+			if s.Trip {
+				l.Trip, l.Finisher, l.FinisherPlace, l.Instance, l.InstanceZone = true, s.Finisher, s.FinisherPlace, s.Instance, s.InstanceZone
+				l.NPC = s.Finisher
+				l.Text = clip(s.Title)
+			}
 		default:
 			l.Objectives = objectivesOf(c, s.QuestID)
 		}

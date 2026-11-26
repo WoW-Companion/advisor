@@ -333,6 +333,9 @@ func (s *questieSource) quests(c character.Character, at *questie.Where) []*ques
 			}
 		}
 		q.turnin = spotFrom(KindTurnIn, qq, qq.Finishers, x, y, haveXY)
+		if !countedInLog(lq) {
+			markTrip(s.qx, q.turnin, qq, at)
+		}
 		// A quest in the log always has its open objectives as steps, even when the capture lists none.
 		if !complete && (len(open) > 0 || lq.Observed || len(lq.Objectives) == 0) {
 			ax, ay := x, y
@@ -384,6 +387,7 @@ func (s *questieSource) quests(c character.Character, at *questie.Where) []*ques
 			}
 			q.objs, q.unplaced = objectives(qq, nil, nil, pick.x, pick.y)
 			q.turnin = spotFrom(KindTurnIn, qq, qq.Finishers, pick.x, pick.y, true)
+			markTrip(s.qx, q.turnin, qq, at)
 			out = append(out, q)
 		}
 	}
@@ -428,6 +432,7 @@ func (s *questieSource) quests(c character.Character, at *questie.Where) []*ques
 			q.objs, q.unplaced = objectives(qq, nil, nil, pick.x, pick.y)
 			if len(q.unplaced) == 0 {
 				q.turnin = spotFrom(KindTurnIn, qq, qq.Finishers, pick.x, pick.y, true)
+				markTrip(s.qx, q.turnin, qq, at)
 			}
 			if q.turnin != nil {
 				tspot[q.id] = q.turnin
@@ -547,4 +552,25 @@ func (s *questieSource) dungeonLevels(d *questie.Dungeon) (lo, hi int) {
 		}
 	}
 	return 0, 0
+}
+
+// countedInLog reports whether the logged quest has an objective with a count to reach ("0/8").
+func countedInLog(lq character.Quest) bool {
+	for _, o := range lq.Objectives {
+		if o.Need != nil && *o.Need > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+// markTrip marks a turn-in spot as a trip when the quest has nothing to do and is handed in at another
+// NPC or object (questie.TripOf). The spot keeps the position the planner chose.
+func markTrip(qx *questie.Index, sp *spot, qq *questie.Quest, at *questie.Where) {
+	if sp == nil {
+		return
+	}
+	if t, ok := qx.TripOf(qq.ID, at); ok {
+		sp.trip = &t
+	}
 }

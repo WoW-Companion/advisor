@@ -64,6 +64,13 @@ type Stop struct {
 	// Source names where a position came from when it is not the usual NPC or object spawn.
 	Source string `json:"source,omitempty"`
 
+	// A trip is a turn-in for a quest with nothing to do, handed in at another NPC or object (Plan.lua 1.5).
+	// Finisher is that NPC, FinisherPlace where it is, Instance the dungeon it stands in, when one.
+	Trip          bool   `json:"trip,omitempty"`
+	Finisher      string `json:"finisher,omitempty"`
+	FinisherPlace string `json:"finisher_place,omitempty"`
+	Instance      string `json:"instance,omitempty"`
+
 	// Chain-aware plan (Plan.lua 1.1). A locked step is a follow-up the plan's turn-ins unlock.
 	Locked     bool   `json:"locked,omitempty"`
 	UnlockedBy []int  `json:"unlocked_by,omitempty"` // the turn-ins that unlock it
@@ -187,20 +194,21 @@ type spot struct {
 	x, y     float64
 	quests   []int
 	names    []string
-	label    string   // the NPC or mob
-	must     bool     // part of a class quest: always on the route, never cut to "later"
-	event    bool     // only holiday-event quests use this stop: optional, cut before any other
-	tags     []string // on a pick-up: per quest in names, the dungeon and XP in brackets; "" for none
-	town     bool     // a dungeon quest's pick-up in the player's town: first on the route
-	dungeon  string   // with town: the dungeon, to keep its pick-ups together
-	xp       int      // with town: the quest's XP, for the order
-	areaObj  bool     // placed by an area objective of the player's Questie database, not an NPC or object
-	zoneOnly bool     // no position anywhere: the zone is all that is known, so no coordinates are shown
-	unplaced bool     // an objective with no known location: never routed, listed under Find
-	npc      int      // the NPC's id, on a pick-up or turn-in; 0 when unknown
-	ready    bool     // a turn-in for a quest in the log that is done: it can be handed in now
-	level    int      // the quest's level on a ready turn-in; 0 when unknown
-	place    string   // where it is in words: the subzone, else the zone; empty when unknown
+	label    string        // the NPC or mob
+	must     bool          // part of a class quest: always on the route, never cut to "later"
+	event    bool          // only holiday-event quests use this stop: optional, cut before any other
+	tags     []string      // on a pick-up: per quest in names, the dungeon and XP in brackets; "" for none
+	town     bool          // a dungeon quest's pick-up in the player's town: first on the route
+	dungeon  string        // with town: the dungeon, to keep its pick-ups together
+	xp       int           // with town: the quest's XP, for the order
+	areaObj  bool          // placed by an area objective of the player's Questie database, not an NPC or object
+	zoneOnly bool          // no position anywhere: the zone is all that is known, so no coordinates are shown
+	trip     *questie.Trip // a turn-in that is a journey: nothing to do, handed in elsewhere (never merged with an ordinary one)
+	unplaced bool          // an objective with no known location: never routed, listed under Find
+	npc      int           // the NPC's id, on a pick-up or turn-in; 0 when unknown
+	ready    bool          // a turn-in for a quest in the log that is done: it can be handed in now
+	level    int           // the quest's level on a ready turn-in; 0 when unknown
+	place    string        // where it is in words: the subzone, else the zone; empty when unknown
 
 	locked     bool // a follow-up's stop: never merged with an ordinary one
 	depth      int
@@ -596,6 +604,9 @@ func stopOf(n int, s *spot) Stop {
 			st.Giver = s.label
 		}
 	}
+	if t := s.trip; t != nil && s.kind == KindTurnIn {
+		st.Trip, st.Finisher, st.FinisherPlace, st.Instance = true, t.Finisher, t.Place(), t.Instance
+	}
 	st.Unlocks = append([]int(nil), s.unlocks...)
 	if len(s.quests) > 0 {
 		st.QuestID, st.Quest = s.quests[0], strings.Join(s.names, ", ")
@@ -625,6 +636,9 @@ func stopOf(n int, s *spot) Stop {
 		}
 	case KindTurnIn:
 		st.Label = with("Turn in ", " to ")
+		if t := s.trip; t != nil {
+			st.Label = tripLabel(*t, strings.Join(s.names, ", "))
+		}
 	}
 	return st
 }
@@ -641,7 +655,7 @@ func merge(qs []*quest, cur int, later *[]*spot) (nodes []*spot, preds [][]int, 
 			tol = MergeRadius
 		}
 		for i, n := range nodes {
-			if n.kind == s.kind && (s.kind != KindObjective || n.label == s.label) && n.locked == s.locked && n.town == s.town && n.depth == s.depth && n.m == s.m && math.Hypot(n.x-s.x, n.y-s.y) <= tol {
+			if n.kind == s.kind && (n.trip == nil) == (s.trip == nil) && (s.kind != KindObjective || n.label == s.label) && n.locked == s.locked && n.town == s.town && n.depth == s.depth && n.m == s.m && math.Hypot(n.x-s.x, n.y-s.y) <= tol {
 				n.quests = append(n.quests, s.quests...)
 				n.tags = append(padTags(n.tags, len(n.names)), padTags(s.tags, len(s.names))...)
 				n.names = append(n.names, s.names...)
@@ -993,7 +1007,7 @@ func flyLegs(c character.Character, src source, later []*spot, cur, lvl int) []S
 	by := map[int]*town{}
 	var towns []*town
 	for _, s := range later {
-		if s.kind != KindTurnIn || !s.ready || s.m == cur || s.zoneOnly || (s.level > 0 && s.level < lvl-FlyMinGap) {
+		if s.kind != KindTurnIn || !s.ready || s.m == cur || s.zoneOnly || (s.trip != nil && s.trip.Instance != "") || (s.level > 0 && s.level < lvl-FlyMinGap) {
 			continue
 		}
 		t := by[s.m]
