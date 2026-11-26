@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.85
+
+- The plan file lists where each quest in your log is handed in, for live turn-in hints.
+
 ## 0.7.84
 
 - Holiday event quests are opt-in, off by default. Turn them on in Settings, or just ask the AI.

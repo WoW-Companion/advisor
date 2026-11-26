@@ -10,7 +10,7 @@ import (
 )
 
 // Schema is the Plan.lua format version (docs/plan-format.md).
-const Schema = "1.3"
+const Schema = "1.4"
 
 // File is the file name, next to Digest.lua.
 const File = "Plan.lua"
@@ -81,6 +81,15 @@ func (e Envelope) Lua() string {
 		b.WriteString("      },\n      here = {\n")
 		for _, h := range p.Here {
 			hereLua(&b, "        ", h)
+		}
+		b.WriteString("      },\n      finishers = {\n")
+		for _, f := range p.Finishers {
+			who := "npc = " + digest.Quote(f.NPC)
+			if f.Object != "" {
+				who = "object = " + digest.Quote(f.Object)
+			}
+			fmt.Fprintf(&b, "        { questID = %d, quest = %s, %s, map = %d, x = %.1f, y = %.1f, place = %s },\n",
+				f.QuestID, digest.Quote(f.Quest), who, f.Map, f.X, f.Y, digest.Quote(f.Place))
 		}
 		b.WriteString("      },\n    },\n")
 	}

@@ -114,6 +114,7 @@ type Plan struct {
 	Basis     Basis        `json:"basis"`                // what the plan was built from
 	Guides    []Guide      `json:"guides,omitempty"`     // what each listed quest needs once accepted (Plan.lua 1.2)
 	Here      []Here       `json:"here,omitempty"`       // what can be done at each NPC stop (Plan.lua 1.3)
+	Finishers []Finisher   `json:"finishers,omitempty"`  // where each logged quest is handed in (Plan.lua 1.4)
 }
 
 // Basis is the state a plan starts from. "Done" in a plan means done after Captured: a reader judges
@@ -508,6 +509,7 @@ func planWith(c character.Character, src source, opt Options) Plan {
 	p.Total = len(p.Steps)
 	p.Guides = guides(append(listed, chosen...), p.Steps, p.Zone, src.mapName)
 	p.Here = buildHere(p, append(listed, chosen...), src)
+	p.Finishers = buildFinishers(c, src, listed, p.Zone)
 	for i, s := range findSpots {
 		p.Find = append(p.Find, FindStop{N: i + 1, QuestID: s.quests[0], Quest: strings.Join(s.names, ", "), Label: s.label})
 	}

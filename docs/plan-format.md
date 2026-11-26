@@ -48,7 +48,7 @@ Data only: one assignment of tables, strings, numbers and booleans. Never code.
 
 ```lua
 WoWCompanionPlan = {
-  schema = "1.2",
+  schema = "1.4",
   generated = 1795363809,        -- unix seconds
   characters = {
     ["Hero"] = {                 -- the character name as captured, no realm
@@ -169,6 +169,27 @@ here = {
 high a level, past the cap); a quest Questie says is not available to the character is never in it.
 
 Minor schema changes only add keys; readers ignore keys they do not know.
+
+## Schema 1.4: where every logged quest is handed in
+
+The plan is rewritten only when the game saves its files (a reload or logout), so a quest that became
+ready, or a place reached, since then is not in the steps. The addon can read the log's ready state live;
+`finishers` gives it the places. Per character, a flat list, data only:
+
+```lua
+finishers = {
+  { questID = 10, quest = "Quest 10", npc = "Elder Test", map = 7001, x = 50.0, y = 50.0, place = "Test Village" },
+  { questID = 12, quest = "Quest 12", object = "Test Chest", map = 7001, x = 70.0, y = 70.0, place = "Test Village" },
+},
+```
+
+- Every quest in the captured log gets rows, ready or not, on the route or not. A failed quest gets none.
+- A row is one finisher spawn: `npc` (a creature) or `object`, never both. `place` is the subzone, else the zone.
+- Spawns are limited to the player's continent when both the player's zone and the spawn's zone have a known
+  continent. At most 3 per quest, nearest the quest's objective area first (the player's position when no
+  objective is placed); at most 40 quests. A spawn with no known place is left out, and so is a quest
+  whose finisher has none.
+- Rows of one quest are adjacent, in the log's order. Step order is unchanged. An older addon ignores the key.
 
 ## Chain-aware plan
 
