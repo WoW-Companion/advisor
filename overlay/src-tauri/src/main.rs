@@ -578,19 +578,16 @@ fn open_logs(window: tauri::Window, app: AppHandle) -> Result<(), String> {
     Ok(())
 }
 
-/// Settings > Updates "Copy diagnostics": a zip in Downloads with the logs, the crash-check record and
-/// the heartbeat, secrets replaced. Returns where it went.
+/// Settings > Updates "Copy diagnostics": the shell log's tail and the crash-check record. The page
+/// sends them to the advisor, which strips names, paths and keys and builds the text to copy.
 #[tauri::command]
-fn copy_diagnostics(window: tauri::Window, app: AppHandle) -> Result<String, String> {
+fn diagnostics_files(window: tauri::Window, app: AppHandle) -> Result<life::DiagnosticsFiles, String> {
     if window.label() != "main" {
         return Err("not allowed".into());
     }
     let logs = recover::log_dir(&app).ok_or("no log folder")?;
     let data = app.path().app_data_dir().map_err(|e| e.to_string())?;
-    let dest = app.path().download_dir().map_err(|e| e.to_string())?;
-    let p = life::write_diagnostics(&logs, &data, &dest, now_secs())?;
-    life::log(&format!("diagnostics written to {}", p.display()));
-    Ok(p.display().to_string())
+    Ok(life::diagnostics_files(&logs, &data))
 }
 
 /// Registers the two global shortcuts, replacing any earlier ones. A key another program holds is
@@ -820,7 +817,7 @@ fn main() {
             page_alive,
             take_unexpected,
             open_logs,
-            copy_diagnostics,
+            diagnostics_files,
             set_shortcuts,
             read_clipboard,
             auto::auto_update_config,

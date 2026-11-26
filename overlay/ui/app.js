@@ -1000,14 +1000,36 @@ async function showUpdatedNote(running) {
 
 // --- why the app closed ---------------------------------------------------------------------
 // The page tells the shell it is alive (a silent page is reloaded), shows "closed unexpectedly" once
-// after a start that follows an unexpected end, and offers the logs and a diagnostics zip.
+// after a start that follows an unexpected end, and offers the logs and the diagnostics text.
 setInterval(() => invoke('page_alive').catch(() => {}), 20000);
 invoke('page_alive').catch(() => {});
 $('open-logs').onclick = () => invoke('open_logs').catch(e => notice(String(e)));
+// "Copy diagnostics": the shell reads its log tail and the launch record, the advisor strips names,
+// paths and keys and builds the text, and the page puts it on the clipboard. Nothing is saved or sent.
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); return; } catch (e) { /* fall back to the selection copy */ }
+  const ta = Object.assign(document.createElement('textarea'), { value: text });
+  ta.style.cssText = 'position:fixed;left:-9999px;top:0';
+  document.body.appendChild(ta);
+  ta.select();
+  const ok = document.execCommand('copy');
+  ta.remove();
+  if (!ok) throw new Error('the clipboard refused it');
+}
+let diagTimer = 0;
 $('copy-diag').onclick = async () => {
   const out = $('diag-out');
-  out.textContent = 'Saving\u2026';
-  try { out.textContent = 'Saved to ' + await invoke('copy_diagnostics'); } catch (e) { out.textContent = 'Could not save: ' + e; }
+  clearTimeout(diagTimer);
+  out.textContent = 'Copying\u2026';
+  try {
+    const files = await invoke('diagnostics_files').catch(() => ({ shell_log: '', guard: '' }));
+    const r = await api('/api/diagnostics', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ shell_log: files.shell_log, guard: files.guard, os: navigator.userAgent.replace(/^Mozilla\/5\.0 /, '').replace(/\).*$/, ')') }) });
+    if (!r.ok) throw new Error('the app could not build it');
+    await copyText((await r.json()).text);
+    out.textContent = 'Copied';
+  } catch (e) { out.textContent = 'Could not copy: ' + e.message; }
+  diagTimer = setTimeout(() => { out.textContent = ''; }, 4000);
 };
 (async () => {
   const text = await invoke('take_unexpected').catch(() => null);

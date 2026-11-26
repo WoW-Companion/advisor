@@ -160,3 +160,25 @@ func TestSettingsCollapsedFitDefaultHeight(t *testing.T) {
 		t.Errorf("default height %d is under the %d the collapsed page needs", h, need)
 	}
 }
+
+// "Copy diagnostics" builds its text in the advisor and puts it on the clipboard: no file is written, and
+// the button carries the one-line note and shows "Copied".
+func TestCopyDiagnosticsWiring(t *testing.T) {
+	html, js, rs := read(t, "index.html"), read(t, "app.js"), read(t, "../src-tauri/src/main.rs")
+	for _, want := range []string{`id="copy-diag"`, "Copies versions and recent errors, without character names, for sharing when something goes wrong."} {
+		if !strings.Contains(html, want) {
+			t.Errorf("index.html lacks %q", want)
+		}
+	}
+	for _, want := range []string{"invoke('diagnostics_files')", "'/api/diagnostics'", "navigator.clipboard.writeText", "'Copied'"} {
+		if !strings.Contains(js, want) {
+			t.Errorf("app.js lacks %q", want)
+		}
+	}
+	if strings.Contains(js, "copy_diagnostics") || strings.Contains(rs, "write_diagnostics") || strings.Contains(rs, "download_dir") {
+		t.Error("diagnostics must not be written to a file any more")
+	}
+	if !strings.Contains(rs, "diagnostics_files,") {
+		t.Error("main.rs does not register diagnostics_files")
+	}
+}
