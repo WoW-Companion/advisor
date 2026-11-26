@@ -156,6 +156,7 @@ type host struct {
 	latency  atomic.Int64 // nanoseconds
 	inflight atomic.Int64
 	peak     atomic.Int64
+	stall    atomic.Bool // when set, requests block until the client gives up
 }
 
 func newHost(t testing.TB, tables map[string][]byte) *host {
@@ -169,6 +170,10 @@ func newHost(t testing.TB, tables map[string][]byte) *host {
 		n := h.inflight.Add(1)
 		defer h.inflight.Add(-1)
 		for p := h.peak.Load(); n > p && !h.peak.CompareAndSwap(p, n); p = h.peak.Load() {
+		}
+		if h.stall.Load() {
+			<-r.Context().Done() // returns only once the client's timeout has cancelled the request
+			return
 		}
 		time.Sleep(time.Duration(h.latency.Load()))
 		b, ok := files[r.URL.Path]
@@ -360,16 +365,16 @@ func TestOpenRefusals(t *testing.T) {
 func TestTimeout(t *testing.T) {
 	t.Parallel()
 	h := newHost(t, files(t, 4))
-	d := open(t, h, Limits{Timeout: 100 * time.Millisecond})
+	h.latency.Store(0)
+	// The timeout is generous for Open on a loaded machine; the stalled request blocks until the
+	// client's timeout cancels it, so no wall-clock bound is asserted: if the timeout did not cut
+	// the request, the call would hang and the test would fail by its own deadline.
+	d := open(t, h, Limits{Timeout: time.Second})
 	cs := connect(t, d)
-	h.latency.Store(int64(time.Second))
-	start := time.Now()
+	h.stall.Store(true)
 	text, isErr := call(t, cs, "npc_lookup", map[string]any{"id": 100})
 	if !isErr || !strings.Contains(text, "Lookup failed") {
 		t.Errorf("slow host: %q, error %v", text, isErr)
-	}
-	if time.Since(start) > 900*time.Millisecond {
-		t.Errorf("took %v, the timeout did not cut it", time.Since(start))
 	}
 }
 
