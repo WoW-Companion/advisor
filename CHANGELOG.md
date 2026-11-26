@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.7.84
+
+- Holiday event quests are opt-in, off by default. Turn them on in Settings, or just ask the AI.
+- While an event runs, the panel shows one line: "Midsummer Fire Festival is on (until July 5)".
+- Opted in, a running event's quests join your plan as optional steps, after your level quests.
+- When an event ends, its quests drop out. Your choice stays for the next one.
+
 ## 0.7.83
 
 - Ready turn-ins where you stand now come first on the route, nearest first, before pick-ups.

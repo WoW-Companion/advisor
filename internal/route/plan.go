@@ -51,6 +51,8 @@ type Stop struct {
 	Place    string  `json:"place,omitempty"` // the subzone or zone the stop is in, in words (Plan.lua 1.3)
 	// Priority is set on a class quest's stops: they are worth doing first, so they come early.
 	Priority bool `json:"priority,omitempty"`
+	// Optional is set on a holiday-event quest's stops: the player opted in, and they come after the rest.
+	Optional bool `json:"optional,omitempty"`
 	// ZoneOnly is a stop with no known position: X and Y are 0 and only Place is known.
 	ZoneOnly bool `json:"zone_only,omitempty"`
 	// Source names where a position came from when it is not the usual NPC or object spawn.
@@ -166,6 +168,7 @@ type spot struct {
 	names    []string
 	label    string // the NPC or mob
 	must     bool   // part of a class quest: always on the route, never cut to "later"
+	event    bool   // only holiday-event quests use this stop: optional, cut before any other
 	areaObj  bool   // placed by an area objective of the player's Questie database, not an NPC or object
 	zoneOnly bool   // no position anywhere: the zone is all that is known, so no coordinates are shown
 	unplaced bool   // an objective with no known location: never routed, listed under Find
@@ -192,6 +195,7 @@ type quest struct {
 	unplaced []*spot // unfinished objectives with no location
 	turnin   *spot
 	must     bool // a class quest: its stops are must-include
+	event    bool // a holiday-event quest the player opted in to: optional, after the rest
 
 	locked     bool // a follow-up the planned turn-ins unlock
 	depth      int
@@ -287,6 +291,11 @@ func planWith(c character.Character, src source, opt Options) Plan {
 				sp.must = true
 			}
 		}
+		if q.event {
+			for _, sp := range q.chain() {
+				sp.event = true
+			}
+		}
 		if len(q.chain()) > 0 || len(q.unplaced) > 0 {
 			listed = append(listed, q)
 		}
@@ -376,6 +385,7 @@ func planWith(c character.Character, src source, opt Options) Plan {
 	order = groupByPlace(prob, nodes, order)
 	order = prioritize(prob, nodes, order)
 	order = readyFirst(prob, nodes, order, cur)
+	order = eventsLast(nodes, preds, order)
 	p.Naive = round1(prob.Length(naive))
 	// The cap counts ordinary stops; a follow-up stays when everything it needs does.
 	reg := 0
@@ -389,6 +399,15 @@ func planWith(c character.Character, src source, opt Options) Plan {
 		cutSet := map[int]bool{}
 		keep := mustSet(nodes, preds)
 		room := MaxSteps - len(keep)
+		// Holiday-event stops get only the room the others leave.
+		others := 0
+		for i, n := range nodes {
+			if !n.locked && !n.event && !keep[i] {
+				others++
+			}
+		}
+		eventRoom := max(0, room-others)
+		room -= eventRoom
 		for _, i := range order {
 			cut := false
 			switch {
@@ -397,7 +416,9 @@ func planWith(c character.Character, src source, opt Options) Plan {
 				for _, q := range preds[i] {
 					cut = cut || cutSet[q]
 				}
-			case room > 0:
+			case nodes[i].event && eventRoom > 0:
+				eventRoom--
+			case !nodes[i].event && room > 0:
 				room--
 			default:
 				cut = true
@@ -523,7 +544,7 @@ func mustSet(nodes []*spot, preds [][]int) map[int]bool {
 }
 
 func stopOf(n int, s *spot) Stop {
-	st := Stop{N: n, Kind: s.kind, Map: s.m, X: round1(s.x), Y: round1(s.y), Place: s.place, Priority: s.must}
+	st := Stop{N: n, Kind: s.kind, Map: s.m, X: round1(s.x), Y: round1(s.y), Place: s.place, Priority: s.must, Optional: s.event}
 	if s.zoneOnly {
 		st.X, st.Y, st.ZoneOnly = 0, 0, true
 	}
@@ -585,6 +606,7 @@ func merge(qs []*quest, cur int, later *[]*spot) (nodes []*spot, preds [][]int, 
 					}
 				}
 				n.must = n.must || s.must
+				n.event = n.event && s.event
 				return i
 			}
 		}
@@ -753,6 +775,31 @@ func groupByPlace(p *Problem, nodes []*spot, order []int) []int {
 		}
 	}
 	return order
+}
+
+// eventsLast moves the stops only holiday-event quests use after every other stop, keeping their
+// order. A stop another quest's stop needs first stays where it is.
+func eventsLast(nodes []*spot, preds [][]int, order []int) []int {
+	late := map[int]bool{}
+	for i, n := range nodes {
+		late[i] = n.event
+	}
+	for j, n := range nodes {
+		if !n.event {
+			for _, p := range preds[j] {
+				late[p] = false
+			}
+		}
+	}
+	var first, last []int
+	for _, i := range order {
+		if late[i] {
+			last = append(last, i)
+		} else {
+			first = append(first, i)
+		}
+	}
+	return append(first, last...)
 }
 
 // prioritize puts the objectives of class quests (and what they need first) early: after whatever can

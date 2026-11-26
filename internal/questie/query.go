@@ -7,6 +7,7 @@ import (
 	"math/bits"
 	"sort"
 	"strings"
+	"time"
 )
 
 // Where is the character's last known place: the uiMapID, or the zone name without one; X and Y are map percent.
@@ -38,6 +39,10 @@ type Who struct {
 	ClassID, RaceID int // 0 when not captured: that rule is not checked
 	Done, InLog     map[int]bool
 	Below, Above    int
+	// Now is the player's clock (the capture's time); Seasonal is their holiday-event setting. A
+	// holiday quest is eligible only when its event is running at Now and the setting opts in.
+	Now      time.Time
+	Seasonal Seasonal
 }
 
 // Offer is a quest that can be picked up, with its nearest giver.
@@ -46,6 +51,7 @@ type Offer struct {
 	Giver Place
 	Diff  int
 	Class bool // a class quest the character's class can take
+	Event bool // a holiday-event quest: optional, ranked after the rest
 }
 
 func (ix *Index) entity(r Ref) (Entity, bool) {
@@ -129,6 +135,12 @@ func (q *Quest) ClassQuest() bool {
 	return q.Classes != 0 && bits.OnesCount64(q.Classes) <= MaxClassQuestClasses
 }
 
+// eventOffered is true when the quest's event is running and the player opted in.
+func (w Who) eventOffered(key string) bool {
+	e, ok := EventByKey(key)
+	return ok && !w.Now.IsZero() && e.Running(w.Now) && w.Seasonal.Wants(key)
+}
+
 // Eligible reports whether the quest could be picked up now: level, race, class, prerequisites,
 // not done, not in the log, not a placeholder, no requirement this reader cannot check.
 func (q *Quest) Eligible(w Who) bool {
@@ -136,6 +148,9 @@ func (q *Quest) Eligible(w Who) bool {
 		return false
 	}
 	if w.Done[q.ID] || w.InLog[q.ID] {
+		return false
+	}
+	if q.Event != "" && (q.Level > w.Level || !w.eventOffered(q.Event)) {
 		return false
 	}
 	if q.Level < w.Level-w.Below || q.Level > w.Level+w.Above || q.MinLevel > w.Level || (q.MaxLevel > 0 && w.Level > q.MaxLevel) {
@@ -184,11 +199,13 @@ func (ix *Index) Available(w Who, at Where, skip func(name string) bool) []Offer
 		if d < 0 {
 			d = -d
 		}
-		out = append(out, Offer{q, p, d, w.ClassID > 0 && q.ClassQuest()})
+		out = append(out, Offer{q, p, d, w.ClassID > 0 && q.ClassQuest(), q.Event != ""})
 	}
 	sort.Slice(out, func(i, j int) bool {
 		a, b := out[i], out[j]
 		switch {
+		case a.Event != b.Event:
+			return b.Event
 		case a.Class != b.Class:
 			return a.Class
 		case a.Diff != b.Diff:

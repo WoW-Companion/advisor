@@ -337,6 +337,9 @@ func Build(c character.Character, ds store.DataStore, opt Options) Digest {
 		notes = append(notes, g.Line(c))
 	}
 	notes = append(notes, captureNotes(c, ds, opt)...)
+	if l, ok := seasonalMention(c, opt); ok {
+		notes = append(notes, l)
+	}
 
 	quests = routeOrder(quests, opt.Order)
 	for _, s := range []Section{

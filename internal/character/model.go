@@ -206,6 +206,9 @@ type Character struct {
 	// Profile is the player's own, kept locally (internal/profile) and attached after the
 	// capture is read; nil when the player has set none. They are never part of a capture.
 	Profile *Profile
+	// Seasonal is the player's holiday-event setting, kept with the profile: "" (off), "on" or
+	// "on:<event keys>" (see questie.Seasonal).
+	Seasonal string
 	// KnownSpells are the spell ids the character knows (a recipe's spell id included), when a capture
 	// lists them; nil when it does not.
 	KnownSpells map[int64]bool

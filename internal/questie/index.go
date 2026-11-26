@@ -14,7 +14,7 @@ import (
 	"strings"
 )
 
-const indexSchema = 8 // bump when the cached index's shape changes
+const indexSchema = 9 // bump when the cached index's shape changes
 
 // Spawn is a place, as percent of the area's map.
 type Spawn struct {
@@ -61,6 +61,7 @@ type Quest struct {
 	Credits    []Credit
 	Triggers   []Trigger // area objectives ("reach this place"): text and the places Questie marks
 	Objective  string    // the objective text shown in the quest log (field 8)
+	Event      string    // the holiday event's key (Events) when this is a holiday quest, else ""
 	Restricted bool      // a requirement this reader cannot check (skill, reputation, spell, event)
 }
 
@@ -428,6 +429,7 @@ func Parse(st Status) (*Index, error) {
 	}
 	zones := filepath.Join(filepath.Dir(st.TOC), "support", "Forever", "Zones", "areaIdToUiMapId.lua")
 	ix.Areas = parseAreas(zones)
+	ix.markEvents()
 	ix.linkDungeons(filepath.Dir(zones), npcs, itemRows)
 	ix.linkNodes(objects, itemRows)
 	return ix, nil
