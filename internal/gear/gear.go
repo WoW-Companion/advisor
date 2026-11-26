@@ -150,6 +150,11 @@ type Item struct {
 	// dataset has types only.
 	Stats      map[int64]int `json:"-"`
 	StatsKnown bool
+	// Captured is the item's own stats by name (agility, stamina, armor, ...) as the addon recorded
+	// them, enchants not included; nil when none were captured.
+	Captured map[string]float64 `json:"-"`
+	// Enchant is the enchant id on the item, 0 for none or unknown.
+	Enchant int `json:"-"`
 }
 
 // Source is one place an item drops or is rewarded. Level and chance fields are nil when unknown.
@@ -230,12 +235,14 @@ func itemOf(row store.Row) Item {
 
 // score is the item's value; byStats needs it.StatsKnown and weights.
 func score(it Item, w map[int64]float64, byStats bool) float64 {
-	s := float64(it.Quality)
+	// Quality only breaks a tie at equal item level (it never adds up to a whole item level), and
+	// never counts toward a stat score.
+	tie := float64(it.Quality) * 0.01
 	if !byStats {
-		return float64(it.ItemLevel) + s
+		return float64(it.ItemLevel) + tie
 	}
 	if len(it.StatTypes) == 0 {
-		return float64(it.ItemLevel)*0.5 + s
+		return float64(it.ItemLevel) * 0.5
 	}
 	// With the amounts known, each stat counts as much as the item has of it: an item that is mostly
 	// the stat the build wants fits better than one with a token amount of it. With types only, each
@@ -252,7 +259,7 @@ func score(it Item, w map[int64]float64, byStats bool) float64 {
 		}
 		total = float64(len(it.StatTypes))
 	}
-	return float64(it.ItemLevel)*(0.5+0.5*sum/total) + s
+	return float64(it.ItemLevel) * (0.5 + 0.5*sum/total)
 }
 
 // Find is Upgrades with options and the basis of the answer.

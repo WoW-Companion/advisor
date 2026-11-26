@@ -35,7 +35,7 @@ func wowcEquipment(v any) map[string]EquippedItem {
 			continue
 		}
 		out[name] = EquippedItem{Slot: name, ItemID: asInt(et["id"]), Enchant: asInt(et["enchant"]),
-			Name: asStr(et["name"]), ItemLevel: asInt(et["ilvl"]), Quality: asInt(et["quality"])}
+			Name: asStr(et["name"]), ItemLevel: asInt(et["ilvl"]), Quality: asInt(et["quality"]), Stats: itemStats(et["stats"])}
 	}
 	return out
 }
@@ -56,7 +56,7 @@ func wowcContainers(v any) []ItemStack {
 				count = *c
 			}
 			return ItemStack{ItemID: *id, Count: count, Name: asStr(e["name"]), Quality: asInt(e["quality"]),
-				ItemLevel: asInt(e["ilvl"]), ReqLevel: asInt(e["reqLevel"]), EquipLoc: asStr(e["equipLoc"]), Suffix: asStr(e["suffix"])}, true
+				ItemLevel: asInt(e["ilvl"]), ReqLevel: asInt(e["reqLevel"]), EquipLoc: asStr(e["equipLoc"]), Suffix: asStr(e["suffix"]), Enchant: asInt(e["enchant"]), Stats: itemStats(e["stats"])}, true
 		})
 		out = append(out, items...)
 	}

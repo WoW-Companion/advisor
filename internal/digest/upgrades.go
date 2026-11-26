@@ -215,7 +215,7 @@ func bagLine(c character.Character, b gear.BagUpgrade) Line {
 		details = append(details, "Replaces "+b.Replaces)
 	}
 	if b.Likely && !b.Empty {
-		details = append(details, "Likely better: higher quality or item level")
+		details = append(details, strings.ToUpper(b.LikelyWording()[:1])+b.LikelyWording()[1:])
 	}
 	l.Details = finishDetails(details)
 	l.Asks, l.Ref = asksOf("Should I equip "+b.Name+" now?", "Should I equip "+b.Name+" now?"), itemRef(int(b.Item.ID))

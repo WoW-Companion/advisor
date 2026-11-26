@@ -50,8 +50,10 @@ level range. There is no object table and no zone on any of them, so object sour
   beside a worn two-hander.
 - Shirts, tabards and bag containers are not considered. Items already in the character's bags are:
   `BagUpgrades` lists every usable one (class, armor type, required level at or below theirs) that beats
-  what is worn, first in every gear answer. Without stats it compares quality, then item level, then
-  required level, and says "likely better". An item missing from the dataset counts only when the
+  what is worn, first in every gear answer. With captured stats (or dataset stats) on both items it weighs
+  each stat by the class weights (armor too) and says "better"; without, item level decides, quality only
+  breaks a tie at equal item level, a lower item level is never offered, and it says "likely better
+  (item level N vs M)". An enchant's stats are left out (no enchant table) and noted in debug output. An item missing from the dataset counts only when the
   addon recorded its quality, item level, required level and slot, and only in slots no armor type
   restricts (neck, rings, trinkets, cloak). A class with no entry in `rules.go` (Death
   Knight, Monk, Demon Hunter, Evoker) is reported as unsupported.

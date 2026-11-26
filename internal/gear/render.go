@@ -198,6 +198,12 @@ func hasCraft(r Result) bool {
 	return false
 }
 
+// LikelyWording is "likely better (item level 40 vs 36)": the claim without a stat basis, with the
+// numbers it rests on.
+func (u BagUpgrade) LikelyWording() string {
+	return fmt.Sprintf("likely better (item level %d vs %d)", u.Item.ItemLevel, u.ReplacesILvl)
+}
+
 // Line is the upgrade in a sentence: "Feet: Copper Chain Boots, in your bags; equip it now (replaces
 // Hiking Boots; likely better)".
 func (u BagUpgrade) Line() string {
@@ -210,7 +216,9 @@ func (u BagUpgrade) Line() string {
 		more = append(more, "replaces "+u.Replaces)
 	}
 	if u.Likely && !u.Empty {
-		more = append(more, "likely better")
+		more = append(more, u.LikelyWording())
+	} else if !u.Empty {
+		more = append(more, "better")
 	}
 	if len(more) > 0 {
 		s += " (" + strings.Join(more, "; ") + ")"

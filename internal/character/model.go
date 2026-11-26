@@ -16,6 +16,8 @@ type EquippedItem struct {
 	Quality       *int
 	Durability    *int
 	DurabilityMax *int
+	// Stats is the item's own stats as the addon recorded them (agi, sta, armor, ...); nil when it did not. Enchants are not in it.
+	Stats map[string]float64
 }
 
 type ItemStack struct {
@@ -29,6 +31,10 @@ type ItemStack struct {
 	ReqLevel  *int
 	EquipLoc  string
 	Suffix    string
+	// Enchant is the enchant id on the item; nil when none or not recorded.
+	Enchant *int
+	// Stats is the item's own stats as the addon recorded them; nil when it did not.
+	Stats map[string]float64
 }
 
 type Objective struct {

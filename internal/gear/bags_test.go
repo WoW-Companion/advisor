@@ -75,7 +75,7 @@ func TestBagUpgradesCloakIsAnyArmor(t *testing.T) {
 }
 
 func TestBagUpgradesFallbackOrder(t *testing.T) {
-	// Null stats: quality beats item level, then item level beats required level.
+	// Null stats: item level decides; a higher-quality lower-level ring is no upgrade.
 	ds := store.New(store.ReaderSource{"items": table(t, []itemRow{
 		it(1, "Worn Ring", 20, 5, 1, 4, 0, ringSlot),
 		it(2, "Green Ring", 10, 5, 2, 4, 0, ringSlot),
@@ -85,13 +85,69 @@ func TestBagUpgradesFallbackOrder(t *testing.T) {
 		"finger1": {Slot: "finger1", ItemID: ip(1)}, "finger2": {Slot: "finger2", ItemID: ip(1)}})
 	c.Bags = []character.ItemStack{stack(2), stack(3)}
 	got := BagUpgrades(c, ds, "")
-	if len(got) != 2 || got[0].Item.Name != "Green Ring" || got[1].Item.Name != "White High Ring" {
+	if len(got) != 1 || got[0].Item.Name != "White High Ring" || !got[0].Likely {
 		t.Fatalf("got %s", bagSlots(got))
 	}
-	for _, u := range got {
-		if !u.Likely {
-			t.Errorf("%s: no stats to weigh, so only likely better", u.Name)
-		}
+	if w := got[0].LikelyWording(); w != "likely better (item level 30 vs 20)" {
+		t.Errorf("wording %q", w)
+	}
+}
+
+// bootStore holds leather boots whose stats the dataset does not know.
+func bootStore(t *testing.T) store.DataStore {
+	t.Helper()
+	return store.New(store.ReaderSource{"items": table(t, []itemRow{
+		it(9001, "Test Worn Boots", 36, 10, 2, 4, leather, feetSlot),
+		it(9002, "Test Blue Boots", 15, 10, 3, 4, leather, feetSlot),
+		it(9003, "Test Agile Boots", 20, 10, 2, 4, leather, feetSlot),
+		it(9004, "Test Green Boots", 40, 25, 2, 4, leather, feetSlot),
+	})})
+}
+
+func rogueBoots(worn, bag character.ItemStack, enchant int) character.Character {
+	c := char("ROGUE", 32, map[string]character.EquippedItem{"feet": {Slot: "feet", ItemID: ip(worn.ItemID),
+		ItemLevel: worn.ItemLevel, Quality: worn.Quality, Name: worn.Name, Stats: worn.Stats}})
+	c.Profile = &character.Profile{Role: "damage", Spec: "Combat"}
+	bag.Enchant = &enchant
+	c.Bags = []character.ItemStack{bag}
+	return c
+}
+
+func boot(id, ilvl, q int, name string, st map[string]float64) character.ItemStack {
+	return character.ItemStack{ItemID: id, Count: 1, Name: name, Quality: ip(q), ItemLevel: ip(ilvl), ReqLevel: ip(10),
+		EquipLoc: "INVTYPE_FEET", Stats: st}
+}
+
+func TestBagUpgradesCapturedStats(t *testing.T) {
+	ds := bootStore(t)
+	worn := boot(9001, 36, 2, "Test Worn Boots", map[string]float64{"armor": 71, "agi": 5, "sta": 7, "spi": 5})
+	worse := boot(9002, 15, 3, "Test Blue Boots", map[string]float64{"armor": 53, "agi": 4, "sta": 4})
+	if got := BagUpgrades(rogueBoots(worn, worse, 8484), ds, ""); len(got) != 0 {
+		t.Fatalf("a downgrade in stats must not be offered: %s", bagSlots(got))
+	}
+	better := boot(9003, 20, 2, "Test Agile Boots", map[string]float64{"armor": 60, "agi": 9, "sta": 7})
+	got := BagUpgrades(rogueBoots(worn, better, 8484), ds, "")
+	if len(got) != 1 || got[0].Likely || !strings.Contains(got[0].Line(), "better") || strings.Contains(got[0].Line(), "likely") {
+		t.Fatalf("a real stat upgrade is plainly better: %+v", got)
+	}
+	if len(got[0].Notes) == 0 || !strings.Contains(got[0].Notes[0], "8484") {
+		t.Errorf("the ignored enchant is noted: %v", got[0].Notes)
+	}
+}
+
+func TestBagUpgradesNoStatsLowerItemLevel(t *testing.T) {
+	ds := bootStore(t)
+	worn := boot(9001, 36, 2, "Test Worn Boots", nil)
+	low := boot(9002, 15, 3, "Test Blue Boots", nil)
+	if got := BagUpgrades(rogueBoots(worn, low, 0), ds, ""); len(got) != 0 {
+		t.Fatalf("a lower item level is never an upgrade by quality: %s", bagSlots(got))
+	}
+	high := boot(9004, 40, 2, "Test Green Boots", nil)
+	low.ItemLevel = ip(15)
+	worn = boot(9001, 36, 3, "Test Worn Boots", nil)
+	got := BagUpgrades(rogueBoots(worn, high, 0), ds, "")
+	if len(got) != 1 || !got[0].Likely || got[0].LikelyWording() != "likely better (item level 40 vs 36)" {
+		t.Fatalf("a higher item level is likely better: %+v", got)
 	}
 }
 
