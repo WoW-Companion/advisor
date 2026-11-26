@@ -2,8 +2,8 @@
 
 ## 0.7.87
 
-- Nearby-quest suggestions no longer include holiday quests (like Flickering Flames) outside their event, or when holiday quests are off.
-- Quests that need a higher level than yours are never suggested.
+- Nearby-quest picks skip holiday quests outside their event, or when holiday quests are off.
+- Quests that need a higher level than yours are never picked.
 
 ## 0.7.86
 
