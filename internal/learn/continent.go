@@ -16,11 +16,11 @@ var continents = func() map[string]string {
 		"Silverpine Forest", "Tirisfal Glades", "Undercity", "Western Plaguelands", "Eastern Plaguelands",
 		"The Hinterlands", "Searing Gorge", "Burning Steppes", "Badlands", "Swamp of Sorrows", "Blasted Lands",
 		"Stranglethorn Vale", "Deadwind Pass", "Eversong Woods", "Silvermoon City", "Ghostlands", "Isle of Quel'Danas",
-		"Eastern Kingdoms", "Uldaman")
+		"Eastern Kingdoms", "Uldaman", "Riverglades")
 	add("Kalimdor", "Durotar", "Orgrimmar", "Mulgore", "Thunder Bluff", "Teldrassil", "Darnassus", "Darkshore",
 		"Ashenvale", "Stonetalon Mountains", "The Barrens", "Northern Barrens", "Southern Barrens", "Desolace",
 		"Feralas", "Dustwallow Marsh", "Thousand Needles", "Tanaris", "Un'Goro Crater", "Silithus", "Winterspring",
-		"Felwood", "Moonglade", "Azshara", "Azuremyst Isle", "The Exodar", "Bloodmyst Isle", "Mount Hyjal", "Kalimdor")
+		"Felwood", "Moonglade", "Azshara", "Azuremyst Isle", "The Exodar", "Bloodmyst Isle", "Mount Hyjal", "Shen'dralas", "Darkspear Islands", "Kalimdor")
 	add("Outland", "Hellfire Peninsula", "Zangarmarsh", "Terokkar Forest", "Nagrand", "Blade's Edge Mountains",
 		"Netherstorm", "Shadowmoon Valley", "Shattrath City")
 	return m
