@@ -186,8 +186,8 @@ skills against `profession_routes`, the First Aid bandage ladder, the trainer to
 where a Cooking or First Aid recipe is learned, and which recipes a plan leaves out as a specialization's. The dataset
 holds no specialization table, so the choice of branch is listed as "differ (data)" or checked as unnamed.
 
-`internal/paths/offline_sources_benchmark_test.go` (also `make offline-benchmark`, areas `advice-class-chain-*`,
-`advice-elite-*`, `advice-creature-location`, `advice-dungeon-bosses`, `advice-rare-no-answer` and `advice-recipe-*`) checks
+`internal/paths/offline_sources_benchmark_test.go` (also `make offline-benchmark`, areas `advice-class-order-*`,
+`advice-elite-*`, `advice-creature-location`, `advice-elite-dungeon-bosses`, `advice-rare-no-answer` and `advice-recipe-*`) checks
 the order of a class's quests (the dataset's own class quest rows under a synthetic QuestieDB that gives the order:
 title, level and class of each quest, what it comes after and leads to), which quests and objectives are flagged as group
 content (a quest players tagged "group" or "dungeon" in `quests_observed`; an objective creature that is an elite, a rare

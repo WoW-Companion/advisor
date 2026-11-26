@@ -72,9 +72,9 @@ func srcStore() store.DataStore {
 
 // ---- class quest chains ----
 
-// classChains are the class quests of the dataset in the order a player does them (the level order of
+// srcClassChains are the class quests of the dataset in the order a player does them (the level order of
 // quests_observed, ties by number): the Warlock quests of the Dogran and Cabal lines and the Paladin starter quests.
-var classChains = []struct {
+var srcClassChains = []struct {
 	class string
 	ids   []int64
 }{
@@ -82,17 +82,17 @@ var classChains = []struct {
 	{"Paladin", []int64{98601, 90902, 91208}},
 }
 
-var classBit = map[string]uint64{"Paladin": 1 << 1, "Warlock": 1 << 8}
+var srcClassBit = map[string]uint64{"Paladin": 1 << 1, "Warlock": 1 << 8}
 
-// chainIndex is a QuestieDB whose class quests are the dataset's own rows (title, level), each limited to its
+// srcChainIndex is a QuestieDB whose class quests are the dataset's own rows (title, level), each limited to its
 // class and each one following the one before it in its chain.
-func chainIndex(t *testing.T, ds store.DataStore) *questie.Index {
+func srcChainIndex(t *testing.T, ds store.DataStore) *questie.Index {
 	t.Helper()
 	ix := &questie.Index{Quests: map[int]*questie.Quest{}}
-	for _, ch := range classChains {
+	for _, ch := range srcClassChains {
 		for i, id := range ch.ids {
 			row := qbQuest(t, id)
-			q := &questie.Quest{ID: int(id), Name: text(row["title"]), Level: int(num(row["level"])), Classes: classBit[ch.class]}
+			q := &questie.Quest{ID: int(id), Name: text(row["title"]), Level: int(num(row["level"])), Classes: srcClassBit[ch.class]}
 			if i > 0 {
 				q.PreSingle = []int{int(ch.ids[i-1])}
 			}
@@ -105,16 +105,16 @@ func chainIndex(t *testing.T, ds store.DataStore) *questie.Index {
 	return ix
 }
 
-func TestOfflineBenchmarkClassQuestChainWarlock(t *testing.T) { classChain(t, "warlock", 0) }
-func TestOfflineBenchmarkClassQuestChainPaladin(t *testing.T) { classChain(t, "paladin", 1) }
+func TestOfflineBenchmarkClassOrderWarlock(t *testing.T) { srcClassOrder(t, "warlock", 0) }
+func TestOfflineBenchmarkClassOrderPaladin(t *testing.T) { srcClassOrder(t, "paladin", 1) }
 
-// classChain: each class quest in its chain shows the quest the dataset names for its id (title, level, side, class
+// srcClassOrder: each class quest in its chain shows the quest the dataset names for its id (title, level, side, class
 // heading), what it comes after and what it leads to, with the title and level of those quests as the dataset has
 // them, and no other class.
-func classChain(t *testing.T, part string, chain int) {
+func srcClassOrder(t *testing.T, part string, chain int) {
 	ds := qbStore()
-	ix := chainIndex(t, ds)
-	ch := classChains[chain]
+	ix := srcChainIndex(t, ds)
+	ch := srcClassChains[chain]
 	var out []benchRow
 	for i, id := range ch.ids {
 		row := qbQuest(t, id)
@@ -145,13 +145,13 @@ func classChain(t *testing.T, part string, chain int) {
 		out = append(out, benchRow{fmt.Sprintf("%s quest %d: place in the %s chain", text(row["title"]), id, ch.class), got, want, chainSrc,
 			resultIf(ok, "the title, level, class, the quest before or the quest after")})
 	}
-	finish(t, "advice-class-chain-"+part, "Offline class-quest chains: "+ch.class, out)
+	finish(t, "advice-class-order-"+part, "Offline class-quest chains: "+ch.class, out)
 }
 
-// TestOfflineBenchmarkClassQuestChainNoAnswer: with no QuestieDB the dataset names no order for a class's quests, so the
+// TestOfflineBenchmarkClassOrderNoAnswer: with no QuestieDB the dataset names no order for a class's quests, so the
 // advisor lists no quest before or after, and a class quest the dataset lacks is not invented. Two quests of one title
 // stay two quests.
-func TestOfflineBenchmarkClassQuestChainNoAnswer(t *testing.T) {
+func TestOfflineBenchmarkClassOrderNoAnswer(t *testing.T) {
 	ds := qbStore()
 	var out []benchRow
 	for _, id := range []int64{1508, 1740, 1801, 91208} {
@@ -164,16 +164,16 @@ func TestOfflineBenchmarkClassQuestChainNoAnswer(t *testing.T) {
 	id, _, cands := quests.ResolveWith(ds, nil, "Tome of the Cabal")
 	out = append(out, benchRow{"Tome of the Cabal asked by its title", fmt.Sprintf("id %d, %v", id, cands), "quests_observed holds three quests of that title (1801, 1803, 1805)", noSourceSrc,
 		resultIf(id == 0 && slices.Equal(cands, []string{"Tome of the Cabal (1801)", "Tome of the Cabal (1803)", "Tome of the Cabal (1805)"}), "one of the three was picked")})
-	c := quests.OfWith(ds, chainIndex(t, ds), 999999)
+	c := quests.OfWith(ds, srcChainIndex(t, ds), 999999)
 	out = append(out, benchRow{"a class quest the dataset and the QuestieDB lack", quests.Render(c, ""), "no row in quests_observed or the QuestieDB", noSourceSrc, resultIf(!c.Found, "a quest was invented")})
-	finish(t, "advice-class-chain-no-answer", "Offline class-quest chains: no answer in the dataset", out)
+	finish(t, "advice-class-order-no-answer", "Offline class-quest chains: no answer in the dataset", out)
 }
 
 // ---- elites, rares and bosses ----
 
-// rankCases are what a quest objective's creature classification means for a player: an elite, a rare elite and a boss
+// srcRankCases are what a quest objective's creature classification means for a player: an elite, a rare elite and a boss
 // are group content to be flagged, a plain rare and a normal creature are soloable.
-var rankCases = []struct {
+var srcRankCases = []struct {
 	name  string
 	rank  int
 	group bool
@@ -185,7 +185,7 @@ var rankCases = []struct {
 // classification, outside any dungeon.
 func TestOfflineBenchmarkEliteObjectiveFlag(t *testing.T) {
 	var out []benchRow
-	for _, tc := range rankCases {
+	for _, tc := range srcRankCases {
 		qx := &questie.Index{
 			Quests: map[int]*questie.Quest{1: {ID: 1, Name: "Synthetic Hunt", Level: 20, Creatures: []questie.Ref{{ID: 10}}}},
 			Npcs:   map[int]questie.Entity{10: {Name: "Synthetic Beast", Level: 20, Rank: tc.rank}},
@@ -200,8 +200,8 @@ func TestOfflineBenchmarkEliteObjectiveFlag(t *testing.T) {
 	finish(t, "advice-elite-objective-flag", "Offline elite objectives: the group flag", out)
 }
 
-// eliteQuests are quests players tagged as group or dungeon quests in quests_observed, and two with no tag.
-var eliteQuests = []struct {
+// srcEliteQuests are quests players tagged as group or dungeon quests in quests_observed, and two with no tag.
+var srcEliteQuests = []struct {
 	id   int64
 	want bool
 }{{19, true}, {474, true}, {628, true}, {377, true}, {709, true}, {5, false}, {89, false}}
@@ -211,7 +211,7 @@ var eliteQuests = []struct {
 func TestOfflineBenchmarkEliteQuestTag(t *testing.T) {
 	ds := qbStore()
 	var out []benchRow
-	for _, tc := range eliteQuests {
+	for _, tc := range srcEliteQuests {
 		row := qbQuest(t, tc.id)
 		lvl := int(num(row["level"]))
 		done := true
@@ -228,8 +228,8 @@ func TestOfflineBenchmarkEliteQuestTag(t *testing.T) {
 	finish(t, "advice-elite-quest-tag", "Offline elite quests: the group tag", out)
 }
 
-// creatureCases are creatures the dataset names only through Everloot's drop rows: no classification, no level, no zone.
-var creatureCases = []struct {
+// srcCreatureCases are creatures the dataset names only through Everloot's drop rows: no classification, no level, no zone.
+var srcCreatureCases = []struct {
 	item int64
 	id   int64
 	name string
@@ -241,7 +241,7 @@ func TestOfflineBenchmarkCreatureLocation(t *testing.T) {
 	ds := srcStore()
 	words := regexp.MustCompile(`(?i)\b(rare|elite|spawn|spawns|patrol|boss)\b`)
 	var out []benchRow
-	for _, tc := range creatureCases {
+	for _, tc := range srcCreatureCases {
 		lvl := 40
 		spots := farm.Spots(character.Character{Class: "MAGE", Level: &lvl}, ds, tc.item)
 		npc, err := ds.Get("npcs", tc.id)
@@ -270,14 +270,14 @@ func TestOfflineBenchmarkCreatureLocation(t *testing.T) {
 	finish(t, "advice-creature-location", "Offline creature location: zone, level and rank", out)
 }
 
-var bossDungeons = []string{"Deadmines", "Wailing Caverns", "Shadowfang Keep", "Razorfen Kraul", "Uldaman", "Blackrock Depths"}
+var srcBossDungeons = []string{"Deadmines", "Wailing Caverns", "Shadowfang Keep", "Razorfen Kraul", "Uldaman", "Blackrock Depths"}
 
-// TestOfflineBenchmarkDungeonBosses: the bosses of a dungeon and where its entrance stands, as the advisor words them
+// TestOfflineBenchmarkEliteDungeonBosses: the bosses of a dungeon and where its entrance stands, as the advisor words them
 // beside instance_bosses and instances.
-func TestOfflineBenchmarkDungeonBosses(t *testing.T) {
+func TestOfflineBenchmarkEliteDungeonBosses(t *testing.T) {
 	ds := qbStore()
 	var out []benchRow
-	for _, name := range bossDungeons {
+	for _, name := range srcBossDungeons {
 		inst := rowByName(t, ds, "instances", name)
 		mid := num(inst["map_id"])
 		rows, _ := ds.Filter("instance_bosses", store.Range{Column: "map_id", Min: mid, Max: mid})
@@ -299,7 +299,7 @@ func TestOfflineBenchmarkDungeonBosses(t *testing.T) {
 		out = append(out, benchRow{name + ": no boss named an elite or a rare", firstLine(txt), "instance_bosses has no creature id or classification", noSourceSrc,
 			resultIf(!strings.Contains(txt, "Elites:") && !strings.Contains(txt, "Bosses (Questie)"), "a creature was ranked with no source")})
 	}
-	finish(t, "advice-dungeon-bosses", "Offline dungeon bosses: names and entrance", out)
+	finish(t, "advice-elite-dungeon-bosses", "Offline dungeon bosses: names and entrance", out)
 }
 
 // TestOfflineBenchmarkRareNoAnswer: rares and elites the dataset does not hold. The advisor finds no creature by that
@@ -321,14 +321,14 @@ func TestOfflineBenchmarkRareNoAnswer(t *testing.T) {
 
 // ---- recipe sources ----
 
-type recipeCase struct {
+type srcRecipeCase struct {
 	recipe, kind string // a drop, a vendor, a trainer, both a trainer and an item, or an item with no place
 	item         int64
 	faction      string
 	creature     string // the named creature of a drop
 }
 
-var dropRecipes = []recipeCase{
+var srcDropRecipes = []srcRecipeCase{
 	{"Boots of the Enchanter", "drop", 4352, "Horde", "Razorfen Thornweaver"},
 	{"Enchant Cloak - Lesser Shadow Resistance", "drop", 11098, "Horde", "Hillsbrad Farmer"},
 	{"Golden Scale Cuirass", "unnamed drop", 3873, "Horde", ""},
@@ -342,7 +342,7 @@ var dropRecipes = []recipeCase{
 func TestOfflineBenchmarkRecipeDropSource(t *testing.T) {
 	ds := srcStore()
 	var out []benchRow
-	for _, tc := range dropRecipes {
+	for _, tc := range srcDropRecipes {
 		res, err := learn.Find(character.Character{Faction: tc.faction, Class: "MAGE"}, ds, nil, tc.recipe)
 		if err != nil {
 			t.Fatalf("%s: %v", tc.recipe, err)
@@ -381,7 +381,7 @@ func TestOfflineBenchmarkRecipeDropSource(t *testing.T) {
 	finish(t, "advice-recipe-drop", "Offline recipe source: drops", out)
 }
 
-var bothRecipes = []struct{ recipe, faction string }{
+var srcBothRecipes = []struct{ recipe, faction string }{
 	{"Moonglow Boots", "Horde"}, {"Murloc Scale Shoes", "Alliance"}, {"Novice Arcanist's Sash", "Horde"}, {"Enchant Cloak - Minor Protection", "Alliance"},
 }
 
@@ -391,7 +391,7 @@ var bothRecipes = []struct{ recipe, faction string }{
 func TestOfflineBenchmarkRecipeBothSource(t *testing.T) {
 	ds := qbStore()
 	var out []benchRow
-	for _, tc := range bothRecipes {
+	for _, tc := range srcBothRecipes {
 		res, err := learn.Find(character.Character{Faction: tc.faction, Class: "MAGE"}, ds, nil, tc.recipe)
 		if err != nil {
 			t.Fatalf("%s: %v", tc.recipe, err)
