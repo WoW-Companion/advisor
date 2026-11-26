@@ -86,4 +86,3 @@ func enchantNote(it Item, where string) []string {
 func fallbackValue(it Item) float64 {
 	return float64(it.ItemLevel)*1e6 + float64(it.Quality)*1e3 + float64(it.ReqLevel)
 }
-
