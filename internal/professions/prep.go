@@ -32,9 +32,69 @@ func (p *planner) where(pa *Path, sk character.Skill, allowed int, allowedTier T
 	if sk.Max != nil && *sk.Max < pa.Target {
 		pa.Where = append(pa.Where, fmt.Sprintf("Your current rank stops at %d: train the next rank when you get there.", *sk.Max))
 	}
-	if t := p.trainer(); t != "" {
-		pa.Where = append(pa.Where, "Trainer to visit: "+t+".")
+	next := "Journeyman"
+	if n, ok := p.notes.NextTier(allowed); ok {
+		next = n.Name
 	}
+	pa.Where = append(pa.Where, p.trainerStep(next))
+}
+
+// continents are the dataset's whole-continent maps: a trainer placed on one has no place.
+var continents = map[string]bool{"Kalimdor": true, "Eastern Kingdoms": true}
+
+// notNamed marks a trainer the dataset lists by id only.
+const notNamed = "(name not in the dataset)"
+
+// trainerStep is the "where you are" line that names the trainer to visit. A trainer the trainers table names
+// comes first; when the table names none for the character's side, the guide trainers of profession_tiers (a
+// name and a place, for the tier about to be trained) come before an id-only row; when the dataset names no
+// trainer at all, the line says so and sends the player to a capital city.
+func (p *planner) trainerStep(next string) string {
+	t := p.trainer()
+	if t != "" && !strings.Contains(t, notNamed) {
+		return "Trainer to visit: " + t + "."
+	}
+	if g := p.guideTrainer(next); g != "" {
+		return "Trainer to visit: " + g + "."
+	}
+	if t != "" {
+		return "Trainer to visit: " + t + "."
+	}
+	return "The game data names no " + p.prof + " trainer for your side; ask in a capital city."
+}
+
+// guideTrainer is a trainer the dataset's profession_tiers names for the profession and the character's side:
+// one of the tier about to be trained, the one in the character's zone first, else the first listed.
+func (p *planner) guideTrainer(tier string) string {
+	rows, _ := p.ds.Filter("profession_tiers", store.Range{Column: "profession", Min: p.prof, Max: p.prof})
+	zone := ""
+	if l := p.c.Location; l != nil {
+		zone = l.Zone
+	}
+	best, bestScore := "", -1
+	for _, r := range rows {
+		name, place := asText(r["trainer_name"]), asText(r["place"])
+		if name == "" || asText(r["how"]) != "trainer" {
+			continue
+		}
+		if f := asText(r["faction"]); f != "" && !strings.EqualFold(f, "both") && p.c.Faction != "" && !strings.EqualFold(f, p.c.Faction) {
+			continue
+		}
+		score := 0
+		if strings.EqualFold(asText(r["tier"]), tier) {
+			score += 2
+		}
+		if zone != "" && strings.Contains(strings.ToLower(place), strings.ToLower(zone)) {
+			score++
+		}
+		if score > bestScore {
+			best, bestScore = name, score
+			if place != "" {
+				best = name + " in " + place
+			}
+		}
+	}
+	return best
 }
 
 // trainer is the best trainer for the profession: one in the character's zone when there is one,
@@ -57,6 +117,9 @@ func (p *planner) trainer() string {
 			continue
 		}
 		z := asText(r["zone_name"])
+		if continents[z] {
+			z = "" // a continent is not a place to walk to
+		}
 		// the dataset has no faction for most trainers: a trainer in the other side's home zone is not one the
 		// character can use
 		if side := sideOfZone(z); side != "" && p.c.Faction != "" && !strings.EqualFold(side, p.c.Faction) {
@@ -67,7 +130,7 @@ func (p *planner) trainer() string {
 			name = curatedTrainers[asI64(r["npc_id"])]
 		}
 		if name == "" {
-			name = fmt.Sprintf("npc %d (name not in the dataset)", asI64(r["npc_id"]))
+			name = fmt.Sprintf("npc %d "+notNamed, asI64(r["npc_id"]))
 		}
 		cs = append(cs, cand{name, z, zone != "" && strings.EqualFold(z, zone), asI64(r["recipes"]), asI64(r["npc_id"])})
 	}
