@@ -14,6 +14,7 @@ import (
 	"github.com/WoW-Companion/advisor/internal/questie"
 	"github.com/WoW-Companion/advisor/internal/store"
 	"github.com/WoW-Companion/advisor/internal/vendors"
+	"github.com/WoW-Companion/advisor/internal/wording"
 )
 
 // MaxWays is how many ways to learn a recipe an answer lists.
@@ -535,7 +536,7 @@ func text(r Result) string {
 		}
 		fmt.Fprintf(&b, "It is learned from %s, but the game data you have names no place that sells or drops it.", item)
 	} else if len(r.Ways) == 0 {
-		fmt.Fprintf(&b, "Ask a %s trainer in a city or starter zone.", r.Profession)
+		fmt.Fprintf(&b, "Ask %s trainer in a city or starter zone.", wording.A(r.Profession))
 	} else {
 		b.WriteString(r.Ways[0].Line + ".")
 		for _, w := range r.Ways[1:] {

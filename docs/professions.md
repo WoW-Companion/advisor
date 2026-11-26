@@ -168,6 +168,15 @@ recipe is learned or a material drops (vendors and trainers the dataset names, t
 counts). Cases the dataset has no answer for check that the advisor says so and names nothing. The dataset names no
 recipe vendor, trainer or most dropping creatures, which the run lists as "differ (data)".
 
+`internal/paths/offline_consumables_benchmark_test.go` (also `make offline-benchmark`, areas `advice-enchant-*`,
+`advice-consumable-*`, `advice-mount-*` and `advice-consumables-no-answer`) checks enchants, consumables and mounts
+on `testdata/consumables_snapshot` (rebuild it from a built dataset with `testdata/consumables_snapshot/build.sh <dataset dir>`,
+which needs duckdb): the skill and the way an enchant recipe is learned, the skill, binding and recipe of a flask,
+elixir, potion or food, the price a vendor shows against `items.buy_price`, the level each mount item needs against
+the level the advisor assumes a mount from (`session.MountLevel`), and the answer for a mount the dataset names no
+source for. The dataset holds no gem item, no enchant slot or stat, no flask duration or stat, and no mount
+source, faction or riding skill; those cases check that the advisor says so and states none.
+
 The run ends with one summary line, `advice-benchmark: N checks, S same, D differ (professions 90/39, costs 50/8,
 tailoring-guide 6/13, stats 99/0)`: every table row counts as same ("match") or differ, by area. Each area prints
 `advice-benchmark-count <area> same=N differ=M`, and `internal/benchsummary` adds them up. The share of
