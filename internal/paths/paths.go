@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/WoW-Companion/advisor/internal/character"
+	"github.com/WoW-Companion/advisor/internal/dungeons"
 	"github.com/WoW-Companion/advisor/internal/gather"
 	"github.com/WoW-Companion/advisor/internal/gear"
 	"github.com/WoW-Companion/advisor/internal/items"
@@ -1158,6 +1159,9 @@ func (f *finder) dungeon(crs []creature) (Path, bool) {
 			continue
 		}
 		for _, b := range bosses {
+			if dungeons.AlternateMode(f.ds, b) {
+				continue // an alternate mode's boss is not one of the dungeon's own
+			}
 			rows, err := f.ds.Filter("instances", store.Range{Column: "map_id", Min: i64(b["map_id"]), Max: i64(b["map_id"])})
 			if err != nil || len(rows) == 0 || rows[0]["instance_type"] != "dungeon" {
 				continue

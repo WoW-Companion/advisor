@@ -193,7 +193,7 @@ func TestPlanPriest(t *testing.T) {
 	}
 	text := Render(c, r, 1)
 	for _, want := range []string{"1. Deadmines (levels 15\u201321; entrance in Westfall; 5 players)", "Mind Hood (head, +5.0) from Boss A, drops 20% of kills",
-		"Drops not known yet: Lost Boss", "In your log: Quest \n", "1 more dungeon(s) fit.", "Level not known yet: Mystery Hold"} {
+		"Drops not known yet: Lost Boss", "In your log: Quest \n", "1 more dungeon fits.", "Level not known yet: Mystery Hold"} {
 		if !strings.Contains(text, want) {
 			t.Errorf("render missing %q in:\n%s", want, text)
 		}
@@ -264,7 +264,7 @@ func TestBelowEveryDungeon(t *testing.T) {
 		t.Fatalf("result %+v", r)
 	}
 	text := Render(c, r, 3)
-	for _, want := range []string{"Too low for dungeons yet. The first one is Ember Chasm (about levels 5\u201310), in Orgrimmar: 2 more level(s) to go.", "Meanwhile: finish your quest Quest Durotar", "Ember Errand (from Rask)"} {
+	for _, want := range []string{"Too low for dungeons yet. The first one is Ember Chasm (about levels 5\u201310), in Orgrimmar: 2 more levels to go.", "Meanwhile: finish your quest Quest Durotar", "Ember Errand (from Rask)"} {
 		if !strings.Contains(text, want) {
 			t.Errorf("missing %q in:\n%s", want, text)
 		}
@@ -553,5 +553,99 @@ func TestANameWithAnApostropheIsMentioned(t *testing.T) {
 		if got := Mentioned(ds, nil, q); got != "Wyrm's Lair" {
 			t.Errorf("%q: mentioned %q", q, got)
 		}
+	}
+}
+
+// namesStore holds dungeons whose names share a word and ones players shorten.
+func namesStore(t *testing.T) store.DataStore {
+	return store.New(store.ReaderSource{
+		"instances": table(t, []instRow{
+			{1, "Blackrock Depths", "dungeon", i16(5), i16(52), i16(60), "curated", "Searing Gorge"},
+			{2, "Blackrock Spire", "dungeon", i16(10), i16(55), i16(60), "curated", "Burning Steppes"},
+			{3, "Stormwind Stockade", "dungeon", i16(5), i16(22), i16(30), "curated", "Stormwind City"},
+			{4, "Onyxia's Lair", "raid", i16(40), i16(60), i16(60), "curated", "Dustwallow Marsh"},
+			{5, "Sunken Temple", "dungeon", i16(5), i16(50), i16(60), "curated", "Swamp of Sorrows"},
+		}),
+	})
+}
+
+func TestAPartOfANameThatFitsSeveralDungeonsIsNotGuessed(t *testing.T) {
+	ds := namesStore(t)
+	c := warrior(60, "Horde")
+	p, _, err := Named(c, ds, nil, "Blackrock")
+	if p != nil || err == nil || !strings.Contains(err.Error(), "Blackrock Depths") || !strings.Contains(err.Error(), "Blackrock Spire") {
+		t.Fatalf("a partial name picked %v (%v)", p, err)
+	}
+	for _, name := range []string{"Blackrock Depths", "lower blackrock spire"} {
+		if p, _, err := Named(c, ds, nil, name); err != nil || p == nil || !strings.HasPrefix(p.Name, "Blackrock") {
+			t.Errorf("%q: %v %v", name, p, err)
+		}
+	}
+	if d := Mentioned(ds, nil, "tell me about blackrock"); d != "" {
+		t.Errorf("mentioned %q", d)
+	}
+}
+
+func TestShortNamesPlayersUse(t *testing.T) {
+	ds := namesStore(t)
+	c := warrior(60, "Horde")
+	for _, tc := range []struct{ text, want string }{
+		{"what level is the stockade?", "Stormwind Stockade"}, {"how do I get into BRD", "Blackrock Depths"}, {"Onyxia attunement", "Onyxia's Lair"},
+		{"loot in the Temple of Atal'Hakkar", "Sunken Temple"}, {"is UBRS worth it", "Blackrock Spire"}, {"what is the best strat", ""},
+	} {
+		if got := Mentioned(ds, nil, tc.text); got != tc.want {
+			t.Errorf("%q: mentioned %q, want %q", tc.text, got, tc.want)
+		}
+		if tc.want == "" {
+			continue
+		}
+		if p, _, err := Named(c, ds, nil, tc.want); err != nil || p == nil || p.Name != tc.want {
+			t.Errorf("%q: named %v %v", tc.want, p, err)
+		}
+	}
+	for alias, want := range map[string]string{"the stockade": "Stormwind Stockade", "Temple of Atal'Hakkar": "Sunken Temple", "ony": "Onyxia's Lair", "brd": "Blackrock Depths"} {
+		if p, _, err := Named(c, ds, nil, alias); err != nil || p == nil || p.Name != want {
+			t.Errorf("%q: named %v %v", alias, p, err)
+		}
+	}
+}
+
+func TestACountIsWordedInTheSingular(t *testing.T) {
+	if got := Render(warrior(4, "Horde"), Result{First: &DungeonPick{Name: "Ember Chasm", MinLevel: ip(5), MaxLevel: ip(10)}, LevelsToGo: 1}, 0); !strings.Contains(got, "1 more level to go.") {
+		t.Errorf("one level: %s", got)
+	}
+	r := Result{Picks: []DungeonPick{{Name: "A"}, {Name: "B"}, {Name: "C"}}}
+	for limit, want := range map[int]string{2: "1 more dungeon fits.", 1: "2 more dungeons fit."} {
+		if got := Render(warrior(20, "Horde"), r, limit); !strings.Contains(got, want) {
+			t.Errorf("limit %d: %s", limit, got)
+		}
+	}
+	nameless := character.Character{Class: "WARRIOR", Level: ip(20)}
+	if got := Render(nameless, r, 0); !strings.HasPrefix(got, "Dungeons (level 20 warrior):") {
+		t.Errorf("a character with no name: %q", got)
+	}
+}
+
+func TestADropWithNoKillCountSaysItsChanceIsNotKnown(t *testing.T) {
+	ch := 12.0
+	if got := (Drop{Boss: "Boss A", Item: "Mind Hood", Slot: "head", Delta: 5, Chance: &ch}).String(); !strings.HasSuffix(got, "drops 12% of kills") {
+		t.Errorf("a known chance: %q", got)
+	}
+	if got := (Drop{Boss: "Boss A", Item: "Mind Hood", Slot: "head", Delta: 5}).String(); !strings.HasSuffix(got, "drop chance not known") || strings.Contains(got, "%") {
+		t.Errorf("an unknown chance: %q", got)
+	}
+}
+
+func TestAlternateMode(t *testing.T) {
+	ds := raidAndModes(t)
+	rows, _ := ds.Filter("instance_bosses", store.Range{Column: "map_id", Min: int64(1), Max: int64(1)})
+	for _, r := range rows {
+		if want := r["difficulty_id"] == int64(198); AlternateMode(ds, r) != want {
+			t.Errorf("%v (difficulty %v): alternate %v, want %v", r["name"], r["difficulty_id"], !want, want)
+		}
+	}
+	raid, _ := ds.Filter("instance_bosses", store.Range{Column: "map_id", Min: int64(2), Max: int64(2)})
+	if AlternateMode(ds, raid[0]) {
+		t.Error("an ordinary raid boss is an alternate mode")
 	}
 }

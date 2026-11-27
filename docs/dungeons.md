@@ -17,13 +17,14 @@ that are upgrades for their spec, and the open quests that lead there.
 - **Plan ahead**: `dungeon_plan(dungeon="Ragefire Chasm")` describes that one dungeon whatever the character's level or side: level range, entrance, every boss (the dataset's, plus the creatures Questie lists), up to 8 quests with givers (not held to the level window) and the drops for the class and spec. Under its minimum it opens with one line, "You're 10; it opens around 13. Here's the plan for when you're ready." Level filtering stays for "which dungeons should I do now?".
 - **Raids by name**: `dungeon_plan(dungeon="Molten Core")` describes a raid the same way (group size, level range, entrance, every boss), though a raid is never planned or ranked. The dataset holds no lockout, reset period or attunement for a raid, so the text says "Lockout and attunement: not known yet" and states none.
 - **Boss list**: the encounters of difficulty 0 and 1 only. The dataset keeps another mode of the same map (ids 198, 201, 215: bosses fought as one, a different boss set) under a later difficulty id; those are left out when the map has ordinary rows, and kept when it has nothing else.
+- **Names**: a dungeon is found by its map name, a part of it ("Stockade") or the short name players use ("BRD", "UBRS", "Onyxia", "Temple of Atal'Hakkar"). A part of a name that fits several dungeons ("Blackrock", "Zul", "Razorfen") picks none: the answer names the candidates.
 - **Level unknown**: a dungeon with no level range is named apart, unranked.
 - **Wording**: the text never narrates data gaps or sources; one short clause ("Drops not known
   yet") only where a gap changes the advice.
 - **Upgrades** are the items `gear.Upgrades` scores as better than what the character wears, by the
   rules in `gear.md`. A boss's drops come from `instance_bosses` (creature id) joined to
   `loot_sources`; each drop lists the boss, the slot, the gain and the drop chance (whole percent from 1%, one decimal below it, "under 0.1%" below
-  that, never "0%" for a drop that happens), or says the chance is unknown.
+  that, never "0%" for a drop that happens), or says "drop chance not known" when the dataset has no kill count.
 - **Unlinked bosses** (an encounter the dataset cannot tie to one creature) are named as "Drops not known yet"; their drops
   are unknown, not guessed.
 - **Quests**: unfinished quests of the capture are listed under a dungeon when the dataset's
