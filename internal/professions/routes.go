@@ -417,10 +417,24 @@ func RouteFacts(c character.Character, ds store.DataStore, qx *questie.Index, pr
 		if gate.Recipe != "" {
 			lead = "Before step " + gate.Recipe
 		}
+		// the rank is gained at the skill and character level the dataset's profession_tiers gives (the notes' ranks when
+		// it has no row); the rank before it stops at tier.SkillMin, which is when it is needed, not when it opens
+		g, _ := tierGate(ds, profession, tier.Name, c.Faction)
+		level := g.Level
+		if level == 0 {
+			level = tier.MinLevel
+		}
+		needs := fmt.Sprintf("character level %d, skill %d; the rank you hold stops at %d", level, g.Skill, tier.SkillMin)
+		if g.Skill == 0 {
+			needs = fmt.Sprintf("character level %d; the game data holds no skill gate for it, and the rank you hold stops at %d", level, tier.SkillMin)
+		}
+		if c.Level != nil && *c.Level < level {
+			needs += fmt.Sprintf("; you are level %d, so not yet", *c.Level)
+		}
 		if how, text := tierAccess(ds, profession, tier.Name, c.Faction); how != "" {
-			fmt.Fprintf(&b, "%s you must get %s %s (character level %d, skill %d): %s.\n", lead, profession, tier.Name, tier.MinLevel, tier.SkillMin, text)
+			fmt.Fprintf(&b, "%s you must get %s %s (%s): %s. %s\n", lead, profession, tier.Name, needs, text, g.price())
 		} else {
-			fmt.Fprintf(&b, "%s you must train %s %s (character level %d, skill %d). ", lead, profession, tier.Name, tier.MinLevel, tier.SkillMin)
+			fmt.Fprintf(&b, "%s you must train %s %s (%s). %s ", lead, profession, tier.Name, needs, g.price())
 			if t := tierTrainer(ds, profession, tier.Name, c.Faction); t != "" {
 				b.WriteString(profession + " " + tier.Name + " trainer: " + t + ".")
 			} else {

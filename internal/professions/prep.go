@@ -36,7 +36,88 @@ func (p *planner) where(pa *Path, sk character.Skill, allowed int, allowedTier T
 	if n, ok := p.notes.NextTier(allowed); ok {
 		next = n.Name
 	}
+	// A rank cap below what the level allows means a rank is due now: the one after the cap the character holds.
+	// It is the rank to train, so its gate, price and trainer (or book) come first, not the rank the level opens next.
+	if sk.Max != nil && *sk.Max < allowed {
+		if t, ok := p.notes.NextTier(*sk.Max); ok {
+			next = t.Name
+			line, via := p.trainNow(t)
+			pa.Where = append(pa.Where, line)
+			if via {
+				return
+			}
+		}
+	}
 	pa.Where = append(pa.Where, p.trainerStep(next))
+}
+
+// tierRow is what the dataset's profession_tiers holds about one rank for the character's side: the skill and the
+// character level it needs and its training price; a zero is a value the dataset does not hold.
+type tierRow struct {
+	Skill, Level int
+	Cost         int64
+}
+
+// tierGate reads the rank's row (the cheapest priced row when several sides list it); found is false when the table has
+// none.
+func tierGate(ds store.DataStore, profession, tier, faction string) (g tierRow, found bool) {
+	if ds == nil {
+		return g, false
+	}
+	rows, _ := ds.Filter("profession_tiers", store.Range{Column: "profession", Min: profession, Max: profession})
+	for _, r := range rows {
+		if !strings.EqualFold(asText(r["tier"]), tier) {
+			continue
+		}
+		if f := asText(r["faction"]); f != "" && !strings.EqualFold(f, "both") && faction != "" && !strings.EqualFold(f, faction) {
+			continue
+		}
+		found = true
+		if v := asInt(r["skill_required"]); v != nil && g.Skill == 0 {
+			g.Skill = *v
+		}
+		if v := asInt(r["min_level"]); v != nil && g.Level == 0 {
+			g.Level = *v
+		}
+		if c := asI64(r["cost_copper"]); c > 0 && (g.Cost == 0 || c < g.Cost) {
+			g.Cost = c
+		}
+	}
+	return g, found
+}
+
+// price says what the rank costs, or that the game data lists no price: a price is never guessed.
+func (g tierRow) price() string {
+	if g.Cost > 0 {
+		return "Training costs " + Money(g.Cost) + "."
+	}
+	return "The game data lists no training price for it."
+}
+
+// trainNow is the line for the rank the character must get next: the skill and character level it needs (the
+// dataset's profession_tiers, else the notes' ranks), whether the level is reached, the price, and when the rank is a
+// book or a quest and no trainer's, who gives it (via: the line already says where, so no trainer line follows).
+func (p *planner) trainNow(t Tier) (line string, via bool) {
+	g, found := tierGate(p.ds, p.prof, t.Name, p.c.Faction)
+	skill, level := g.Skill, g.Level
+	if level == 0 {
+		level = t.MinLevel
+	}
+	if found && skill > 0 {
+		line = fmt.Sprintf("Train now: %s %s (character level %d, skill %d, rank cap %d).", p.prof, t.Name, level, skill, t.SkillCap)
+	} else {
+		// no tier row for this profession: the skill it is opened at is not known, so none is stated
+		line = fmt.Sprintf("Train now: %s %s (character level %d, rank cap %d; the game data holds no skill gate for it).", p.prof, t.Name, level, t.SkillCap)
+	}
+	if p.c.Level != nil && *p.c.Level < level {
+		line += fmt.Sprintf(" You are level %d, so not yet.", *p.c.Level)
+	}
+	how, text := tierAccess(p.ds, p.prof, t.Name, p.c.Faction)
+	if how != "" {
+		line += " It is not taught by a trainer: " + text + ". " + g.price()
+		return line, true
+	}
+	return line + " " + g.price(), false
 }
 
 // continents are the dataset's whole-continent maps: a trainer placed on one has no place.
@@ -48,8 +129,15 @@ const notNamed = "(name not in the dataset)"
 // trainerStep is the "where you are" line that names the trainer to visit. A trainer the trainers table names
 // comes first; when the table names none for the character's side, the guide trainers of profession_tiers (a
 // name and a place, for the tier about to be trained) come before an id-only row; when the dataset names no
-// trainer at all, the line says so and sends the player to a capital city.
+// trainer at all, the line says so and sends the player to a capital city. The ranks above Journeyman are taught
+// by the few trainers profession_tiers names for that rank, not by every trainer of the profession, so when it
+// names one on the character's side for the rank, that trainer is the answer.
 func (p *planner) trainerStep(next string) string {
+	if !strings.EqualFold(next, "Journeyman") && !strings.EqualFold(next, "Apprentice") && tierTrainer(p.ds, p.prof, next, p.c.Faction) != "" {
+		if g := p.guideTrainer(next); g != "" {
+			return "Trainer to visit: " + g + "."
+		}
+	}
 	t := p.trainer()
 	if t != "" && !strings.Contains(t, notNamed) {
 		return "Trainer to visit: " + t + "."
