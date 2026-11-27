@@ -33,6 +33,7 @@ WoWCompanionPlan = {
       errands = {
         { n = 1, kind = "train", label = "Train now with Rogue Master", map = 1458, x = 82.0, y = 14.0, why = "2 new spells or ranks to train at this level" },
         { n = 2, kind = "bank", label = "Open your bank once", map = 1458, x = -1.0, y = -1.0, why = "open your bank once so the advisor can see it" },
+        { n = 0, kind = "restock", label = "buy 4 Empty Vial from Sly Garrett", map = 1458, x = 83.0, y = 14.0, why = "short of reagents for a batch of 5", attach = 1, npc = "Sly Garrett" },
       },
       flights = {
       },

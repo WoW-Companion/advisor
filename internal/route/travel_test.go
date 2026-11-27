@@ -184,6 +184,8 @@ func TestGoldenPlanLua(t *testing.T) {
 		character.Quest{QuestID: 999, Title: "Lost Quest"})
 	opt := Options{Places: &Places{UIMaps: map[int]UIMap{7099: {ID: 7099, Instance: 47}}}, Trainable: func(character.Character) int { return 2 }}
 	p := BuildWith(c, ix, opt)
+	at := p.Steps[0]
+	bundleChores(&p, []Chore{{Kind: ErrandRestock, Do: "buy 4 Empty Vial", Prep: "from", Why: "short of reagents for a batch of 5", Spots: []Spot{{Name: "Sly Garrett", Map: at.Map, X: at.X + 1, Y: at.Y}}}})
 	got := Envelope{Generated: 1795363809, Plans: []Plan{p}}.Lua()
 	const file = "../../testdata/plan/Plan-1.7.lua"
 	if os.Getenv("WOWC_UPDATE_GOLDEN") != "" {

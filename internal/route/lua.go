@@ -131,7 +131,11 @@ func (e Envelope) Lua() string {
 		if len(p.Errands) > 0 {
 			b.WriteString("      errands = {\n")
 			for _, e := range p.Errands {
-				fmt.Fprintf(&b, "        { n = %d, kind = %s, label = %s, map = %d, x = %.1f, y = %.1f, why = %s },\n", e.N, digest.Quote(e.Kind), digest.Quote(e.Label), e.Map, e.X, e.Y, digest.Quote(e.Why))
+				at := ""
+				if e.Attach > 0 {
+					at = fmt.Sprintf(", attach = %d, npc = %s", e.Attach, digest.Quote(e.NPC))
+				}
+				fmt.Fprintf(&b, "        { n = %d, kind = %s, label = %s, map = %d, x = %.1f, y = %.1f, why = %s%s },\n", e.N, digest.Quote(e.Kind), digest.Quote(e.Label), e.Map, e.X, e.Y, digest.Quote(e.Why), at)
 			}
 			b.WriteString("      },\n")
 		}

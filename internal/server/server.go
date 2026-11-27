@@ -573,6 +573,7 @@ func WriteDigest(cfg Config, name string) (DigestOutput, error) {
 	ropt := route.OptionsFor(unlock.AddonSV(cfg.SavedVariables), ds)
 	for _, c := range kept {
 		c = withTotals(cfg, profile.Attach(cfg.profilesPath(), c))
+		ropt.Others = kept
 		plan := route.BuildWith(c, qx, ropt)
 		plans.Plans = append(plans.Plans, plan)
 		d := digest.Build(c, ds, digest.Options{Now: now, Client: f.ClientOf(c), DatasetBuild: datasetBuild, Questie: qx, Unlocks: route.UnlockNotes(plan), Order: route.QuestOrder(plan)})
