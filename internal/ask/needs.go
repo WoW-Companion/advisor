@@ -135,10 +135,13 @@ func specNeeded(cc loaded, q Question, p *character.Profile) (Needs, bool) {
 }
 
 var tankTrees = map[string]bool{"protection": true, "feral combat": true, "feral": true, "blood": true}
+
+// damageTankTrees are tank trees that are also a damage spec: a Feral Combat druid tanks as a bear and deals damage as a cat.
+var damageTankTrees = map[string]bool{"feral combat": true, "feral": true}
 var healTrees = map[string]bool{"holy": true, "restoration": true, "discipline": true}
 
 // OrderSpecs puts the trees that fit the role first: tank trees for a tank, healing trees for a healer,
-// the rest for damage. Every tree is still offered; the order is otherwise kept.
+// the rest, and a hybrid tree such as Feral Combat, for damage. Every tree is still offered; the order is otherwise kept.
 func OrderSpecs(specs []string, role string) []string {
 	rank := func(s string) int {
 		l := strings.ToLower(s)
@@ -152,7 +155,7 @@ func OrderSpecs(specs []string, role string) []string {
 				return 0
 			}
 		default:
-			if !tankTrees[l] && !healTrees[l] {
+			if (!tankTrees[l] || damageTankTrees[l]) && !healTrees[l] {
 				return 0
 			}
 		}

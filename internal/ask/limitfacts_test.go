@@ -90,3 +90,40 @@ func TestLimitFactsEventsWeatherZoneLevels(t *testing.T) {
 		}
 	}
 }
+
+func TestLimitFactsBossLockoutDifficultyRoles(t *testing.T) {
+	for _, tc := range []struct{ q, want string }{
+		{"what abilities does Ragnaros use?", "Boss abilities and strategy:"},
+		{"how do I beat Onyxia, what are her phases?", "Boss abilities and strategy:"},
+		{"what does Edwin VanCleef do in the Deadmines, any adds?", "Boss abilities and strategy:"},
+		{"what is Nefarian's enrage timer?", "Boss abilities and strategy:"},
+		{"what should I interrupt on the last boss?", "Boss abilities and strategy:"},
+		{"how much health does Kel'Thuzad have?", "Boss abilities and strategy:"},
+		{"when does the Molten Core lockout reset?", "Raid lockouts and resets:"},
+		{"how many instances can I enter per hour?", "Raid lockouts and resets:"},
+		{"am I saved to Blackwing Lair, what is my raid ID?", "Raid lockouts and resets:"},
+		{"does Stratholme have a heroic mode?", "Dungeon difficulty and modes:"},
+		{"how difficult is Blackrock Depths?", "Dungeon difficulty and modes:"},
+		{"is Scarlet Monastery too hard for a level 38 group?", "Dungeon difficulty and modes:"},
+		{"how many tanks and healers do I need for Zul'Gurub?", "Group roles and threat:"},
+		{"what group composition works for Stratholme?", "Group roles and threat:"},
+		{"do I need a tank and a healer for Wailing Caverns?", "Group roles and threat:"},
+		{"how much threat does a warrior generate per second?", "Group roles and threat:"},
+	} {
+		if got := LimitFacts(tc.q); !strings.Contains(got, tc.want) || !strings.Contains(got, "Say so") {
+			t.Errorf("LimitFacts(%q) = %q, want %q", tc.q, got, tc.want)
+		}
+	}
+	for _, q := range []string{
+		"which boss drops Thunderfury?", "what is the last boss in the Deadmines?", "what spells does a mage learn at level 20?", "how do I kill the boar for the quest?",
+		"my talents reset, what do I do?", "how long until my cooldown resets?", "which priest spec heals best?", "what level is Blackrock Depths for?",
+		"what is the best tank spec for a druid?", "is a dungeon good for a level 30 priest?", "what abilities does a warrior get?", "how many people for Onyxia's Lair?",
+	} {
+		got := LimitFacts(q)
+		for _, f := range []string{"Boss abilities and strategy:", "Raid lockouts and resets:", "Dungeon difficulty and modes:", "Group roles and threat:"} {
+			if strings.Contains(got, f) {
+				t.Errorf("LimitFacts(%q) = %q, want no %s", q, got, f)
+			}
+		}
+	}
+}
