@@ -69,7 +69,7 @@ var statIDs = map[string]int64{
 	"mastery": 49,
 	// The older gear stats a Classic item carries: bonus healing and damage (items from before Spell Power),
 	// the defence ratings of a tank's gear, and the armor a green item adds on top of its base armor.
-	"spell_healing": 41, "spell_damage": 42, "dodge": 13, "parry": 14, "block": 15, "extra_armor": 50,
+	"spell_healing": 41, "spell_damage": 42, "defense": 12, "dodge": 13, "parry": 14, "block": 15, "extra_armor": 50,
 }
 
 type specWeights struct {
@@ -243,6 +243,9 @@ func itemOf(row store.Row) Item {
 	return it
 }
 
+// isResistance reports the client's item stat types for the six resistances.
+func isResistance(t int64) bool { return t >= 51 && t <= 56 }
+
 // score is the item's value; byStats needs it.StatsKnown and weights.
 func score(it Item, w map[int64]float64, byStats bool) float64 {
 	// Quality only breaks a tie at equal item level (it never adds up to a whole item level), and
@@ -257,17 +260,28 @@ func score(it Item, w map[int64]float64, byStats bool) float64 {
 	// With the amounts known, each stat counts as much as the item has of it: an item that is mostly
 	// the stat the build wants fits better than one with a token amount of it. With types only, each
 	// type counts once.
+	// A resistance (stat types 51 to 56) is for one fight, not a general stat: it neither adds to the item's value nor
+	// dilutes the stats beside it.
 	var sum, total float64
 	if len(it.Stats) > 0 {
 		for t, n := range it.Stats {
+			if isResistance(t) {
+				continue
+			}
 			sum += w[t] * float64(n)
 			total += float64(n)
 		}
 	} else {
 		for _, t := range it.StatTypes {
+			if isResistance(t) {
+				continue
+			}
 			sum += w[t]
+			total++
 		}
-		total = float64(len(it.StatTypes))
+	}
+	if total == 0 {
+		return float64(it.ItemLevel) * 0.5 // nothing but resistances: no stat the build weighs
 	}
 	return float64(it.ItemLevel) * (0.5 + 0.5*sum/total)
 }
