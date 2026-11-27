@@ -255,3 +255,35 @@ func TestDatasetRepublish(t *testing.T) {
 		t.Errorf("row lacks the revision date: %q", got)
 	}
 }
+
+func TestDatasetUpdateSwitchesAndNeverDowngrades(t *testing.T) {
+	rs := newRepublishServer(t) // publishes dataBuild only
+	s, _, _ := digestEnv(t, true, true)
+	s.cfg.Cache = rs.store
+	s.cfg.ForeverScribe = filepath.Join(filepath.Dir(s.cfg.ForeverScribe), "ForeverScribe.lua")
+	write(t, s.cfg.ForeverScribe, captureFor("71037"))
+	clock := time.Unix(1_000_000, 0)
+	s.cfg.Now = func() time.Time { return clock }
+	ctx := context.Background()
+
+	// Installed an older build than the game's: the matching one is downloaded and switched to.
+	old := filepath.Join(rs.store.Root, "1.59.0.1")
+	s.data.dir = old
+	if !s.checkDatasetUpdate(ctx) || s.datasetDir() != rs.store.Dir(dataBuild) {
+		t.Fatalf("did not switch: %q", s.datasetDir())
+	}
+	if want := UpdatedNotice(dataBuild); s.dataNotice() != want {
+		t.Errorf("notice %q, want %q", s.dataNotice(), want)
+	}
+	if s.data.prev != old {
+		t.Errorf("previous dataset not remembered: %q", s.data.prev)
+	}
+
+	// A game on an older build than the dataset in use never downgrades it.
+	write(t, s.cfg.ForeverScribe, captureFor("71000"))
+	clock = clock.Add(25 * time.Hour)
+	s.checkDatasetUpdate(ctx)
+	if s.datasetDir() != rs.store.Dir(dataBuild) {
+		t.Errorf("downgraded to %q", s.datasetDir())
+	}
+}

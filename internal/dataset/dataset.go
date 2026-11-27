@@ -438,3 +438,75 @@ func (s Store) CachedManifest(build string) (Manifest, error) {
 	}
 	return parseManifest(data)
 }
+
+// SyncResult is what Sync did for one game build.
+type SyncResult struct {
+	Build   string // full build now preferred for the game (the one checked or downloaded)
+	Updated bool   // the cache gained or replaced Build by this call
+	Missing bool   // no dataset is published for the game's build; Build is the newest older one ("" if none)
+}
+
+// Sync is the update rule. game is the client build ("71139" or a full build). A published
+// dataset for the game's build is downloaded and verified when the cache lacks it (or replaced
+// when republished). When none is published, the newest published dataset whose build is not
+// newer than the game's is used instead and Missing is set. It only ever adds or replaces cache
+// directories: older builds stay for a go-back, and the caller decides whether to switch.
+func (s Store) Sync(ctx context.Context, game string) (SyncResult, error) {
+	if game == "" {
+		b, up, err := s.Refresh(ctx, "")
+		return SyncResult{Build: b, Updated: up}, err
+	}
+	if !buildRE.MatchString(game) {
+		return SyncResult{}, fmt.Errorf("invalid build %q", game)
+	}
+	target, err := s.resolve(ctx, game)
+	missing := false
+	if err != nil {
+		if strings.Count(game, ".") >= 3 || !strings.HasPrefix(err.Error(), "no published dataset") {
+			return SyncResult{}, err
+		}
+		if target, err = s.newestAtMost(ctx, game); err != nil {
+			return SyncResult{}, err
+		}
+		missing = true
+	}
+	if target == "" {
+		return SyncResult{Missing: true}, nil
+	}
+	if good, _ := s.Cached(); !contains(good, target) {
+		if err := s.download(ctx, target); err != nil {
+			return SyncResult{Build: target, Missing: missing}, err
+		}
+		return SyncResult{Build: target, Updated: true, Missing: missing}, nil
+	}
+	b, up, err := s.Refresh(ctx, target)
+	return SyncResult{Build: b, Updated: up, Missing: missing}, err
+}
+
+// newestAtMost is the newest published dataset whose client number is at most game's, or "".
+func (s Store) newestAtMost(ctx context.Context, game string) (string, error) {
+	body, err := s.get(ctx, s.api()+"?per_page=100", maxManifest)
+	if err != nil {
+		return "", err
+	}
+	var rs []release
+	if err := json.Unmarshal(body, &rs); err != nil {
+		return "", fmt.Errorf("release list: %w", err)
+	}
+	limit, _ := strconv.Atoi(game[strings.LastIndex(game, ".")+1:])
+	best := ""
+	for _, r := range rs {
+		b, err := tagBuild(r.Tag)
+		if err != nil {
+			continue
+		}
+		n, _ := strconv.Atoi(b[strings.LastIndex(b, ".")+1:])
+		if n <= limit && (best == "" || buildLess(best, b)) {
+			best = b
+		}
+	}
+	return best, nil
+}
+
+// BuildNewer reports whether build a is strictly newer than b ("" is oldest).
+func BuildNewer(a, b string) bool { return a != "" && (b == "" || buildLess(b, a)) }

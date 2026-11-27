@@ -25,7 +25,7 @@ WoWCompanionDigest = {
         { id = "notes", lines = {
           { text = "1 failed quest: abandon", kind = "note", asks = { "Should I abandon my failed quests?" }, ref = "note:failed-quests" },
           { text = "Bank not captured: open your bank once", kind = "note", asks = { "Why does my bank need opening?" }, ref = "note:bank" },
-          { text = "Dataset is build 1.59.0.63000, game is 64000", kind = "note", asks = { "What does the dataset mismatch mean?" }, ref = "note:dataset-build" },
+          { text = "No data for game build 64000 yet: using 63000", kind = "note", asks = { "Why is there no data for my game build yet?" }, ref = "note:dataset-build" },
         } },
       },
       dungeons = {

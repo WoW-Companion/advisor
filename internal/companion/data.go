@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"net/http"
+	"path/filepath"
 	"regexp"
 	"sync"
 	"time"
@@ -27,10 +28,16 @@ type dataState struct {
 	busy   bool
 	last   time.Time // when the last republish check ran
 	notice string    // shown dim once an update has installed
+	prev   string    // the dataset directory in use before the last switch, kept for a go-back
 }
 
 // DataNotice is the dim line shown after a dataset update installs.
 const DataNotice = "Game data updated (talent builds and more)"
+
+// UpdatedNotice is the update notice after the dataset switches to a build matching the game.
+func UpdatedNotice(build string) string {
+	return "Updated: data " + build + " (matches your game)"
+}
 
 // updateEvery is the least time between two checks for a republished dataset.
 const updateEvery = 24 * time.Hour
@@ -167,18 +174,41 @@ func (s *Server) checkDatasetUpdate(ctx context.Context) bool {
 	s.data.busy, s.data.last = true, s.now()
 	s.data.mu.Unlock()
 
-	var updated bool
+	var res dataset.SyncResult
 	store, err := s.cacheStore()
-	var build string
+	client := server.CaptureClient(s.cfg.ForeverScribe)
 	if err == nil {
 		cctx, cancel := context.WithTimeout(ctx, downloadTimeout)
-		build, updated, err = store.Refresh(cctx, server.CaptureClient(s.cfg.ForeverScribe).Build)
+		res, err = store.Sync(cctx, client.Build)
 		cancel()
 	}
+	updated := false
 	s.data.mu.Lock()
 	s.data.busy = false
-	if updated {
-		s.data.dir, s.data.notice = store.Dir(build), DataNotice
+	if err == nil && res.Build != "" {
+		cur := ""
+		if s.data.dir != "" {
+			cur = filepath.Base(s.data.dir)
+		}
+		switch {
+		case cur != "" && dataset.BuildNewer(res.Build, cur):
+			updated = true // a newer build: switch
+		case res.Build == cur && res.Updated:
+			updated = true // the current build was republished
+		case cur == "" && res.Updated:
+			updated = true
+		}
+		if updated {
+			if s.data.dir != "" && cur != res.Build {
+				s.data.prev = s.data.dir
+			}
+			s.data.dir = store.Dir(res.Build)
+			s.data.notice = DataNotice
+			if !res.Missing && res.Build != cur && client.Build != "" {
+				s.data.notice = UpdatedNotice(res.Build)
+			}
+		}
+		// Never downgrade: a build older than the one in use is left in the cache only.
 	}
 	s.data.mu.Unlock()
 	if err != nil {
