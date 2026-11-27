@@ -6,7 +6,7 @@ const win = window.__TAURI__.window.getCurrentWindow();
 
 const $ = id => document.getElementById(id);
 const log = $('log'), who = $('who'), badge = $('badge'), text = $('text'), send = $('send');
-const DEFAULTS = { schema: 1, opacity: 92, solidHover: false, mode: 'overlay', keyVis: 'Ctrl+Shift+W', keyCt: 'Ctrl+Shift+T', nextOpen: null, settingsOpen: false, chatOpen: true, size: 'M', checkUpdates: true, updateNow: false, autoUpdate: false, skipped: [], later: {}, cleared: [], who: '', setupSeen: false, setupHidden: [], gameDir: '', length: 'standard', byClient: {}, usage: true, follow: true, pinned: '', groups: { ai: true }, quickBar: true, dismissedSugg: {}, notesSeen: { app: '', addon: '' }, notesSeedFixed: false };
+const DEFAULTS = { schema: 1, opacity: 92, solidHover: false, mode: 'overlay', keyVis: 'Ctrl+Shift+W', keyCt: 'Ctrl+Shift+T', nextOpen: null, settingsOpen: false, chatOpen: true, size: 'M', checkUpdates: true, updateNow: false, autoUpdate: false, skipped: [], later: {}, cleared: [], who: '', setupSeen: false, setupHidden: [], gameDir: '', length: 'standard', density: 'compact', byClient: {}, usage: true, follow: true, pinned: '', groups: { ai: true }, quickBar: true, dismissedSugg: {}, notesSeen: { app: '', addon: '' }, notesSeedFixed: false };
 // nextOpen null means automatic: open until the chat has a message, then collapsed. A click makes it a choice.
 const cfg = { ...DEFAULTS, ...JSON.parse(localStorage.getItem('wowc') || '{}') };
 cfg.settingsOpen = false; // the settings open from the gear for this session only; a launch starts calm
@@ -335,7 +335,7 @@ function fill(sel, items, value, note, none) {
 }
 function showAnswerSettings() {
   const { c, ch } = clientChoice();
-  $('length').value = cfg.length; $('usage').checked = cfg.usage !== false;
+  $('length').value = cfg.length; $('density').value = WowcMd.norm(cfg.density); $('usage').checked = cfg.usage !== false;
   fill($('model'), ch.models.map(m => [m.tier, m.label]), c.model, ch.model_note || '', 'Own model');
   fill($('reasoning'), ch.reasoning.map(r => [r, r[0].toUpperCase() + r.slice(1)]), c.reasoning, ch.reasoning_note || '', 'Own default');
   $('model-custom').value = c.custom;
@@ -349,6 +349,7 @@ async function pushSettings() {
   const { c } = clientChoice();
   try { await api('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ length: cfg.length, model: c.model, custom_model: c.custom, reasoning: c.reasoning, usage: cfg.usage !== false }) }); } catch (e) { /* the next state load pushes again */ }
 }
+$('density').onchange = ev => { cfg.density = WowcMd.norm(ev.target.value); save(); WowcMd.applyDensity(log, cfg.density); };
 $('length').onchange = ev => { cfg.length = ev.target.value; save(); pushSettings(); };
 $('model').onchange = ev => { setClientChoice({ model: ev.target.value }); if (ev.target.value === 'custom') $('model-custom').focus(); };
 $('reasoning').onchange = ev => setClientChoice({ reasoning: ev.target.value });
@@ -567,9 +568,21 @@ function bubble(id, cls) {
   el.className = 'msg ' + cls;
   return el;
 }
-function put(id, cls, body, note) {
+// setAnswer paints an answer as Markdown, keeping the source for "Copy answer".
+function setAnswer(el, src) {
+  el.wowcSrc = src;
+  el.replaceChildren(WowcMd.render(document, src, { density: cfg.density, onOpen: url => invoke('open_install_page', { url }).catch(e => notice(String(e))) }));
+}
+function copyButton(el) {
+  const b = document.createElement('button');
+  b.type = 'button'; b.className = 'icy-btn copy-answer'; b.textContent = 'Copy answer';
+  b.onclick = async () => { try { await copyText(el.wowcSrc || ''); b.textContent = 'Copied ✓'; } catch (e) { b.textContent = 'Could not copy'; } };
+  return b;
+}
+// md: false for plain text, 'live' for an answer still streaming, 'final' for a finished one.
+function put(id, cls, body, note, md) {
   const el = bubble(id, cls);
-  el.textContent = body;
+  if (md) { setAnswer(el, body); if (md === 'final') el.appendChild(copyButton(el)); } else { el.wowcSrc = undefined; el.textContent = body; }
   if (note) { const s = document.createElement('small'); s.textContent = note; el.appendChild(s); }
   scrollDown();
   showPanes();
@@ -584,7 +597,7 @@ function restoreChat() {
   const turns = chats.load(who.value);
   for (const t of turns) {
     put('q-' + t.id, 'q', WowcAsking.shortQuestion(t.q), null);
-    put('a-' + t.id, 'a', t.a);
+    put('a-' + t.id, 'a', t.a, null, 'final');
   }
   if (turns.length) log.appendChild(WowcLaunch.gapDivider(document, turns[turns.length - 1].at, Date.now()));
   if (state) render(state.history);
@@ -597,7 +610,8 @@ function render(history) {
     if (cfg.cleared.includes('q-' + e.id) || cfg.cleared.includes('a-' + e.id)) continue;
     put('q-' + e.id, 'q', WowcAsking.shortQuestion(e.question), null);
     const body = e.status === 'waiting' ? 'Waiting for an answer…' : (e.status === 'answering' && !e.answer ? 'Answering…' : e.answer);
-    put('a-' + e.id, 'a' + (e.status === 'error' ? ' err' : e.status === 'answering' ? ' live' : ''), body, null);
+    const md = e.status === 'done' ? 'final' : (e.status === 'answering' && e.answer ? 'live' : false);
+    put('a-' + e.id, 'a' + (e.status === 'error' ? ' err' : e.status === 'answering' ? ' live' : ''), body, null, md);
   }
 }
 function toast(msg) {
@@ -639,7 +653,7 @@ function settle() { busy = false; send.disabled = false; text.focus(); reportAct
 function follow(id, a) {
   busy = true; send.disabled = true; reportActivity();
   let got = '', queued = false;
-  const paint = () => { queued = false; a.textContent = got; scrollDown(); };
+  const paint = () => { queued = false; setAnswer(a, got); scrollDown(); };
   const stop = () => { a.classList.remove('live'); settle(); };
   const es = sse('/api/stream/' + id);
   es.addEventListener('chunk', ev => { got += JSON.parse(ev.data).text; if (!queued) { queued = true; requestAnimationFrame(paint); } });
@@ -647,7 +661,7 @@ function follow(id, a) {
     const e = JSON.parse(ev.data);
     es.close();
     if (e.status === 'needs' && e.needs) { showNeeds(a, e.needs); stop(); return; }
-    a.textContent = e.answer;
+    if (e.status === 'done') { setAnswer(a, e.answer); if (e.answer) a.appendChild(copyButton(a)); } else a.textContent = e.answer;
     if (e.status === 'done' && a.wowc && e.answer) chats.add(a.wowc.char, { id: 't' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), q: a.wowc.q, a: e.answer, at: Math.floor(Date.now() / 1000) });
     if (e.status === 'error') a.classList.add('err');
     for (const t of [e.usage, e.notice]) if (t) { const s = document.createElement('small'); s.textContent = t; if (t === e.usage && e.usage_tip) s.title = e.usage_tip; a.appendChild(s); }
