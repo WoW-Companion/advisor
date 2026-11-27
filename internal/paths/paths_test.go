@@ -265,7 +265,7 @@ func TestAuctionHouseOnlyForTradeableAndNeverVendorPrice(t *testing.T) {
 	if got := r.Paths[0].Line; strings.Contains(got, "about") || strings.Contains(got, "99") {
 		t.Errorf("vendor price shown: %q", got)
 	}
-	if Tradeable(1, 3) || Tradeable(0, 0) || !Tradeable(2, 1) {
+	if Tradeable(1, 3) || Tradeable(4, 1) || Tradeable(5, 1) || !Tradeable(0, 0) || !Tradeable(2, 1) {
 		t.Error("Tradeable")
 	}
 }

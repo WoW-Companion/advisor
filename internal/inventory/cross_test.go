@@ -116,12 +116,12 @@ func TestReviewAll(t *testing.T) {
 	}
 }
 
-func TestQuestItemMailedToQuestHolder(t *testing.T) {
+func TestQuestItemNeverMailedToQuestHolder(t *testing.T) {
 	cs := chars()
 	cs[1].Quests = []character.Quest{{QuestID: 9, Title: "Pelts", Objectives: []character.Objective{{Text: "Wolf Pelt: 0/3", Type: "item", Done: bp(false)}}}}
 	r := ReviewAll(cs, crossDS(t))
-	// Taila's own quest keeps no stack of hers, but Smithy's pelts go to her
-	if l := find(r.Lines, "Smithy", "Wolf Pelt"); l.Action != Mail || l.To != "Taila" {
+	// a quest item is bound to its looter: Smithy's pelts cannot go to Taila, who must get her own
+	if l := find(r.Lines, "Smithy", "Wolf Pelt"); l.Action != Toss || l.To != "" || !strings.Contains(l.Reason, "cannot be mailed") {
 		t.Errorf("pelt = %+v", l)
 	}
 }

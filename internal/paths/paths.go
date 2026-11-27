@@ -210,10 +210,8 @@ func kindHas(kind string, subs ...string) bool {
 }
 
 // Tradeable reports whether an item can be sold between players: not bound on pickup (1) or a quest
-// item (4, 5), and common quality or better.
-func Tradeable(bonding, quality int) bool {
-	return bonding != 1 && bonding != 4 && bonding != 5 && quality >= 1
-}
+// item (4, 5). Its quality does not matter: a grey item can be traded, mailed and auctioned too.
+func Tradeable(bonding, _ int) bool { return gear.Tradeable(int64(bonding)) }
 
 // creature is one creature that carries the item.
 type creature struct {
