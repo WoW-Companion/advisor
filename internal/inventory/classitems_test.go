@@ -14,13 +14,14 @@ func classItemStore(t *testing.T) store.DataStore {
 		"items": table(t, []itemRow{
 			{ID: 20, Name: "Maple Seed", Quality: 1, ClassID: 15, SubclassID: 1, ClassMask: -1, StatsStatus: "known"},
 			totem,
+			{ID: 24, Name: "Boar Ribs", Quality: 1, ClassID: 7, SubclassID: 8, ClassMask: -1, StatsStatus: "known"},
 		}),
 	})
 }
 
 func bagsOf(class string, level int, ids ...int64) character.Character {
 	c := character.Character{Name: "A", Class: class, Level: &level, BagsCaptured: true, BankCaptured: true}
-	names := map[int64]string{20: "Maple Seed", 21: "Totem of Rain", 22: "Soul Shard", 23: "Major Healthstone"}
+	names := map[int64]string{20: "Maple Seed", 21: "Totem of Rain", 22: "Soul Shard", 23: "Major Healthstone", 24: "Boar Ribs"}
 	for _, id := range ids {
 		c.Bags = append(c.Bags, character.ItemStack{ItemID: int(id), Count: 3, Name: names[id]})
 	}
@@ -88,5 +89,24 @@ func TestRelicKeptByItsClass(t *testing.T) {
 	worn.Equipment = map[string]character.EquippedItem{"ranged": {ItemID: &id}}
 	if g, _ := groupOf(Review(worn, ds), "Totem of Rain"); g != Keep {
 		t.Errorf("a totem beside a worn totem is %s, want keep", g)
+	}
+}
+
+func TestPetFoodKeptByHunter(t *testing.T) {
+	ds := classItemStore(t)
+	if g, why := groupOf(Review(bagsOf("HUNTER", 20, 24), ds), "Boar Ribs"); g != Keep || !strings.Contains(why, "pet food (Meat)") {
+		t.Errorf("a hunter's Boar Ribs: %s (%s), want keep as pet food", g, why)
+	}
+	if g, _ := groupOf(Review(bagsOf("MAGE", 20, 24), ds), "Boar Ribs"); g == Keep {
+		t.Errorf("a mage's Boar Ribs are kept as pet food")
+	}
+	hunter := func() character.Character { c := bagsOf("HUNTER", 20); c.Name = "Hunt"; return c }()
+	res := ReviewAll([]character.Character{bagsOf("MAGE", 20, 24), hunter}, ds)
+	if len(res.Lines) != 1 || res.Lines[0].Action != Mail || res.Lines[0].To != "Hunt" {
+		t.Errorf("a mage's Boar Ribs with a hunter alt: %+v, want mail to Hunt", res.Lines)
+	}
+	res = ReviewAll([]character.Character{bagsOf("HUNTER", 20, 24), bagsOf("MAGE", 20)}, ds)
+	if len(res.Lines) != 1 || res.Lines[0].Action != Keep_ {
+		t.Errorf("a hunter's Boar Ribs with a mage alt: %+v, want keep", res.Lines)
 	}
 }

@@ -98,6 +98,8 @@ var limitTopics = []struct {
 		"Group roles and threat: the game data holds no tank, healer or damage count for any dungeon or raid (instances has a group size and a level range only), no role flag on a spec, and no threat, aggro or taunt value. Say so; give no group composition or threat figure from memory. The advisor's own tables hold which talent trees fit a tank, a healer or a damage dealer and which stats each role weighs; use those for a spec or role question."},
 	{reagentAsk,
 		"Class reagents, soul shards, totems and rituals: the game data holds no spell reagent table (recipe_reagents lists profession recipes only), no soul shard rule (how many a spell uses, how they are gained, kept or limited), no Soulstone or Healthstone size, duration or cooldown, and no totem or ritual row (class_spells has a spell's name, rank and level, and no effect, duration, range, cost, reagent, cooldown or number of players a ritual needs). Say so; give no reagent, shard count, totem effect or ritual rule from memory. What the data does hold is a spell's name, rank and level, and a reagent or stone item's binding and vendor price."},
+	{petAsk,
+		"Hunter pets, diet, abilities and taming: the game data holds no pet diet or food type (no item row says what a pet eats), no beast family table (npcs has a creature type and a numeric family id, with no family name, no tameable or exotic flag and no pet level range), no pet ability or pet skill row and no rank or training cost for one (class_spells holds a class's own spells; the Growl, Claw, Cower, Dash and Prowl rows in it are the druid's, not a pet's), and no pet loyalty, happiness, talent point or stable slot rule. Say so; name no food, family, tameable beast, pet ability, rank or training cost from memory. What the data does hold is the level a hunter learns Tame Beast, Call Pet, Dismiss Pet, Feed Pet, Revive Pet, Mend Pet's ranks, Beast Lore and Eyes of the Beast at, and a food item's level, binding and vendor price."},
 	{classQuestAsk,
 		"Class quest chains: the game data holds no class quest line and no prerequisite, follow-up or class restriction for any quest (its three quest lines are none of them a class's), and no quest reward; players' reports name only a few class quests, by title, level and faction. Say so; name no class quest, its order, its giver or its reward from memory. The class quests the player's own Questie holds are the ones in the Next list; name none besides."},
 	{achievementAsk,
@@ -116,6 +118,22 @@ const classReagentNames = `soul shards?|infernal stones?|demonic figurines?|(?:m
 // reagentAsk is a question about a class's spell reagents or soul shards (what a spell uses up, how many, how to get them), a totem's effect, range, duration or cooldown,
 // or the rules of a summoning ritual. A question that only names a totem to equip, or asks where to buy a reagent, is none.
 var reagentAsk = regexp.MustCompile(`(?i)\bsoul shards?\b|\b(?:class |spell )?reagents?\b.{0,60}\b(?:needs?|needed|requires?|required|uses?|used|cast\w*|spells?|how many|count|cost|per|last|consume\w*|run out|rank)\b|\b(?:spells?|rebirth|gift of the wild|portals?|teleport\w*|vanish|levitate|inferno|divine intervention|reincarnation|ritual of \w+)\b.{0,50}\b(?:reagents?|` + classReagentNames + `)\b|\b(?:` + classReagentNames + `)\b.{0,40}\b(?:needs?|needed|requires?|used for|uses?|how many|count|per cast|consume\w*|run out|carry|for (?:rebirth|reincarnation|vanish|levitate|inferno|ritual|portals?|teleport\w*))\b|\b(?:totems?|totem spells?)\b.{0,50}\b(?:effects?|range|radius|duration|lasts?|cooldown|mana cost|how long|how many|stack\w*|ticks?|bonus|buffs?|mp5|per second|work|works|does|do)\b|\b(?:effects?|range|radius|duration|cooldown|how long|how many|stack\w*|what does)\b.{0,40}\b(?:\w+ totem|totems?)\b|\b(?:ritual of (?:summoning|doom|souls)|summoning (?:ritual|stone)|meeting stones?|portal of summoning|soulwell)\b.{0,60}\b(?:needs?|requires?|how many|people|players|clickers?|work|works|cost|reagents?|shards?|cooldown|range|duration|how|what)\b|\b(?:how many|how|what|needs?|requires?)\b.{0,50}\b(?:ritual of (?:summoning|doom|souls)|summoning (?:ritual|stone)|portal of summoning)\b`)
+
+// petSpells are the hunter's pet spells, which the data holds the level of: a question on one of them is no question on a pet's diet or abilities.
+var petSpells = regexp.MustCompile(`(?i)\b(call|dismiss|feed|revive|mend|improved mend) pet\b|\bbeast lore\b|\beyes of the beast\b`)
+
+// petAbility names the abilities a hunter's pet learns, which are no spell of the hunter's list.
+const petAbility = `growl|bite|claw|cower|screech|dash|dive|prowl|furious howl|lightning breath|thunderstomp|scorpid poison|shell shield|great stamina|natural armor|avoidance|cobra reflexes|warp|charge|gore|arcane resistance|fire resistance|frost resistance|nature resistance|shadow resistance`
+
+// petFamily names the beasts a hunter tames, singular and plural.
+const petFamily = `wolf|wolves|cats?|boars?|bears?|owls?|raptors?|hyenas?|crabs?|gorillas?|crocolisks?|scorpids?|turtles?|bats?|spiders?|vultures?|carrion birds?|striders?|tallstriders?|serpents?|wind serpents?`
+
+// petAsk is a question about a hunter's pet: what it eats, its abilities, skills and training, its loyalty and happiness, which beasts can be tamed and how, the stable.
+// A companion pet, a warlock's minion and the hunter's own pet spells are no such question.
+var petAsk = regexp.MustCompile(`(?i)\b(tame|tames|taming|tamed|tameable|tamable)\b|\bbeast training\b|\bdiets?\b|\bexotic\b|\bstable slots?\b|\b(more than one|second|another|two|multiple) pets?\b|\bpets?\b.{0,50}\b(eat|eats|eating|ate|food|foods|feed|feeding|fed|happ(?:y|iness)|loyal\w*|abilit(?:y|ies)|skills?|train\w*|learn\w*|talents?|focus|famil(?:y|ies)|stable|stables|best|` + petAbility + `)\b|\b(food|foods|eat|eats|feed|feeding|abilit(?:y|ies)|skills?|train\w*|famil(?:y|ies)|best|stable|stables|happ(?:y|iness)|loyal\w*)\b.{0,40}\b(?:hunter'?s? )?pets?\b|\b(?:` + petAbility + `)\b.{0,40}\b(?:pets?|hunters?|` + petFamily + `)\b|\b(?:what|which)\b.{0,25}\b(?:does|do|will|can)\b.{0,15}\b(?:my |the |a )?(?:` + petFamily + `)\b.{0,15}\b(?:eat|eats)\b|\b(?:food|foods)\b.{0,25}\b(?:` + petFamily + `)\b`)
+
+// petCompanion is a question about a companion or vanity pet, or a warlock's minion, which the pet line does not answer.
+var petCompanion = regexp.MustCompile(`(?i)\b(companion|vanity|non-?combat|critter|battle) pets?\b|\bpet (journal|battles?|collection|species)\b|\b(imp|voidwalker|succubus|incubus|felhunter|felguard|infernal|doomguard|warlocks?)\b`)
 
 // classQuestAsk is a question about a class's quests or quest chain: the class-only quests that teach a spell, a pet, a totem or a mount.
 var classQuestAsk = regexp.MustCompile(`(?i)\bclass[- ]quests?\b|\bclass quest ?(chains?|lines?)\b|\b(warrior|paladin|hunter|rogue|priest|shaman|mage|warlock|druid)s?(?:'s)? (?:\w+ ){0,2}(?:quest ?chains?|quest ?lines?|quests?)\b|\b(quest ?chains?|quest ?lines?|quests?)\b.{0,25}\b(for|of|as) (?:a |an |the )?(warrior|paladin|hunter|rogue|priest|shaman|mage|warlock|druid)s?\b`)
@@ -180,12 +198,19 @@ var mailArmor = regexp.MustCompile(`(?i)\bmail (armou?r|gear|helms?|chest|pieces
 var rainOfFire = regexp.MustCompile(`(?i)\brain of fire\b`)
 
 // LimitFacts says what the game data does not hold about bags, banks, stacks, unique items, mail, the Auction House, gold making and gold fees, the trade window,
-// holiday events, weather and time of day, zone levels, boss abilities, raid lockouts, dungeon difficulty, group roles and threat, battlegrounds, honor ranks, travel times, riding and mounts, class trainer prices, racial traits, capital city services, faction leaders, class reagents, soul shards, totems and summoning rituals and macros, for a question that asks about one. "" for any other question.
+// holiday events, weather and time of day, zone levels, a hunter's pet diet, abilities and taming, boss abilities, raid lockouts, dungeon difficulty, group roles and threat, battlegrounds, honor ranks, travel times, riding and mounts, class trainer prices, racial traits, capital city services, faction leaders, class reagents, soul shards, totems and summoning rituals and macros, for a question that asks about one. "" for any other question.
 func LimitFacts(text string) string {
 	text = mailArmor.ReplaceAllStringFunc(rainOfFire.ReplaceAllString(valleyOfHonor.ReplaceAllString(text, " "), " "), func(m string) string { return strings.ReplaceAll(m, "mail", "chainarmor") })
 	var out []string
 	for _, tp := range limitTopics {
-		if tp.about.MatchString(text) {
+		q := text
+		if tp.about == petAsk {
+			if petCompanion.MatchString(text) {
+				continue
+			}
+			q = petSpells.ReplaceAllString(text, " ")
+		}
+		if tp.about.MatchString(q) {
 			out = append(out, tp.fact)
 		}
 	}
