@@ -79,7 +79,7 @@ var gsSkinCases = []struct {
 	dataset    string // the figure the dataset's rule text states for the level
 	gameNeeded int
 }{
-	{11, "10 for level 11", 10}, {15, "level 15 needs 50", 50}, {19, "level 19 needs 90", 90}, {30, "level 30 creature needs 150", 150}, {45, "", 225},
+	{11, "10 for level 11", 10}, {15, "level 15 needs 50", 50}, {19, "level 19 needs 90", 90}, {30, "level 30 creature needs 150", 150}, {45, "five times the creature's level", 225},
 }
 
 // TestOfflineBenchmarkGatherFactsSkinning: the skill a creature of a level needs is the dataset's rule worked out for the level, never
