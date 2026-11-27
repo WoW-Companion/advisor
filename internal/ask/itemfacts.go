@@ -85,6 +85,14 @@ var limitTopics = []struct {
 		"Holiday and world events: the game data holds no event table: no event dates or calendar, no event vendor, reward, currency or item source (an event item's row names no event), and no Darkmoon Faire row. Say so; give no date, vendor, price or reward from memory. State when an event runs only from the 'Running today' lines or the seasonal_events tool; the advisor's own table gives the usual windows of its holiday events, which the game moves by a few days some years."},
 	{weatherAsk,
 		"Weather and time of day: the game data holds no weather, no day and night cycle or in-game clock, no night-only or day-only spawn and no spawn or respawn timer. Say so; give no weather, hour or spawn time from memory. The only time the advisor knows is the date of the capture, which decides which holiday event runs."},
+	{encounterAsk,
+		"Boss abilities and strategy: the game data holds no boss ability, spell, phase, enrage timer, health or resistance for any boss (instance_bosses has a name, an order and a mode, and no boss is linked to a creature), and no encounter strategy or interrupt list. Say so; name no ability, phase, timer or tactic from memory. What it does hold is a dungeon's or raid's bosses in order and its group size and level range."},
+	{lockoutAsk,
+		"Raid lockouts and resets: the game data holds no lockout, reset day or period, saved-instance or raid ID rule, and no limit on instances entered per hour. Say so; give no reset day, length or entry limit from memory. What it does hold is a raid's group size, level and entrance."},
+	{difficultyAsk,
+		"Dungeon difficulty and modes: the game data holds no difficulty rating, heroic or hard mode, and no gear or level recommendation beyond a dungeon's minimum and maximum level; an extra mode of a map in it is an alternate set of encounters with an id, not a named difficulty. Say so; call no dungeon heroic, easy or hard from memory. What it does hold is a dungeon's level range and group size."},
+	{rolesAsk,
+		"Group roles and threat: the game data holds no tank, healer or damage count for any dungeon or raid (instances has a group size and a level range only), no role flag on a spec, and no threat, aggro or taunt value. Say so; give no group composition or threat figure from memory. The advisor's own tables hold which talent trees fit a tank, a healer or a damage dealer and which stats each role weighs; use those for a spec or role question."},
 	{regexp.MustCompile(`(?i)\bmacros?\b|/cast\b|/use\b|/castsequence\b`),
 		"Macros: the game data holds no macro commands or macro text and the advisor has no macro advice. Say so; do not write a macro and present it as from the game data."},
 }
@@ -97,6 +105,27 @@ var goldFees = regexp.MustCompile(`(?i)\bgold cap\b|\b(max|maximum|most|limit)\b
 
 // holidayAsk is a question about a holiday or world event: one the advisor lists by name, a Darkmoon Faire, or "holiday" or "world event" words.
 var holidayAsk = regexp.MustCompile(`(?i)\b(holidays?|world events?|seasonal events?|darkmoon faire|midsummer|fire festival|hallow'?s end|winter'?s? veil|lunar festival|love is in the air|noblegarden|children'?s week|harvest festival|brewfest)\b`)
+
+// bossNames are the encounters a player names without the word boss: the bosses of the Classic raids and the last bosses of its dungeons.
+const bossNames = `ragnaros|onyxia|nefarian|hakkar|kel'?thuzad|c'?thun|majordomo(?: executus)?|razorgore|vaelastrasz|broodlord(?: lashlayer)?|chromaggus|firemaw|ebonroc|flamegor|lucifron|magmadar|gehennas|garr|baron geddon|shazzrah|sulfuron(?: harbinger)?|golemagg|ossirian|kurinnaxx|rajaxx|moam|buru|ayamiss|anub'?rekhan|faerlina|maexxna|patchwerk|grobbulus|gluth|thaddius|heigan|loatheb|razuvious|gothik|sapphiron|jeklik|venoxis|mandokir|gri'?lek|hazza'?rah|renataki|wushoolay|thekal|arlokk|jin'?do|edwin vancleef|vancleef|arugal|rivendare|ras frostwhisper|rend blackhand|wyrmthalan|dagran thaurissan|emperor thaurissan|mekgineer thermaplugg|aku'?mai|ukorz sandscalp|amnennar|whitemane|hearthsinger forresten|morphaz|princess theradras|chief ukorz`
+
+// instanceNames are the dungeons and raids a player names in a question about their difficulty or reset.
+const instanceNames = `ragefire chasm|wailing caverns|deadmines|shadowfang keep|blackfathom deeps|stockade|gnomeregan|razorfen kraul|razorfen downs|scarlet monastery|uldaman|zul'?farrak|maraudon|sunken temple|temple of atal'?hakkar|blackrock depths|brd|blackrock spire|lbrs|ubrs|dire maul|scholomance|stratholme|strat|molten core|mc|onyxia'?s lair|blackwing lair|bwl|zul'?gurub|zg|ruins of ahn'?qiraj|aq20|ahn'?qiraj temple|aq40|naxxramas|naxx`
+
+var (
+	bossWord = `\b(boss(?:es)?|encounters?|` + bossNames + `)\b`
+	// encounterAsk is a question about a boss's abilities, phases, health or the way to beat it.
+	encounterAsk = regexp.MustCompile(`(?i)` + bossWord + `.{0,80}\b(abilit(?:y|ies)|phases?|enrages?|mechanics?|strateg(?:y|ies)|tactics?|interrupt\w*|spells?|casts?|resist\w*|immune|immunit\w*|hit points|health|hp|stun\w*|fear\w*|debuffs?|adds)\b|\b(abilit(?:y|ies)|phases?|enrages?|mechanics?|strateg(?:y|ies)|tactics?|interrupt\w*|spells?|casts?|resist\w*|immune|hit points|health|hp)\b.{0,80}` + bossWord + `|\bhow (?:do|can|should|would|to)\b.{0,12}\b(?:beat|kill|defeat|handle|survive|fight|solo|tank|pull)\b.{0,50}` + bossWord)
+
+	// lockoutAsk is a question about a raid's or dungeon's lockout, reset or the limit on entering instances.
+	lockoutAsk = regexp.MustCompile(`(?i)\blockouts?\b|\block(?:ed)? out\b|\braid ids?\b|\bsaved (?:to|raids?|instances?|dungeons?)\b|\binstances?\b.{0,30}\b(?:per|an|each|every) hour\b|\b(?:per|an|each|every) hour\b.{0,30}\binstances?\b|\b(?:raids?|instances?|dungeons?|` + instanceNames + `)\b.{0,40}\bresets?\b|\bresets?\b.{0,40}\b(?:raids?|instances?|dungeons?|` + instanceNames + `)\b`)
+
+	// difficultyAsk is a question about a dungeon's or raid's difficulty or mode.
+	difficultyAsk = regexp.MustCompile(`(?i)\bheroics?\b|\bmythics?\b|\bhard ?modes?\b|\bnormal (?:mode|difficulty)\b|\bdifficulty (?:levels?|settings?|ratings?)\b|\b(?:dungeons?|raids?|instances?|boss(?:es)?|` + instanceNames + `|` + bossNames + `)\b.{0,40}\b(?:difficult\w*|how hard|too hard|hard enough|how easy|easy enough)\b|\b(?:difficult\w*|how hard|too hard|hard enough|how easy|easy enough)\b.{0,40}\b(?:dungeons?|raids?|instances?|boss(?:es)?|` + instanceNames + `|` + bossNames + `)\b`)
+
+	// rolesAsk is a question about the tanks, healers or damage dealers a group needs, or about threat.
+	rolesAsk = regexp.MustCompile(`(?i)\b(?:how many|number of|ratio of|enough|composition|comp|setup)\b.{0,50}\b(?:tanks?|healers?|dps|damage dealers?)\b|\b(?:tanks?|healers?|dps|damage dealers?)\b.{0,50}\b(?:how many|number of|composition|ratio|enough)\b|\b(?:need|needs|needed|require\w*|bring)\b.{0,30}\b(?:tanks?|healers?|dps|damage dealers?)\b.{0,40}\b(?:dungeons?|raids?|instances?|groups?|part(?:y|ies)|` + instanceNames + `)\b|\b(?:group|party|raid) (?:composition|comp|setup|makeup|roles?)\b|\b(?:threat|aggro)\b.{0,40}\b(?:how much|numbers?|table|per second|tps|multipliers?|modifiers?|generat\w*|cap|limit|\d)`)
+)
 
 // weatherAsk is a question about weather or the time of day in the game world.
 var weatherAsk = regexp.MustCompile(`(?i)\b(weather|rain|raining|snowing|foggy|day[ /-]?(and )?night|night ?time|day ?time|sunrise|sunsets?|time of day|(at|during|in) the (night|day)|(only|spawns?|appears?|comes? out) (at|during) (night|day))\b`)
@@ -116,7 +145,7 @@ var valleyOfHonor = regexp.MustCompile(`(?i)\bvalley of honou?r\b`)
 var rainOfFire = regexp.MustCompile(`(?i)\brain of fire\b`)
 
 // LimitFacts says what the game data does not hold about bags, banks, stacks, unique items, mail, the Auction House, gold making and gold fees, the trade window,
-// holiday events, weather and time of day, zone levels, battlegrounds, honor ranks, travel times, riding and mounts, class trainer prices, racial traits, capital city services, faction leaders and macros, for a question that asks about one. "" for any other question.
+// holiday events, weather and time of day, zone levels, boss abilities, raid lockouts, dungeon difficulty, group roles and threat, battlegrounds, honor ranks, travel times, riding and mounts, class trainer prices, racial traits, capital city services, faction leaders and macros, for a question that asks about one. "" for any other question.
 func LimitFacts(text string) string {
 	text = rainOfFire.ReplaceAllString(valleyOfHonor.ReplaceAllString(text, " "), " ")
 	var out []string

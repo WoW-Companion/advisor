@@ -82,6 +82,15 @@ func TestOrderSpecsFollowsTheRole(t *testing.T) {
 	}
 }
 
+func TestOrderSpecsKeepsFeralForDamage(t *testing.T) {
+	specs := []string{"Restoration", "Feral Combat", "Balance"}
+	for role, want := range map[string]string{"tank": "Feral Combat Restoration Balance", "damage": "Feral Combat Balance Restoration", "healer": "Restoration Feral Combat Balance"} {
+		if got := strings.Join(OrderSpecs(specs, role), " "); got != want {
+			t.Errorf("%s: %q, want %q", role, got, want)
+		}
+	}
+}
+
 func TestRefExpandsTheSubjectAndExactAsksGetIt(t *testing.T) {
 	cfg := Config{SavedVariables: syntheticCapture}
 	key := "Testrealm:Testmage"
