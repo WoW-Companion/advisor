@@ -234,3 +234,12 @@ func TestPromptRequiresUpgradePaths(t *testing.T) {
 		t.Errorf("Sources = %v", got)
 	}
 }
+
+func TestPromptCarriesLogisticsFraming(t *testing.T) {
+	p := Prompt(Question{Character: "A-B", Text: "Q"})
+	for _, want := range []string{"gameplay logistics planner", "one route of stops and legs", "Think in routes and errands", "while you're here"} {
+		if !strings.Contains(p, want) {
+			t.Errorf("prompt lacks %q", want)
+		}
+	}
+}

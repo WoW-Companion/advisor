@@ -6,6 +6,8 @@ language model; the model only explains the plan. The plan needs the player's ow
 `design/questie-interop.md`): coordinates are read at run time on the player's PC and written only to
 the player's local files. Nothing Questie-derived is stored in this repo.
 
+The plan follows the [product principles](product-principles.md): one numbered route, bundled errands.
+
 ## Where it appears
 
 - MCP tool `quest_plan` (`character` optional): the plan as JSON plus plain text.
