@@ -164,6 +164,9 @@ type Options struct {
 	// captured, so no sell-junk errand).
 	Others   []character.Character
 	BagSlots int
+	// Now is the plan's time in unix seconds, to age the hearthstone's captured wait; 0 is the capture
+	// time itself, so the wait counts as the capture gave it.
+	Now int64
 }
 
 // DungeonLevel is a dungeon's level range; Map is its instance id (0 when unknown).
@@ -206,8 +209,9 @@ type Plan struct {
 // Basis is the state a plan starts from. "Done" in a plan means done after Captured: a reader judges
 // steps against it, and never counts what was already true (a quest in InLog) as progress.
 type Basis struct {
-	Captured int64 `json:"captured,omitempty"` // capture time, unix seconds; 0 when unknown
-	InLog    []int `json:"in_log,omitempty"`   // quest ids in the log when the plan was built, sorted
+	Captured int64  `json:"captured,omitempty"` // capture time, unix seconds; 0 when unknown
+	InLog    []int  `json:"in_log,omitempty"`   // quest ids in the log when the plan was built, sorted
+	Hearth   string `json:"hearth,omitempty"`   // why the hearthstone is not on the route: a bind the advisor could not place
 }
 
 // FollowNote describes one follow-up quest on the route, for the digest's "Unlocks:" line.

@@ -200,6 +200,11 @@ type Character struct {
 	Client     Client
 	Location   *Location // nil when the capture holds none
 	Hearth     string    // the hearthstone's bind location name
+	// HearthHave, HearthReadyIn (seconds left when captured) and HearthCooldown (seconds, the full cooldown)
+	// are nil in a capture made before the addon read them; see HearthWait.
+	HearthHave     *bool
+	HearthReadyIn  *int
+	HearthCooldown *int
 	// Source says which capture the character came from: SourceWoWC, SourceFS or both joined.
 	Source string
 
@@ -308,3 +313,20 @@ func (c Character) IsHidden(id int) bool { return c.PlanPrefs != nil && c.PlanPr
 
 // ElitesIncluded reports whether the player plans elite quests.
 func (c Character) ElitesIncluded() bool { return c.PlanPrefs != nil && c.PlanPrefs.IncludeElite }
+
+// HearthWait says whether the character has a hearthstone to use and, if so, the seconds until it is ready
+// at time now (unix seconds): the captured wait aged by the time since the capture. A capture without the
+// hearthstone fields counts as present and ready when a bind is set; no bind or no stone is not usable.
+func (c Character) HearthWait(now int64) (wait int, usable bool) {
+	if strings.TrimSpace(c.Hearth) == "" || (c.HearthHave != nil && !*c.HearthHave) {
+		return 0, false
+	}
+	if c.HearthReadyIn == nil {
+		return 0, true
+	}
+	wait = *c.HearthReadyIn
+	if c.CapturedAt != nil && now > *c.CapturedAt {
+		wait -= int(now - *c.CapturedAt)
+	}
+	return max(wait, 0), true
+}

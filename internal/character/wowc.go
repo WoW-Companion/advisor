@@ -115,6 +115,7 @@ func LoadWoWCharacter(key string, rec lua.Table) Character {
 		Money: asInt(rec["money"]), XP: asInt(rec["xp"]), XPMax: asInt(rec["xpMax"]), RestedXP: asInt(rec["rested"]),
 		CapturedAt: asInt64(rec["capturedAt"]), Client: clientBlock(rec["client"]),
 		Equipment: wowcEquipment(rec["equipment"]), Hearth: asStr(rec["hearth"]),
+		HearthHave: asBool(rec["hearthHave"]), HearthReadyIn: asInt(rec["hearthReadyIn"]), HearthCooldown: asInt(rec["hearthCooldown"]),
 		Talents: wowcTalents(rec["talents"], asInt(rec["talentPoints"])), Source: SourceWoWC,
 	}
 	if c.Realm == "" {
