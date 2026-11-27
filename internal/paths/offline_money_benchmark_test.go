@@ -339,12 +339,28 @@ func TestOfflineBenchmarkMoneyNoAnswer(t *testing.T) {
 		vend = vend || p.Kind == paths.Vendor
 	}
 	out = append(out, benchRow{"Peacebloom: a vendor's price (items.buy_price is 40, no vendor row)", firstLine(res.Text()), "none: no vendor row sells it", moneyBuySrc, resultIf(!vend && !strings.Contains(res.Text(), "Buy from"), "a vendor was named")})
+	finish(t, "advice-money-no-answer-price", "Offline money: no answer in the dataset", out)
+}
+
+// TestOfflineBenchmarkMoneyNoAnswerData: a grey item the dataset holds no sell price for, and the gaps the dataset itself causes.
+func TestOfflineBenchmarkMoneyNoAnswerData(t *testing.T) {
+	ds := mbNamed()
+	var out []benchRow
 	// a grey item the dataset holds no sell price for
 	level := 30
 	cc := character.Character{Name: "Benchtest", Faction: "Horde", Class: "MAGE", Level: &level, BagsCaptured: true, BankCaptured: true, Bags: []character.ItemStack{{ItemID: 13367, Count: 2}}}
 	rev := inventory.Render(inventory.Review(cc, consStore()))
 	out = append(out, benchRow{"Wrapped Gift, grey: what it sells for", strings.TrimSpace(vendorValue(rev)), "none: items.sell_price is null", moneySellSrc, resultIf(strings.Contains(rev, "sell price unknown") && strings.Contains(rev, "Vendor value: unknown"), "a price was stated")})
-	finish(t, "advice-money-no-answer", "Offline money: no answer in the dataset", out)
+	// the gaps the dataset itself causes: no price to state, and a smelting recipe its snapshot lacks
+	out = append(out,
+		benchRow{"an Auction House price for any item", "none stated", "a price in gold (Auction House listings)", moneyNoneSrc, "differ (data): the dataset holds no Auction House price"},
+		benchRow{"gold per hour for any farm", "none stated", "gold per hour (farming guides)", moneyNoneSrc, "differ (data): the dataset holds no time per kill or Auction House price"})
+	bar := paths.For(mbChar(30, "Horde", map[string]int{"Mining": 100}), ds, 2840, paths.Options{})
+	recs, _ := ds.Filter("recipes", store.Range{Column: "creates_item_id", Min: int64(2840), Max: int64(2840)})
+	loots := mbRows(t, ds, "loot_sources", "item_id", 2840)
+	out = append(out, benchRow{"Copper Bar: how a Miner makes it", firstLine(bar.Text()), "smelt Copper Ore with Mining (skill 1)", "dataset loot_sources (a crafted row names the smelt spell), recipes (no row for it)",
+		map[bool]string{true: "differ (data): the snapshot's recipes table lacks the smelt spell", false: "differ: a way was invented, or the recipe row is there"}[len(recs) == 0 && len(loots) > 0 && !bar.Dependable()]})
+	finish(t, "advice-money-no-answer-data", "Offline money: no answer in the dataset", out)
 }
 
 func vendorValue(rev string) string {
