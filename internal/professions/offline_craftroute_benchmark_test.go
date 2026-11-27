@@ -260,9 +260,9 @@ func gatherToCraft(t *testing.T, tc gatherCase) {
 				bad = rest
 			}
 		}
-		res := resultIf(len(lines) > 0 && bad == "", "the route names a node the dataset does not hold for the item, or none: "+bad)
+		res := resultIf(len(lines) > 0 && len(lines) <= maxNodeLines && bad == "", "the route names a node the dataset does not hold for the item, or none: "+bad)
 		out = append(out, benchRow{fmt.Sprintf("%s: where to gather it on the %s route %d→%d", tc.item, tc.prof, tc.from, tc.to), strings.Join(lines, " | "),
-			fmt.Sprintf("%d nodes with a named skill and zone", len(valid)), crGatherSrc, res})
+			fmt.Sprintf("up to %d of the dataset's %d nodes with a named skill and zone", maxNodeLines, len(valid)), crGatherSrc, res})
 	}
 	finishOffline(t, "craft-gather-"+strings.ReplaceAll(strings.ToLower(tc.item), " ", "-"), "Offline gathered material to craft: "+tc.item, out)
 }
