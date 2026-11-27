@@ -363,3 +363,15 @@ func TestQuestRewardNamesItsQuestFromObserved(t *testing.T) {
 		}
 	}
 }
+
+// A node the dataset has no row for is a bare id: with its skill unknown it must not pass for one any skill can take.
+func TestPlacedNodesDropBareObjectIDs(t *testing.T) {
+	got := placedNodes([]node{{id: 1}, {id: 2, skill: 65}, {id: 3, zone: "Dunemark"}, {id: 4, name: "Tin Vein"}})
+	var ids []int64
+	for _, n := range got {
+		ids = append(ids, n.id)
+	}
+	if len(ids) != 3 || ids[0] != 2 || ids[1] != 3 || ids[2] != 4 {
+		t.Errorf("kept nodes %v, want 2, 3 and 4", ids)
+	}
+}
