@@ -11,7 +11,7 @@ import (
 )
 
 // tooltipWords make a question one about an item's tooltip: its levels, its binding, or whether it can be traded, mailed, auctioned or stacked.
-var tooltipWords = regexp.MustCompile(`(?i)\b(trade|trading|tradeable|tradable|mail|mailed|mailing|soulbound|bound|bind|binds|bop|boe|auction|ah|tooltip|item level|ilvl|required level|requires|level|stack|stacks|stacking|unique)\b`)
+var tooltipWords = regexp.MustCompile(`(?i)\b(trade|trading|tradeable|tradable|mail|mailed|mailing|soulbound|bound|bind|binds|bop|boe|auction|ah|sell|sells|selling|sold|vendor|price|worth|tooltip|item level|ilvl|required level|requires|level|stack|stacks|stacking|unique)\b`)
 
 // ItemTooltipFacts is the tooltip for each item the question links by [name]: item level, required level, binding and what the binding
 // lets a player do with it, from the dataset row. "" for a question that is not about those or that links no item. An item the dataset does
@@ -49,7 +49,7 @@ var limitTopics = []struct {
 	about *regexp.Regexp
 	fact  string
 }{
-	{regexp.MustCompile(`(?i)\b(bag|bags|backpack|bank|bank slots?)\b.*\b(slots?|size|sizes|space|capacity|big|bigger|biggest|many|price|cost)\b|\b(slots?|size|capacity)\b.*\b(bag|bags|backpack|bank)\b`),
+	{regexp.MustCompile(`(?i)\b(bag|bags|backpack|bank|bank slots?)\b.*\b(slots?|size|sizes|space|capacity|big|bigger|biggest|large|larger|largest|many|price|cost)\b|\b(slots?|size|capacity|big|bigger|biggest|large|larger|largest|many|price|cost)\b.*\b(bag|bags|backpack|bank)\b`),
 		"Bag and bank size: the game data holds no bag slot count, no backpack or bank size and no bank slot price. Say so; give no slot count or price from memory."},
 	{regexp.MustCompile(`(?i)\bstack(s|ed|ing)?\b|\bhow many\b.*\b(carry|hold|fit)\b`),
 		"Stack size: the game data holds no maximum stack size for any item. Say so; give no stack size from memory (the capture's own counts are what the character holds)."},
@@ -57,8 +57,12 @@ var limitTopics = []struct {
 		"Unique items: the game data holds no unique or unique-equipped flag and no per-character limit on an item. Say so; call no item unique."},
 	{regexp.MustCompile(`(?i)\b(mail|mailbox|mails|postage|cod)\b.*\b(attach\w*|limit|expire\w*|days?|cost|fee|postage|cod|how many|max\w*|return\w*)\b|\b(attach\w*|postage|cod)\b.*\bmail`),
 		"Mail: the game data holds no mail rules (items per mail, postage, cash on delivery, how long a mail is kept). Say so; give no figure from memory. What the data does hold is an item's binding, which decides whether it can be mailed at all."},
-	{regexp.MustCompile(`(?i)\b(auction|auctions|auction house|ah)\b.*\b(deposit|fee|cut|duration|hours?|how long|listing|listings|limit|max\w*|price|prices|worth|cost|much|expire\w*)\b|\b(deposit|listing)\b.*\bauction`),
+	{regexp.MustCompile(`(?i)\b(auction|auctions|auction house|ah)\b.*\b(deposit|fee|fees|cut|duration|hours?|how long|listing|listings|limit|max\w*|price|prices|worth|cost|much|expire\w*|sell|sells|selling|sold|list|profit\w*|margin|undercut\w*|bid|bids|buyout)\b|\b(deposit|fee|fees|cut|duration|hours?|how long|listing|listings|limit|max\w*|price|prices|worth|cost|much|expire\w*|sell|sells|selling|sold|list|profit\w*|margin|undercut\w*|bid|bids|buyout)\b.*\b(auction|auctions|auction house|ah)\b`),
 		"Auction House: the game data holds no Auction House prices, deposit, cut, listing duration or listing limit. Say so; name no price or fee from memory. What the data does hold is an item's binding and quality, which decide whether it can be listed."},
+	{goldMaking,
+		"Gold making: the game data holds vendor prices only (an item's sell price to a vendor and a vendor's asking price): no Auction House price, no demand or how fast an item sells, and no profit, margin or gold per hour for a craft, a farm, a profession or a route. Say so; give no market price, profit or gold-per-hour figure from memory and do not rank professions or items by gold. What the data does hold is each item's vendor sell price, a recipe's materials and a drop's chance, which give the vendor value of what is made or farmed."},
+	{goldFees,
+		"Gold and fees: the game data holds no gold cap, no repair cost or rate, no talent respec cost and no guild bank rule. Say so; give no figure from memory."},
 	{regexp.MustCompile(`(?i)\btrade (window|slots?)\b|\b(trade|trading)\b.*\b(how many|limit|max\w*|slots?|gold|distance|range)\b`),
 		"Trade window: the game data holds no trade window rules (items or gold per trade, range). Say so; give no figure from memory. What the data does hold is an item's binding, which decides whether it can be traded."},
 	{regexp.MustCompile(`(?i)\b(battlegrounds?|bgs?|wsg|warsong gulch|arathi basin|alterac valley)\b`),
@@ -85,6 +89,12 @@ var limitTopics = []struct {
 		"Macros: the game data holds no macro commands or macro text and the advisor has no macro advice. Say so; do not write a macro and present it as from the game data."},
 }
 
+// goldMaking is a question about making gold: a profession, a farm, a craft or an item for profit, or what sells well.
+var goldMaking = regexp.MustCompile(`(?i)\b(make|making|makes|earn|earning|earns|farm|farming)\b.{0,25}\b(gold|money)\b|\bgold[- ]?(making|per hour|an hour|farm\w*|guide|tips)\b|\b(profit|profits|profitable|profiting|margins?|money[- ]?making|flip|flipping|undercut\w*)\b|\b(best|most)\b.{0,30}\b(gold|money)\b|\b(gold|money)\b.{0,30}\b(per hour|an hour|each hour|hourly)\b|\bwhat sells (best|well|fast)\b|\bworth (crafting|making|selling|farming|gathering)\b`)
+
+// goldFees is a question about the gold cap, a repair bill, a respec or a guild bank.
+var goldFees = regexp.MustCompile(`(?i)\bgold cap\b|\b(max|maximum|most|limit)\b.{0,15}\b(gold|money)\b.{0,15}\b(carry|hold|have)\b|\bhow much (gold|money)\b.{0,20}\b(carry|hold)\b|\brepair\w*\b.{0,30}\b(costs?|price|fees?|bills?|how much)\b|\b(costs?|price|how much)\b.{0,30}\brepair\w*\b|\brespec\w*\b.{0,30}\b(costs?|price|how much|gold)\b|\b(costs?|price|how much)\b.{0,30}\brespec\w*\b|\bguild bank\b`)
+
 // holidayAsk is a question about a holiday or world event: one the advisor lists by name, a Darkmoon Faire, or "holiday" or "world event" words.
 var holidayAsk = regexp.MustCompile(`(?i)\b(holidays?|world events?|seasonal events?|darkmoon faire|midsummer|fire festival|hallow'?s end|winter'?s? veil|lunar festival|love is in the air|noblegarden|children'?s week|harvest festival|brewfest)\b`)
 
@@ -105,7 +115,7 @@ var valleyOfHonor = regexp.MustCompile(`(?i)\bvalley of honou?r\b`)
 // rainOfFire is the warlock spell: a question about it is no question about weather.
 var rainOfFire = regexp.MustCompile(`(?i)\brain of fire\b`)
 
-// LimitFacts says what the game data does not hold about bags, banks, stacks, unique items, mail, the Auction House, the trade window,
+// LimitFacts says what the game data does not hold about bags, banks, stacks, unique items, mail, the Auction House, gold making and gold fees, the trade window,
 // holiday events, weather and time of day, zone levels, battlegrounds, honor ranks, travel times, riding and mounts, class trainer prices, racial traits, capital city services, faction leaders and macros, for a question that asks about one. "" for any other question.
 func LimitFacts(text string) string {
 	text = rainOfFire.ReplaceAllString(valleyOfHonor.ReplaceAllString(text, " "), " ")

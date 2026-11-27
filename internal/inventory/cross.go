@@ -51,6 +51,7 @@ type CrossResult struct {
 	// SellValue is the copper the vendor stacks sell for, over the stacks with a known price.
 	SellValue    int64
 	SellUnpriced int // vendor stacks with no known price, left out of SellValue
+	SellAuction  int // Sell stacks the advice sends to the Auction House: the dataset holds no price for them
 	SlotsFreed   int // bag slots emptied by selling, tossing or mailing what sits in the bags
 	Notes        []string
 }
@@ -363,6 +364,9 @@ func ReviewAllWith(chars []character.Character, ds store.DataStore, qx *questie.
 				if l.Where == "bags" && (l.Action == Sell || l.Action == Toss || l.Action == Mail) {
 					res.SlotsFreed++
 				}
+				if l.Action == Sell && l.AH {
+					res.SellAuction++
+				}
 				if l.Action == Sell && !l.AH {
 					if l.Price == nil {
 						res.SellUnpriced++
@@ -576,6 +580,27 @@ func moneyOrUnknown(l Line) string {
 
 const maxLines = 12
 
+// sellHead is what follows the Sell heading: the vendor value of the stacks sold to a vendor, and the stacks sent to the Auction House, which
+// the dataset holds no price for and which are left out of that value (n is the stacks under Sell).
+func sellHead(r CrossResult, n int) string {
+	if n > 0 && r.SellAuction == n {
+		return ": all for the Auction House, which the data holds no price for"
+	}
+	var head string
+	if r.SellUnpriced > 0 && r.SellValue == 0 {
+		head = ": value unknown"
+	} else {
+		head = ": " + Money(r.SellValue)
+		if r.SellUnpriced > 0 {
+			head += fmt.Sprintf(" (%d stack(s) unpriced, left out)", r.SellUnpriced)
+		}
+	}
+	if r.SellAuction > 0 {
+		head += fmt.Sprintf(" at a vendor, plus %d stack(s) for the Auction House (no price in the data)", r.SellAuction)
+	}
+	return head
+}
+
 // RenderAll is the plain-text form: Sell, Mail, Keep, Toss, then what is not sure.
 func RenderAll(r CrossResult, chars int) string {
 	var b strings.Builder
@@ -595,14 +620,7 @@ func RenderAll(r CrossResult, chars int) string {
 		}
 		head := fmt.Sprintf("%s (%d)", titles[a], len(ls))
 		if a == Sell {
-			if r.SellUnpriced > 0 && r.SellValue == 0 {
-				head += ": value unknown"
-			} else {
-				head += ": " + Money(r.SellValue)
-				if r.SellUnpriced > 0 {
-					head += fmt.Sprintf(" (%d stack(s) unpriced, left out)", r.SellUnpriced)
-				}
-			}
+			head += sellHead(r, len(ls))
 		}
 		b.WriteString(head + "\n")
 		for n, l := range ls {
