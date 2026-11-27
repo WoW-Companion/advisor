@@ -3,6 +3,8 @@ package ask
 import (
 	"strings"
 	"testing"
+
+	"github.com/WoW-Companion/advisor/internal/store"
 )
 
 func TestLimitFactsPvP(t *testing.T) {
@@ -422,5 +424,58 @@ func TestLimitFactsGearLevelOfAnInstance(t *testing.T) {
 		if got := LimitFacts(q); strings.Contains(got, "Dungeon difficulty and modes:") {
 			t.Errorf("LimitFacts(%q) = %q, want no dungeon difficulty fact: an item's level is in the data", q, got)
 		}
+	}
+}
+
+func TestLimitFactsQuestGiverTurnInPrerequisite(t *testing.T) {
+	for _, tc := range []struct{ q, want string }{
+		{"who gives the quest Tharil'zun?", "Quest givers and where a quest starts:"},
+		{"where do I pick up the quest Beren's Peril?", "Quest givers and where a quest starts:"},
+		{"where does the quest The Essence of Aku'Mai start?", "Quest givers and where a quest starts:"},
+		{"where is the quest giver in Goldshire?", "Quest givers and where a quest starts:"},
+		{"where do I turn in Vital Intelligence?", "Quest turn-in:"},
+		{"who do I hand in Fields of Grief to?", "Quest turn-in:"},
+		{"which NPC takes the quest Deliveries to Sven?", "Quest turn-in:"},
+		{"what is the prerequisite quest for Elixir of Suffering?", "Quest prerequisites, follow-ups and breadcrumbs:"},
+		{"what do I need to finish before Arugal Must Die?", "Quest prerequisites, follow-ups and breadcrumbs:"},
+		{"is there a breadcrumb quest to Razorfen Kraul?", "Quest prerequisites, follow-ups and breadcrumbs:"},
+		{"what quest leads to Battle of Hillsbrad?", "Quest prerequisites, follow-ups and breadcrumbs:"},
+		{"what is the follow-up to Fields of Grief?", "Quest prerequisites, follow-ups and breadcrumbs:"},
+	} {
+		if got := LimitFacts(tc.q); !strings.Contains(got, tc.want) || !strings.Contains(got, "Say so") || !strings.Contains(got, "from memory") {
+			t.Errorf("LimitFacts(%q) = %q, want %q", tc.q, got, tc.want)
+		}
+	}
+	for _, q := range []string{"what quests are in the Barrens?", "what quest should I do next?", "which quest do I do next in Westfall?", "which dungeon quests can I turn in?", "where do I buy Silk Cloth?",
+		"which quest does Heart of Zeal start?", "what comes after Murloc Gills in the Toxic Soil quest line?", "what level is the quest Tharil'zun?"} {
+		got := LimitFacts(q)
+		for _, h := range []string{"Quest givers and where", "Quest turn-in:", "Quest prerequisites,"} {
+			if strings.Contains(got, h) {
+				t.Errorf("LimitFacts(%q) has %q", q, h)
+			}
+		}
+	}
+}
+
+func TestNamedQuestFacts(t *testing.T) {
+	ds := store.NewDir("../../testdata/places_snapshot")
+	for _, tc := range []struct{ q, want string }{
+		{"what is the minimum level for Dusky Crab Cakes?", "Quest minimum level:"},
+		{"what level do I need to start Tharil'zun?", "Quest minimum level:"},
+		{"who gives Beren's Peril?", "Quest givers and where a quest starts:"},
+		{"who takes Vital Intelligence?", "Quest turn-in:"},
+		{"what do I need before Arugal Must Die?", "Quest prerequisites, follow-ups and breadcrumbs:"},
+	} {
+		if got := NamedQuestFacts(ds, tc.q); !strings.Contains(got, tc.want) || !strings.Contains(got, "Say so") {
+			t.Errorf("NamedQuestFacts(%q) = %q, want %q", tc.q, got, tc.want)
+		}
+	}
+	for _, q := range []string{"what is the minimum level for Scarlet Monastery?", "what level is the quest Tharil'zun?", "what comes after Murloc Gills in the Toxic Soil quest line?", "who gives the quest Tharil'zun?", "what quests are in the Barrens?"} {
+		if got := NamedQuestFacts(ds, q); got != "" {
+			t.Errorf("NamedQuestFacts(%q) = %q, want none (LimitFacts or the quest line answers it, or no quest is named)", q, got)
+		}
+	}
+	if got := NamedQuestFacts(nil, "what is the minimum level for Dusky Crab Cakes?"); got != "" {
+		t.Errorf("NamedQuestFacts(nil store) = %q, want none", got)
 	}
 }

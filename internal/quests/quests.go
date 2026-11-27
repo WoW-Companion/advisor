@@ -189,6 +189,13 @@ func Render(c Chain, name string) string {
 	if c.Quest != nil && c.Quest.GroupWords() != "" {
 		b.WriteString(label + " is " + c.Quest.GroupWords() + ", as players reported on " + Credit + ".\n")
 	}
+	if f := c.Quest; f != nil && (f.Giver != "" || f.TurnIn != "" || f.MinLevel > 0) {
+		b.WriteString("From your Questie database: " + label)
+		if f.MinLevel > 0 {
+			b.WriteString(", needs level " + strconv.Itoa(f.MinLevel))
+		}
+		b.WriteString(f.detail() + ".\n")
+	}
 	for _, s := range c.Steps {
 		mark := "  "
 		if s.Position == c.Position {
