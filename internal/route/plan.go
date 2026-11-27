@@ -69,6 +69,9 @@ type Stop struct {
 	Y        float64 `json:"y"`
 	Done     bool    `json:"done"`
 	Place    string  `json:"place,omitempty"` // the subzone or zone the stop is in, in words (Plan.lua 1.3)
+	// Level is the quest's level (0 when unknown) and Diff its difficulty colour for the player.
+	Level int    `json:"level,omitempty"`
+	Diff  string `json:"diff,omitempty"`
 	// Priority is set on a class quest's stops: they are worth doing first, so they come early.
 	Priority bool `json:"priority,omitempty"`
 	// Optional is set on a holiday-event quest's stops: the player opted in, and they come after the rest.
@@ -110,6 +113,8 @@ type FindStop struct {
 	QuestID int    `json:"quest_id,omitempty"`
 	Quest   string `json:"quest,omitempty"`
 	Label   string `json:"label"`
+	Level   int    `json:"level,omitempty"`
+	Diff    string `json:"diff,omitempty"`
 	// Hint and Zone are on a logged quest with no place on the map, mostly a done quest whose finisher is
 	// unknown: Hint is the quest's own objective text, Zone where it is known to be (Plan.lua 1.7).
 	Hint string `json:"hint,omitempty"`
@@ -252,7 +257,7 @@ type spot struct {
 	unplaced bool          // an objective with no known location: never routed, listed under Find
 	npc      int           // the NPC's id, on a pick-up or turn-in; 0 when unknown
 	ready    bool          // a turn-in for a quest in the log that is done: it can be handed in now
-	level    int           // the quest's level on a ready turn-in; 0 when unknown
+	level    int           // the quest's level; 0 when unknown
 	place    string        // where it is in words: the subzone, else the zone; empty when unknown
 
 	locked     bool // a follow-up's stop: never merged with an ordinary one
@@ -273,6 +278,7 @@ type quest struct {
 	unplaced []*spot // unfinished objectives with no location
 	turnin   *spot
 	must     bool   // a class quest: its stops are must-include
+	elite    bool   // the quest is flagged elite: it needs a group
 	done     bool   // the log says every objective is done
 	hint     string // Questie's own objective text, for a quest with no place
 	event    bool   // a holiday-event quest the player opted in to: optional, after the rest
@@ -367,7 +373,30 @@ func planWith(c character.Character, src source, opt Options) Plan {
 	if !c.QuestsCaptured && len(c.Quests) == 0 {
 		p.Notes = append(p.Notes, "The quest log is not in the capture yet, so no pick-ups are planned (a quest you already have would show as one).")
 	}
+	reach := c.Reach()
 	for _, q := range src.quests(c, at) {
+		for _, sp := range q.chain() {
+			sp.level = q.level
+		}
+		for _, sp := range q.unplaced {
+			sp.level = q.level
+		}
+		if c.IsHidden(q.id) {
+			if inLogSet(p.Basis.InLog, q.id) {
+				p.Parked = append(p.Parked, parkedOf(q, lvl, ParkHidden, "Hidden by you"))
+			}
+			continue
+		}
+		if q.pickup == nil && !q.locked && !q.must && !deliveryOnly(q) {
+			if q.elite && !c.ElitesIncluded() {
+				p.Parked = append(p.Parked, parkedOf(q, lvl, ParkElite, "Elite: needs a group"))
+				continue
+			}
+			if tooHigh(q.level, lvl, reach) {
+				p.Parked = append(p.Parked, parkedOf(q, lvl, ParkTooHigh, doableAround(q.level, reach)))
+				continue
+			}
+		}
 		// The invariant: a turn-in is routed only when every unfinished objective has a stop before it.
 		// An objective with no location is listed under Find and its quest's turn-in is withheld.
 		if len(q.unplaced) > 0 {
@@ -389,13 +418,13 @@ func planWith(c character.Character, src source, opt Options) Plan {
 		}
 		if q.pickup != nil && !q.locked {
 			pickups = append(pickups, q) // decided below, with the quest log's room
-		} else if q.level > lvl+LevelMargin && !q.must && !(q.turnin != nil && q.turnin.ready) {
+		} else if tooHigh(q.level, lvl, reach) && !q.must && !(q.turnin != nil && q.turnin.ready) && !deliveryOnly(q) {
 			later = append(later, q.chain()...)
 		} else if len(q.chain()) > 0 {
 			use = append(use, q)
 		}
 	}
-	use = append(use, choosePickups(c, lvl, opt, pickups, use, at, &later, &p.Notes)...)
+	use = append(use, choosePickups(c, lvl, reach, opt, pickups, use, at, &later, &p.Notes)...)
 
 	// The map the route is on: the player's, else the one with the most stops.
 	cur, known := 0, false
@@ -554,6 +583,7 @@ func planWith(c character.Character, src source, opt Options) Plan {
 	}
 	for i, ni := range order {
 		st := stopOf(i+1, nodes[ni])
+		st.Diff = DiffOf(st.Level, lvl)
 		if st.Locked {
 			here := st.Kind == KindPickup && st.Giver != ""
 			for _, a := range st.UnlockedBy {
@@ -578,7 +608,7 @@ func planWith(c character.Character, src source, opt Options) Plan {
 	p.Here = buildHere(p, append(listed, chosen...), src)
 	p.Finishers = buildFinishers(c, src, listed, p.Zone)
 	for i, s := range findSpots {
-		p.Find = append(p.Find, FindStop{N: i + 1, QuestID: s.quests[0], Quest: strings.Join(s.names, ", "), Label: s.label})
+		p.Find = append(p.Find, FindStop{N: i + 1, QuestID: s.quests[0], Quest: strings.Join(s.names, ", "), Label: s.label, Level: s.level, Diff: DiffOf(s.level, lvl)})
 	}
 	for i := range p.Zones {
 		z := &p.Zones[i]
@@ -595,8 +625,9 @@ func planWith(c character.Character, src source, opt Options) Plan {
 			break
 		}
 		p.Later = append(p.Later, stopOf(i+1, s))
+		p.Later[len(p.Later)-1].Diff = DiffOf(s.level, lvl)
 	}
-	shapeSharedPlan(&p, c, src, opt, sharedInput{listed: append(listed, chosen...), later: later, legs: legs, cur: cur, known: known, lvl: lvl})
+	shapeSharedPlan(&p, c, src, opt, sharedInput{reach: reach, listed: append(listed, chosen...), later: later, legs: legs, cur: cur, known: known, lvl: lvl})
 	return p
 }
 
@@ -623,6 +654,7 @@ func mustSet(nodes []*spot, preds [][]int) map[int]bool {
 
 func stopOf(n int, s *spot) Stop {
 	st := Stop{N: n, Kind: s.kind, Map: s.m, X: round1(s.x), Y: round1(s.y), Place: s.place, Priority: s.must, Optional: s.event}
+	st.Level = s.level
 	if s.zoneOnly {
 		st.X, st.Y, st.ZoneOnly, st.Unplaced = NoPos, NoPos, true, true
 	}
@@ -988,9 +1020,13 @@ func travelName(src source, m int, place string) string {
 func readyFirst(p *Problem, nodes []*spot, order []int, cur int) []int {
 	var head []int
 	isHead := map[int]bool{}
+	near := func(n *spot) bool {
+		return p.Start != nil && math.Hypot(n.x-p.Start[0], n.y-p.Start[1]) <= NearReady
+	}
 	for _, i := range order {
 		n := nodes[i]
-		if n.kind == KindTurnIn && n.ready && n.m == cur && !n.zoneOnly && len(p.Nodes[i].Pred) == 0 {
+		// A ready turn-in goes first; so does a delivery with nothing to do before it when it is close by.
+		if n.kind == KindTurnIn && (n.ready || (n.trip != nil && near(n))) && n.m == cur && !n.zoneOnly && len(p.Nodes[i].Pred) == 0 {
 			head = append(head, i)
 			isHead[i] = true
 		}
@@ -1108,13 +1144,13 @@ func dungeonFits(q *quest, lvl int) bool {
 // Holiday and festival quests never outrank these: they wait unless nothing else is planned. A log
 // that is full or nearly full limits the pick-ups to its free slots, best first. others is how many
 // quests are already planned.
-func choosePickups(c character.Character, lvl int, opt Options, pickups []*quest, planned []*quest, at *questie.Where, later *[]*spot, notes *[]string) []*quest {
+func choosePickups(c character.Character, lvl, reach int, opt Options, pickups []*quest, planned []*quest, at *questie.Where, later *[]*spot, notes *[]string) []*quest {
 	others := len(planned)
 	var want, fest []*quest
 	for _, q := range pickups {
 		fit := dungeonFits(q, lvl)
 		switch {
-		case q.level > lvl+LevelMargin && !q.must && !fit:
+		case tooHigh(q.level, lvl, reach) && !q.must && !fit:
 			*later = append(*later, q.chain()...)
 		case q.level > 0 && q.level < lvl-PickupBelow && !q.must && !fit:
 			*later = append(*later, q.chain()...)
@@ -1236,4 +1272,52 @@ func earnPlace(opt Options, want []*quest, planned []*quest, at *questie.Where, 
 		out = append(out, q)
 	}
 	return out
+}
+
+// NearReady is how close (map percent, about 250 yards) a ready turn-in or delivery must be to the player,
+// or to the run's start, to be done first.
+const NearReady = 5.0
+
+// DiffOf is the game's difficulty colour of a quest of level q for a player of level p: "red" 5 or more
+// levels above, "orange" 3 to 4, "yellow" within 2, "green" down to GreyGap-1 below, then "grey". Empty
+// when the level is unknown.
+func DiffOf(q, p int) string {
+	if q <= 0 || p <= 0 {
+		return ""
+	}
+	switch d := q - p; {
+	case d >= 5:
+		return "red"
+	case d >= 3:
+		return "orange"
+	case d >= -2:
+		return "yellow"
+	case d > -GreyGap:
+		return "green"
+	}
+	return "grey"
+}
+
+// tooHigh is whether a quest of level q is past the player's reach; reach -1 turns the limit off.
+func tooHigh(q, lvl, reach int) bool { return reach >= 0 && q > lvl+reach }
+
+// doableAround is the text of a parked too-high quest.
+func doableAround(q, reach int) string {
+	return fmt.Sprintf("level %d · doable around %d", q, q-max(reach, 0))
+}
+
+// deliveryOnly is a quest with nothing to do but hand in or speak with someone: the level limit never
+// applies to it.
+func deliveryOnly(q *quest) bool {
+	if q.done || q.turnin != nil && q.turnin.ready {
+		return true
+	}
+	return len(q.objs) == 0 && len(q.unplaced) == 0 && q.turnin != nil
+}
+
+func inLogSet(inLog []int, id int) bool { _, ok := slices.BinarySearch(inLog, id); return ok }
+
+// parkedOf is a parked entry for a quest.
+func parkedOf(q *quest, lvl int, kind, why string) Parked {
+	return Parked{QuestID: q.id, Quest: q.name, Why: why, Kind: kind, Level: q.level, Diff: DiffOf(q.level, lvl)}
 }

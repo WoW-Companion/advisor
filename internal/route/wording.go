@@ -1,6 +1,7 @@
 package route
 
 import (
+	"cmp"
 	"fmt"
 	"github.com/WoW-Companion/advisor/internal/questie"
 	"regexp"
@@ -35,9 +36,8 @@ func objectiveLabel(verb, text string) string {
 
 // tripLabel is a trip's step: where to go, then what to hand in. A dungeon is marked "(dungeon)".
 func tripLabel(t questie.Trip, quests string) string {
-	l := wording.Trip(t.Finisher, t.Place(), t.Instance, t.Zone)
-	if t.Instance != "" {
-		l += " (dungeon)"
+	if t.Instance == "" {
+		return "Turn in " + quests + " to " + t.Finisher + " (" + cmp.Or(t.Sub, t.Zone) + ")"
 	}
-	return l + " to turn in " + quests
+	return wording.Trip(t.Finisher, t.Place(), t.Instance, t.Zone) + " (dungeon) to turn in " + quests
 }

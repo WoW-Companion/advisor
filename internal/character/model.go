@@ -56,6 +56,8 @@ type Quest struct {
 	// Observed marks a quest the addon saw accepted after the capture: it is in the log, but its
 	// objectives are not in the capture.
 	Observed bool
+	// Elite is set when the addon flagged the quest elite (a group quest); nil or false when not.
+	Elite *bool
 }
 
 // QuestPOI is one captured quest map point: a map, a position as percent of that map, and when
@@ -214,6 +216,8 @@ type Character struct {
 	// area of its current objective. Nil when the capture holds none.
 	QuestPOI        map[int]QuestPOI
 	CompletedQuests []int
+	// PlanPrefs are the player's plan settings (WoWCompanionDB.characters[key].planPrefs); nil means defaults.
+	PlanPrefs *PlanPrefs
 	Talents         *Talents
 	Skills          []Skill
 	SkillsCaptured  bool
@@ -279,3 +283,28 @@ func (f File) ClientOf(c Character) Client {
 	}
 	return f.Client
 }
+
+// DefaultLevelReach is how many levels above the player an unfinished quest may be and still be planned.
+const DefaultLevelReach = 3
+
+// PlanPrefs are the player's plan settings. LevelReach is 0 to 10, or -1 for no limit; Hidden are the
+// quests the player dismissed; IncludeElite plans elite (group) quests.
+type PlanPrefs struct {
+	LevelReach   int
+	Hidden       map[int]bool
+	IncludeElite bool
+}
+
+// Reach is the level reach in effect: the default when the character has no prefs, -1 for off.
+func (c Character) Reach() int {
+	if c.PlanPrefs == nil {
+		return DefaultLevelReach
+	}
+	return c.PlanPrefs.LevelReach
+}
+
+// IsHidden reports whether the player hid the quest from the plan.
+func (c Character) IsHidden(id int) bool { return c.PlanPrefs != nil && c.PlanPrefs.Hidden[id] }
+
+// ElitesIncluded reports whether the player plans elite quests.
+func (c Character) ElitesIncluded() bool { return c.PlanPrefs != nil && c.PlanPrefs.IncludeElite }

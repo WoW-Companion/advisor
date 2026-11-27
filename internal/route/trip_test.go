@@ -69,7 +69,7 @@ func TestTripWording(t *testing.T) {
 		t.Errorf("dungeon trip fields: %+v", v)
 	}
 	d := find("Further Instructions")
-	if want := "Deliver to Sputtervalve in Ratchet (The Barrens) to turn in Further Instructions"; d.Label != want {
+	if want := "Turn in Further Instructions to Sputtervalve (Ratchet)"; d.Label != want {
 		t.Errorf("delivery label %q, want %q", d.Label, want)
 	}
 	if !d.Trip || d.Instance != "" || d.FinisherPlace != "Ratchet (The Barrens)" {

@@ -16,12 +16,13 @@ const (
 	ParkGrey     = "grey"
 	ParkDungeon  = "dungeon"
 	ParkSeasonal = "seasonal"
+	ParkHidden   = "hidden" // the player hid it
+	ParkElite    = "elite"  // an elite quest, needs a group
 )
 
 // Limits of the parked list.
 const (
-	TooHighMargin = 3 // a quest more than this many levels above the player is parked
-	GreyGap       = 8 // a quest this many levels or more below the player is grey
+	GreyGap = 8 // a quest this many levels or more below the player is grey
 	// FullLogShare is the share of the quest log (3 in 4: 30 of 40) from which a grey quest is "worth abandoning".
 	fullLogNum, fullLogDen = 3, 4
 )
@@ -59,6 +60,8 @@ type Parked struct {
 	Quest   string `json:"quest"`
 	Why     string `json:"why"`
 	Kind    string `json:"kind"`
+	Level   int    `json:"level,omitempty"`
+	Diff    string `json:"diff,omitempty"`
 }
 
 // entranceSource is a source that knows which zone a dungeon's entrance stands in.
@@ -80,6 +83,7 @@ type sharedInput struct {
 	cur    int
 	known  bool
 	lvl    int
+	reach  int // the level reach: -1 is off
 }
 
 // shapeSharedPlan fills Exit, Trips and Parked from the quest log: every logged quest is in the run
@@ -136,15 +140,15 @@ func shapeSharedPlan(p *Plan, c character.Character, src source, opt Options, in
 			instance = "a dungeon"
 		}
 		park := func(kind, why string) {
-			p.Parked = append(p.Parked, Parked{QuestID: q.id, Quest: q.name, Why: why, Kind: kind})
+			p.Parked = append(p.Parked, parkedOf(q, in.lvl, kind, why))
 		}
 		switch {
 		case q.event || q.festival:
 			park(ParkSeasonal, "holiday quest")
 			continue
-		case q.level > in.lvl+TooHighMargin && !ready:
+		case tooHigh(q.level, in.lvl, in.reach) && !ready && !deliveryOnly(q):
 			// Difficulty only matters for work not yet done: a ready turn-in is free XP at any level.
-			park(ParkTooHigh, fmt.Sprintf("level %d · doable around %d", q.level, q.level-TooHighMargin))
+			park(ParkTooHigh, doableAround(q.level, in.reach))
 			continue
 		case q.level > 0 && q.level <= in.lvl-GreyGap && !ready:
 			why := "grey at your level"

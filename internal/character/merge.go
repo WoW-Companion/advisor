@@ -68,6 +68,9 @@ func MergeCharacters(a, b Character) Character {
 	if len(out.CompletedQuests) == 0 {
 		out.CompletedQuests = b.CompletedQuests
 	}
+	if out.PlanPrefs == nil {
+		out.PlanPrefs = b.PlanPrefs
+	}
 	if out.Talents == nil {
 		out.Talents = b.Talents
 	}
