@@ -289,6 +289,13 @@ func PlanWith(c character.Character, ds store.DataStore, qx *questie.Index) (Res
 		if a.Fit != b.Fit {
 			return a.Fit < b.Fit
 		}
+		// the order a guide lists dungeons in: the lower range first, the map id only to settle a tie
+		if *a.MinLevel != *b.MinLevel {
+			return *a.MinLevel < *b.MinLevel
+		}
+		if *a.MaxLevel != *b.MaxLevel {
+			return *a.MaxLevel < *b.MaxLevel
+		}
 		return a.MapID < b.MapID
 	})
 	if len(res.Picks) == 0 {

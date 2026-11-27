@@ -272,3 +272,62 @@ func TestClassifySessionAndTriageQuestions(t *testing.T) {
 		}
 	}
 }
+
+type spellRowKH struct {
+	ClassID    int32  `parquet:"class_id"`
+	SpellID    int32  `parquet:"spell_id"`
+	Name       string `parquet:"name"`
+	Rank       *int32 `parquet:"rank,optional"`
+	Level      int32  `parquet:"level"`
+	Superseded *int32 `parquet:"superseded_spell_id,optional"`
+}
+
+// A class question is framed with the abilities the class has learned, not the talents the dataset lists beside them at level 1.
+func TestClassFactsListAbilitiesNotTalents(t *testing.T) {
+	ds := store.New(store.ReaderSource{"class_spells": table(t, []spellRowKH{
+		{1, 78, "Heroic Strike", i32(1), 1, nil},
+		{1, 100, "Charge", i32(1), 4, nil},
+		{1, 7000, "Improved Pummel", i32(1), 1, nil},
+		{1, 7001, "Improved Pummel", i32(2), 1, nil},
+		{1, 7002, "Battle Stance Passive", nil, 1, nil},
+		{1, 20662, "Execute", nil, 1, nil},
+		{1, 5308, "Execute", i32(1), 24, nil},
+	})})
+	lvl := 30
+	got := classFacts(character.Character{Class: "WARRIOR", Level: &lvl}, ds)
+	if !strings.Contains(got, "Heroic Strike (1), Charge (4), Execute (24)") {
+		t.Errorf("facts = %q, want the abilities in level order with Execute at 24", got)
+	}
+	for _, bad := range []string{"Improved Pummel", "Passive", "Execute (1)"} {
+		if strings.Contains(got, bad) {
+			t.Errorf("facts name %q: %s", bad, got)
+		}
+	}
+}
+
+func TestSessionLengthIsReadWhateverWayItIsSaid(t *testing.T) {
+	for text, want := range map[string]string{
+		"I have an hour and a half to play":      "min:90",
+		"I have 1.5 hours to play":               "min:90",
+		"I have 2 hours 30 minutes to play":      "min:150",
+		"I have 1 hr 15 min to play":             "min:75",
+		"I have two and a half hours to play":    "min:150",
+		"I have three hours to play":             "min:180",
+		"I've got forty five minutes to play":    "min:45",
+		"I only have twenty-five minutes":        "min:25",
+		"I've got half an hour":                  "min:30",
+		"I have 1h30 to play":                    "min:90",
+		"I have 400 minutes to play":             "min:240",
+		"I have 2 minutes to play":               "min:5",
+		"I've got 30 minutes, what should I do?": "min:30",
+	} {
+		if cl := Classify(text, nil, nil); cl.Topic != TopicSession || cl.Subject != want {
+			t.Errorf("%q = %+v, want %s", text, cl, want)
+		}
+	}
+	for _, text := range []string{"How long is the Deadmines run?", "I have 0 minutes", "What should I do next?"} {
+		if cl := Classify(text, nil, nil); cl.Topic == TopicSession {
+			t.Errorf("%q read as a session", text)
+		}
+	}
+}

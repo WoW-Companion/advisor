@@ -227,6 +227,15 @@ advisor names no pick), the points line, the dungeons offered to a level and eac
 guides, the quest XP share by level difference (Warcraft Wiki), the estimate flag, and the XP and rested XP line. The dataset
 holds no XP per level, quest XP, rested XP, zone level or points-by-level table; those cases check the advisor states none.
 
+`internal/paths/offline_groupplay_benchmark_test.go` (also `make offline-benchmark`, areas `advice-group-dungeon-*`,
+`advice-travel-*`, `advice-rested-*`, `advice-pacing-quest-share`, `advice-pacing-level-wording` and `advice-unknown-*`)
+checks, on `testdata/levelling_snapshot` and `testdata/usability_snapshot`, the levels a dungeon is offered at (from its
+minimum to three past its maximum, to the side that can enter it), the group size worded beside the game's, the flight
+point named for a class trainer, the walking and riding speeds, the play time a player states ("an hour and a half",
+"1.5 hours", "forty five minutes"), the XP line at the top level, quest XP and the rested pool, and what the advisor says
+when the dataset holds nothing (a guild bank, a flight time, a rested XP rate, a hearthstone cooldown, a dungeon's roles).
+The dataset sizes most five-player dungeons at ten and Sunken Temple at twenty; those are listed as "differ (data)".
+
 The run ends with one summary line, `advice-benchmark: N checks, S same, D differ (professions 90/39, costs 50/8,
 tailoring-guide 6/13, stats 99/0)`: every table row counts as same ("match") or differ, by area. Each area prints
 `advice-benchmark-count <area> same=N differ=M`, and `internal/benchsummary` adds them up. The share of

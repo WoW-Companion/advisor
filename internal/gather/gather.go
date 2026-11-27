@@ -410,6 +410,18 @@ func (g *Gatherer) catchZones(c character.Character, query, verb string) (Result
 	if id == 0 {
 		return Result{}, false
 	}
+	return g.Catches(c, id, name, query)
+}
+
+// FromCatches marks places read from the dataset's fishing reports, not from a Questie database.
+const FromCatches = "from the game data's fishing reports"
+
+// Catches is the zones where the dataset's fishing reports say item id was caught, best catch rate first and
+// without the other faction's home zones; false when no cast caught it.
+func (g *Gatherer) Catches(c character.Character, id int64, name, query string) (Result, bool) {
+	if g == nil || g.ds == nil {
+		return Result{}, false
+	}
 	rows, err := g.ds.Filter("fishing_catches", store.Range{Column: "item_id", Min: id, Max: id})
 	if err != nil || len(rows) == 0 {
 		return Result{}, false
@@ -435,7 +447,7 @@ func (g *Gatherer) catchZones(c character.Character, query, verb string) (Result
 	if len(res.Zones) == 0 {
 		return Result{}, false
 	}
-	res.Text = zonesText(verbPhrase(Fish)+" "+name, res.Zones)
+	res.Text = zonesTextMarked(verbPhrase(Fish)+" "+name, res.Zones, FromCatches)
 	return res, true
 }
 

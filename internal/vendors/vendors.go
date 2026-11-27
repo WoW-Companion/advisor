@@ -47,13 +47,19 @@ func (o Offer) Cheap(level int) bool {
 }
 
 // Line is "Buy from <vendor> in <zone> for <price>", with "limited stock" when it is limited.
-func (o Offer) Line() string {
+func (o Offer) Line() string { return o.LineFor(1) }
+
+// LineFor is Line for count units to buy: the price is for one unit, so more than one says "each".
+func (o Offer) LineFor(count int) string {
 	s := "Buy from " + o.Vendor
 	if o.Zone != "" {
 		s += " in " + o.Zone
 	}
 	if o.Price != "" {
 		s += " for " + o.Price
+		if count > 1 {
+			s += " each"
+		}
 	}
 	if o.Limited {
 		s += " (limited stock)"

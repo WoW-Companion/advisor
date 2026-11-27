@@ -120,6 +120,58 @@ func Spells(c character.Character, ds store.DataStore, from, to int) []Spell {
 	return out
 }
 
+// Learned lists the abilities of the character's class a player has by level to: every first rank
+// of the dataset's class_spells at or below it, with the level that rank is learned at, in level
+// order. It leaves out what no trainer teaches and no level gives: a talent or its effect, the
+// passive half of a stance or form, a rune ability, and a spell a class quest teaches that the
+// character has not learned. Ranks above the first are not listed; the first rank's level stands.
+func Learned(c character.Character, ds store.DataStore, to int) []Spell {
+	rows := classRows(c, ds, 1, to)
+	if len(rows) == 0 {
+		return nil
+	}
+	cid := ClassIDs[strings.ToUpper(c.Class)]
+	quest := questTaught(ds)
+	talents := talentNames(ds, cid)
+	late := lateRanked(ds, cid)
+	var out []Spell
+	for _, r := range rows {
+		id, _ := r["spell_id"].(int64)
+		name, _ := r["name"].(string)
+		lv, _ := r["level"].(int64)
+		rk, _ := r["rank"].(int64)
+		sup, _ := r["superseded_spell_id"].(int64)
+		if id == 0 || name == "" || sup != 0 || isRuneAbility(id, lv) || isTalentEffect(talents, name, rk) || sideEffect(late, name, rk, lv) {
+			continue
+		}
+		if !c.KnownSpells[id] && (quest[id].Quest != "" || questLocked(c, name, int(rk), false)) {
+			continue
+		}
+		out = append(out, Spell{ID: id, Name: name, Rank: int(rk), Level: int(lv), New: true, Usually: true})
+	}
+	out = dedupeLowest(out)
+	sortSpells(out)
+	return out
+}
+
+// dedupeLowest keeps one spell for each name: the one learned at the lowest level.
+func dedupeLowest(in []Spell) []Spell {
+	at := map[string]int{}
+	var out []Spell
+	for _, s := range in {
+		k := strings.ToLower(strings.TrimSpace(s.Name))
+		if i, dup := at[k]; dup {
+			if s.Level < out[i].Level {
+				out[i] = s
+			}
+			continue
+		}
+		at[k] = len(out)
+		out = append(out, s)
+	}
+	return out
+}
+
 // talentNames is the lower-cased names of the talents of the class's trees (talent_trees by class_id,
 // talent_nodes by tree); nil when the dataset has neither table. A class spell with no rank that
 // carries a talent's name is that talent or its effect, which a talent point buys and no class
@@ -172,6 +224,9 @@ func hiddenName(name string) bool {
 
 // lateRanked is the lower-cased names of the class's spells that have a ranked row above level 1:
 // a rank-less level 1 row of the same name is a side effect of that spell, not a spell to train.
+// It also holds, under talentRanksKey, the names with a second or later rank listed at level 1: no
+// trainer teaches a rank at level 1 beyond the first, so the name is a talent bought with points
+// ("Weapon Mastery" ranks 1 to 5, "Magic Attunement" ranks 1 and 2).
 func lateRanked(ds store.DataStore, classID int64) map[string]bool {
 	rows, err := ds.Filter("class_spells", store.Range{Column: "class_id", Min: classID, Max: classID})
 	if err != nil {
@@ -181,16 +236,25 @@ func lateRanked(ds store.DataStore, classID int64) map[string]bool {
 	for _, r := range rows {
 		name, _ := r["name"].(string)
 		rk, _ := r["rank"].(int64)
-		if lv, _ := r["level"].(int64); rk > 0 && lv > 1 && name != "" {
-			out[strings.ToLower(strings.TrimSpace(name))] = true
+		lv, _ := r["level"].(int64)
+		n := strings.ToLower(strings.TrimSpace(name))
+		if rk > 0 && lv > 1 && name != "" {
+			out[n] = true
+		}
+		if rk >= 2 && lv <= 1 && name != "" {
+			out[talentRanksKey(n)] = true
 		}
 	}
 	return out
 }
 
-// sideEffect reports a rank-less level 1 row whose name has ranked rows later (see lateRanked).
+func talentRanksKey(lowerName string) string { return "\x00talent:" + lowerName }
+
+// sideEffect reports a rank-less level 1 row whose name has ranked rows later (see lateRanked), or a
+// level 1 row of a name whose later ranks are listed at level 1 too (a talent).
 func sideEffect(late map[string]bool, name string, rank, level int64) bool {
-	return rank == 0 && level <= 1 && late[strings.ToLower(strings.TrimSpace(name))]
+	n := strings.ToLower(strings.TrimSpace(name))
+	return rank == 0 && level <= 1 && late[n] || rank > 0 && level <= 1 && late[talentRanksKey(n)]
 }
 
 // isRuneAbility reports a class spell the dataset lists at level 1 with a high spell id: an engraving

@@ -74,7 +74,7 @@ func TestWeaponFactsAnswerTheStaffQuestion(t *testing.T) {
 	if !WeaponQuestion(q) {
 		t.Fatal("not a weapon question")
 	}
-	got := weaponFacts(weaponPriest(), weaponDS(t), q)
+	got := WeaponFacts(weaponPriest(), weaponDS(t), q)
 	for _, want := range []string{
 		"The character has learned: Daggers 1/1",
 		"The class can learn: Daggers, Staves",
@@ -88,7 +88,7 @@ func TestWeaponFactsAnswerTheStaffQuestion(t *testing.T) {
 		t.Errorf("facts name a master that does not teach it, or a skill the class cannot learn:\n%s", got)
 	}
 	// Not a weapon question: the masters stay out of the facts.
-	if got := weaponFacts(weaponPriest(), weaponDS(t), "What next?"); strings.Contains(got, "Hanashi") || !strings.Contains(got, "Learnable but not learned yet: Staves") {
+	if got := WeaponFacts(weaponPriest(), weaponDS(t), "What next?"); strings.Contains(got, "Hanashi") || !strings.Contains(got, "Learnable but not learned yet: Staves") {
 		t.Errorf("short form: %s", got)
 	}
 }
@@ -105,10 +105,10 @@ func TestWeaponPromptSaysFactsNotMemory(t *testing.T) {
 
 func TestWeaponFactsWithoutTablesSaySo(t *testing.T) {
 	old := store.New(store.ReaderSource{})
-	if got := weaponFacts(weaponPriest(), old, "Can priests use staves?"); got != NoWeaponFacts || !strings.Contains(got, "don't have those facts") {
+	if got := WeaponFacts(weaponPriest(), old, "Can priests use staves?"); got != NoWeaponFacts || !strings.Contains(got, "don't have those facts") {
 		t.Errorf("old dataset: %q", got)
 	}
-	if got := weaponFacts(weaponPriest(), old, "What next?"); got != "" {
+	if got := WeaponFacts(weaponPriest(), old, "What next?"); got != "" {
 		t.Errorf("an old dataset adds weapon text to every question: %q", got)
 	}
 }

@@ -164,6 +164,19 @@ func TestCooldownMaterialAvoided(t *testing.T) {
 	}
 }
 
+// Refined Deeprock Salt is what the Salt Shaker makes, one use every three days: a recipe that takes it is left out too.
+func TestSaltShakerProductAvoided(t *testing.T) {
+	g := guideSet{
+		items:    []pItem{{1, "Refined Deeprock Salt", 1, 1, 0}, {2, "Rugged Hide", 1, 1, 0}},
+		recipes:  []pRecipe{pr(10, "Leatherworking", "Cured Rugged Hide", nil, 1, 215, 300, "trainer")},
+		reagents: []reagentRow{{10, 1, 1}, {10, 2, 1}},
+	}
+	b := benchBands(t, g, BenchOptions{Profession: "Leatherworking", From: 215, To: 250})
+	if strings.Contains(bandRecipes(b), "Cured Rugged Hide") {
+		t.Errorf("bands %s", bandRecipes(b))
+	}
+}
+
 func TestDustFromDisenchanting(t *testing.T) {
 	g := guideSet{
 		items:    []pItem{{1, "Strange Dust", 1, 1, 0}},

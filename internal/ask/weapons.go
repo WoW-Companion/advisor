@@ -27,10 +27,10 @@ const weaponRule = " Weapon and armour rules come from the weapon-skill facts ab
 	"Answer which weapons the class can use, whether the character has the skill, and where to train it only from those facts, naming the masters and cost they list. " +
 	"If the facts say there are none, say plainly that you don't have weapon-skill facts (this overrides the wording rule about what is missing). "
 
-// weaponFacts is the weapon-skill section of the facts: the character's captured weapon skills, the
+// WeaponFacts is the weapon-skill section of the facts: the character's captured weapon skills, the
 // class's learnable skills, and for each learnable skill the character lacks the masters of their
 // faction with cost and level. Masters are listed only for a weapon question, to spare the budget.
-func weaponFacts(c character.Character, ds store.DataStore, text string) string {
+func WeaponFacts(c character.Character, ds store.DataStore, text string) string {
 	f := gear.LoadWeaponSkills(c, ds)
 	if ds == nil || !f.Have {
 		if ds == nil || !WeaponQuestion(text) {

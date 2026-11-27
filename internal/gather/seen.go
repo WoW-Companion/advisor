@@ -189,13 +189,22 @@ func hasQuestie(zs []Zone) bool {
 // zonesText is "<lead>: <zones> (from your Questie database)." with the Questie mark only when a
 // zone came from there; the seen zones carry their own mark.
 func zonesText(lead string, zs []Zone) string {
+	mark := ""
+	if hasQuestie(zs) {
+		mark = FromQuestie
+	}
+	return zonesTextMarked(lead, zs, mark)
+}
+
+// zonesTextMarked is zonesText with the source named by mark; no mark when it is empty.
+func zonesTextMarked(lead string, zs []Zone, mark string) string {
 	var parts []string
 	for _, z := range zs {
 		parts = append(parts, describe(z))
 	}
 	s := lead + ": " + strings.Join(parts, "; ")
-	if hasQuestie(zs) {
-		s += " (" + FromQuestie + ")"
+	if mark != "" {
+		s += " (" + mark + ")"
 	}
 	return s + "."
 }

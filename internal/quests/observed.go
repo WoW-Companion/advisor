@@ -21,7 +21,7 @@ func observed(ds store.DataStore, id int64) *Facts {
 	}
 	r := rows[0]
 	f := &Facts{QuestID: id, Name: str(r["title"]), Level: int(i64(r["level"])), Faction: str(r["faction"]),
-		Category: str(r["category"]), Source: SourceEverloot, Credit: Credit}
+		Category: str(r["category"]), Tag: str(r["tag"]), Source: SourceEverloot, Credit: Credit}
 	if g := i64(r["giver_npc_id"]); g > 0 {
 		f.Giver = npcLabel(ds, g)
 	}
@@ -106,6 +106,7 @@ func FactsOf(ds store.DataStore, ix *questie.Index, id int64) *Facts {
 		pick(&out.Objective, s.Objective, s)
 		pick(&out.Faction, s.Faction, s)
 		pick(&out.Category, s.Category, s)
+		pick(&out.Tag, s.Tag, s)
 		pick(&out.Classes, s.Classes, s)
 		pick(&out.Races, s.Races, s)
 		if out.Level == 0 && s.Level > 0 {

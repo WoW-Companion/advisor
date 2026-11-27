@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/WoW-Companion/advisor/internal/character"
+	"github.com/WoW-Companion/advisor/internal/gather"
 	"github.com/WoW-Companion/advisor/internal/gear"
 	"github.com/WoW-Companion/advisor/internal/items"
 	"github.com/WoW-Companion/advisor/internal/questie"
@@ -293,6 +294,9 @@ func (f *finder) why(crs []creature) string {
 	case f.soldByVendors():
 		// the dataset lists vendors for it but names none (advice never points at a bare vendor id)
 		return "vendors sell it, but the game data you have names none of them, so it can't say which one to visit"
+	case f.caughtByFishing() != "":
+		// the dataset's fishing reports are a way to get it, not a random drop
+		return "it is a fishing catch, not a drop. " + f.caughtByFishing()
 	case len(f.loot) == 0 && isMount(f.item):
 		// a mount is bought from a vendor or trainer, or won: an empty table is no verdict on it
 		return "the game data lists no source for this mount, so it can't say where to get it"
@@ -320,6 +324,16 @@ func (f *finder) soldByVendors() bool {
 		}
 	}
 	return false
+}
+
+// caughtByFishing is the fishing zones the dataset's reports name for the item, best catch rate first; "" when no
+// cast caught it.
+func (f *finder) caughtByFishing() string {
+	res, ok := gather.New(nil, f.ds).Catches(f.c, f.itemID, str(f.item["name"]), "")
+	if !ok {
+		return ""
+	}
+	return res.Text
 }
 
 // isMount is true for an item of the mount subclass of miscellaneous items (class 15, subclass 5).
@@ -681,7 +695,8 @@ func (f *finder) reagents(spell int64) ([]Reagent, bool) {
 		if g.Missing > 0 {
 			g.How = f.getReagent(id, it)
 			if o, ok := vendors.BestFor(f.c, f.ds, id); ok {
-				buy := strings.ToLower(o.Line()[:1]) + o.Line()[1:]
+				line := o.LineFor(g.Missing)
+				buy := strings.ToLower(line[:1]) + line[1:]
 				switch {
 				case strings.HasPrefix(g.How, "gather"):
 					g.How += ", or " + buy // the character's own skill stays first
@@ -723,6 +738,7 @@ func gatherer(name string) string {
 
 // node is a gathering node that yields an item: its name, the zone it stands in and the skill it needs (0 when unknown).
 type node struct {
+	id               int64
 	name, zone, prof string
 	skill            int
 }
@@ -740,7 +756,7 @@ func (f *finder) nodesOf(rows []store.Row) []node {
 		if id == 0 {
 			id = i64(l["source_id"])
 		}
-		n := node{name: str(l["node_name"]), prof: str(l["profession"]), skill: int(i64(l["skill_required"]))}
+		n := node{id: id, name: str(l["node_name"]), prof: str(l["profession"]), skill: int(i64(l["skill_required"]))}
 		if i, ok := at[id]; ok { // the object row and the gathered row of one node are one node
 			o := &out[i]
 			o.name, o.prof = cmpOr(o.name, n.name), cmpOr(o.prof, n.prof)
@@ -773,6 +789,54 @@ func (f *finder) nodesOf(rows []store.Row) []node {
 	return out
 }
 
+// placedNodes are the nodes the dataset says something about (a skill, a name, a profession or a zone). An object
+// the dataset has no node row for is a bare id: with the skill unknown it would pass for a node any skill can take,
+// so it is left out.
+func placedNodes(nodes []node) []node {
+	var out []node
+	for _, n := range nodes {
+		if n.skill > 0 || n.name != "" || n.prof != "" || n.zone != "" {
+			out = append(out, n)
+		}
+	}
+	return out
+}
+
+// yieldNodes are the nodes the dataset's gathering_yields name for the item that its loot rows leave out: the same herb or ore
+// grows from a differently numbered node in another zone, and only the yields table links that node to the item.
+func (f *finder) yieldNodes(item int64, have []node) []node {
+	ys, err := f.ds.Filter("gathering_yields", store.Range{Column: "item_id", Min: item, Max: item})
+	if err != nil {
+		return nil
+	}
+	seen := map[int64]bool{}
+	for _, n := range have {
+		seen[n.id] = true
+	}
+	var out []node
+	for _, y := range ys {
+		id := i64(y["node_id"])
+		if id == 0 || seen[id] {
+			continue
+		}
+		seen[id] = true
+		zs, err := f.ds.Filter("gathering_nodes", store.Range{Column: "node_id", Min: id, Max: id})
+		if err != nil || len(zs) == 0 {
+			continue
+		}
+		n := node{id: id}
+		for _, z := range zs {
+			n.name, n.prof = cmpOr(n.name, str(z["name"])), cmpOr(n.prof, str(z["profession"]))
+			if n.skill == 0 {
+				n.skill = int(i64(z["skill_required"]))
+			}
+			n.zone = appendZone(n.zone, str(z["zone_name"]))
+		}
+		out = append(out, n)
+	}
+	return out
+}
+
 func cmpOr(a, b string) string {
 	if a != "" {
 		return a
@@ -799,6 +863,7 @@ func (f *finder) getReagent(id int64, it store.Row) string {
 	rows, _ := f.ds.Filter("loot_sources", store.Range{Column: "item_id", Min: id, Max: id})
 	name := str(it["name"])
 	nodes := f.nodesOf(rows)
+	nodes = append(nodes, f.yieldNodes(id, nodes)...)
 	g := gatherer(name)
 	if g == "" {
 		for _, n := range nodes {
@@ -817,6 +882,7 @@ func (f *finder) getReagent(id int64, it store.Row) string {
 			}
 			var within []node
 			least := 0
+			nodes = placedNodes(nodes)
 			for _, n := range nodes {
 				if n.skill <= have {
 					within = append(within, n)
@@ -827,6 +893,9 @@ func (f *finder) getReagent(id int64, it store.Row) string {
 			}
 			if len(nodes) == 0 || len(within) > 0 {
 				how := "gather it with your " + g
+				if len(nodes) == 0 {
+					how += " (the game data has no node for it, so I can't say what skill it needs)"
+				}
 				var names, zones []string
 				for _, n := range within {
 					names = appendUnique(names, n.name)
