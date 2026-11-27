@@ -179,6 +179,9 @@ func Render(c Chain, name string) string {
 		b.WriteString("; it is the last step")
 	}
 	b.WriteString(".\n")
+	if c.Quest != nil && c.Quest.groupWords() != "" {
+		b.WriteString(label + " is " + c.Quest.groupWords() + ", as players reported on " + Credit + ".\n")
+	}
 	for _, s := range c.Steps {
 		mark := "  "
 		if s.Position == c.Position {
