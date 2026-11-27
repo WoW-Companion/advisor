@@ -326,8 +326,10 @@ var encLevels = []struct {
 	level int
 }{{"Horde", 20}, {"Horde", 30}, {"Horde", 40}, {"Horde", 50}, {"Horde", 58}, {"Alliance", 25}, {"Alliance", 45}}
 
-func TestOfflineBenchmarkDungeonOrderA(t *testing.T) { dungeonOrder(t, "a", encLevels[:4]) }
-func TestOfflineBenchmarkDungeonOrderB(t *testing.T) { dungeonOrder(t, "b", encLevels[4:]) }
+func TestOfflineBenchmarkDungeonOrderA(t *testing.T) { dungeonOrder(t, "a", encLevels[:2]) }
+func TestOfflineBenchmarkDungeonOrderB(t *testing.T) { dungeonOrder(t, "b", encLevels[2:4]) }
+func TestOfflineBenchmarkDungeonOrderC(t *testing.T) { dungeonOrder(t, "c", encLevels[4:6]) }
+func TestOfflineBenchmarkDungeonOrderD(t *testing.T) { dungeonOrder(t, "d", encLevels[6:]) }
 
 // dungeonOrder: the dungeons offered to a character at a level come lowest level range first (the order a guide lists them in, the one that is
 // about to be outgrown first), with a dungeon already above its range after those that fit.
