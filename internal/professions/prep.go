@@ -475,13 +475,24 @@ func tierAccess(ds store.DataStore, profession, tier, faction string) (how, text
 		case who == "":
 			who = place
 		}
+		// the tier row's note names the book or the quest ("Triage quest", "Expert Cookbook"): the player looks for it by name
+		name := strings.TrimSpace(strings.TrimSuffix(strings.TrimSpace(asText(r["note"])), " "+h))
+		if strings.EqualFold(name, h) {
+			name = ""
+		}
 		if h == "book" {
 			text = "it is a book"
+			if name != "" {
+				text += " (" + name + ")"
+			}
 			if who != "" {
 				text += " from " + who
 			}
 		} else {
 			text = "it comes from a quest"
+			if name != "" {
+				text += " (" + name + ")"
+			}
 			if who != "" {
 				text += ": " + who
 			}

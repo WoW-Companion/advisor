@@ -212,6 +212,9 @@ type Result struct {
 	Reason        string // why scoring fell back to item level, when it did
 	// Bags are the items already in the bags that beat what is worn: free, so they come first.
 	Bags []BagUpgrade `json:"bags,omitempty"`
+	// Unknown maps a slot to the name of the worn item the dataset does not hold and the capture gave no item level for:
+	// nothing is compared there.
+	Unknown map[string]string `json:"unknown,omitempty"`
 }
 
 // Upgrades returns, per capture slot, the items the character can use that beat what they wear,
@@ -348,6 +351,17 @@ func Find(c character.Character, ds store.DataStore, group string, opt Options) 
 
 	ranked := map[string][]Candidate{}
 	for slot, items := range bySlot {
+		// A worn item the dataset does not hold and the capture gives no item level for is not compared: every item would
+		// "beat" it, and that is a guess.
+		if name, ok := wornUnknown(c, ds, slot); ok {
+			if opt.Slot == "" || opt.Slot == slot {
+				if res.Unknown == nil {
+					res.Unknown = map[string]string{}
+				}
+				res.Unknown[slot] = name
+			}
+			continue
+		}
 		ranked[slot] = rank(c, ds, slot, items, w, lo)
 	}
 	for _, pair := range pairedSlots {
@@ -441,6 +455,22 @@ func dedupe(ranked map[string][]Candidate, c character.Character, a, b string, l
 	ranked[b] = second
 }
 
+// wornUnknown is the name of the item worn in slot when the dataset has no row for it and the capture records no item
+// level: what it is worth is not known, so nothing can be said to beat it.
+func wornUnknown(c character.Character, ds store.DataStore, slot string) (string, bool) {
+	eq, ok := c.Equipment[slot]
+	if !ok || eq.ItemID == nil || *eq.ItemID == 0 || eq.ItemLevel != nil {
+		return "", false
+	}
+	if _, err := ds.Get("items", int64(*eq.ItemID)); err == nil {
+		return "", false
+	}
+	if eq.Name != "" {
+		return eq.Name, true
+	}
+	return fmt.Sprintf("item %d", *eq.ItemID), true
+}
+
 // rank scores the items against what the character wears in slot and keeps the upgrades.
 func rank(c character.Character, ds store.DataStore, slot string, items []Item, w map[int64]float64, lo loadout) []Candidate {
 	eq, worn := c.Equipment[slot]
@@ -471,8 +501,9 @@ func rank(c character.Character, ds store.DataStore, slot string, items []Item, 
 			off = lo.off
 		}
 		byStats := w != nil && it.StatsKnown && (!worn || curKnown && cur.StatsKnown) && (off == nil || off.StatsKnown)
-		// An item that is not above what is worn, or a placeholder for an empty slot, is no upgrade.
-		if off == nil && (worn && it.ItemLevel <= cur.ItemLevel || !worn && it.ItemLevel <= 1) {
+		// A placeholder for an empty slot is no upgrade. By item level alone an item that is not above what is worn is none
+		// either; weighed by stats, the gain decides below, since a lower item level can carry the stats the build wants.
+		if off == nil && (!byStats && worn && it.ItemLevel <= cur.ItemLevel || !worn && it.ItemLevel <= 1) {
 			continue
 		}
 		cand := Candidate{Item: it, Slot: slot, Basis: BasisItemLevel, Empty: !worn}
