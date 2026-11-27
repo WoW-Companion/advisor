@@ -19,13 +19,13 @@ WoWCompanionPlan = {
         { order = 3, map = 7101, zone = "The Barrens", ready = 1, todo = 0, pickups = 0, questIDs = { 101 }, reason = "1 ready to turn in", travel = "Boat from Booty Bay to Ratchet, then ride to The Barrens: turn in Quest 101", eta = 8 },
       },
       parked = {
-        { questID = 601, quest = "Guano Quest", why = "needs a group: Razorfen Kraul (The Barrens)", kind = "dungeon" },
+        { questID = 601, quest = "Guano Quest", why = "needs a group: Razorfen Kraul (The Barrens)", kind = "dungeon", level = 30, diff = "yellow" },
       },
       later = {
-        { n = 1, kind = "objective", questID = 601, quest = "Guano Quest", label = "Kill Kraul Boar (0/1)", map = 7099, x = 30.0, y = 30.0, done = false, place = "Razorfen Kraul" },
-        { n = 2, kind = "turnin", questID = 100, quest = "Quest 100", label = "Turn in Quest 100 to Clerk Stranglethorn Vale", map = 7100, x = 50.0, y = 50.0, done = false, place = "Stranglethorn Vale" },
-        { n = 3, kind = "turnin", questID = 101, quest = "Quest 101", label = "Turn in Quest 101 to Clerk The Barrens", map = 7101, x = 50.0, y = 50.0, done = false, place = "The Barrens" },
-        { n = 4, kind = "turnin", questID = 102, quest = "Quest 102", label = "Turn in Quest 102 to Clerk Silverpine Forest", map = 7102, x = 50.0, y = 50.0, done = false, place = "Silverpine Forest" },
+        { n = 1, kind = "objective", questID = 601, quest = "Guano Quest", label = "Kill Kraul Boar (0/1)", map = 7099, x = 30.0, y = 30.0, done = false, place = "Razorfen Kraul", level = 30, diff = "yellow" },
+        { n = 2, kind = "turnin", questID = 100, quest = "Quest 100", label = "Turn in Quest 100 to Clerk Stranglethorn Vale", map = 7100, x = 50.0, y = 50.0, done = false, place = "Stranglethorn Vale", level = 30, diff = "yellow" },
+        { n = 3, kind = "turnin", questID = 101, quest = "Quest 101", label = "Turn in Quest 101 to Clerk The Barrens", map = 7101, x = 50.0, y = 50.0, done = false, place = "The Barrens", level = 30, diff = "yellow" },
+        { n = 4, kind = "turnin", questID = 102, quest = "Quest 102", label = "Turn in Quest 102 to Clerk Silverpine Forest", map = 7102, x = 50.0, y = 50.0, done = false, place = "Silverpine Forest", level = 30, diff = "yellow" },
       },
       find = {
         { n = 1, questID = 999, quest = "Lost Quest", hint = "Find who takes Lost Quest", done = false },

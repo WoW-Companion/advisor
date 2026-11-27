@@ -319,7 +319,7 @@ func (s *questieSource) quests(c character.Character, at *questie.Where) []*ques
 		if qq == nil || (lq.Failed != nil && *lq.Failed) {
 			continue
 		}
-		q := &quest{id: qq.ID, name: qq.Name, level: qq.Level, must: classQuestOf(c, qq), hint: qq.Objective}
+		q := &quest{id: qq.ID, name: qq.Name, level: qq.Level, must: classQuestOf(c, qq), hint: qq.Objective, elite: lq.Elite != nil && *lq.Elite}
 		if lq.Level != nil {
 			q.level = *lq.Level
 		}
@@ -413,7 +413,7 @@ func (s *questieSource) quests(c character.Character, at *questie.Where) []*ques
 		var rs []ranked
 		for _, f := range found {
 			qq := s.qx.Quests[f.ID]
-			if qq == nil || qq.Level > *c.Level+LevelMargin {
+			if qq == nil || tooHigh(qq.Level, *c.Level, c.Reach()) {
 				continue
 			}
 			ax, ay, haveA := x, y, haveXY

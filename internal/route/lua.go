@@ -31,6 +31,18 @@ func idList(ids []int) string {
 	return "{ " + strings.Join(parts, ", ") + " }"
 }
 
+// levelLua is the ", level = 38, diff = "red"" tail of an entry; empty when the level is unknown.
+func levelLua(level int, diff string) string {
+	if level <= 0 {
+		return ""
+	}
+	out := fmt.Sprintf(", level = %d", level)
+	if diff != "" {
+		out += ", diff = " + digest.Quote(diff)
+	}
+	return out
+}
+
 func stops(b *strings.Builder, indent string, list []Stop) {
 	for _, s := range list {
 		extra := ""
@@ -43,6 +55,7 @@ func stops(b *strings.Builder, indent string, list []Stop) {
 		if s.Place != "" {
 			extra += ", place = " + digest.Quote(s.Place)
 		}
+		extra += levelLua(s.Level, s.Diff)
 		if s.Errand != "" {
 			extra += ", errand = " + digest.Quote(s.Errand)
 		}
@@ -96,7 +109,7 @@ func (e Envelope) Lua() string {
 		}
 		b.WriteString("      },\n      parked = {\n")
 		for _, k := range p.Parked {
-			fmt.Fprintf(&b, "        { questID = %d, quest = %s, why = %s, kind = %s },\n", k.QuestID, digest.Quote(k.Quest), digest.Quote(k.Why), digest.Quote(k.Kind))
+			fmt.Fprintf(&b, "        { questID = %d, quest = %s, why = %s, kind = %s%s },\n", k.QuestID, digest.Quote(k.Quest), digest.Quote(k.Why), digest.Quote(k.Kind), levelLua(k.Level, k.Diff))
 		}
 		b.WriteString("      },\n      later = {\n")
 		stops(&b, "        ", p.Later)
@@ -107,10 +120,10 @@ func (e Envelope) Lua() string {
 				if f.Zone != "" {
 					z = ", zone = " + digest.Quote(f.Zone)
 				}
-				fmt.Fprintf(&b, "        { n = %d, questID = %d, quest = %s, hint = %s%s, done = false },\n", f.N, f.QuestID, digest.Quote(f.Quest), digest.Quote(f.Hint), z)
+				fmt.Fprintf(&b, "        { n = %d, questID = %d, quest = %s, hint = %s%s%s, done = false },\n", f.N, f.QuestID, digest.Quote(f.Quest), digest.Quote(f.Hint), z, levelLua(f.Level, f.Diff))
 				continue
 			}
-			fmt.Fprintf(&b, "        { n = %d, kind = \"objective\", questID = %d, quest = %s, label = %s, done = false },\n", f.N, f.QuestID, digest.Quote(f.Quest), digest.Quote(f.Label))
+			fmt.Fprintf(&b, "        { n = %d, kind = \"objective\", questID = %d, quest = %s, label = %s%s, done = false },\n", f.N, f.QuestID, digest.Quote(f.Quest), digest.Quote(f.Label), levelLua(f.Level, f.Diff))
 		}
 		b.WriteString("      },\n")
 		if len(p.Errands) > 0 {

@@ -37,12 +37,13 @@ the player's local files. Nothing Questie-derived is stored in this repo.
   when the quest XP table is missing). Holiday and festival quests wait in `later` unless nothing else is
   planned. With 2 or fewer free quest-log slots (40, or the client's size) only that many pick-ups are
   planned, dungeon quests first, then class quests, then by XP, and a note says the log is nearly full.
-- Quests more than 1 level above the character, stops on another map, and stops past the 20th go to `later`.
+- Open quests above the level reach (see "Schema 1.8"), stops on another map, and stops past the 20th go to `later`.
   The map with the most `later` stops is named as a final `travel` stop: "Fly to <place> (<flight master>), <zone>"
   when the player knows a flight master there, else "Walk or ride to <zone> from <side>"; across continents the
   hub comes first ("Zeppelin to Orgrimmar, then fly to ..."). A dungeon reads "Travel to <place> (<zone>)",
   never a map number. An unknown flight point is never suggested as a flight. See "Schema 1.5".
-- Quests ready to turn in on the player's map are the first steps, nearest first. A ready turn-in in a town
+- Quests ready to turn in on the player's map (and a delivery within about 250 yards of the player) are the
+  first steps, nearest first. A ready turn-in in a town
   the player has a flight to (any town, when no flight is known) gets a `travel` step "Fly to <town>: turn in
   <quests>", one per town, before the final travel stop.
 - Follow-ups: see "Chain-aware plan" below.
@@ -273,8 +274,9 @@ commitment and is in exactly one of three places.
   `instance` set, when the player has a group plan; otherwise it is parked. A trip whose `map` is the
   player's own holds quests the run's caps left out ("Here, once the run is done"). `pickups` counts
   quests not in the log that could be picked up there; they are not in `questIDs`.
-- `parked` is `{ questID, quest, why, kind }`, quests set aside, with `kind`: `toohigh` (open work more than 3 levels
-  above the player, never a done quest: "level 40 · doable around 37"), `grey` (grey to the player and nothing to hand in; with 30 or more of 40
+- `parked` is `{ questID, quest, why, kind, level, diff }`, quests set aside, with `kind`: `toohigh` (open work more than
+  the level reach above the player, 3 by default, never a done quest or a delivery: "level 40 · doable around 37"),
+  `elite` ("Elite: needs a group"), `hidden` ("Hidden by you"), `grey` (grey to the player and nothing to hand in; with 30 or more of 40
   slots used, "grey at your level, worth abandoning"), `dungeon` (needs a group, and no group plan is set)
   or `seasonal` (a holiday quest). A parked quest is in no trip and in no step.
 
@@ -423,6 +425,29 @@ first. The search is nearest-neighbour from every start, improved by 2-opt.
 - A `train` or `bank` errand has the position of the class trainer or banker in the city (Questie's NPC spawns,
   read at run time). Only when none is known is it unplaced (`x = -1`), and its label then names the area when
   that is known ("Train now at your class trainer (Rogues' Quarter)").
+
+## Schema 1.8: level reach, hidden quests, quest levels
+
+The addon captures `planPrefs` per character (WoWCompanionDB.characters[key]); a missing table or key means the
+defaults:
+
+```lua
+planPrefs = { levelReach = 3, hidden = { [12345] = true }, includeElite = false }
+```
+
+- `levelReach` is 0 to 10, or -1 for no limit. A logged quest with open objectives whose level is above the
+  player's level + `levelReach` is no step and no trip: it is `parked` as `toohigh`, "level 38 · doable around 35".
+  Pick-up candidates use the same limit. A ready turn-in and a delivery ("speak with", nothing to do) are never
+  filtered by level.
+- An elite quest (the capture's `elite = true` on a quest entry) is parked as `elite`, "Elite: needs a group", unless
+  `includeElite`.
+- A quest id in `hidden` is in no step, trip, `later` or `find`, and is not counted in a trip's totals. It is parked
+  with `kind = "hidden"`, why "Hidden by you", so the player can bring it back.
+- Every step and every `later`, `parked` and `find` entry carries `level` (the quest's level; absent when unknown)
+  and `diff`, the game's colour for it against the player's level: `red` (5 or more above), `orange` (3-4), `yellow`
+  (within 2), `green`, or `grey` (8 or more below).
+- A ready turn-in or delivery within about 250 yards of the player (or the run's start) is the first step, so it is
+  NOW. A delivery step reads "Turn in <quest> to <NPC> (<place>)".
 
 ## Step kinds and sections (the contract)
 

@@ -72,7 +72,7 @@ func wowcQuest(e lua.Table) (Quest, bool) {
 		return Objective{Text: asStr(o["text"]), Have: asInt(o["have"]), Need: asInt(o["need"]), Done: asBool(o["done"])}, true
 	})
 	return Quest{QuestID: *id, Title: asStr(e["title"]), Level: asInt(e["level"]), Complete: asBool(e["complete"]),
-		Failed: asBool(e["failed"]), Objectives: objs}, true
+		Failed: asBool(e["failed"]), Objectives: objs, Elite: asBool(e["elite"])}, true
 }
 
 // wowcTalents reads a record's talents and its talentPoints (unspent points, optional: absent in older
@@ -134,6 +134,7 @@ func LoadWoWCharacter(key string, rec lua.Table) Character {
 		c.BankCaptured = true
 		c.Bank = wowcContainers(rec["bank"])
 	}
+	c.PlanPrefs = wowcPlanPrefs(rec["planPrefs"])
 	if q := table(rec["quests"]); q != nil {
 		c.Quests, _ = each(q["entries"], wowcQuest)
 		c.QuestsCaptured = asBool(q["captured"]) == nil || *asBool(q["captured"])
@@ -189,4 +190,28 @@ func LoadWoWC(vars map[string]any) (File, error) {
 		f.Characters = append(f.Characters, LoadWoWCharacter(k, chars[k].(lua.Table)))
 	}
 	return f, nil
+}
+
+// wowcPlanPrefs reads planPrefs; nil when absent. A missing levelReach is the default; it is held to -1..10.
+func wowcPlanPrefs(v any) *PlanPrefs {
+	t := table(v)
+	if t == nil {
+		return nil
+	}
+	pp := &PlanPrefs{LevelReach: DefaultLevelReach}
+	if r := asInt(t["levelReach"]); r != nil {
+		pp.LevelReach = min(max(*r, -1), 10)
+	}
+	for k, val := range table(t["hidden"]) {
+		if b := asBool(val); b != nil && *b {
+			if id := asInt(k); id != nil {
+				if pp.Hidden == nil {
+					pp.Hidden = map[int]bool{}
+				}
+				pp.Hidden[*id] = true
+			}
+		}
+	}
+	pp.IncludeElite = asBool(t["includeElite"]) != nil && *asBool(t["includeElite"])
+	return pp
 }
