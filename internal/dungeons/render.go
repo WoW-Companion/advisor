@@ -232,6 +232,10 @@ func RenderNamed(c character.Character, p DungeonPick, togo int) string {
 	if len(p.Bosses) > 0 {
 		b.WriteString("       All bosses: " + strings.Join(p.Bosses, ", ") + "\n")
 	}
+	if p.levels() == "" {
+		// the dataset gives some maps a group size and no level: say so rather than leave the level out
+		b.WriteString("       Entry level: not known yet\n")
+	}
 	if p.Raid {
 		// the dataset has no reset period, lockout rule or attunement quest for a raid
 		b.WriteString("       Lockout and attunement: not known yet\n")
