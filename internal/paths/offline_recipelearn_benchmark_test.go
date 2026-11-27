@@ -159,7 +159,7 @@ var rlUseCases = []rlUseCase{
 	{"level 25, Tailoring 150 of 150", "Mageweave Bag", "Tailoring", 25, 150, 150, "far"},
 	{"level 40, Blacksmithing 225 of 225", "Thorium Bracers", "Blacksmithing", 40, 225, 225, "short"},
 	{"level 8, Alchemy 70 of 75", "Elixir of Wisdom", "Alchemy", 8, 70, 75, "short"},
-	{"level 20, Tailoring 150 of 150, recipe within the rank", "Silk Bandage", "First Aid", 20, 150, 150, "can"},
+	{"level 20, First Aid 150 of 150, recipe within the rank", "Silk Bandage", "First Aid", 20, 150, 150, "can"},
 	{"level 60, Blacksmithing 300 of 300", "Thorium Bracers", "Blacksmithing", 60, 300, 300, "can"},
 }
 
