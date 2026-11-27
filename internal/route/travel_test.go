@@ -97,6 +97,9 @@ func TestKnownFlightPathsAreNamedAsFlights(t *testing.T) {
 
 func TestTrainErrandHasAPositionOrNamesTheQuarter(t *testing.T) {
 	ix, c := routeWorld()
+	ix.Npcs[510] = questie.Entity{Name: "Michael Garrett", Flags: 0x2000, Faction: "H", Spawns: []questie.Spawn{{Area: 900, X: 63, Y: 48}}}
+	ix.Npcs[511] = questie.Entity{Name: "Tarren Rider", Flags: 0x2000, Spawns: []questie.Spawn{{Area: 900, X: 20, Y: 70}}}
+	c.Seen = &character.Observed{Flights: []character.SeenFlight{{NPC: 511, Name: "Tarren Rider", Map: mapUndercity, X: 20, Y: 70, T: 1}}}
 	ix.Npcs[500] = questie.Entity{Name: "Rogue Master", Sub: "Rogue Trainer", Faction: "H", Spawns: []questie.Spawn{{Area: 900, X: 82, Y: 14}}}
 	opt := Options{Trainable: func(character.Character) int { return 2 }}
 	c.BankCaptured = true

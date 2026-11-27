@@ -1,6 +1,7 @@
 package route
 
 import (
+	"github.com/WoW-Companion/advisor/internal/wording"
 	"math"
 	"sort"
 	"strings"
@@ -62,7 +63,7 @@ func missingText(it GuideItem) string {
 	case where == "":
 		return it.Text
 	case it.Map == 0:
-		return it.Text + " (somewhere in " + where + ")"
+		return wording.Somewhere(it.Text, where)
 	}
 	return it.Text + " (" + where + ")"
 }

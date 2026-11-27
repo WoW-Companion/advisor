@@ -106,6 +106,10 @@ type Stop struct {
 	// Errand is the kind of a city errand stop ("train", "bank", "class", "profession", "turnin"); empty on
 	// an ordinary stop (Plan.lua 1.7).
 	Errand string `json:"errand,omitempty"`
+	// Needs are the numbers of the steps that must be done first: a quest's pick-up before its objectives
+	// and turn-in, its objectives before the turn-in, a chain's unlocking turn-ins before the follow-up
+	// (Plan.lua "after").
+	Needs []int `json:"needs"`
 }
 
 // FindStop is an objective the planner could not place on the map: something to find, with no x or y.
@@ -127,6 +131,7 @@ type Point struct {
 	Map int     `json:"map"`
 	X   float64 `json:"x"`
 	Y   float64 `json:"y"`
+	At  int64   `json:"at,omitempty"` // when the save the plan was built from was captured (unix seconds)
 }
 
 // Options are the chain-aware inputs of a plan; the zero value plans from Questie alone.
@@ -191,6 +196,7 @@ type Plan struct {
 	Trips     []Trip       `json:"trips,omitempty"`      // logged quests outside the run, by destination zone (Plan.lua 1.6)
 	Parked    []Parked     `json:"parked,omitempty"`     // logged quests set aside, and why (Plan.lua 1.6)
 	Errands   []Errand     `json:"errands,omitempty"`    // which steps are city errands (Plan.lua 1.7)
+	Flights   []Flight     `json:"flights,omitempty"`    // flight masters of the run's zones, known or not (Plan.lua "flights")
 }
 
 // Basis is the state a plan starts from. "Done" in a plan means done after Captured: a reader judges

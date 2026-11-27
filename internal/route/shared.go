@@ -235,6 +235,8 @@ func shapeSharedPlan(p *Plan, c character.Character, src source, opt Options, in
 	findHomeless(p, c, src, in.listed)
 	addErrands(p, c, src, opt, in)
 	p.Total = len(p.Steps)
+	linkSteps(p.Steps)
+	p.Flights = flightList(c, src, p, in.cur)
 }
 
 // findHomeless gives every logged quest that is in no step, trip, parked entry or find entry a find entry

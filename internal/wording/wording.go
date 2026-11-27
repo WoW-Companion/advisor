@@ -146,7 +146,7 @@ func SlotName(slot string, invType int) string {
 var actionVerbs = map[string]bool{}
 
 func init() {
-	for _, w := range strings.Fields("kill slay collect gather speak talk use explore escort defeat reach visit discover find deliver protect clear loot obtain listen investigate search return bring recover retrieve acquire free rescue destroy burn place plant capture tame interrogate inspect examine survey light activate open ride fly walk zeppelin boat travel go meet accompany follow help assist heal cleanse purify summon defend guard mine fish cook craft learn train equip wear complete finish pick turn continue") {
+	for _, w := range strings.Fields("kill slay collect gather speak talk use explore escort defeat reach visit discover find deliver protect clear loot obtain listen investigate search return bring recover retrieve acquire free rescue destroy burn place plant capture tame interrogate inspect examine survey light activate open ride fly walk zeppelin boat travel go meet accompany follow help assist heal cleanse purify summon defend guard mine fish cook craft learn train equip wear complete finish pick turn continue locate scout") {
 		actionVerbs[w] = true
 	}
 }
@@ -206,4 +206,26 @@ func A(word string) string {
 		return "an " + word
 	}
 	return "a " + word
+}
+
+// Somewhere is a label with "(somewhere in zone)" added once: a trailing " in zone" or an existing
+// "(somewhere in zone)" in the label is not repeated.
+func Somewhere(label, zone string) string {
+	label = strings.TrimSpace(label)
+	if zone == "" {
+		return label
+	}
+	tag := " (somewhere in " + zone + ")"
+	l, z := strings.ToLower(label), strings.ToLower(zone)
+	for {
+		switch {
+		case strings.HasSuffix(l, strings.ToLower(tag)):
+			return label
+		case strings.HasSuffix(l, " in "+z):
+			label = strings.TrimSpace(label[:len(label)-len(" in "+z)])
+			l = strings.ToLower(label)
+		default:
+			return label + tag
+		}
+	}
 }
