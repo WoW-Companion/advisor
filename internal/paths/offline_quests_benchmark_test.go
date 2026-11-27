@@ -33,7 +33,7 @@ const (
 	qbAdviceDir   = "../../testdata/advice_snapshot"
 	qbQuestSrc    = "dataset quests_observed (title, level, faction, category), loot_sources (quest reward)"
 	qbRewardSrc   = "dataset loot_sources, quests_observed; the dataset has no money or reputation reward column"
-	qbInnSrc      = "player's QuestieDB npc flags (innkeeper 0x80); the dataset has no innkeeper or bind point"
+	qbInnSrc      = "player's QuestieDB npc flags (canonical innkeeper bit); the dataset has no innkeeper or bind point"
 	qbInstanceSrc = "dataset instances (min_level, max_level, entrance_zone_name, max_players)"
 	qbTierSrc     = "dataset profession_tiers (skill_required, min_level, trainer_name, place)"
 )
@@ -263,7 +263,7 @@ func TestOfflineBenchmarkNoQuestRewardAnswer(t *testing.T) {
 
 // qbQx is a synthetic QuestieDB: a few inns and a flight point on one synthetic map, each side's own and a neutral one.
 func qbQx() *questie.Index {
-	const flight, inn = 0x2000, 0x80
+	const flight, inn = questie.FlagFlightMaster, questie.FlagInnkeeper
 	at := func(name, side string, flags int, x, y float64) questie.Entity {
 		return questie.Entity{Name: name, Faction: side, Flags: flags, Spawns: []questie.Spawn{{Area: 1, X: x, Y: y}}}
 	}
@@ -337,7 +337,7 @@ func TestOfflineBenchmarkInnAndHearth(t *testing.T) {
 	add("Horde, session of 90 minutes", s.EndsAt+"(none)", "a session over 45 minutes ends nowhere in particular", s.EndsAt == "")
 	flightOnly := qbQx()
 	for id, e := range flightOnly.Npcs {
-		if e.Flags == 0x80 {
+		if e.Flags == questie.FlagInnkeeper {
 			delete(flightOnly.Npcs, id)
 		}
 	}
