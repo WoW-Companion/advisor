@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/WoW-Companion/advisor/internal/gear"
+	"github.com/WoW-Companion/advisor/internal/learn"
 	"github.com/WoW-Companion/advisor/internal/names"
 	"github.com/WoW-Companion/advisor/internal/store"
 )
@@ -76,22 +77,46 @@ var limitTopics = []struct {
 		"Capital city services: the game data holds no bank, auction house, mailbox, innkeeper, stable master, battlemaster, barber or portal row, no mage portal or teleport destination, and no position for any of them in a capital. What it holds is the capital's map, its profession trainers and Weapon Masters (by zone, not position). Say so; name no NPC, building or position from memory."},
 	{regexp.MustCompile(`(?i)\b(warchief|faction leaders?|city leaders?|(horde|alliance) (leader|leaders|leadership|king|queen|ruler)|leaders? of (the )?(horde|alliance|orgrimmar|undercity|thunder bluff|stormwind|ironforge|darnassus)|who (leads|rules)|high king|archdruid|thrall|cairne|sylvanas|vol'?jin|bolvar|varian|magni|tyrande|anduin|garrosh|saurfang)\b`),
 		"Faction leaders: the game data marks no NPC as a faction or city leader (no title, ruler or leadership row) and holds no leader's position, level or reputation reward. Say so; name no leader, title or position from memory."},
+	{holidayAsk,
+		"Holiday and world events: the game data holds no event table: no event dates or calendar, no event vendor, reward, currency or item source (an event item's row names no event), and no Darkmoon Faire row. Say so; give no date, vendor, price or reward from memory. State when an event runs only from the 'Running today' lines or the seasonal_events tool; the advisor's own table gives the usual windows of its holiday events, which the game moves by a few days some years."},
+	{weatherAsk,
+		"Weather and time of day: the game data holds no weather, no day and night cycle or in-game clock, no night-only or day-only spawn and no spawn or respawn timer. Say so; give no weather, hour or spawn time from memory. The only time the advisor knows is the date of the capture, which decides which holiday event runs."},
 	{regexp.MustCompile(`(?i)\bmacros?\b|/cast\b|/use\b|/castsequence\b`),
 		"Macros: the game data holds no macro commands or macro text and the advisor has no macro advice. Say so; do not write a macro and present it as from the game data."},
 }
 
+// holidayAsk is a question about a holiday or world event: one the advisor lists by name, a Darkmoon Faire, or "holiday" or "world event" words.
+var holidayAsk = regexp.MustCompile(`(?i)\b(holidays?|world events?|seasonal events?|darkmoon faire|midsummer|fire festival|hallow'?s end|winter'?s? veil|lunar festival|love is in the air|noblegarden|children'?s week|harvest festival|brewfest)\b`)
+
+// weatherAsk is a question about weather or the time of day in the game world.
+var weatherAsk = regexp.MustCompile(`(?i)\b(weather|rain|raining|snowing|foggy|day[ /-]?(and )?night|night ?time|day ?time|sunrise|sunsets?|time of day|(at|during|in) the (night|day)|(only|spawns?|appears?|comes? out) (at|during) (night|day))\b`)
+
+// zoneLevelAsk is a question about the level a zone is meant for; the zone is a "zone" word or a zone the advisor knows by name.
+var (
+	zoneLevelAsk = regexp.MustCompile(`(?i)\b(what|which)\b.{0,20}\blevels?\b|\blevel (range|bracket)s?\b|\b(recommended|suggested|suitable|appropriate) levels?\b|\blevels? (is|are) (the )?(zone|area)\b`)
+	zoneWord     = regexp.MustCompile(`(?i)\b(zones?|areas?)\b`)
+)
+
+const zoneLevelFact = "Zone levels: the game data holds no level range, bracket or recommended level for a zone (ui_maps has no level column). Say so; give no zone range from memory. What it does hold is each creature's level and zone (npcs) and each quest's level, which the farm and quest tools report."
+
 // valleyOfHonor is Orgrimmar's district: a question about it is no question about honor.
 var valleyOfHonor = regexp.MustCompile(`(?i)\bvalley of honou?r\b`)
 
+// rainOfFire is the warlock spell: a question about it is no question about weather.
+var rainOfFire = regexp.MustCompile(`(?i)\brain of fire\b`)
+
 // LimitFacts says what the game data does not hold about bags, banks, stacks, unique items, mail, the Auction House, the trade window,
-// battlegrounds, honor ranks, travel times, riding and mounts, class trainer prices, racial traits, capital city services, faction leaders and macros, for a question that asks about one. "" for any other question.
+// holiday events, weather and time of day, zone levels, battlegrounds, honor ranks, travel times, riding and mounts, class trainer prices, racial traits, capital city services, faction leaders and macros, for a question that asks about one. "" for any other question.
 func LimitFacts(text string) string {
-	text = valleyOfHonor.ReplaceAllString(text, " ")
+	text = rainOfFire.ReplaceAllString(valleyOfHonor.ReplaceAllString(text, " "), " ")
 	var out []string
 	for _, tp := range limitTopics {
 		if tp.about.MatchString(text) {
 			out = append(out, tp.fact)
 		}
+	}
+	if zoneLevelAsk.MatchString(text) && (zoneWord.MatchString(text) || learn.ZoneIn(text)) {
+		out = append(out, zoneLevelFact)
 	}
 	return strings.Join(out, "\n")
 }

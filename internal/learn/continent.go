@@ -1,6 +1,9 @@
 package learn
 
-import "strings"
+import (
+	"strings"
+	"unicode"
+)
 
 // continents maps a zone's name to its continent. The dataset has no continent column and
 // Questie's area table names zones only, so the zones with a profession trainer or a city are listed.
@@ -31,6 +34,18 @@ func continentOf(zone string) string { return continents[strings.ToLower(strings
 
 // ContinentOf is the zone's continent, or "" when the zone is not known.
 func ContinentOf(zone string) string { return continentOf(zone) }
+
+// ZoneIn reports whether the text names a zone the advisor knows, as whole words ("what level is Duskwood?").
+func ZoneIn(text string) bool {
+	words := strings.FieldsFunc(strings.ToLower(text), func(r rune) bool { return r != '\'' && !unicode.IsLetter(r) })
+	t := " " + strings.Join(words, " ") + " "
+	for z := range continents {
+		if strings.Contains(t, " "+z+" ") {
+			return true
+		}
+	}
+	return false
+}
 
 // crossings are the ways between continents, by lower-case faction, from and to: the zeppelin or boat that joins
 // Eastern Kingdoms and Kalimdor, and the Dark Portal that leads to Outland from the Blasted Lands.

@@ -117,3 +117,15 @@ func TestEventOfNameOffered(t *testing.T) {
 		}
 	}
 }
+
+func TestFindEventWholeWords(t *testing.T) {
+	for _, tc := range []struct{ text, want string }{
+		{"Feast of Winter Veil", "winter-veil"}, {"hallows end", "hallows-end"}, {"Hallow\u2019s End", "hallows-end"}, {"midsummer", "midsummer"},
+		{"the Fire Festival", "midsummer"}, {"Children's Week", "childrens-week"}, {"love is in the air", "love-is-in-the-air"},
+		{"Winterspring", ""}, {"Harvest Golem", ""}, {"a", ""}, {"the", ""}, {"fire", ""}, {"Mount Hyjal winter", ""}, {"Lunar Lantern", ""}, {"", ""},
+	} {
+		if e, ok := FindEvent(tc.text); e.Key != tc.want || ok != (tc.want != "") {
+			t.Errorf("FindEvent(%q) = %q, %v; want %q", tc.text, e.Key, ok, tc.want)
+		}
+	}
+}
