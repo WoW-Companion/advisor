@@ -8,6 +8,7 @@ package levelup
 import (
 	"fmt"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -65,7 +66,42 @@ func classRows(c character.Character, ds store.DataStore, from, to int) []store.
 	if err != nil {
 		return nil
 	}
-	return rows
+	return ownCities(c, rows)
+}
+
+// Alliance and Horde capital cities: a mage's Teleport and Portal spells each lead to one city, and a mage
+// trains only the ones of their own side (Thunder Bluff and Darnassus included). The dataset's class_spells
+// has no faction column, so it lists all six; "Teleport: Dalaran" and the like name no city here and stay.
+var (
+	allianceCities = []string{"stormwind", "ironforge", "darnassus"}
+	hordeCities    = []string{"orgrimmar", "undercity", "thunder bluff"}
+)
+
+// ownCities drops the teleport and portal spells to the other side's cities; with no faction it keeps all.
+func ownCities(c character.Character, rows []store.Row) []store.Row {
+	var other []string
+	switch strings.ToLower(c.Faction) {
+	case "alliance":
+		other = hordeCities
+	case "horde":
+		other = allianceCities
+	default:
+		return rows
+	}
+	out := make([]store.Row, 0, len(rows))
+	for _, r := range rows {
+		name, _ := r["name"].(string)
+		n := strings.ToLower(name)
+		drop := false
+		if strings.HasPrefix(n, "teleport: ") || strings.HasPrefix(n, "portal: ") {
+			city := n[strings.Index(n, ": ")+2:]
+			drop = slices.Contains(other, city)
+		}
+		if !drop {
+			out = append(out, r)
+		}
+	}
+	return out
 }
 
 // Spells lists the trainer-taught spells of the character's class for levels from to to, in level
@@ -107,7 +143,7 @@ func Spells(c character.Character, ds store.DataStore, from, to int) []Spell {
 			continue
 		}
 		rk, _ := r["rank"].(int64)
-		if id == 0 || name == "" || seen[id] || superseded[id] || c.KnownSpells[id] || quest[id].Quest != "" || isRuneAbility(id, lv) || isTalentEffect(talents, name, rk) || sideEffect(late, name, rk, lv) || questLocked(c, name, int(rk), false) {
+		if id == 0 || name == "" || seen[id] || superseded[id] || c.KnownSpells[id] || quest[id].Quest != "" || isRuneAbility(id, lv) || isTalentEffect(talents, name, rk, lv) || sideEffect(late, name, rk, lv) || questLocked(c, name, int(rk), false) {
 			continue
 		}
 		seen[id] = true
@@ -141,7 +177,7 @@ func Learned(c character.Character, ds store.DataStore, to int) []Spell {
 		lv, _ := r["level"].(int64)
 		rk, _ := r["rank"].(int64)
 		sup, _ := r["superseded_spell_id"].(int64)
-		if id == 0 || name == "" || sup != 0 || isRuneAbility(id, lv) || isTalentEffect(talents, name, rk) || sideEffect(late, name, rk, lv) {
+		if id == 0 || name == "" || sup != 0 || isRuneAbility(id, lv) || isTalentEffect(talents, name, rk, lv) || sideEffect(late, name, rk, lv) {
 			continue
 		}
 		if !c.KnownSpells[id] && (quest[id].Quest != "" || questLocked(c, name, int(rk), false)) {
@@ -205,12 +241,15 @@ func talentNames(ds store.DataStore, classID int64) map[string]bool {
 	return out
 }
 
+// A ranked spell listed at level 1 under a talent's name is that talent's first rank (Mana Tide Totem rank 1,
+// a Restoration talent whose later ranks the trainer teaches from level 38): it is no trainer spell either.
 // isTalentEffect reports a class spell that a talent point buys or the game applies, never a class
 // trainer: a rank-less spell named like one of the class's talents, a spell named like a talent
 // effect or a stance's passive half (see hiddenName), or a rank-less level 1 spell whose ranks are
 // taught much later (the damage half of Execute, which the dataset lists at level 1).
-func isTalentEffect(talents map[string]bool, name string, rank int64) bool {
-	return rank == 0 && talents[strings.ToLower(strings.TrimSpace(name))] || hiddenName(name)
+func isTalentEffect(talents map[string]bool, name string, rank, level int64) bool {
+	named := talents[strings.ToLower(strings.TrimSpace(name))]
+	return rank == 0 && named || rank > 0 && level <= 1 && named || hiddenName(name)
 }
 
 // hiddenName reports a spell name no trainer teaches: a talent ("Improved Pummel", "Shield
@@ -832,7 +871,7 @@ func Ahead(c character.Character, ds store.DataStore) []Spell {
 		if t, ok := r["trained"].(bool); ok && !t {
 			continue
 		}
-		if id == 0 || name == "" || seen[id] || c.KnownSpells[id] || quest[id].Quest != "" || isRuneAbility(id, lv) || isTalentEffect(talents, name, rk) || sideEffect(late, name, rk, lv) {
+		if id == 0 || name == "" || seen[id] || c.KnownSpells[id] || quest[id].Quest != "" || isRuneAbility(id, lv) || isTalentEffect(talents, name, rk, lv) || sideEffect(late, name, rk, lv) {
 			continue
 		}
 		s := Spell{ID: id, Name: name, Rank: int(rk), Level: int(lv), New: sup == 0 && rk <= 1, Cost: costs[id], Usually: true}
