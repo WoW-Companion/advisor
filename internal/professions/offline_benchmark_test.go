@@ -414,6 +414,11 @@ func TestOfflineBenchmarkNextRecipes(t *testing.T) {
 				continue
 			}
 			wantColour := colour(row, ps.skill)
+			if y, ok := intOf(row, "yellow_skill"); ok && wantColour == "yellow" {
+				if g, ok := intOf(row, "grey_skill"); ok && ps.skill >= (y+g)/2 {
+					wantColour = "green" // halfway from yellow to grey the game shows green
+				}
+			}
 			if wantColour == "grey" {
 				wantColour = ""
 			}
