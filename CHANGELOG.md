@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.7.102
+
+- **Fixed** Quest giver, turn-in, prerequisite and breadcrumb questions now say the data has none.
+- **Fixed** A minimum level asked for a quest by its title now says the data has none.
+- **Fixed** A quest in a quest line now shows its giver, turn-in and level from your Questie.
+- **Added** The route trains your professions in a capital, naming the trainer to visit.
+- **Added** Materials your next skill-up needs show as a buy line on the stop near the vendor.
+- **Added** Herbalism and Mining trips name the node to gather; held craft batches go to a city.
+
 ## 0.7.101
 
 - **Fixed** Disenchant questions now answer from the dataset's bands and say when it has none.
