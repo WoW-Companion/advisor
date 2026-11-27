@@ -299,3 +299,28 @@ func TestLimitFactsRareDropAndSetBonus(t *testing.T) {
 		}
 	}
 }
+
+func TestLimitFactsEscortTimedItemStartAndRaceQuests(t *testing.T) {
+	for _, tc := range []struct{ q, want string }{
+		{"how do I do the escort quest in the Barrens?", "Escort quests:"},
+		{"is there a timer on the quest in Wetlands?", "Timed quests:"},
+		{"which timed quests can I do at level 30?", "Timed quests:"},
+		{"which quest does Heart of Zeal start?", "Quests that start from an item:"},
+		{"which drops start quests at level 30?", "Quests that start from an item:"},
+		{"which quests are Horde only in Ashenvale?", "Race, class and faction limits on quests:"},
+		{"are there quests only orcs can take?", "Race, class and faction limits on quests:"},
+		{"is this quest race-specific?", "Race, class and faction limits on quests:"},
+	} {
+		if got := LimitFacts(tc.q); !strings.Contains(got, tc.want) || !strings.Contains(got, "Say so") {
+			t.Errorf("LimitFacts(%q) = %q, want %q", tc.q, got, tc.want)
+		}
+	}
+	for _, q := range []string{"what quests are in the Barrens?", "where does the Skullsplitter Tusk drop?", "which Alliance races can be a paladin?", "when does the Darkmoon Faire start?"} {
+		got := LimitFacts(q)
+		for _, topic := range []string{"Escort quests:", "Timed quests:", "Quests that start from an item:", "Race, class and faction limits on quests:"} {
+			if strings.Contains(got, topic) {
+				t.Errorf("LimitFacts(%q) = %q, want no %s", q, got, topic)
+			}
+		}
+	}
+}

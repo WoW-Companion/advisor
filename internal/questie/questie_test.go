@@ -458,3 +458,17 @@ func TestClassicLayoutWithoutMeta(t *testing.T) {
 		t.Fatalf("layout %q triggers %+v", ix.Layout, ix.Quests[2].Triggers)
 	}
 }
+
+func TestQuestStartedByAnItem(t *testing.T) {
+	rows := append(fixtureRows(), row{"Quest", 20, "S", map[int]any{1: "Lost Letter", 4: 8, 5: 9, 17: 901}}, row{"Quest", 20, "2", []any{nil, nil, []any{4500}}}, row{"Quest", 20, "3", []any{[]any{100}}})
+	ix, st := OpenGame(install(t, header, rows))
+	if ix == nil {
+		t.Fatalf("not readable: %+v", st)
+	}
+	if q := ix.Quests[20]; q == nil || len(q.StartItems) != 1 || q.StartItems[0] != 4500 || len(q.Starters) != 0 {
+		t.Fatalf("an item-started quest read as %+v", q)
+	}
+	if q := ix.Quests[2]; len(q.StartItems) != 0 {
+		t.Fatalf("a quest an NPC gives has start items %v", q.StartItems)
+	}
+}
