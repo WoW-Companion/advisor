@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.7.98
+
+- **Fixed** Picks, hammers, knives and poles for your professions are kept, not banked or sold.
+- **Fixed** A bag or quiver in your bags is left alone, not banked or counted as a freed slot.
+- **Fixed** A bag or tool you can't make yet says it is crafted, not "no source" or "not worth it".
+- **Fixed** Asking about a Mageweave Bag no longer reads as a question about mages.
+- **Fixed** Corpse, graveyard and repair questions are answered as game know-how, not your data.
+- **Fixed** Engineering now asks for the Arclight Spanner when the character has none.
+- **Fixed** The app now fetches the dataset matching your game build instead of an old one.
+- **Changed** The overlay says "Updated: data <build> (matches your game)" after a dataset switch.
+- **Changed** Notes say "No data for game build N yet: using M" until a matching dataset exists.
+- **Fixed** Skill-up steps now say a green recipe gives a skill point, not only orange or yellow.
+- **Added** The plan skips quests over 3 levels above you; you can change that reach or turn it off.
+- **Added** Quests you hide go to Later as "Hidden by you", and elite quests wait for a group.
+- **Added** Steps and later entries carry the quest's level and its difficulty colour.
+- **Changed** A ready turn-in or delivery close to you now comes first in the plan.
+- **Changed** Delivery steps read "Turn in <quest> to <NPC> (<place>)".
+- **Fixed** Bag advice never says to sell, toss or mail an item a quest in your log needs.
+- **Fixed** Items for a ready turn-in (Kravel's Parts, Glowing Shard) are kept, with the quest named.
+- **Changed** Quest items no quest needs now read "safe to destroy", naming the completed quest.
+- **Added** Ask "who sells poison?" or "which vendor is here?": answers name the NPC and the goods.
+- **Added** Vendor, trainer and flight master lookups read your Questie subnames, like Shady Goods.
+- **Changed** A recipe whose product you carry counts as likely known; open its window to confirm.
+- **Added** `wowc-advisor doctor professions` shows which profession recipe lists were captured.
+
 ## 0.7.97
 
 - **Changed** What's new always shows the release history, with a "New since you last looked" line.
