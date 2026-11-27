@@ -263,3 +263,12 @@ When the game data has a `profession_routes` table, skill-up advice follows it: 
 `find_vendor` answers "who sells poison?", "which vendor is here?" and "where is the flight master?" from the dataset's vendor offers and your QuestieDB (subnames such as Shady Goods or Trade Supplies, and each NPC's vendor type), neutral vendors included. When it finds nothing, the answer says the NPC is not in the data.
 
 Recipes come from the profession window you opened: the trade skill window, or the craft window for Poisons, Enchanting and Beast Training. When a profession's window was never opened, a recipe whose product is in your bags or bank counts as likely known and is never offered as "learn it"; open the window once to confirm. `wowc-advisor doctor professions` lists, per profession, whether recipes were captured and what the dataset holds (recipes, trainers, recipe vendors, sources).
+
+## On the route
+
+The route carries a few profession lines, taken from the same skill-up path as `profession_plan`, so the two never disagree. Only professions the character has count, and a plan holds at most three profession lines in all.
+
+- **Trainer errand.** In a capital the run is in, a profession that can train now (the next rank is open at your level and skill, or the next band needs a trainer recipe) adds a numbered errand: "Train Tailoring (Expert) with <name>". The trainer is an NPC with the trainer flag (read with the QuestieDB flag layout of your game version) whose subName names the profession. With no such NPC in the capital, nothing is added.
+- **Materials on the way.** Missing materials of the next band that a vendor sells near a stop become a "buy N <item> from <vendor>" line on that stop.
+- **Gathering.** For Herbalism and Mining, a trip into a zone where the dataset's `gathering_nodes` has a node your skill opens adds "Gather <node> here (skill-ups to N)" on a stop there. At most one a trip.
+- **Craft batch.** When bags and bank already hold the materials of the next band, "Craft 12 <recipe> (to 90)" rides on the first stop in a capital, since a city has every crafting station. The dataset holds no table of stations or tools per recipe, so a recipe is never moved to another stop.

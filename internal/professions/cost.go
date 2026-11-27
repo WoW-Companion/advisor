@@ -419,41 +419,7 @@ func (p *planner) gatherAdvice(prof string, from, to int) string {
 	if prof == "Skinning" {
 		return "Skin beasts of about your level (Skinning has no recipes, and the dataset lists no skinning sources yet)."
 	}
-	rows, _ := p.ds.Filter("gathering_nodes", store.Range{Column: "profession", Min: prof, Max: prof})
-	type node struct {
-		name  string
-		skill int
-		zones []string
-	}
-	byName := map[string]*node{}
-	for _, r := range rows {
-		if r["skill_required"] == nil {
-			continue
-		}
-		name := asText(r["name"])
-		n := byName[name]
-		if n == nil {
-			n = &node{name: name, skill: int(asI64(r["skill_required"]))}
-			byName[name] = n
-		}
-		if z := asText(r["zone_name"]); z != "" && len(n.zones) < 3 && !containsString(n.zones, z) {
-			n.zones = append(n.zones, z)
-		}
-	}
-	var open []*node
-	top := 0
-	for _, n := range byName {
-		top = max(top, n.skill)
-		if n.skill <= to {
-			open = append(open, n)
-		}
-	}
-	sort.Slice(open, func(i, j int) bool {
-		if open[i].skill != open[j].skill {
-			return open[i].skill > open[j].skill
-		}
-		return open[i].name < open[j].name
-	})
+	open, top := gatherNodes(p.ds, prof, to)
 	if len(open) > 3 {
 		open = open[:3]
 	}
@@ -462,9 +428,9 @@ func (p *planner) gatherAdvice(prof string, from, to int) string {
 	}
 	var parts []string
 	for _, n := range open {
-		t := fmt.Sprintf("%s (needs skill %d", n.name, n.skill)
-		if len(n.zones) > 0 {
-			t += "; " + strings.Join(n.zones, ", ")
+		t := fmt.Sprintf("%s (needs skill %d", n.Name, n.Skill)
+		if len(n.Zones) > 0 {
+			t += "; " + strings.Join(n.Zones[:min(3, len(n.Zones))], ", ")
 		}
 		parts = append(parts, t+")")
 	}
@@ -482,4 +448,45 @@ func containsString(l []string, s string) bool {
 		}
 	}
 	return false
+}
+
+// GatherNode is a node the dataset's gathering_nodes opens at a skill, with every zone it grows in.
+type GatherNode struct {
+	Name  string
+	Skill int
+	Zones []string
+}
+
+// gatherNodes are the nodes of a gathering profession that skill to opens, the highest skill first, and the
+// highest skill the dataset lists a node for. It is the list a gathering band names.
+func gatherNodes(ds store.DataStore, prof string, to int) (open []*GatherNode, top int) {
+	rows, _ := ds.Filter("gathering_nodes", store.Range{Column: "profession", Min: prof, Max: prof})
+	byName := map[string]*GatherNode{}
+	for _, r := range rows {
+		if r["skill_required"] == nil {
+			continue
+		}
+		name := asText(r["name"])
+		n := byName[name]
+		if n == nil {
+			n = &GatherNode{Name: name, Skill: int(asI64(r["skill_required"]))}
+			byName[name] = n
+		}
+		if z := asText(r["zone_name"]); z != "" && !containsString(n.Zones, z) {
+			n.Zones = append(n.Zones, z)
+		}
+	}
+	for _, n := range byName {
+		top = max(top, n.Skill)
+		if n.Skill <= to {
+			open = append(open, n)
+		}
+	}
+	sort.Slice(open, func(i, j int) bool {
+		if open[i].Skill != open[j].Skill {
+			return open[i].Skill > open[j].Skill
+		}
+		return open[i].Name < open[j].Name
+	})
+	return open, top
 }
