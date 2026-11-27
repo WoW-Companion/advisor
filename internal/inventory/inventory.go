@@ -136,7 +136,8 @@ func classify(c character.Character, id int64, name string, row store.Row, known
 	if IsBag(row) {
 		return Unknown, BagReason
 	}
-	if row["quality"] != nil && i64(row["quality"]) == poor {
+	// a quest item is no vendor trash: the quest rule decides (a grey quest item nothing in the log asks for is not for the vendor)
+	if row["quality"] != nil && i64(row["quality"]) == poor && !isQuestItem(row) {
 		return Vendor, "poor quality (grey)"
 	}
 	if p, ok := far[id]; ok {
