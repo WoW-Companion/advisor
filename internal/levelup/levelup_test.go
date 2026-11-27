@@ -383,3 +383,43 @@ func TestHiddenName(t *testing.T) {
 		}
 	}
 }
+
+// A mage's rows as the dataset lists them: talents and effects at level 1 beside trainer spells.
+func learnedDS(t *testing.T) store.DataStore {
+	return store.New(store.ReaderSource{"class_spells": tbl(t, []spellRow{
+		{8, 133, "Fireball", i32(1), 1, true, nil},
+		{8, 143, "Fireball", i32(2), 6, true, i32(133)},
+		{8, 116, "Frostbolt", i32(1), 4, true, nil},
+		{8, 1000, "Magic Attunement", i32(1), 1, true, nil},
+		{8, 1001, "Magic Attunement", i32(2), 1, true, nil},
+		{8, 1002, "Improved Frostbolt", i32(1), 1, true, nil},
+		{8, 1003, "Frost Armor Passive", nil, 1, true, nil},
+		{8, 1004, "Blink", nil, 20, true, nil},
+		{8, 500000, "Arcane Surge", nil, 1, true, nil},
+		{1, 2, "Heroic Strike", i32(1), 1, true, nil},
+	})})
+}
+
+func TestLearnedHoldsOnlyAbilitiesFromTheirFirstRankLevel(t *testing.T) {
+	d := learnedDS(t)
+	lvl := 20
+	mage := character.Character{Class: "MAGE", Faction: "Horde", Level: &lvl}
+	if got := names(Learned(mage, d, 20)); got != "Fireball (Rank 1),Frostbolt (Rank 1),Blink" {
+		t.Errorf("level 20 = %s, want the abilities only, a spell once at its first rank", got)
+	}
+	if got := names(Learned(mage, d, 3)); got != "Fireball (Rank 1)" {
+		t.Errorf("level 3 = %s", got)
+	}
+	if l := Learned(mage, d, 20); len(l) == 3 && (l[0].Level != 1 || l[1].Level != 4 || l[2].Level != 20) {
+		t.Errorf("levels = %d %d %d, want 1 4 20", l[0].Level, l[1].Level, l[2].Level)
+	}
+}
+
+func TestSpellsLeaveOutATalentWhoseRanksAreAllAtLevelOne(t *testing.T) {
+	d := learnedDS(t)
+	lvl := 20
+	mage := character.Character{Class: "MAGE", Faction: "Horde", Level: &lvl}
+	if got := names(Spells(mage, d, 1, 20)); strings.Contains(got, "Magic Attunement") || strings.Contains(got, "Improved") {
+		t.Errorf("window 1-20 = %s, a talent named as a trainer spell", got)
+	}
+}
