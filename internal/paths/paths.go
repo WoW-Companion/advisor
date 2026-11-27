@@ -291,12 +291,12 @@ func For(c character.Character, ds store.DataStore, itemID int64, opt Options) R
 func (f *finder) why(crs []creature) string {
 	bonding := int(i64(f.item["bonding"]))
 	switch {
-	case f.soldByVendors():
-		// the dataset lists vendors for it but names none (advice never points at a bare vendor id)
-		return "vendors sell it, but the game data you have names none of them, so it can't say which one to visit"
 	case f.caughtByFishing() != "":
 		// the dataset's fishing reports are a way to get it, not a random drop
 		return "it is a fishing catch, not a drop. " + f.caughtByFishing()
+	case f.soldByVendors():
+		// the dataset lists vendors for it but names none (advice never points at a bare vendor id)
+		return "vendors sell it, but the game data you have names none of them, so it can't say which one to visit"
 	case len(f.loot) == 0 && isMount(f.item):
 		// a mount is bought from a vendor or trainer, or won: an empty table is no verdict on it
 		return "the game data lists no source for this mount, so it can't say where to get it"
