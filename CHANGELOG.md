@@ -1,5 +1,93 @@
 # Changelog
 
+## 0.7.99
+
+- **Improved** Chat answers now show bold text, lists and small headings instead of raw asterisks.
+- **New** Settings has a Text density choice (Compact or Comfortable), and answers have Copy answer.
+- **Fixed** Profession advice names the trainer of the rank you need, not an earlier rank's trainer.
+- **Added** The next profession rank shows the skill and level it needs and what training costs.
+- **Fixed** Expert and Artisan First Aid, Cooking and Fishing say they come from a book or quest.
+- **Fixed** A better item is no longer hidden because the item you wear has a higher item level.
+- **Fixed** Gear advice says so when it does not know your worn item, instead of ranking upgrades.
+- **Fixed** Profession pairings say your two slots are full and name the pair you hold.
+- **Fixed** Rank quests and books for First Aid, Cooking and Fishing are now named with their giver.
+- **Fixed** The stat check counts a worn item even when the capture gives it no name.
+- **Fixed** A recipe an item teaches is no longer sent to a trainer when the item has no listing.
+- **Fixed** A recipe that is a quest reward now names the quest players saw give it.
+- **Fixed** A recipe's answer now names the profession rank and character level its skill needs.
+- **Fixed** A recipe past your trained rank now says which rank to train and from what level.
+- **Fixed** A part of a dungeon name that fits several, like Blackrock, now lists them, no guess.
+- **Fixed** Dungeon questions understand short names such as BRD, UBRS, SFK, the Stockade, Onyxia.
+- **Fixed** An item's boss no longer comes from a dungeon's alternate-mode encounters.
+- **Fixed** A boss drop with no kill count now says its chance is not known.
+- **Fixed** The dungeon plan words one level and one dungeon in the singular.
+- **Fixed** A material only limited-stock vendors sell is now marked "limited stock" in a plan.
+- **Fixed** A spec named in a few letters, like "shadow" or "feral", now finds its talent build.
+- **Fixed** Below level 10 the talent plan says the build starts at level 10, not that it is done.
+- **Fixed** A weapon that needs a skill a Weapon Master teaches only from level 20 now says so.
+- **Fixed** A higher rank of a spell you know is now called a new rank, not a new spell.
+- **Fixed** A mage is no longer told to train teleports and portals to the other side's cities.
+- **Fixed** Mana Tide Totem, a shaman talent, is no longer listed as a level 1 spell to train.
+- **Fixed** The Auction House search for armor now names the armor type your class wears.
+- **Fixed** A quiver or ammo pouch your class cannot use is mailed to an alt who can, else sold.
+- **Fixed** Ammo your class cannot use goes to an alt that can, and a class-only bag to that class.
+- **Fixed** Gear upgrades now count Defense Rating for tanks and Hit and Crit Rating for damage.
+- **Fixed** A healer's gear now counts Crit Rating and mana per five seconds.
+- **Fixed** A resistance on a piece of gear no longer lowers its value for your build.
+- **Fixed** A quest reward line now says when the quest is for a group or a dungeon.
+- **Fixed** The quest chain says whether one or all of the earlier quests must be finished first.
+- **Fixed** The vendor finder no longer says a vendor is open to both sides when no data says so.
+- **Fixed** The class trainer line now names the zeppelin or boat when the city is overseas.
+- **Fixed** A character in Dun Morogh or Mulgore is sent to Ironforge or Thunder Bluff to train.
+- **Added** A reputation question now gets your standing and the points left to the next standing.
+- **Added** A loot roll question for a linked item says Need or Greed and how the item binds.
+- **Fixed** A grey quest item is no longer listed as vendor trash in the bag review.
+- **Fixed** A dungeon the data gives no level says the level is not known.
+- **Added** A linked item gets its item level, required level and trade rule in the answer facts.
+- **Added** A bag, bank, stack, mail, auction, trade or macro limit question says the data has none.
+- **Fixed** A quest item is no longer mailed to an alt: quest items cannot be mailed or traded.
+- **Fixed** A quest item no quest needs is no longer listed as gear to bank in the bag review.
+- **Fixed** A grey item is no longer called bound when picked up; grey items can be traded.
+- **Added** An ore or herb node question gets the node's skill and zones from the game data.
+- **Added** A skinning question gets the data's rule and the skill for each creature level named.
+- **Added** A fishing question says the data has no fishing skill or pool; a zone lists its catches.
+- **Added** A Cooking or First Aid recipe question gets the skill it needs ("about" if estimated).
+- **Fixed** Gear and item advice no longer offers the other faction's PvP rank pieces.
+- **Fixed** Test items named "PVP TEST" are no longer treated as real items.
+- **Added** A battleground or honor question says the data holds no bracket, rank or honor cost.
+- **Fixed** A plan no longer says to fly to another continent; it names the portal or boat.
+- **Fixed** A route through the Deeprun Tram keeps the tram's name in capitals.
+- **Added** A hearthstone cooldown, boat schedule or flight fare question says the data holds none.
+- **Fixed** A riding or mount question says the data holds no riding trainer, cost or reputation.
+- **Fixed** A class trainer price question says the data holds no class spell price.
+- **Added** A Dual Wield question gives the level the class learns it at, from the class trainer.
+- **Fixed** A profession trainer question no longer offers a trainer in the other side's capital.
+- **Added** Racial trait, capital city service and faction leader questions say the data holds none.
+- **Fixed** An event name no longer matches a zone or creature, such as Winterspring.
+- **Added** Event, weather, day-night and zone level questions say the data holds none.
+- **Fixed** A vendor price shows in gold, silver and copper; an Auction House sale is no longer 0g.
+- **Added** Gold making, Auction House, gold cap, repair and respec questions say the data has none.
+- **Added** Boss ability, raid lockout, heroic mode and group role questions say the data has none.
+- **Fixed** A Feral Combat druid is offered first to a damage dealer as well as to a tank.
+- **Added** Pet, tabard, achievement, title and tool bonus questions now say the data has none.
+- **Fixed** The key ring size is no longer guessed; a creature's prop is not taken for your tool.
+- **Added** Class quest chain, quiver size and mail rule questions now say the data has none.
+- **Fixed** Dungeon keys are kept, not destroyed; ammo is kept only for the weapon you wield.
+- **Added** Questions on spell reagents, soul shards, totems and rituals now say the data has none.
+- **Fixed** A druid's seeds, a warlock's shards and stones and other class reagents are kept.
+- **Fixed** A shaman's totem is kept or worn, not sent to the bank.
+- **Added** Questions on a hunter pet's diet, abilities, ranks and taming now say the data has none.
+- **Fixed** A hunter's pet food is kept, not sold on the Auction House or left unplaced.
+- **Fixed** Pet food in another character's bags goes to a hunter alt by mail.
+- **Added** Questions on a bandage's heal, lockpicking and food effects now say the data has none.
+- **Fixed** Bandages, anti-venoms and a rogue's lockboxes are kept, not left unplaced.
+- **Fixed** First Aid, Fishing and Cooking are found in more ways of asking to level them.
+- **Fixed** "Can I make it yet?" now finds the skill a recipe needs.
+- **Added** The plan lists step prerequisites, the zone's flight masters and the save position.
+- **Fixed** An unplaced objective names its zone once, and "Locate" reads as an action.
+- **Fixed** The overlay frame no longer has a blurred shadow cut off at the window edge.
+- **Changed** The frame keeps a crisp 1px dark outline and the gold inner highlight.
+
 ## 0.7.98
 
 - **Fixed** Picks, hammers, knives and poles for your professions are kept, not banked or sold.
