@@ -180,6 +180,51 @@ func clusters(pts []pt) []pt {
 	return out
 }
 
+// exploreVerbs start an exploration objective's text in the quest log.
+var exploreVerbs = []string{"locate", "explore", "find", "discover", "scout", "search", "reach", "investigate", "survey"}
+
+// exploreObjective is the first open objective that no NPC, object or item step covers and whose text
+// reads as exploration; "" when there is none.
+func (s *questieSource) exploreObjective(open []string, covered map[string]bool) string {
+	for _, o := range open {
+		low := strings.ToLower(strings.TrimSpace(o))
+		hit := false
+		for name := range covered {
+			hit = hit || strings.Contains(low, name)
+		}
+		if hit {
+			continue
+		}
+		for _, v := range exploreVerbs {
+			if strings.HasPrefix(low, v+" ") {
+				return o
+			}
+		}
+	}
+	return ""
+}
+
+// centroid is the mean of the points on one map (the player's when it has some, else the first
+// point's); many reports that more than one point went into it.
+func centroid(pts []pt, curMap int) (pt, bool) {
+	m := pts[0].m
+	for _, p := range pts {
+		if p.m == curMap {
+			m = curMap
+			break
+		}
+	}
+	out := pt{m: m, name: pts[0].name, area: pts[0].area}
+	for _, p := range pts {
+		if p.m == m {
+			out.x, out.y, out.n = out.x+p.x, out.y+p.y, out.n+1
+		}
+	}
+	out.x /= float64(out.n)
+	out.y /= float64(out.n)
+	return out, out.n > 1
+}
+
 func (s *questieSource) quests(c character.Character, at *questie.Where) []*quest {
 	var curMap int
 	var x, y float64
@@ -298,7 +343,28 @@ func (s *questieSource) quests(c character.Character, at *questie.Where) []*ques
 					pts = append(pts, pt{m: a.UIMap, x: sp.X, y: sp.Y, n: 1, name: tr.Text, area: cmp.Or(a.Sub, a.Zone)})
 				}
 			}
-			addPts("", tr.Text, pts, true)
+			if !tr.End {
+				addPts("", tr.Text, pts, true)
+				continue
+			}
+			// triggerEnd is the exploration objective ("Locate the hunters' camp"): one place, the centroid
+			// of its points, whatever the log's own wording of it is.
+			name := tr.Text
+			if len(open) > 0 && textOf(name) == name {
+				name = s.exploreObjective(open, covered)
+			}
+			if name == "" || len(pts) == 0 || isDone(name) {
+				continue
+			}
+			c, many := centroid(pts, curMap)
+			covered[strings.ToLower(name)] = true
+			label := name
+			if len(open) > 0 {
+				label = textOf(name)
+			}
+			sp := &spot{kind: KindObjective, quests: []int{q.ID}, names: []string{q.Name}, label: objectiveLabel("", label),
+				m: c.m, x: c.x, y: c.y, place: c.area, areaObj: true, endObj: true, approx: many}
+			found = append(found, sp)
 		}
 		// An unfinished objective the quest's data does not explain has no place to go.
 		for _, o := range open {

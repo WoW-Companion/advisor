@@ -14,7 +14,7 @@ import (
 	"strings"
 )
 
-const indexSchema = 12 // bump when the cached index's shape changes
+const indexSchema = 13 // bump when the cached index's shape changes
 
 // Spawn is a place, as percent of the area's map.
 type Spawn struct {
@@ -71,6 +71,7 @@ type Quest struct {
 type Trigger struct {
 	Text   string
 	Spawns []Spawn
+	End    bool // read from triggerEnd: the quest's exploration objective, whose own text may differ from the log's
 }
 
 // Credit is a kill-credit objective: killing any of NPCs counts.
@@ -224,7 +225,7 @@ func buildQuest(id int, r rawRow, l Layout) *Quest {
 	q.Objective = objectiveText(field("objectivesText"))
 	if t := field("triggerEnd"); t != nil {
 		if sp := spawns(slot(t, 2)); len(sp) > 0 {
-			q.Triggers = append(q.Triggers, Trigger{Text: strings.TrimSpace(text(slot(t, 1))), Spawns: sp})
+			q.Triggers = append(q.Triggers, Trigger{Text: strings.TrimSpace(text(slot(t, 1))), Spawns: sp, End: true})
 		}
 	}
 	// extraObjectives: {spawns by area, icon, text, index} per objective with a place on the map and

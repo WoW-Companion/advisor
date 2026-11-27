@@ -9,14 +9,15 @@ import (
 
 // Coverage counts how the objectives of the quests in the character's log are placed.
 type Coverage struct {
-	Quests    int // quests in the log
-	NoData    int // of those, quests the Questie database does not know
-	Questie   int // objectives placed from the Questie database
-	Game      int // objectives placed from the game's own quest map point
-	Approx    int // objectives placed approximately, at a subzone named in the quest text
-	Unplaced  int // objectives with no position at all
-	Layout    string
-	Available bool // false: no Questie database to read
+	Quests     int // quests in the log
+	NoData     int // of those, quests the Questie database does not know
+	Questie    int // objectives placed from the Questie database
+	Game       int // objectives placed from the game's own quest map point
+	Approx     int // objectives placed approximately, at a subzone named in the quest text
+	Unplaced   int // objectives with no position at all
+	TriggerEnd int // of the placed ones, exploration objectives placed from Questie's triggerEnd
+	Layout     string
+	Available  bool // false: no Questie database to read
 }
 
 // Total is the number of objectives counted.
@@ -27,8 +28,8 @@ func (c Coverage) Line() string {
 	if !c.Available {
 		return "quests: no readable Questie database, so objectives cannot be placed"
 	}
-	return fmt.Sprintf("quests: %d in the log, %d objectives: %d placed from Questie, %d from the game's quest map points, %d approximately, %d not placed (%d quests unknown to Questie; field layout %s)",
-		c.Quests, c.Total(), c.Questie, c.Game, c.Approx, c.Unplaced, c.NoData, c.Layout)
+	return fmt.Sprintf("quests: %d in the log, %d objectives: %d placed from Questie, %d from the game's quest map points, %d approximately, %d not placed, %d placed from triggerEnd (%d quests unknown to Questie; field layout %s)",
+		c.Quests, c.Total(), c.Questie, c.Game, c.Approx, c.Unplaced, c.TriggerEnd, c.NoData, c.Layout)
 }
 
 // CoverageOf walks the quests in c's log the way the route does and counts their objectives.
@@ -51,6 +52,9 @@ func CoverageOf(c character.Character, qx *questie.Index, opt Options) Coverage 
 			continue
 		}
 		for _, sp := range q.objs {
+			if sp.endObj && !sp.zoneOnly {
+				cov.TriggerEnd++
+			}
 			switch {
 			case sp.zoneOnly:
 				cov.Unplaced++
