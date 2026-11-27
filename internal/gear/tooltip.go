@@ -42,6 +42,10 @@ func ItemTooltip(row store.Row) (Tooltip, bool) {
 	switch b {
 	case 1:
 		t.Trade = "soulbound when picked up: it cannot be traded, mailed or put on the Auction House, only sold to a vendor"
+		if t.SellPrice == nil {
+			// the client stores a zero sell price as null: no vendor buys the item, so there is nowhere to sell it
+			t.Trade = "soulbound when picked up: it cannot be traded, mailed or put on the Auction House, and the data lists no vendor sell price for it, so no vendor buys it"
+		}
 	case 2:
 		t.Trade = "binds when equipped: until it is worn it can be traded, mailed and put on the Auction House; once worn it is soulbound"
 	case 3:

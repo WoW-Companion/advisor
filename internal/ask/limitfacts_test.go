@@ -324,3 +324,26 @@ func TestLimitFactsEscortTimedItemStartAndRaceQuests(t *testing.T) {
 		}
 	}
 }
+
+func TestLimitFactsRidingFlightHearthstone(t *testing.T) {
+	for _, tc := range []struct{ q, want string }{
+		{"where do I learn to ride as a gnome?", "Riding and mounts:"},
+		{"which races can ride a kodo?", "Riding and mounts:"},
+		{"what does it cost to fly from Stormwind to Ironforge?", "Travel times:"},
+		{"how much is the tram from Ironforge to Stormwind?", "Travel times:"},
+		{"how often can I use my hearthstone?", "Travel times:"},
+		{"what is my hearthstone's CD?", "Travel times:"},
+		{"where is the flight master in Stormwind?", "Flight paths:"},
+		{"how do I unlock the Thelsamar flight path?", "Flight paths:"},
+		{"where do I get a new hearthstone if I lost mine?", "Hearthstone:"},
+	} {
+		if got := LimitFacts(tc.q); !strings.Contains(got, tc.want) || !strings.Contains(got, "Say so") {
+			t.Errorf("LimitFacts(%q) = %q, want %q", tc.q, got, tc.want)
+		}
+	}
+	for _, q := range []string{"how do I ride the zeppelin to Undercity?", "how long is the boat ride to Auberdine?", "which quest do I do next in Westfall?"} {
+		if got := LimitFacts(q); strings.Contains(got, "Riding and mounts:") || strings.Contains(got, "Flight paths:") || strings.Contains(got, "Hearthstone:") {
+			t.Errorf("LimitFacts(%q) = %q, want no riding, flight path or hearthstone fact", q, got)
+		}
+	}
+}
