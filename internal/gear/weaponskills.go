@@ -64,7 +64,9 @@ type WeaponSkillFacts struct {
 	Names     map[int64]string // skill line id -> dataset name, for every skill the tables list
 	Learnable map[int64]bool   // the class's learnable skills
 	MinLevel  map[int64]int
-	Masters   []Master // masters of the character's faction
+	// Default is the class's skills it starts knowing (weapon_skills.default_known; for at least one race, the race masks are not published).
+	Default map[int64]bool
+	Masters []Master // masters of the character's faction
 	// Pos is the zone the character was last known to be in, "" when unknown.
 	Pos string
 }
@@ -81,7 +83,7 @@ func LoadWeaponSkills(c character.Character, ds store.DataStore) WeaponSkillFact
 	if err != nil || len(all) == 0 {
 		return f
 	}
-	f.Names, f.Learnable, f.MinLevel = map[int64]string{}, map[int64]bool{}, map[int64]int{}
+	f.Names, f.Learnable, f.MinLevel, f.Default = map[int64]string{}, map[int64]bool{}, map[int64]int{}, map[int64]bool{}
 	for _, r := range all {
 		id := i64(r["skill_line_id"])
 		name, _ := r["skill_name"].(string)
@@ -90,6 +92,9 @@ func LoadWeaponSkills(c character.Character, ds store.DataStore) WeaponSkillFact
 			if b, _ := r["learnable"].(bool); b {
 				f.Learnable[id] = true
 				f.MinLevel[id] = int(i64(r["min_level"]))
+				if d, _ := r["default_known"].(bool); d {
+					f.Default[id] = true
+				}
 			}
 		}
 	}
@@ -232,6 +237,8 @@ type SkillNeed struct {
 	MinLevel int
 	// Wait is true when the character is below MinLevel: no master trains the skill yet.
 	Wait bool
+	// Default is true when the class starts knowing the skill and no Weapon Master teaches it (Wands): there is nobody to train it with.
+	Default bool
 }
 
 // Line is "Needs the Staves skill: train it at Hanashi in Orgrimmar, Valley of Honor (10s)".
@@ -240,6 +247,9 @@ func (n SkillNeed) Line() string {
 	from := ""
 	if n.Wait {
 		from = fmt.Sprintf("from level %d", n.MinLevel)
+	}
+	if n.Master == "" && n.Default {
+		return s + ": the class starts knowing it and no Weapon Master teaches it, so look for it in the skill list instead of a trainer"
 	}
 	if n.Master == "" {
 		if from != "" {
@@ -281,6 +291,7 @@ func (f WeaponSkillFacts) ItemSkill(c character.Character, classID, subclass int
 			n.MinLevel = m.MinLevel
 		}
 	}
+	n.Default = n.Master == "" && f.Default[id]
 	n.Wait = c.Level != nil && n.MinLevel > *c.Level
 	return true, n
 }

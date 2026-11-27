@@ -189,6 +189,17 @@ func (f Facts) GroupWords() string {
 	return ""
 }
 
+// classHeadings are the class names players' reports use as a quest's heading (quests_observed.category): a class quest is filed
+// under its class, not under a zone.
+var classHeadings = map[string]string{"warrior": "Warrior", "paladin": "Paladin", "hunter": "Hunter", "rogue": "Rogue", "priest": "Priest",
+	"shaman": "Shaman", "mage": "Mage", "warlock": "Warlock", "druid": "Druid"}
+
+// ClassHeading is the class a quest's heading names ("Warlock"), "" when the heading is a zone or there is none: such a quest is a class
+// quest and its heading is no place.
+func (f Facts) ClassHeading() string {
+	return classHeadings[strings.ToLower(strings.TrimSpace(f.Category))]
+}
+
 func (f Facts) detail() string {
 	var b strings.Builder
 	if f.Giver != "" {

@@ -179,7 +179,7 @@ func TestOfflineBenchmarkTrainerWeaponSkillList(t *testing.T) {
 	mage := usabChar("MAGE", 30, "Alliance")
 	mage.SkillsCaptured = true
 	wands := trLine(ask.WeaponFacts(mage, ds, "where do I train wands?"), "Wands")
-	out = append(out, benchRow{"Alliance mage: who teaches Wands", wands, "no weapon_masters row lists the Wands skill", trWeaponSrc, resultIf(wands == "no master in the data", "a master was named for Wands")})
+	out = append(out, benchRow{"Alliance mage: who teaches Wands", wands, "no weapon_masters row lists the Wands skill", trWeaponSrc, resultIf(strings.Contains(wands, "no master in the data") && strings.Contains(wands, "no Weapon Master teaches it"), "a master was named for Wands")})
 	finish(t, "advice-trainer-weapon-skill-list", "Offline weapon skills: what a class can learn", out)
 }
 

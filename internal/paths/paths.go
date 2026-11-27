@@ -424,6 +424,7 @@ func (f *finder) quest() (Path, bool) {
 		// the client's quests table first, then what players saw (quests_observed) and the player's QuestieDB:
 		// the client table holds no quest name, giver or level, so a name comes from the later two
 		facts := quests.FactsOf(f.ds, f.opt.Questie, id)
+		classQuest := ""
 		level := 0
 		if row, err := f.ds.Get("quests", id); err == nil {
 			cd.name, cd.zone, cd.giver = str(row["name"]), firstText(row, "zone", "zone_name"), firstText(row, "giver_name", "giver")
@@ -435,8 +436,9 @@ func (f *finder) quest() (Path, bool) {
 			if cd.name == "" {
 				cd.name = facts.Name
 			}
-			if cd.zone == "" {
-				cd.zone = facts.Category
+			classQuest = facts.ClassHeading()
+			if cd.zone == "" && classQuest == "" {
+				cd.zone = facts.Category // a class quest's heading is its class, not a place
 			}
 			if cd.giver == "" {
 				cd.giver = quests.GiverName(f.ds, id)
@@ -445,6 +447,9 @@ func (f *finder) quest() (Path, bool) {
 				level = facts.Level
 			}
 			cd.group = facts.GroupWords()
+			if classQuest != "" {
+				cd.group = strings.TrimSuffix("a "+strings.ToLower(classQuest)+" class quest, "+cd.group, ", ")
+			}
 		}
 		if level > 0 && f.level > 0 && level > f.level+2 {
 			continue // too far above the character to finish
@@ -466,6 +471,9 @@ func (f *finder) quest() (Path, bool) {
 		}
 		if cd.rank != 0 && facts != nil && facts.Faction != "" && f.c.Faction != "" && !strings.EqualFold(facts.Faction, f.c.Faction) {
 			continue // a quest of the other side's: not for this character
+		}
+		if cd.rank != 0 && classQuest != "" && !strings.EqualFold(classQuest, f.c.Class) {
+			continue // a class quest of another class (or of a class the capture does not name): not for this character
 		}
 		if cd.rank == 2 && f.opt.PlanQuests[int(id)] {
 			cd.rank = 1
