@@ -37,13 +37,32 @@ const (
 	ExtraArmor   = "extra_armor"
 )
 
+// The weight names of the combat ratings a Classic-era item carries: Defense Rating, Hit Rating and mana per five
+// seconds. Crit is the stat package's own Crit.
+const (
+	Defense = "defense"
+	Hit     = "hit"
+	MP5     = "mp5"
+)
+
+// The weights of the combat ratings, from 0 to 1. The dataset records the amount an item carries but no cap (no hit cap,
+// no defense skill for crit immunity), so these say a rating is wanted, never how much is enough.
+const (
+	weightDefense    = 1.0 // a tank's defense is the stat that makes crits impossible: it counts as much as Stamina
+	weightHit        = 0.5 // a damage dealer misses without it
+	weightCrit       = 0.5
+	weightHealerCrit = 0.3
+	weightMP5        = 0.4 // a healer's mana lasts longer with it
+)
+
 // ItemWeights are the profile's weights read for gear: the five primaries as they stand, plus the item
 // stats a profile does not list but that do the same job as its lead stat. Spell Power counts as much
 // as Intellect for a caster or healer (it is what their gear carries instead of, or besides, Intellect), and so
 // does the older bonus healing for a healer and bonus damage for a caster; Attack Power counts four-fifths of
 // the better of Strength and Agility for a melee, ranged or feral build, as the gear weights file does for the
 // specs it lists. A tank, whose profile already names armor and defences, counts the extra armor a green item
-// adds as much as armor. The stat check and the digest keep reading Weights.
+// adds as much as armor, and Defense Rating as much as Stamina. A damage dealer counts Hit and Crit Rating, a healer
+// Crit Rating and mana per five seconds. The stat check and the digest keep reading Weights.
 func (p Prof) ItemWeights() map[string]float64 {
 	out := make(map[string]float64, len(p.Weights)+1)
 	for k, v := range p.Weights {
@@ -54,13 +73,17 @@ func (p Prof) ItemWeights() map[string]float64 {
 		out[SpellPower] = p.Weights[Intellect]
 		if p.Arch == archHealer {
 			out[SpellHealing] = p.Weights[Intellect]
+			out[Crit], out[MP5] = weightHealerCrit, weightMP5
 		} else {
 			out[SpellDamage] = p.Weights[Intellect]
+			out[Hit], out[Crit] = weightHit, weightCrit
 		}
 	case archTank:
 		out[ExtraArmor] = p.Weights[Armor]
+		out[Defense] = weightDefense
 	case archStr, archAgi, archRanged, archFeral:
 		out[AttackPower] = 0.8 * max(p.Weights[Strength], p.Weights[Agility])
+		out[Hit], out[Crit] = weightHit, weightCrit
 	}
 	return out
 }
