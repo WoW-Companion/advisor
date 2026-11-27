@@ -180,3 +180,26 @@ func TestLimitFactsQuiverMailAndClassQuests(t *testing.T) {
 		}
 	}
 }
+
+func TestLimitFactsReagentsShardsTotemsRituals(t *testing.T) {
+	const topic = "Class reagents, soul shards, totems and rituals:"
+	for _, q := range []string{
+		"how many soul shards does Summon Voidwalker use?", "how do I get more soul shards?", "what reagent does Rebirth need?",
+		"how many Maple Seeds do I need for Rebirth?", "which reagent do I need for Portal: Orgrimmar?", "what is Symbol of Kings used for?",
+		"how many Wild Thornroot does Gift of the Wild use?", "what does Windfury Totem do and how long does it last?", "what is the range of Mana Spring Totem?",
+		"how many people does Ritual of Summoning need?", "what does the Ritual of Doom require?", "does Ritual of Summoning cost a soul shard?",
+		"what is the cooldown of Grounding Totem?", "how many Ankhs should I carry for Reincarnation?",
+	} {
+		if got := LimitFacts(q); !strings.Contains(got, topic) || !strings.Contains(got, "Say so") {
+			t.Errorf("LimitFacts(%q) = %q, want %q", q, got, topic)
+		}
+	}
+	for _, q := range []string{
+		"which totem should my shaman equip?", "where do I buy flash powder?", "what level do I learn Searing Totem?", "which spells does a warlock learn at level 20?",
+		"where do I get the Totem of Life?", "my bags are full, what should I sell?", "can I summon my party to the dungeon?", "what is the best mage spell at level 40?",
+	} {
+		if got := LimitFacts(q); strings.Contains(got, topic) {
+			t.Errorf("LimitFacts(%q) = %q, want no %s", q, got, topic)
+		}
+	}
+}

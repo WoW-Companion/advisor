@@ -8,6 +8,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/WoW-Companion/advisor/internal/character"
+	"github.com/WoW-Companion/advisor/internal/classreagent"
 	"github.com/WoW-Companion/advisor/internal/professions"
 	"github.com/WoW-Companion/advisor/internal/store"
 )
@@ -43,6 +44,9 @@ func words(s string) string {
 
 // isMaterial reports whether an item name is a reagent for any of the professions.
 func isMaterial(itemName string, professions []string) bool {
+	if _, ok := classreagent.Of(itemName); ok || classreagent.MadeBy(itemName) != "" {
+		return false // a class reagent shares a word with a material ("powder", "stone") and is used up by the class's spells
+	}
 	w := words(itemName)
 	for _, x := range notMaterials {
 		if strings.Contains(w, words(x)) {

@@ -372,6 +372,9 @@ func TestIsMaterial(t *testing.T) {
 		{"Rough Stone", []string{"Blacksmithing"}, true},
 		{"Linen Cloth", []string{"Tailoring", "Mining"}, true},
 		{"Linen Cloth", []string{"Unknown Craft"}, false},
+		{"Infernal Stone", []string{"Blacksmithing", "Engineering"}, false}, // a warlock's reagent, not a smithing stone
+		{"Arcane Powder", []string{"Engineering"}, false},                   // a mage's reagent, not blasting powder
+		{"Major Healthstone", []string{"Jewelcrafting"}, false},
 	}
 	for _, tc := range cases {
 		if got := isMaterial(tc.item, tc.profs); got != tc.want {

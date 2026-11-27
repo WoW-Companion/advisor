@@ -169,6 +169,10 @@ func TestFindFallback(t *testing.T) {
 			t.Errorf("fallback Find(%s, %q) = %v, want %v", tc.table, tc.text, ids, tc.want)
 		}
 	}
+	// an exact name that follows the partial matches in file order is still the one found when the caller asks for one hit
+	if hits, _, err := Find(ds, Items, "linen", 1); err != nil || len(hits) != 1 || hits[0].ID != 5 {
+		t.Errorf("fallback Find(items, linen, 1) = %v, %v; want the exact Linen (5)", hits, err)
+	}
 	if !strings.Contains(logged.String(), "no names.parquet") {
 		t.Errorf("fallback was not logged: %q", logged.String())
 	}
