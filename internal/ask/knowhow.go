@@ -3,7 +3,6 @@ package ask
 import (
 	"fmt"
 	"regexp"
-	"sort"
 	"strconv"
 	"strings"
 
@@ -347,30 +346,13 @@ func classFacts(c character.Character, ds store.DataStore) string {
 	if cid == 0 {
 		return ""
 	}
-	rows, err := ds.Filter("class_spells", store.Range{Column: "class_id", Min: cid, Max: cid}, store.Range{Column: "level", Min: int64(1), Max: int64(*c.Level)})
-	if err != nil || len(rows) == 0 {
+	l := levelup.Learned(c, ds, *c.Level)
+	if len(l) == 0 {
 		return ""
 	}
-	type sp struct {
-		lv   int64
-		name string
-	}
-	var l []sp
-	seen := map[string]bool{}
-	for _, r := range rows {
-		n, _ := r["name"].(string)
-		lv, _ := r["level"].(int64)
-		sup, _ := r["superseded_spell_id"].(int64)
-		if n == "" || seen[n] || sup != 0 {
-			continue
-		}
-		seen[n] = true
-		l = append(l, sp{lv, n})
-	}
-	sort.SliceStable(l, func(i, j int) bool { return l[i].lv < l[j].lv })
 	var names []string
 	for _, s := range l {
-		names = append(names, fmt.Sprintf("%s (%d)", s.name, s.lv))
+		names = append(names, fmt.Sprintf("%s (%d)", s.Name, s.Level))
 	}
 	return fmt.Sprintf("Spells a %s of level %d has learned, with the level each was learned at: %s.\nOnly talk about abilities in this list or ones you are sure exist in WoW Forever.\n",
 		strings.ToLower(c.Class), *c.Level, strings.Join(names, ", "))
