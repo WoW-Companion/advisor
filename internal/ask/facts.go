@@ -277,7 +277,7 @@ func (c Config) PromptGround(q Question) (string, Grounding) {
 	p := PromptWithFacts(q, c.Options.Length, Facts(c, q))
 	g := GroundFor(c, q)
 	if TalentQuestion(q.Text) {
-		if i := strings.Index(p, " Plain text, under "); i >= 0 {
+		if i := strings.Index(p, " "+FormatRule); i >= 0 {
 			p = p[:i] + talentRule() + p[i+1:]
 		}
 		return p, Grounding{}
@@ -285,7 +285,7 @@ func (c Config) PromptGround(q Question) (string, Grounding) {
 	if WeaponQuestion(q.Text) {
 		// Weapon rules differ from Classic: the facts are the source, never general knowledge, and no
 		// "general WoW knowledge" footer is put under the answer.
-		if i := strings.Index(p, " Plain text, under "); i >= 0 {
+		if i := strings.Index(p, " "+FormatRule); i >= 0 {
 			p = p[:i] + weaponRule + p[i+1:]
 		}
 		return p, Grounding{}
@@ -298,7 +298,7 @@ func (c Config) PromptGround(q Question) (string, Grounding) {
 	if q.Icy {
 		rule += IcyRule
 	}
-	if i := strings.Index(p, " Plain text, under "); i >= 0 {
+	if i := strings.Index(p, " "+FormatRule); i >= 0 {
 		p = p[:i] + rule + p[i+1:]
 	}
 	if g.Pack != "" {
