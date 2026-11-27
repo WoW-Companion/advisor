@@ -158,6 +158,16 @@ specs' real nodes written one row per point) beside the next rows of the table; 
 Forever leveling build yet, so each class is listed as a dataset-side difference. The tests also run
 in `make verify`; `BENCH_REPORT=<file>` receives the tables.
 
+`internal/professions/offline_wholeroute_benchmark_test.go` (areas `professions-whole-route`, `professions-bracket-materials`,
+`professions-route-materials`, `professions-gold-cost-*`, `professions-limited-stock` and `professions-whole-route-no-answer`)
+checks what a profession takes from skill 1 to the cap: the route the advisor reads (recipe order, step boundaries, crafts in all)
+beside the `profession_routes` rows and the recorded Forever guide, the materials of the three steps a skill-up answer shows and of
+the whole route (crafts times the table's per-craft counts), the vendor price of a plan's materials and of learning its recipes
+(`items.buy_price`, else the cheapest listing), and the questions the dataset cannot answer (a profession with no route, the
+skill cap, a stretch no recipe covers, a material no vendor sells, a trainer recipe with no price). A material only limited-stock
+vendors sell is marked "limited stock" in the plan. The dataset route and the recorded guide split some steps differently; those
+rows are listed as "differ (data)".
+
 `internal/professions/offline_advice_benchmark_test.go` (also `make offline-benchmark`, areas `advice-quest-*`,
 `advice-gear-*` and `advice-recipe-*`) checks three kinds of advice a player acts on directly, on the quest, quest
 line and Everloot tables of `testdata/places_snapshot` and the item, recipe and loot tables of `testdata/advice_snapshot`:

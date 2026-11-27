@@ -181,6 +181,27 @@ func basePrice(ds store.DataStore, id, listed int64) int64 {
 	return listed
 }
 
+// limitedNote is " (limited stock)" when every vendor that sells an item has a limited supply of it: a plan that needs many of
+// it cannot count on buying them all. "" when any vendor's stock is not limited.
+func limitedNote(rows []store.Row) string {
+	if len(rows) == 0 {
+		return ""
+	}
+	for _, r := range rows {
+		switch l := r["limited"].(type) {
+		case bool:
+			if !l {
+				return ""
+			}
+		default:
+			if asI64(l) <= 0 {
+				return ""
+			}
+		}
+	}
+	return " (limited stock)"
+}
+
 // Money writes copper as gold, silver and copper, every unit that is not zero ("1g 23s 45c"): the
 // same wording and the same amount, to the copper, as a vendor price. Nothing is "0c".
 func Money(c int64) string {
@@ -208,12 +229,13 @@ func (p *planner) sourceOf(id int64) source {
 			offer(source{int(max(st.Price, 1)), p.vendorText(v, st, time.Now())})
 		}
 	}
-	for _, v := range rowsBy(p.ds, "vendor_sources", "item_id", id) {
+	vendorRows := rowsBy(p.ds, "vendor_sources", "item_id", id)
+	for _, v := range vendorRows {
 		if seenVendor {
 			break // the player's own sighting replaces the dataset's price
 		}
 		price := basePrice(p.ds, id, asI64(v["price_copper"]))
-		offer(source{int(max(price, 1)), "a vendor, " + Money(price) + " each"})
+		offer(source{int(max(price, 1)), "a vendor, " + Money(price) + " each" + limitedNote(vendorRows)})
 	}
 	for _, y := range rowsBy(p.ds, "gathering_yields", "item_id", id) {
 		for _, n := range rowsBy(p.ds, "gathering_nodes", "node_id", asI64(y["node_id"])) {
