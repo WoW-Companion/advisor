@@ -147,3 +147,21 @@ func TestCharacterBriefSaysWhereTheHearthstoneIsBound(t *testing.T) {
 		t.Errorf("a bind was guessed:\n%s", got)
 	}
 }
+
+func TestProgressLineAtAnEmptyXPBar(t *testing.T) {
+	zero, rested, size := 0, 9000, 2100
+	for _, tc := range []struct {
+		name         string
+		xp, max, rst *int
+		want         string
+	}{
+		{"top level: no XP bar", &zero, &zero, &rested, "Progress: no XP to earn at this level, so no rested XP either"},
+		{"a level in progress at 0 XP", &zero, &size, &rested, "Progress: XP 0/2100, rested 9000 XP"},
+		{"size not captured", &zero, nil, &rested, "Progress: XP not captured, rested 9000 XP"},
+	} {
+		c := character.Character{Name: "Bar", XP: tc.xp, XPMax: tc.max, RestedXP: tc.rst}
+		if got := Character(c, character.Client{}, fresh); !strings.Contains(got, "\n"+tc.want+"\n") {
+			t.Errorf("%s: brief says:\n%s", tc.name, got)
+		}
+	}
+}

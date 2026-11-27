@@ -86,6 +86,8 @@ func TestClassCityForPrefersTheCharactersOwnCityThenContinent(t *testing.T) {
 		{"Horde", "MAGE", "Orgrimmar", "Orgrimmar"}, {"Horde", "WARRIOR", "Durotar", "Orgrimmar"}, {"Horde", "WARRIOR", "Tirisfal Glades", "Undercity"},
 		{"Horde", "WARRIOR", "", "Undercity"}, {"Horde", "DRUID", "Durotar", "Thunder Bluff"}, {"Alliance", "ROGUE", "Teldrassil", "Darnassus"},
 		{"Alliance", "MAGE", "Teldrassil", "Stormwind City"}, {"Horde", "ROGUE", "Valley of Trials", "Orgrimmar"},
+		{"Alliance", "ROGUE", "Loch Modan", "Ironforge"}, {"Alliance", "WARRIOR", "Wetlands", "Ironforge"}, {"Alliance", "WARRIOR", "Duskwood", "Stormwind City"},
+		{"Alliance", "WARRIOR", "Elwynn Forest", "Stormwind City"},
 	} {
 		if got := classCityFor(tc.side, tc.class, tc.zone); got != tc.want {
 			t.Errorf("%s %s in %q: %q, want %q", tc.side, tc.class, tc.zone, got, tc.want)

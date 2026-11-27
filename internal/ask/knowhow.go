@@ -2,6 +2,7 @@ package ask
 
 import (
 	"fmt"
+	"math"
 	"regexp"
 	"strconv"
 	"strings"
@@ -138,31 +139,73 @@ func levelUpSubject(t string) (string, bool) {
 	return "", false
 }
 
-var minutesRe = regexp.MustCompile(`\b(\d{1,3})\s*(?:min|mins|minutes?)\b`)
-var hoursRe = regexp.MustCompile(`\b(\d{1,2}|an|one|two|half an)\s*(?:hours?|hrs?)\b`)
+// numberWords are the spelled-out numbers a time can be given in ("forty five minutes", "three hours").
+var numberWords = map[string]float64{"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10,
+	"eleven": 11, "twelve": 12, "thirteen": 13, "fourteen": 14, "fifteen": 15, "sixteen": 16, "seventeen": 17, "eighteen": 18, "nineteen": 19,
+	"twenty": 20, "thirty": 30, "forty": 40, "fifty": 50, "sixty": 60, "seventy": 70, "eighty": 80, "ninety": 90}
+
+const (
+	unitWord = `one|two|three|four|five|six|seven|eight|nine`
+	tensWord = `(?:twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety)(?:[ -](?:` + unitWord + `))?`
+	teenWord = `ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen`
+	spelled  = tensWord + `|` + teenWord + `|` + unitWord
+	andHalf  = `\s+and\s+a\s+half`
+)
+
+var minutesRe = regexp.MustCompile(`\b(\d{1,3}|` + spelled + `|an?)\s*(?:min|mins|minutes?)\b`)
+var hoursRe = regexp.MustCompile(`\b(\d{1,2}(?:\.\d+)?|` + spelled + `|a couple of|a couple|half an?|half|an?)(` + andHalf + `)?\s*(?:hours?|hrs?)\b(` + andHalf + `)?`)
+var clockRe = regexp.MustCompile(`\b(\d{1,2})\s*h\s*(\d{2})\b`)
 var timeIntent = []string{"i've got", "i have", "ive got", "i got", "i only have", "only have", "have about", "got about", "to play", "to spare", "quick session", "short session", "play for", "session"}
+
+// quantity is the number a time phrase starts with: digits, a spelled number, "a" or "an" (one), "half" or "a couple of".
+func quantity(w string) float64 {
+	switch w {
+	case "a", "an":
+		return 1
+	case "half", "half a", "half an":
+		return 0.5
+	case "a couple", "a couple of":
+		return 2
+	}
+	if n, err := strconv.ParseFloat(w, 64); err == nil {
+		return n
+	}
+	var total float64
+	for _, part := range strings.FieldsFunc(w, func(r rune) bool { return r == ' ' || r == '-' }) {
+		total += numberWords[part]
+	}
+	return total
+}
+
+// statedMinutes is the time the player says they have, in minutes: every hours and minutes figure of the
+// question added ("2 hours 30 minutes", "an hour and a half", "1.5 hours", "1h30"), 0 when it names none.
+func statedMinutes(t string) int {
+	total := 0.0
+	for _, m := range hoursRe.FindAllStringSubmatch(t, -1) {
+		h := quantity(m[1])
+		if m[2] != "" || m[3] != "" {
+			h += 0.5
+		}
+		total += h * 60
+	}
+	for _, m := range minutesRe.FindAllStringSubmatch(t, -1) {
+		total += quantity(m[1])
+	}
+	if total == 0 {
+		for _, m := range clockRe.FindAllStringSubmatch(t, -1) {
+			h, _ := strconv.Atoi(m[1])
+			n, _ := strconv.Atoi(m[2])
+			total += float64(h*60 + n)
+		}
+	}
+	return int(math.Round(total))
+}
 
 // sessionSubject reports an "I've got 30 minutes" question; the subject is "min:30" (minutes, 5 to
 // 240). It needs a time and a sign the player is saying how long they can play.
 func sessionSubject(t string) (string, bool) {
-	mins := 0
-	if m := minutesRe.FindStringSubmatch(t); m != nil {
-		mins, _ = strconv.Atoi(m[1])
-	} else if m := hoursRe.FindStringSubmatch(t); m != nil {
-		switch m[1] {
-		case "an", "one", "1":
-			mins = 60
-		case "two":
-			mins = 120
-		case "half an":
-			mins = 30
-		default:
-			h, _ := strconv.Atoi(m[1])
-			mins = h * 60
-		}
-	} else if hasAny(t, []string{"half an hour", "half hour"}) {
-		mins = 30
-	} else if hasAny(t, []string{"quick session", "short session"}) {
+	mins := statedMinutes(t)
+	if mins == 0 && hasAny(t, []string{"quick session", "short session"}) {
 		mins = 30
 	}
 	if mins == 0 || !hasAny(t, timeIntent) && !hasAny(t, []string{"what should i do", "what can i do", "what can i get done", "plan"}) {

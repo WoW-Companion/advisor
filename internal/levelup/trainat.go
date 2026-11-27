@@ -50,8 +50,9 @@ func ClassCity(faction, class string) string {
 }
 
 // classCityFor is the capital to train in for a character standing in zone: the city itself when it holds the
-// class trainer, else the class's city on the zone's continent, else the usual one. A character in Durotar is
-// not sent across the sea to Undercity when Orgrimmar has a trainer too.
+// class trainer, else the class's city on the zone's continent (the one a flight from the zone reaches directly,
+// when one does), else the usual one. A character in Durotar is not sent across the sea to Undercity when
+// Orgrimmar has a trainer too, and one in Loch Modan goes to Ironforge, not past it to Stormwind City.
 func classCityFor(faction, class, zone string) string {
 	list := classCities[strings.ToLower(faction)][strings.ToUpper(class)]
 	if len(list) == 0 {
@@ -64,10 +65,20 @@ func classCityFor(faction, class, zone string) string {
 		}
 	}
 	if cont := learn.ContinentOf(zone); cont != "" {
+		first := ""
 		for _, c := range list {
-			if learn.ContinentOf(c) == cont {
+			if learn.ContinentOf(c) != cont {
+				continue
+			}
+			if FlightFrom(c, zone) != "" {
 				return c
 			}
+			if first == "" {
+				first = c
+			}
+		}
+		if first != "" {
+			return first
 		}
 	}
 	return list[0]
