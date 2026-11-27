@@ -127,6 +127,18 @@ func TestOfflineBenchmarkItemTooltip(t *testing.T) {
 		ok := strings.Contains(line, fmt.Sprintf("item level %d;", il)) && strings.Contains(line, wantReq) && wantBind
 		out = append(out, benchRow{tc.item + ": the tooltip levels and binding", line, fmt.Sprintf("item level %d; %s; %s", il, wantReq, noBinding(tc.binding)), mbTipSrc, resultIf(ok, "the levels or the binding")})
 	}
+	// worn gear of item level 30 or more shows a required level in the game; the dataset lists none for these pieces, so the tooltip says none is listed
+	for _, name := range []string{"Dread Mage Hat", "Ring of Pure Silver"} {
+		r := usabItem(t, name)
+		f := ask.ItemTooltipFacts(ds, "what level does ["+name+"] need?")
+		res := "match"
+		if !strings.Contains(f, "no required level listed in the data") {
+			res = "differ: a level was stated the data does not hold"
+		} else if num(r["required_level"]) == 0 && num(r["slot"]) != 0 && num(r["item_level"]) >= 30 {
+			res = "differ (data): the dataset lists required_level 0 for worn gear of item level " + fmt.Sprint(num(r["item_level"])) + ", where the game shows a level"
+		}
+		out = append(out, benchRow{name + ": the required level of worn gear", firstLine(strings.TrimPrefix(f, "Item tooltips (from the item rows; answer from these, not from memory):\n")), "a required level on the tooltip (game); dataset required_level 0", mbTipSrc, res})
+	}
 	finish(t, "advice-item-tooltip", "Offline item tooltip: item level, required level and binding", out)
 }
 
@@ -141,8 +153,8 @@ var tradeCases = []struct {
 	{"Heavy Mithril Shoulder", true, "binds when equipped"},
 	{"Deprecated Cat's Paw", true, "binds when used"},
 	{"Copper Bar", true, "binds to no one"},
-	{"Torch of Retribution", false, "a quest item"},
-	{"Ryedol's Lucky Pick", false, "a quest item"},
+	{"Torch of Retribution", false, "bound to the one who looted it"},
+	{"Ryedol's Lucky Pick", false, "bound to the one who looted it"},
 }
 
 // TestOfflineBenchmarkTradeMailRule: what the facts say a binding lets a player do with the item, beside the game's rule: Bind on Pickup and quest items
@@ -230,7 +242,7 @@ func TestOfflineBenchmarkMailBankNoAnswer(t *testing.T) {
 		{"write me a macro to cast Frostbolt and use my trinket", "Macros:"},
 	} {
 		f := ask.LimitFacts(tc.q)
-		out = append(out, benchRow{"\"" + tc.q + "\": the facts", firstLine(f), "the data holds none: say so, name no figure", mbNoneSrc, resultIf(strings.Contains(f, tc.word) && strings.Contains(f, "Say so") || strings.Contains(f, "Say so;"), "no statement that the data holds none")})
+		out = append(out, benchRow{"\"" + tc.q + "\": the facts", firstLine(f), "the data holds none: say so, name no figure", mbNoneSrc, resultIf(strings.Contains(f, tc.word) && strings.Contains(f, "Say so"), "no statement that the data holds none")})
 	}
 	for _, q := range []string{"what should I do with my bags?", "what quest should I do next?", "how do I get to Ironforge?"} {
 		f := ask.LimitFacts(q)

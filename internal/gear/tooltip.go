@@ -46,7 +46,7 @@ func ItemTooltip(row store.Row) (Tooltip, bool) {
 	case 3:
 		t.Trade = "binds when used: until it is used it can be traded, mailed and put on the Auction House"
 	case 4, 5:
-		t.Trade = "a quest item: it cannot be traded, mailed or put on the Auction House"
+		t.Trade = "bound to the one who looted it: it cannot be traded, mailed or put on the Auction House"
 	default:
 		t.Trade = "it binds to no one: it can be traded, mailed and put on the Auction House"
 	}
