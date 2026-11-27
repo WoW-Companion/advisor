@@ -2,11 +2,12 @@ package paths
 
 import (
 	"fmt"
-	"github.com/WoW-Companion/advisor/internal/character"
 	"strings"
 
+	"github.com/WoW-Companion/advisor/internal/character"
 	"github.com/WoW-Companion/advisor/internal/learn"
 	"github.com/WoW-Companion/advisor/internal/professions"
+	"github.com/WoW-Companion/advisor/internal/quests"
 	"github.com/WoW-Companion/advisor/internal/store"
 	"github.com/WoW-Companion/advisor/internal/vendors"
 	"github.com/WoW-Companion/advisor/internal/wording"
@@ -74,11 +75,29 @@ func crafters(prof string) string {
 }
 
 // recipeItem finds the item that teaches a recipe: the recipe row's recipe_item_id when the dataset
-// has one, else the recipe item (class 9) named for the recipe or the item it makes ("Plans: X").
+// has one, else (for a recipe an item teaches) the dataset's recipe_items row for the spell (its name is "" when the items table lacks the item), else
+// the recipe item (class 9) named for the recipe or the item it makes ("Plans: X").
 func (f *finder) recipeItem(r store.Row) (int64, string) {
 	if id := i64(r["recipe_item_id"]); id > 0 {
 		if it, err := f.ds.Get("items", id); err == nil && str(it["name"]) != "" {
 			return id, str(it["name"])
+		}
+	}
+	if spell := i64(r["spell_id"]); spell > 0 && str(r["learned_from"]) == "item" {
+		var best int64
+		if ris, err := f.ds.Filter("recipe_items", store.Range{Column: "teaches_spell_id", Min: spell, Max: spell}); err == nil {
+			for _, ri := range ris {
+				if id := i64(ri["item_id"]); id > 0 && (best == 0 || id < best) {
+					best = id
+				}
+			}
+		}
+		if best > 0 {
+			name := ""
+			if it, err := f.ds.Get("items", best); err == nil {
+				name = str(it["name"])
+			}
+			return best, name
 		}
 	}
 	names := []string{strings.ToLower(str(r["name"])), strings.ToLower(str(f.item["name"]))}
@@ -104,18 +123,32 @@ func (f *finder) recipeItem(r store.Row) (int64, string) {
 	return best, bestName
 }
 
+// recipeNoun is how a line names the item that teaches a recipe: "the recipe X", or "the recipe item" when the
+// dataset has its id but no name.
+func recipeNoun(name string) string {
+	if name == "" {
+		return "the recipe item"
+	}
+	return "the recipe " + name
+}
+
 // recipeSource says where to learn the recipe: from the recipe item's vendor, drop or quest when
-// the recipe comes from an item, else from a profession trainer.
+// the recipe comes from an item, else from a profession trainer. A recipe the dataset says an item teaches is never sent to
+// a trainer, even when the dataset names no item for it.
 func (f *finder) recipeSource(r store.Row, prof string) RecipeSource {
 	id, name := f.recipeItem(r)
 	if id == 0 {
+		if str(r["learned_from"]) == "item" {
+			return RecipeSource{Kind: "unknown", Line: "it is taught by a recipe item; the game data does not say where it comes from"}
+		}
 		if res := learn.Recipe(f.c, f.ds, f.opt.Questie, r); len(res.Ways) > 0 && res.Ways[0].Kind == learn.Trainer {
 			return RecipeSource{Kind: "trainer", Line: strings.TrimPrefix(res.Ways[0].Line, "Learn it ")}
 		}
 		return RecipeSource{Kind: "trainer", Line: fmt.Sprintf("from %s trainer", wording.A(prof))}
 	}
+	noun := recipeNoun(name)
 	if o, ok := vendors.BestFor(f.c, f.ds, id); ok {
-		l := fmt.Sprintf("buy the recipe %s from %s", name, o.Vendor)
+		l := fmt.Sprintf("buy %s from %s", noun, o.Vendor)
 		if o.Zone != "" {
 			l += " in " + o.Zone
 		}
@@ -132,19 +165,19 @@ func (f *finder) recipeSource(r store.Row, prof string) RecipeSource {
 		switch {
 		case kindHas(str(l["source_kind"]), "creature", "npc"):
 			if n, err := f.ds.Get("npcs", i64(l["source_id"])); err == nil && str(n["name"]) != "" {
-				s := fmt.Sprintf("the recipe %s drops from %s", name, str(n["name"]))
+				s := fmt.Sprintf("%s drops from %s", noun, str(n["name"]))
 				if z := str(n["zone_name"]); z != "" {
 					s += " in " + z
 				}
 				return RecipeSource{Kind: "drop", Item: name, Line: s}
 			}
 		case kindHas(str(l["source_kind"]), "quest"):
-			if q, err := f.ds.Get("quests", i64(l["source_id"])); err == nil && str(q["name"]) != "" {
-				return RecipeSource{Kind: "quest", Item: name, Line: fmt.Sprintf("the recipe %s is a reward of the quest %s", name, str(q["name"]))}
+			if q := quests.Name(f.ds, i64(l["source_id"])); q != "" {
+				return RecipeSource{Kind: "quest", Item: name, Line: fmt.Sprintf("%s is a reward of the quest %s", noun, q)}
 			}
 		}
 	}
-	return RecipeSource{Kind: "unknown", Item: name, Line: fmt.Sprintf("it is taught by the recipe %s; the game data does not say where it comes from", name)}
+	return RecipeSource{Kind: "unknown", Item: name, Line: fmt.Sprintf("it is taught by %s; the game data does not say where it comes from", noun)}
 }
 
 // ahLine is the Auction House advice for a crafted item: only when it can be traded.
