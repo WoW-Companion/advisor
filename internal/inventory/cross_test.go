@@ -94,12 +94,12 @@ func TestReviewAll(t *testing.T) {
 		action    Action
 		to, why   string
 	}{
-		{"Smithy", "Linen Cloth", Mail, "Taila", "Tailoring"},         // reagent for an alt's profession
-		{"Taila", "Copper Bar", Mail, "Smithy", "Blacksmithing"},      // and the other way
-		{"Smithy", "Elemental Fire", Sell, "", "no character has"},    // no one has Alchemy
-		{"Smithy", "Wolf Pelt", Toss, "", "no character has a quest"}, // quest item, no quest anywhere
-		{"Smithy", "Troll Tooth", Sell, "", "grey"},                   // grey
-		{"Smithy", "Mystery Herb", Unsure, "", "does not know"},       // never guessed
+		{"Smithy", "Linen Cloth", Mail, "Taila", "Tailoring"},      // reagent for an alt's profession
+		{"Taila", "Copper Bar", Mail, "Smithy", "Blacksmithing"},   // and the other way
+		{"Smithy", "Elemental Fire", Sell, "", "no character has"}, // no one has Alchemy
+		{"Smithy", "Wolf Pelt", Toss, "", "safe to destroy"},       // quest item, no quest anywhere
+		{"Smithy", "Troll Tooth", Sell, "", "grey"},                // grey
+		{"Smithy", "Mystery Herb", Unsure, "", "does not know"},    // never guessed
 	}
 	for _, c := range cases {
 		l := find(r.Lines, c.who, c.item)

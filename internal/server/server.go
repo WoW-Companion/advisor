@@ -1204,7 +1204,7 @@ func New(cfg Config) *mcp.Server {
 		if cfg.Dataset != "" {
 			ds = store.NewDir(cfg.Dataset)
 		}
-		r := inventory.Review(c, ds)
+		r := inventory.ReviewWith(c, ds, questie.ForSavedVariables(cfg.SavedVariables))
 		name := c.Name
 		if name == "" {
 			name = c.Key
@@ -1261,7 +1261,7 @@ func New(cfg Config) *mcp.Server {
 			return nil, out, nil
 		case "", "review":
 			out.Mode = "review"
-			r := inventory.ReviewAll(f.Characters, ds)
+			r := inventory.ReviewAllWith(f.Characters, ds, questie.ForSavedVariables(cfg.SavedVariables))
 			out.Lines, out.SellUnpriced, out.SlotsFreed = r.Lines, r.SellUnpriced, r.SlotsFreed
 			out.Notes = append(out.Notes, r.Notes...)
 			if r.SellValue > 0 || r.SellUnpriced == 0 && len(r.Lines) > 0 {

@@ -15,6 +15,7 @@ import (
 	"github.com/WoW-Companion/advisor/internal/character"
 	"github.com/WoW-Companion/advisor/internal/gear"
 	"github.com/WoW-Companion/advisor/internal/professions"
+	"github.com/WoW-Companion/advisor/internal/questie"
 	"github.com/WoW-Companion/advisor/internal/store"
 )
 
@@ -112,7 +113,11 @@ func contains(l []string, s string) bool {
 
 // classify picks the group of one item and says why.
 func classify(c character.Character, id int64, name string, row store.Row, known bool, up map[int64]gear.Candidate,
-	keep map[int64][]string, far map[int64][]string, quests map[string][]string) (Group, string) {
+	keep map[int64][]string, far map[int64][]string, needs Needs) (Group, string) {
+	if q := needs.For(id, name, row); len(q) > 0 {
+		// a quest in the log needs it, ready or not: kept by rule, before any sell or toss rule
+		return Quest, Reason(q)
+	}
 	if cd, ok := up[id]; ok {
 		if cd.Empty {
 			return Equip, fmt.Sprintf("fills your empty %s slot", cd.Slot)
@@ -121,9 +126,6 @@ func classify(c character.Character, id int64, name string, row store.Row, known
 	}
 	if p, ok := keep[id]; ok {
 		return Keep, "reagent for " + strings.Join(p, ", ") + " recipes within reach"
-	}
-	if q, ok := quests[strings.ToLower(name)]; ok {
-		return Quest, "needed for " + strings.Join(q, ", ")
 	}
 	if p := professions.ToolOf(name); p != "" && HasProfession(c, p) {
 		return Keep, "the " + p + " tool: " + p + " needs it in your bags"
@@ -148,7 +150,10 @@ func classify(c character.Character, id int64, name string, row store.Row, known
 
 // Review groups every bag and bank stack. ds may be nil: items are then placed only by the
 // capture (quest objectives) and everything else is unknown.
-func Review(c character.Character, ds store.DataStore) Result {
+func Review(c character.Character, ds store.DataStore) Result { return ReviewWith(c, ds, nil) }
+
+// ReviewWith is Review that also reads the quests' items from the player's QuestieDB (qx may be nil).
+func ReviewWith(c character.Character, ds store.DataStore, qx *questie.Index) Result {
 	r := Result{Groups: map[Group][]Entry{}}
 	if !c.BagsCaptured && len(c.Bags) == 0 {
 		r.Notes = append(r.Notes, "Bags not captured.")
@@ -186,7 +191,7 @@ func Review(c character.Character, ds store.DataStore) Result {
 		}
 		far = professions.FarMaterials(c, ds)
 	}
-	quests := openItemQuests(c)
+	needs := NeedsOf(c, qx)
 
 	for _, loc := range []struct {
 		where  string
@@ -208,7 +213,7 @@ func Review(c character.Character, ds store.DataStore) Result {
 			if name == "" {
 				name = fmt.Sprintf("item %d", id)
 			}
-			g, why := classify(c, id, name, row, known, up, keep, far, quests)
+			g, why := classify(c, id, name, row, known, up, keep, far, needs)
 			e := Entry{ItemID: id, Name: name, Count: s.Count, Where: loc.where, Group: g, Reason: why}
 			if p, ok := row["sell_price"].(int64); ok && known {
 				e.SellPrice = &p
