@@ -57,6 +57,12 @@ func ClassCity(faction, class string) string {
 	return ""
 }
 
+// ClassCities are every capital that holds a class trainer for the faction's class, the usual one first; nil for a
+// class the faction cannot play.
+func ClassCities(faction, class string) []string {
+	return append([]string(nil), classCities[strings.ToLower(faction)][strings.ToUpper(class)]...)
+}
+
 // classCityFor is the capital to train in for a character standing in zone: the city itself when it holds the
 // class trainer, else the class's city on the zone's continent (the one a flight from the zone reaches directly,
 // when one does), else the usual one. A character in Durotar is not sent across the sea to Undercity when
