@@ -95,6 +95,10 @@ func TestClassify(t *testing.T) {
 		{"What is the best rotation?", KindKnowHow, TopicClass, "warrior"},
 		{"How does mining work and when do I get smelting?", KindKnowHow, TopicProfession, "mining"},
 		{"Tell me about the lore of Orgrimmar", KindKnowHow, TopicNone, ""},
+		{"how many slots does a Mageweave Bag have", KindKnowHow, TopicNone, ""},
+		{"what is the best rotation for mages", KindKnowHow, TopicClass, "mage"},
+		{"how do I get back to my corpse?", KindKnowHow, TopicNone, ""},
+		{"how much does it cost to repair my gear", KindKnowHow, TopicNone, ""},
 	} {
 		got := Classify(tc.text, cc.ds, &cc.c)
 		if got.Kind != tc.kind || got.Topic != tc.topic || got.Subject != tc.subject {

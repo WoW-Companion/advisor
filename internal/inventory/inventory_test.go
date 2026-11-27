@@ -199,3 +199,26 @@ func TestMoney(t *testing.T) {
 		}
 	}
 }
+
+func TestToolsAndBagsAreNotBankedGear(t *testing.T) {
+	ds := store.New(store.ReaderSource{"items": table(t, []itemRow{
+		{ID: 20, Name: "Mining Pick", ItemLevel: 1, Quality: 1, ClassID: 2, SubclassID: 14, Slot: 21, ClassMask: -1, StatsStatus: "none"},
+		{ID: 21, Name: "Linen Bag", ItemLevel: 1, Quality: 1, ClassID: 1, Slot: 18, ClassMask: -1, StatsStatus: "none"},
+	})})
+	c := priest()
+	c.Professions = append(c.Professions, character.Skill{Name: "Mining", Rank: ip(10), Max: ip(75)})
+	c.Bags = []character.ItemStack{{ItemID: 20, Count: 1, Name: "Mining Pick"}, {ItemID: 21, Count: 1, Name: "Linen Bag"}}
+	c.Quests, c.Bank = nil, nil
+	r := Review(c, ds)
+	if len(r.Groups[Keep]) != 1 || r.Groups[Keep][0].Name != "Mining Pick" || len(r.Groups[Unknown]) != 1 || r.Groups[Unknown][0].Reason != BagReason || r.SlotsFreed != 0 {
+		t.Errorf("the tool is kept and the bag unplaced, none freeing a slot: %+v", r)
+	}
+	alt := priest()
+	alt.Name, alt.Bags, alt.Professions = "Alt", nil, nil
+	c.Name = "Miner"
+	for _, l := range ReviewAll([]character.Character{c, alt}, ds).Lines {
+		if l.Item == "Mining Pick" && l.Action != Keep_ || l.Item == "Linen Bag" && l.Action != Unsure {
+			t.Errorf("%s: %s (%s)", l.Item, l.Action, l.Reason)
+		}
+	}
+}
