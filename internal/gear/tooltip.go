@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/WoW-Companion/advisor/internal/store"
+	"github.com/WoW-Companion/advisor/internal/vendors"
 )
 
 // Tooltip is what an item's tooltip shows that the dataset holds: its levels, how it binds and what that means for a trade, a mail and
@@ -65,7 +66,16 @@ func (t Tooltip) Text() string {
 	}
 	parts = append(parts, t.Trade)
 	if t.SellPrice != nil {
-		parts = append(parts, fmt.Sprintf("sells to a vendor for %d copper each", *t.SellPrice))
+		parts = append(parts, sellText(*t.SellPrice))
 	}
 	return strings.Join(parts, "; ") + "; stack size and any unique limit: not in the game data"
+}
+
+// sellText is the vendor's price in the game's money units, with the copper it is made of: a bare copper count is easy to misread as
+// silver or gold.
+func sellText(c int64) string {
+	if m := vendors.Money(c); m != "" {
+		return fmt.Sprintf("sells to a vendor for %s each (%d copper); the data holds no Auction House price to compare it with", m, c)
+	}
+	return "no vendor buys it: its sell price is 0"
 }
