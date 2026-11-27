@@ -48,11 +48,12 @@ var tierWeights = []struct {
 var heavyWords = []string{
 	"ruby", "sapphire", "citrine", "aquamarine", "opal", "jade", "emerald", "diamond", "pearl", "malachite", "tigerseye",
 	"shadowgem", "moss agate", "moonstone", "essence of", "heart of fire", "globe of water", "breath of wind", "core of earth",
-	"elemental", "arcane crystal", "dark iron", "ichor", "mooncloth", "salt shaker", "arcanite bar", "scale of", "black lotus",
+	"elemental", "arcane crystal", "dark iron", "ichor", "mooncloth", "salt shaker", "refined deeprock salt", "arcanite bar", "scale of", "black lotus",
 }
 
-// cooldownWords mark materials and recipes with a crafting cooldown, left out of a plan by default.
-var cooldownWords = []string{"mooncloth", "salt shaker", "arcanite bar", "transmute"}
+// cooldownWords mark materials and recipes with a crafting cooldown, left out of a plan by default. Refined Deeprock Salt
+// is what the Salt Shaker makes, one use every three days, so a recipe that takes it (Cured Rugged Hide) is left out too.
+var cooldownWords = []string{"mooncloth", "salt shaker", "refined deeprock salt", "arcanite bar", "transmute"}
 
 // specWords mark recipes only a specialisation teaches, by the profession that has the specialisation:
 // Dragonscale, Elemental and Tribal Leatherworking, Armorsmith, Weaponsmith (Swordsmith, Axesmith,

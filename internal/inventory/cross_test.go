@@ -177,3 +177,24 @@ func TestBestFoodKeptRestSold(t *testing.T) {
 		}
 	}
 }
+
+// A Bind on Pickup piece is bound to its holder: an alt who could wear it is never sent it by mail, a Bind on Equip one is.
+func TestBoundOnPickupGearNotMailed(t *testing.T) {
+	boe, bop := xi(40, "Silk Mantle", 2, 4, 1, nil), xi(41, "Silk Cowl", 3, 4, 1, nil)
+	boe.Slot, bop.Slot, boe.Bonding, bop.Bonding = 3, 1, 2, 1
+	boe.RequiredLevel, bop.RequiredLevel = 28, 28
+	price := int64(90)
+	boe.SellPrice, bop.SellPrice = &price, &price
+	ds := store.New(store.ReaderSource{"items": table(t, []xItem{boe, bop}), "recipes": table(t, []recipeRow{}), "recipe_reagents": table(t, []reagentRow{})})
+	holder := character.Character{Name: "Wara", Class: "WARRIOR", Level: ip(5), BagsCaptured: true, BankCaptured: true,
+		Bags: []character.ItemStack{{ItemID: 40, Count: 1, Name: "Silk Mantle"}, {ItemID: 41, Count: 1, Name: "Silk Cowl"}}}
+	alt := character.Character{Name: "Magea", Class: "MAGE", Level: ip(30), BagsCaptured: true, BankCaptured: true}
+	r := ReviewAll([]character.Character{holder, alt}, ds)
+	if l := find(r.Lines, "Wara", "Silk Mantle"); l.Action != Mail || l.To != "Magea" {
+		t.Errorf("Bind on Equip piece = %+v, want mail to Magea", l)
+	}
+	l := find(r.Lines, "Wara", "Silk Cowl")
+	if l.Action != Sell || l.To != "" || l.AH || !strings.Contains(l.Reason, "cannot be mailed") {
+		t.Errorf("Bind on Pickup piece = %+v, want a vendor sale that says it cannot be mailed", l)
+	}
+}
