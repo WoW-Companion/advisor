@@ -16,6 +16,7 @@ import (
 	"github.com/WoW-Companion/advisor/internal/dataset"
 	"github.com/WoW-Companion/advisor/internal/digest"
 	"github.com/WoW-Companion/advisor/internal/gamesetup"
+	"github.com/WoW-Companion/advisor/internal/route"
 	"github.com/WoW-Companion/advisor/internal/setup"
 	"github.com/WoW-Companion/advisor/internal/svfind"
 )
@@ -114,6 +115,9 @@ func (r *run) capture() (character.File, bool) {
 func (r *run) sources(f character.File) {
 	for _, c := range f.Characters {
 		r.add("Source "+c.Key, Info, c.Source, "")
+		if gaps := route.ErrandGaps(c); len(gaps) > 0 {
+			r.add("Errands "+c.Key, Info, strings.Join(gaps, "; "), "")
+		}
 	}
 	if f.HasFS && !f.HasWoWC {
 		r.add("ForeverScribe", Info, gamesetup.RemoveScribeNote, "")

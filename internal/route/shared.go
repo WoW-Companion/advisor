@@ -249,6 +249,7 @@ func shapeSharedPlan(p *Plan, c character.Character, src source, opt Options, in
 	}
 	findHomeless(p, c, src, in.listed)
 	addErrands(p, c, src, opt, in)
+	addChores(p, c, src, opt)
 	p.Total = len(p.Steps)
 	linkSteps(p.Steps)
 	p.Flights = flightList(c, src, p, in.cur)

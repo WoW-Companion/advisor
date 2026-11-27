@@ -160,6 +160,10 @@ type Options struct {
 	// the spells the character can train now; nil reads them from Data.
 	Data      store.DataStore
 	Trainable func(c character.Character) int
+	// Others are the player's captured characters, for the mail errands; BagSlots is the bag size (0: not
+	// captured, so no sell-junk errand).
+	Others   []character.Character
+	BagSlots int
 }
 
 // DungeonLevel is a dungeon's level range; Map is its instance id (0 when unknown).

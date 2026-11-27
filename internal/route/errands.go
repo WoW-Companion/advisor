@@ -31,6 +31,10 @@ type Errand struct {
 	X     float64 `json:"x"`
 	Y     float64 `json:"y"`
 	Why   string  `json:"why"`
+	// Attach is the step a "while you're here" errand (restock, repair, selljunk, mail) rides on; N is 0 then.
+	// NPC names who or what to use.
+	Attach int    `json:"attach,omitempty"`
+	NPC    string `json:"npc,omitempty"`
 }
 
 // KindErrand is the kind of a stop that is only an errand: a trainer, the bank.

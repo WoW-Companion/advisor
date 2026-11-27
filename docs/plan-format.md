@@ -406,6 +406,25 @@ errands = {
 `kind` is `train` (new ranks are trainable), `bank` (the bank is not captured), `class` (a class quest is
 offered here) or `turnin` (a ready turn-in here). `x` and `y` are -1 when the position is not known.
 
+### "While you're here" errands (additive)
+
+An errand may ride on a step the route already makes. Such an errand has `attach = <step n>` and `npc` (who or
+what to use), and `n = 0`: it is not a step of its own. The addon shows it as a sub-line of the attached step,
+"While you're here: " plus `label` (for example "buy 4 Empty Vial from Sly Garrett"). `label` starts with a lower-case verb.
+
+| `kind` | when | where |
+|---|---|---|
+| `restock` | reagents of a known recipe that still gives skill-ups are short of a batch of 5 | a vendor that sells them |
+| `repair` | durability is under 50%, or an item is under 25% | an NPC with the repair flag |
+| `selljunk` | bags are 80% full or more and something is safe to sell | a general vendor |
+| `mail` | the advice sends items to another character (`label` names them and the character) | a mailbox |
+
+The errand attaches to the nearest step within about 150 yards (5 map percent) of the NPC or mailbox. With no
+such step it is dropped, unless it is urgent (an item under 25% durability, bags full): then it is its own
+errand step (`n` is the step, `attach` absent) at the place nearest the route. Items a quest in the log needs
+are never sold or mailed. Durability and bag size may not be captured; the errand is then skipped and `doctor`
+says so. Consumers keep an errand kind they do not know.
+
 ## Schema 1.7: trip order, transports and `eta`
 
 Trips are ordered as a travel route, not a ranking. The advisor builds a small graph whose nodes are zones and
