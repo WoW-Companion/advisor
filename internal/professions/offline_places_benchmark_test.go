@@ -461,7 +461,7 @@ func TestOfflineBenchmarkNoMasterAnswer(t *testing.T) {
 		if need != nil {
 			line = need.Line()
 		}
-		ok := len(f.MastersFor(228)) == 0 && need != nil && need.Master == "" && strings.HasSuffix(line, "train it at a Weapon Master")
+		ok := len(f.MastersFor(228)) == 0 && need != nil && need.Master == "" && strings.Contains(line, "no Weapon Master teaches it") && !strings.Contains(line, "train it at")
 		out = append(out, benchRow{side + ": who teaches Wands", line, placesNoReply + ": no weapon_masters row lists skill 228", mastersSrc, resultIf(ok, "a master is named")})
 	}
 	finishOffline(t, "places-no-master-answer", "Offline weapon master, no answer in the dataset", out)
