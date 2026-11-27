@@ -59,6 +59,7 @@ type Quest struct {
 	Creatures  []Ref // objectives that are kills or talks
 	Items      []int // item objectives (item ids)
 	SrcItems   []int // items the quest needs besides its objectives: the item it starts with (sourceItemId) and requiredSourceItems
+	StartItems []int // items that start the quest when used (startedBy's third list): the quest has no NPC or object to pick it up from
 	Credits    []Credit
 	Triggers   []Trigger // area objectives ("reach this place"): text and the places Questie marks
 	Objective  string    // the objective text shown in the quest log (field 8)
@@ -219,6 +220,7 @@ func buildQuest(id int, r rawRow, l Layout) *Quest {
 	for t, list := range []any{slot(field("finishedBy"), 1), slot(field("finishedBy"), 2)} {
 		q.Finishers = append(q.Finishers, refs(list, t == 1)...)
 	}
+	q.StartItems = ints(slot(field("startedBy"), 3))
 	q.Objective = objectiveText(field("objectivesText"))
 	if t := field("triggerEnd"); t != nil {
 		if sp := spawns(slot(t, 2)); len(sp) > 0 {

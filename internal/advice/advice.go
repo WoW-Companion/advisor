@@ -226,7 +226,7 @@ func WhatsNextWith(c character.Character, ds store.DataStore, qx *questie.Index)
 			}
 			turnIns = append(turnIns, s)
 		case isTrue(q.Failed):
-			failed = append(failed, Step{Kind: KindQuest, Title: AbandonPrefix + title(q), Reason: "failed; it cannot be completed", Zone: info.zone, QuestID: q.QuestID, Sources: info.sources})
+			failed = append(failed, Step{Kind: KindQuest, Title: AbandonPrefix + title(q), Reason: "failed; it cannot be completed: abandon it and, if its giver offers it again, take it again", Zone: info.zone, QuestID: q.QuestID, Sources: info.sources})
 		default:
 			s := Step{Kind: KindQuest, Title: title(q), Zone: info.zone, QuestID: q.QuestID, Sources: info.sources, Name: title(q), Level: lvl(info.level), Elite: info.elite}
 			chained := func() {

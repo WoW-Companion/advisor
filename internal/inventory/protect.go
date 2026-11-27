@@ -4,6 +4,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/WoW-Companion/advisor/internal/advice"
 	"github.com/WoW-Companion/advisor/internal/character"
 	"github.com/WoW-Companion/advisor/internal/questie"
 	"github.com/WoW-Companion/advisor/internal/store"
@@ -23,12 +24,13 @@ type Needs struct {
 	qx      *questie.Index
 	done    map[int]bool
 	titleOf map[int]string
+	starts  map[int64][]string // item id -> titles of the quests the item starts that the character can still take
 }
 
 // NeedsOf reads what the quests in c's log need. qx may be nil.
 func NeedsOf(c character.Character, qx *questie.Index) Needs {
 	n := Needs{byID: map[int64][]string{}, byName: map[string][]string{}, texts: map[string]string{}, titles: map[string]string{}, qx: qx,
-		done: map[int]bool{}, titleOf: map[int]string{}}
+		done: map[int]bool{}, titleOf: map[int]string{}, starts: map[int64][]string{}}
 	for _, id := range c.CompletedQuests {
 		n.done[id] = true
 	}
@@ -64,8 +66,42 @@ func NeedsOf(c character.Character, qx *questie.Index) Needs {
 		for id, q := range qx.Quests {
 			n.titleOf[id] = q.Name
 		}
+		n.startedByItems(c)
 	}
 	return n
+}
+
+// startedByItems notes the items that start a quest the character can still take: a quest that starts from a dropped item has no giver to
+// go back to, so destroying the item loses the quest. A quest that is done, in the log, or closed to the character's race or class is no such quest.
+func (n *Needs) startedByItems(c character.Character) {
+	lv := 0
+	if c.Level != nil {
+		lv = *c.Level
+	}
+	c.Level = &lv
+	w := advice.WhoOf(c)
+	for id, q := range n.qx.Quests {
+		if len(q.StartItems) == 0 || q.Name == "" || w.Done[id] || w.InLog[id] || !w.RaceAllows(q.Races) || (q.Classes != 0 && w.ClassID > 0 && q.Classes&(1<<(w.ClassID-1)) == 0) {
+			continue
+		}
+		for _, it := range q.StartItems {
+			if !contains(n.starts[int64(it)], q.Name) {
+				n.starts[int64(it)] = append(n.starts[int64(it)], q.Name)
+			}
+		}
+	}
+}
+
+// Starts returns the names of the quests the item starts that the character has not taken or done and could take, empty when none.
+func (n Needs) Starts(id int64) []string {
+	out := append([]string(nil), n.starts[id]...)
+	sort.Strings(out)
+	return out
+}
+
+// StartsReason is the keep line for an item that starts a quest.
+func StartsReason(quests []string) string {
+	return "starts " + strings.Join(quests, ", ") + ": use it to pick the quest up before you destroy it, there is no quest giver to go back to"
 }
 
 // For returns the titles of the log quests that need the item, empty when none does. A quest-bound

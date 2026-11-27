@@ -122,6 +122,14 @@ var limitTopics = []struct {
 		"Elite and group quests: the game data holds no elite flag and no suggested group size for any quest (the group size column of quests_observed is empty); it holds only a few players' tags, \"group\" or \"dungeon\", on some quests, and nothing for a quest no player tagged. Say so; state no group size, elite status or number of players for a quest from memory, and do not call an untagged quest solo."},
 	{questMinLevelAsk,
 		"Quest minimum level: the game data holds no minimum level to pick up or accept a quest (quests has a level column with no values, and no minimum level), only the level players report for it (quests_observed). Say so; give no level needed to start a quest from memory, and do not take its reported level for a minimum."},
+	{escortAsk,
+		"Escort quests: the game data marks no quest as an escort and holds no escort NPC, route, waypoint, attacker wave or restart rule (quests has no flag or objective-type column; quests_observed has a \"group\" or \"dungeon\" tag on some quests only). Say so; do not call a quest an escort, give an escort's route, its attackers or the time it takes from memory. The player's own Questie objective text is the only place a quest says to escort someone."},
+	{timedAsk,
+		"Timed quests: the game data holds no time limit, timer or countdown for any quest (quests and quests_observed have no such column) and no flag that a quest is timed. Say so; give no time limit, and do not call a quest timed or untimed, from memory. A quest the game has failed shows as failed in the quest log; the advisor then says to abandon it and, if its giver offers it again, take it again."},
+	{itemStartAsk,
+		"Quests that start from an item: the game data holds no link between an item and a quest it starts (items has no start-quest column and no loot row says an item begins a quest; a quest item is only an item of the quest class or one bound to a quest) and no quest-giver row for such a quest. Say so; name no item's quest and no quest's starting item from memory. Only the player's own Questie, where it names a starting item, says which quest an item begins; such an item is kept, not destroyed or sold, until the quest is taken."},
+	{raceQuestAsk,
+		"Race, class and faction limits on quests: the game data holds no race limit or class limit for any quest (quests has no race or class mask); it holds only the faction a few players saw a quest under (quests_observed.faction) and, for a class quest, the class that heading names. Say so; do not say a quest is open or closed to a race or a class from memory. The player's own Questie holds the race and class masks, and the advisor offers no quest those masks close to the character, nor one whose only givers are of the other faction."},
 	{rareAsk,
 		"Rare spawns and named elites: the game data marks no creature as a rare, a rare elite or an elite (npcs.classification is 0 or empty on every row) and holds no zone, spawn point, patrol route or respawn timer for any creature; it holds a level and a faction for a few creatures only (no rare among them). It names a creature only where players saw it drop an item (loot_sources: the item, the drops and kills, the share). Say so; name no zone, level, faction, spawn point, respawn time or elite status from memory, and call no creature a rare or an elite."},
 	{setBonusAsk,
@@ -141,6 +149,18 @@ var questMinLevelAsk = regexp.MustCompile(`(?i)\b(?:min(?:imum)?|lowest|required
 
 // classReagentNames are the class reagents the advisor lists (package classreagent), as a player names them.
 const classReagentNames = `soul shards?|infernal stones?|demonic figurines?|(?:maple|stranglethorn|ashwood|hornbeam|ironwood) seeds?|wild (?:berries|thornroot)|symbols? of (?:kings|divinity)|runes? of (?:teleportation|portals)|arcane powder|light feathers?|(?:holy|sacred) candles?|flash powder|blinding powder|ankhs?`
+
+// escortAsk is a question about an escort quest or about escorting someone.
+var escortAsk = regexp.MustCompile(`(?i)\bescort(?:s|ed|ing)?\b`)
+
+// timedAsk is a question about a quest's time limit or timer.
+var timedAsk = regexp.MustCompile(`(?i)\b(?:timers?|time limits?|countdown)\b.{0,25}\bquests?\b|\b(?:timed|time[- ]limited|time[- ]limit(?:ed)?)\b.{0,20}\bquests?\b|\bquests?\b.{0,40}\b(?:time limit|timer|times? out|countdown|runs? out of time|(?:\d+|a few|some) (?:minutes?|mins?|seconds?) (?:left|to (?:complete|finish|do)))|\bhow (?:long|much time)\b.{0,30}\b(?:complete|finish|do)\b.{0,20}\bquests?\b`)
+
+// itemStartAsk is a question about an item that starts a quest, or about which quest an item begins.
+var itemStartAsk = regexp.MustCompile(`(?i)\bitems? (?:that |which |to )?(?:starts?|begins?|starting|triggers?|kicks? off)\b.{0,15}\bquests?\b|\b(?:what|which) quests?\b.{0,30}\b(?:does|will)\b.{0,40}\b(?:start|begin|unlock)\b|\b(?:starts?|begins?) (?:a|the|an) quests?\b|\bquest[- ]?start(?:er|ing) items?\b|\bitem[- ]started quests?\b|\bdrops? (?:that )?(?:start|begin)s? (?:a )?quests?\b|\bwhich quest\b.{0,30}\b(?:starts?|begins?) (?:from|with|at|when)\b.{0,20}\b(?:item|drop)\b`)
+
+// raceQuestAsk is a question about a quest only a race, a class or a faction can take.
+var raceQuestAsk = regexp.MustCompile(`(?i)\bquests?\b.{0,30}\b(?:race|class|faction|racial|horde|alliance|human|orc|dwarf|gnome|troll|tauren|undead|night ?elf|forsaken)s?[- ](?:only|specific|exclusive|restricted|locked)\b|\bquests? only\b.{0,20}\b(?:human|orc|dwarf|gnome|troll|tauren|undead|night ?elf|forsaken|horde|alliance)(?:s|es)?\b|\b(?:race|faction|horde|alliance|human|orc|dwarf|gnome|troll|tauren|undead|night ?elf|forsaken)[- ](?:only|specific|exclusive|restricted|locked)\b.{0,30}\bquests?\b|\bquests?\b.{0,30}\b(?:only|restricted|exclusive|limited|available|open)\b.{0,15}\b(?:to|for)\b.{0,10}\b(?:a |an |the )?(?:race|class|faction|horde|alliance|humans?|orcs?|dwarves|dwarf|gnomes?|trolls?|taurens?|undead|night ?elves|night ?elf|forsaken)\b|\b(?:can|could|may) (?:an? |the )?(?:human|orc|dwarf|gnome|troll|tauren|undead|night ?elf|forsaken|horde|alliance)s?\b.{0,40}\b(?:do|take|accept|start|get|pick up)\b.{0,25}\bquests?\b|\bquests?\b.{0,25}\b(?:my|which|what) race\b|\b(?:race|class|faction)[- ](?:specific|restricted|locked)\b.{0,15}\bquests?\b|\bquests?\b.{0,20}\b(?:for|to) (?:my|the other) (?:race|faction)\b`)
 
 // reagentAsk is a question about a class's spell reagents or soul shards (what a spell uses up, how many, how to get them), a totem's effect, range, duration or cooldown,
 // or the rules of a summoning ritual. A question that only names a totem to equip, or asks where to buy a reagent, is none.
@@ -235,7 +255,7 @@ var mailArmor = regexp.MustCompile(`(?i)\bmail (armou?r|gear|helms?|chest|pieces
 var rainOfFire = regexp.MustCompile(`(?i)\brain of fire\b`)
 
 // LimitFacts says what the game data does not hold about bags, banks, stacks, unique items, mail, the Auction House, gold making and gold fees, the trade window,
-// holiday events, weather and time of day, quest XP rewards, elite and group quests, a quest's minimum level, zone levels, a hunter's pet diet, abilities and taming, boss abilities, raid lockouts, dungeon difficulty, group roles and threat, battlegrounds, honor ranks, travel times, riding and mounts, class trainer prices, racial traits, capital city services, faction leaders, class reagents, soul shards, totems and summoning rituals, bandage and anti-venom effects, lockpicking, cooking fires and food effects and macros, for a question that asks about one. "" for any other question.
+// holiday events, weather and time of day, quest XP rewards, elite and group quests, a quest's minimum level, escort and timed quests, quests that start from an item, race, class and faction limits on quests, zone levels, a hunter's pet diet, abilities and taming, boss abilities, raid lockouts, dungeon difficulty, group roles and threat, battlegrounds, honor ranks, travel times, riding and mounts, class trainer prices, racial traits, capital city services, faction leaders, class reagents, soul shards, totems and summoning rituals, bandage and anti-venom effects, lockpicking, cooking fires and food effects and macros, for a question that asks about one. "" for any other question.
 func LimitFacts(text string) string {
 	text = mailArmor.ReplaceAllStringFunc(rainOfFire.ReplaceAllString(valleyOfHonor.ReplaceAllString(text, " "), " "), func(m string) string { return strings.ReplaceAll(m, "mail", "chainarmor") })
 	var out []string

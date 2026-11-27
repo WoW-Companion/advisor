@@ -174,6 +174,10 @@ func classify(c character.Character, id int64, name string, row store.Row, known
 		// a quest in the log needs it, ready or not: kept by rule, before any sell or toss rule
 		return Quest, Reason(q)
 	}
+	if q := needs.Starts(id); len(q) > 0 {
+		// an item that starts a quest the character has not taken: the item is the only way to the quest
+		return Quest, StartsReason(q)
+	}
 	if cd, ok := up[id]; ok {
 		if cd.Empty {
 			return Equip, fmt.Sprintf("fills your empty %s slot", cd.Slot)
