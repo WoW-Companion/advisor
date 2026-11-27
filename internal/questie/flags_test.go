@@ -44,7 +44,7 @@ func TestClassicFlagLayoutFindsFlagFourVendor(t *testing.T) {
 	if ix == nil {
 		t.Fatalf("not readable: %+v", st)
 	}
-	if !strings.HasPrefix(ix.FlagLayout, "enum Forever") {
+	if !strings.HasPrefix(ix.FlagLayout, "enum npcFlags.Forever") {
 		t.Errorf("layout %q", ix.FlagLayout)
 	}
 	if e := ix.Npcs[2622]; !e.IsVendor() || e.Flags&FlagRepair != 0 {
