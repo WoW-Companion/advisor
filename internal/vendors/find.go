@@ -65,9 +65,11 @@ var stopWords = map[string]bool{"a": true, "an": true, "the": true, "in": true, 
 	"sells": true, "sell": true, "merchant": true, "merchants": true, "shop": true, "store": true, "trainer": true, "trainers": true,
 	"flight": true, "master": true, "path": true, "and": true, "buy": true, "can": true, "i": true}
 
-// flagTerms are the keywords an NPC's own vendor type answers: a poison vendor sells poison goods
-// whatever its subname says.
-var flagTerms = map[string]int{"poison": 0x400, "poisons": 0x400, "reagent": 0x800, "reagents": 0x800, "food": 0x200, "ammo": 0x100}
+// flagTerms are the keywords an NPC's own vendor type answers when the install's flavor has such a bit
+// (the classic-era layout has none): a poison vendor sells poison goods whatever its subname says. Without
+// the bit a keyword is matched by name, subname and the items sold (the dataset's vendor_sources).
+var flagTerms = map[string]int{"poison": questie.FlagVendorPoison, "poisons": questie.FlagVendorPoison, "reagent": questie.FlagVendorReagent,
+	"reagents": questie.FlagVendorReagent, "food": questie.FlagVendorFood, "ammo": questie.FlagVendorAmmo}
 
 func keywords(s string) []string {
 	var out []string

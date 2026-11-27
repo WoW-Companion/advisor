@@ -119,6 +119,7 @@ func Probe(game string) Status {
 		s.Reason = "cannot read its TOC"
 		return s
 	}
+	s.Flavor = h["X-Flavor"]
 	if v := h["Version"]; v != "" {
 		s.DB = v
 	}

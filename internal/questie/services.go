@@ -8,9 +8,9 @@ import (
 // The service bits of an NPC's npcFlags: a trainer of any kind, a vendor of any kind (general, ammo,
 // food, poison or reagent goods) and a flight master.
 const (
-	trainerMask = 0x70
-	vendorMask  = 0xF80
-	taxiFlag    = 0x2000
+	trainerMask = FlagTrainer | FlagClassTrainer | FlagProfTrainer
+	vendorMask  = FlagVendor | FlagVendorAmmo | FlagVendorFood | FlagVendorPoison | FlagVendorReagent
+	taxiFlag    = FlagFlightMaster
 )
 
 // IsVendor reports whether the NPC sells goods.
@@ -67,7 +67,7 @@ func (ix *Index) keepService(npcs map[int]rawRow, l Layout) {
 		if _, ok := ix.Npcs[id]; ok {
 			continue
 		}
-		if f := num(row.scalars()[fl]); f&(vendorMask|trainerMask|taxiFlag) == 0 {
+		if f := l.flags.canon(num(row.scalars()[fl])); f&(vendorMask|trainerMask|taxiFlag) == 0 {
 			continue
 		}
 		if e := buildEntity(row, l, "npc"); e.Name != "" && len(e.Spawns) > 0 {

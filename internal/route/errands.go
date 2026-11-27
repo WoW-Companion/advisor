@@ -162,7 +162,7 @@ func trainableCount(c character.Character, opt Options) int {
 }
 
 // bankerFlag is the banker bit of an NPC's npcFlags.
-const bankerFlag = 0x20000
+const bankerFlag = questie.FlagBanker
 
 // bankerIn is a banker standing in the city (map m, or the zone's name), the one nearest the player's
 // position when it is known, else the lowest id. ok is false when Questie holds none there.

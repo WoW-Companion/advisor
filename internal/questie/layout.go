@@ -16,6 +16,7 @@ import (
 type Layout struct {
 	Source string // "meta" when every table came from the install, "classic" when none did, else "mixed"
 	tables map[string]map[string]int
+	flags  FlagLayout // the npcFlags bit names of the install's flavor
 }
 
 // classic is the numbering used when the install has no meta file for a table.
@@ -56,7 +57,7 @@ func parseMeta(path string) map[string]int {
 // ReadLayout reads the key maps of the QuestieDB that st.TOC belongs to.
 func ReadLayout(st Status) Layout {
 	dir := filepath.Dir(st.TOC)
-	l := Layout{tables: map[string]map[string]int{}}
+	l := Layout{tables: map[string]map[string]int{}, flags: ReadFlagLayout(st)}
 	fromMeta := 0
 	for tbl, file := range metaFiles {
 		var m map[string]int

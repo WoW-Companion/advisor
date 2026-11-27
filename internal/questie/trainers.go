@@ -6,7 +6,7 @@ import (
 )
 
 // trainerFlag is the trainer bit of an NPC's npcFlags.
-const trainerFlag = 0x10
+const trainerFlag = FlagTrainer
 
 // Trainer is a profession trainer found among the NPCs: Tier is the highest skill it teaches
 // (75, 150, 225, 300 or 375).
