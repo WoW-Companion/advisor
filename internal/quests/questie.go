@@ -229,6 +229,16 @@ func renderQuestie(c Chain, name string) string {
 			b.WriteString(", " + f.Races + " only")
 		}
 		b.WriteString(f.detail() + ".\n")
+		var unnamed []string
+		if f.Giver == "" {
+			unnamed = append(unnamed, "who gives it")
+		}
+		if f.TurnIn == "" {
+			unnamed = append(unnamed, "who takes it in")
+		}
+		if len(unnamed) > 0 {
+			b.WriteString("The game data you have doesn't name " + strings.Join(unnamed, " or ") + ".\n")
+		}
 	}
 	if c.Source == SourceEverloot && len(c.Before) == 0 && len(c.After) == 0 {
 		b.WriteString("No follow-up quest is listed for it in the game data you have.\n")

@@ -294,6 +294,9 @@ func (f *finder) why(crs []creature) string {
 	case f.caughtByFishing() != "":
 		// the dataset's fishing reports are a way to get it, not a random drop
 		return "it is a fishing catch, not a drop. " + f.caughtByFishing()
+	case f.soldByVendors():
+		// the dataset lists vendors for it but names none (advice never points at a bare vendor id)
+		return "vendors sell it, but the game data you have names none of them, so it can't say which one to visit"
 	case len(f.loot) == 0 && isMount(f.item):
 		// a mount is bought from a vendor or trainer, or won: an empty table is no verdict on it
 		return "the game data lists no source for this mount, so it can't say where to get it"
@@ -307,6 +310,20 @@ func (f *finder) why(crs []creature) string {
 		return "it is a random drop, not worth chasing"
 	}
 	return "there is no dependable way to get this right now, so it is not worth chasing"
+}
+
+// soldByVendors is true when the dataset lists a vendor for the item, named or not.
+func (f *finder) soldByVendors() bool {
+	rows, err := f.ds.Filter("vendor_sources", store.Range{Column: "item_id", Min: f.itemID, Max: f.itemID})
+	if err == nil && len(rows) > 0 {
+		return true
+	}
+	for _, l := range f.loot {
+		if kindHas(str(l["source_kind"]), "vendor", "sold by") {
+			return true
+		}
+	}
+	return false
 }
 
 // caughtByFishing is the fishing zones the dataset's reports name for the item, best catch rate first; "" when no
@@ -762,6 +779,9 @@ func (f *finder) nodesOf(rows []store.Row) []node {
 		if o, err := f.ds.Get("objects", id); err == nil {
 			n.name = cmpOr(n.name, str(o["name"]))
 			n.zone = cmpOr(n.zone, str(o["zone_name"]))
+		}
+		if n.name == "" && n.prof == "" {
+			continue // an object of no gathering node (a chest, a bucket) is not a place to gather it
 		}
 		at[id] = len(out)
 		out = append(out, n)
