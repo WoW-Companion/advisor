@@ -13,6 +13,7 @@ import (
 
 	"github.com/WoW-Companion/advisor/internal/brief"
 	"github.com/WoW-Companion/advisor/internal/character"
+	"github.com/WoW-Companion/advisor/internal/classreagent"
 	"github.com/WoW-Companion/advisor/internal/gear"
 	"github.com/WoW-Companion/advisor/internal/professions"
 	"github.com/WoW-Companion/advisor/internal/questie"
@@ -67,6 +68,19 @@ const BagReason = "a bag or quiver: the dataset holds no bag size, so it can't s
 
 // KeyReason is why a key is kept: the dataset says what a key is (item class 13), never what it opens or how to get another.
 const KeyReason = "a key: keep it on your key ring; the dataset does not say what it opens or where to get another"
+
+// ClassKeepReason is why a character keeps an item their own class's spells use up (a druid's Maple Seed, a warlock's Soul Shard) or make (a
+// warlock's Healthstone), by the item's name; "" for any other item or another class's. The dataset holds no spell reagent table, so
+// this is the advisor's own short list (package classreagent).
+func ClassKeepReason(c character.Character, name string) string {
+	if r, ok := classreagent.Of(name); ok && strings.EqualFold(c.Class, r.Class) {
+		return "a " + strings.ToLower(r.Class) + " reagent: your " + r.Spells + " use it up, so keep it, whatever a profession recipe also asks of it"
+	}
+	if cl := classreagent.MadeBy(name); cl != "" && strings.EqualFold(c.Class, cl) {
+		return "made by your " + strings.ToLower(cl) + " Create spell: a " + strings.ToLower(cl) + " keeps it for the fight or the raid"
+	}
+	return ""
+}
 
 // IsBag reports whether an item row is a bag, a quiver or an ammo pouch: a container worn in a bag slot, which is no gear to bank or sell.
 func IsBag(row store.Row) bool {
@@ -127,6 +141,10 @@ func classify(c character.Character, id int64, name string, row store.Row, known
 		}
 		return Equip, fmt.Sprintf("upgrade for %s (+%.1f)", cd.Slot, cd.Delta)
 	}
+	if why := ClassKeepReason(c, name); why != "" {
+		// a class reagent is used up by the class's own spells, whatever a profession recipe also asks of it
+		return Keep, why
+	}
 	if p, ok := keep[id]; ok {
 		return Keep, "reagent for " + strings.Join(p, ", ") + " recipes within reach"
 	}
@@ -153,10 +171,34 @@ func classify(c character.Character, id int64, name string, row store.Row, known
 	if p, ok := far[id]; ok {
 		return Bank, "material for " + strings.Join(p, ", ") + " recipes more than " + fmt.Sprint(professions.KeepWindow) + " skill points away"
 	}
+	if g, why, ok := relicGroup(c, row); ok {
+		return g, why
+	}
 	if i64(row["slot"]) != 0 {
 		return Bank, "gear that is not an upgrade and has no other use"
 	}
 	return Unknown, "no rule places it"
+}
+
+// invRelic is the inventory type of a libram, idol or totem.
+const invRelic = 28
+
+// relicGroup places a relic (a libram, idol or totem) the character's class holds in its relic slot: it fills an empty relic slot, and is kept beside the one worn,
+// because the dataset holds no relic effect, so one relic cannot be ranked against another. ok is false for any other item, and for another class's relic.
+func relicGroup(c character.Character, row store.Row) (Group, string, bool) {
+	if i64(row["class_id"]) != 4 || i64(row["slot"]) != invRelic {
+		return "", "", false
+	}
+	if usable, known := gear.CanUse(c.Class, level(c), row); !known || !usable {
+		return "", "", false
+	}
+	if rl, ok := requiredLevel(row); ok && rl > level(c) {
+		return Keep, fmt.Sprintf("a relic for your class: you can use it from level %d", rl), true
+	}
+	if it, worn := c.Equipment["ranged"]; !worn || it.ItemID == nil {
+		return Equip, "fills your empty relic slot (the dataset holds no relic effect, so it cannot rank relics)", true
+	}
+	return Keep, "a relic for your class: the dataset holds no relic effect to compare it with the one you wear", true
 }
 
 // Review groups every bag and bank stack. ds may be nil: items are then placed only by the

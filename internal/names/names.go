@@ -109,6 +109,9 @@ func rowID(table string, r store.Row) int64 {
 	return 0
 }
 
+// scanWindow is the fewest rows the fallback scan reads, so that an exact name is found among the partial matches that precede it.
+const scanWindow = 500
+
 // scan is the fallback for a dataset without the index and for a table it does not list: the
 // table's name column, exact matches before partial ones. A table with a row for each member of
 // something (item_sets) names a match once.
@@ -116,6 +119,11 @@ func scan(ds store.DataStore, table, text, q string, limit int) ([]Match, bool, 
 	want := limit + 1
 	if table == ItemSets {
 		want *= maxSetMembers // one row a member: read enough rows for limit+1 sets
+	}
+	// an exact match may sit after the first limit+1 partial matches in file order (a Soulstone after a Charged Soulstone), so read a
+	// wider window than the caller's limit before the exact matches are put first
+	if want < scanWindow {
+		want = scanWindow
 	}
 	rows, err := ds.SearchName(table, strings.TrimSpace(text), want)
 	if err != nil {

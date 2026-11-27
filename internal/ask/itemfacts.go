@@ -96,6 +96,8 @@ var limitTopics = []struct {
 		"Dungeon difficulty and modes: the game data holds no difficulty rating, heroic or hard mode, and no gear or level recommendation beyond a dungeon's minimum and maximum level; an extra mode of a map in it is an alternate set of encounters with an id, not a named difficulty. Say so; call no dungeon heroic, easy or hard from memory. What it does hold is a dungeon's level range and group size."},
 	{rolesAsk,
 		"Group roles and threat: the game data holds no tank, healer or damage count for any dungeon or raid (instances has a group size and a level range only), no role flag on a spec, and no threat, aggro or taunt value. Say so; give no group composition or threat figure from memory. The advisor's own tables hold which talent trees fit a tank, a healer or a damage dealer and which stats each role weighs; use those for a spec or role question."},
+	{reagentAsk,
+		"Class reagents, soul shards, totems and rituals: the game data holds no spell reagent table (recipe_reagents lists profession recipes only), no soul shard rule (how many a spell uses, how they are gained, kept or limited), no Soulstone or Healthstone size, duration or cooldown, and no totem or ritual row (class_spells has a spell's name, rank and level, and no effect, duration, range, cost, reagent, cooldown or number of players a ritual needs). Say so; give no reagent, shard count, totem effect or ritual rule from memory. What the data does hold is a spell's name, rank and level, and a reagent or stone item's binding and vendor price."},
 	{classQuestAsk,
 		"Class quest chains: the game data holds no class quest line and no prerequisite, follow-up or class restriction for any quest (its three quest lines are none of them a class's), and no quest reward; players' reports name only a few class quests, by title, level and faction. Say so; name no class quest, its order, its giver or its reward from memory. The class quests the player's own Questie holds are the ones in the Next list; name none besides."},
 	{achievementAsk,
@@ -107,6 +109,13 @@ var limitTopics = []struct {
 	{regexp.MustCompile(`(?i)\bmacros?\b|/cast\b|/use\b|/castsequence\b`),
 		"Macros: the game data holds no macro commands or macro text and the advisor has no macro advice. Say so; do not write a macro and present it as from the game data."},
 }
+
+// classReagentNames are the class reagents the advisor lists (package classreagent), as a player names them.
+const classReagentNames = `soul shards?|infernal stones?|demonic figurines?|(?:maple|stranglethorn|ashwood|hornbeam|ironwood) seeds?|wild (?:berries|thornroot)|symbols? of (?:kings|divinity)|runes? of (?:teleportation|portals)|arcane powder|light feathers?|(?:holy|sacred) candles?|flash powder|blinding powder|ankhs?`
+
+// reagentAsk is a question about a class's spell reagents or soul shards (what a spell uses up, how many, how to get them), a totem's effect, range, duration or cooldown,
+// or the rules of a summoning ritual. A question that only names a totem to equip, or asks where to buy a reagent, is none.
+var reagentAsk = regexp.MustCompile(`(?i)\bsoul shards?\b|\b(?:class |spell )?reagents?\b.{0,60}\b(?:needs?|needed|requires?|required|uses?|used|cast\w*|spells?|how many|count|cost|per|last|consume\w*|run out|rank)\b|\b(?:spells?|rebirth|gift of the wild|portals?|teleport\w*|vanish|levitate|inferno|divine intervention|reincarnation|ritual of \w+)\b.{0,50}\b(?:reagents?|` + classReagentNames + `)\b|\b(?:` + classReagentNames + `)\b.{0,40}\b(?:needs?|needed|requires?|used for|uses?|how many|count|per cast|consume\w*|run out|carry|for (?:rebirth|reincarnation|vanish|levitate|inferno|ritual|portals?|teleport\w*))\b|\b(?:totems?|totem spells?)\b.{0,50}\b(?:effects?|range|radius|duration|lasts?|cooldown|mana cost|how long|how many|stack\w*|ticks?|bonus|buffs?|mp5|per second|work|works|does|do)\b|\b(?:effects?|range|radius|duration|cooldown|how long|how many|stack\w*|what does)\b.{0,40}\b(?:\w+ totem|totems?)\b|\b(?:ritual of (?:summoning|doom|souls)|summoning (?:ritual|stone)|meeting stones?|portal of summoning|soulwell)\b.{0,60}\b(?:needs?|requires?|how many|people|players|clickers?|work|works|cost|reagents?|shards?|cooldown|range|duration|how|what)\b|\b(?:how many|how|what|needs?|requires?)\b.{0,50}\b(?:ritual of (?:summoning|doom|souls)|summoning (?:ritual|stone)|portal of summoning)\b`)
 
 // classQuestAsk is a question about a class's quests or quest chain: the class-only quests that teach a spell, a pet, a totem or a mount.
 var classQuestAsk = regexp.MustCompile(`(?i)\bclass[- ]quests?\b|\bclass quest ?(chains?|lines?)\b|\b(warrior|paladin|hunter|rogue|priest|shaman|mage|warlock|druid)s?(?:'s)? (?:\w+ ){0,2}(?:quest ?chains?|quest ?lines?|quests?)\b|\b(quest ?chains?|quest ?lines?|quests?)\b.{0,25}\b(for|of|as) (?:a |an |the )?(warrior|paladin|hunter|rogue|priest|shaman|mage|warlock|druid)s?\b`)
@@ -171,7 +180,7 @@ var mailArmor = regexp.MustCompile(`(?i)\bmail (armou?r|gear|helms?|chest|pieces
 var rainOfFire = regexp.MustCompile(`(?i)\brain of fire\b`)
 
 // LimitFacts says what the game data does not hold about bags, banks, stacks, unique items, mail, the Auction House, gold making and gold fees, the trade window,
-// holiday events, weather and time of day, zone levels, boss abilities, raid lockouts, dungeon difficulty, group roles and threat, battlegrounds, honor ranks, travel times, riding and mounts, class trainer prices, racial traits, capital city services, faction leaders and macros, for a question that asks about one. "" for any other question.
+// holiday events, weather and time of day, zone levels, boss abilities, raid lockouts, dungeon difficulty, group roles and threat, battlegrounds, honor ranks, travel times, riding and mounts, class trainer prices, racial traits, capital city services, faction leaders, class reagents, soul shards, totems and summoning rituals and macros, for a question that asks about one. "" for any other question.
 func LimitFacts(text string) string {
 	text = mailArmor.ReplaceAllStringFunc(rainOfFire.ReplaceAllString(valleyOfHonor.ReplaceAllString(text, " "), " "), func(m string) string { return strings.ReplaceAll(m, "mail", "chainarmor") })
 	var out []string

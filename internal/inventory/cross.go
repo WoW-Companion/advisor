@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/WoW-Companion/advisor/internal/character"
+	"github.com/WoW-Companion/advisor/internal/classreagent"
 	"github.com/WoW-Companion/advisor/internal/gear"
 	"github.com/WoW-Companion/advisor/internal/professions"
 	"github.com/WoW-Companion/advisor/internal/questie"
@@ -472,6 +473,18 @@ func decide(chars []character.Character, i int, e Entry, row store.Row, ds store
 			return a, to, why, false
 		}
 		return Unsure, "", BagReason, false
+	}
+	if r, ok := classreagent.Of(e.Name); ok {
+		// a class reagent goes to an alt of the class whose spells use it, unless it is bound to its holder
+		for j, o := range chars {
+			if j != i && strings.EqualFold(o.Class, r.Class) {
+				who := displayName(o)
+				if boundOnPickup(row) {
+					return Sell, "", "a reagent for " + who + "'s " + strings.ToLower(r.Class) + " spells, but it is bound to you when picked up and cannot be mailed", false
+				}
+				return Mail, who, "a reagent for " + who + "'s " + strings.ToLower(r.Class) + " spells (" + r.Spells + ")", false
+			}
+		}
 	}
 	if k := consumableKind(e.Name, row); k != "" {
 		if w := rangedAmmo(c, ds); (k == "arrows" || k == "bullets") && usesAmmo(c.Class) && w != "" && w != k {
