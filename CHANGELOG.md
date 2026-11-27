@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.7.101
+
+- **Fixed** Disenchant questions now answer from the dataset's bands and say when it has none.
+- **Fixed** Potion and elixir cooldown or stacking questions now say the data holds no such rule.
+- **Fixed** Stacking a guardian elixir with a battle elixir is no longer answered as a stack size.
+- **Fixed** Questions on learning to ride or a flight's cost now say the data has no answer.
+- **Fixed** Hearthstone cooldown, bind and replacement questions now say the data holds none.
+- **Fixed** Flight path and flight master questions now say the data holds no such rows.
+- **Fixed** A soulbound mount with no sell price is no longer called sellable to a vendor.
+- **Fixed** A class quest reward is no longer told "in Warlock" or offered to other classes.
+- **Fixed** Questions on what Rebirth, Vanish or Reincarnation need now say the data has no row.
+- **Fixed** Wands no longer send a mage, priest or warlock to a Weapon Master who does not teach them.
+- **Fixed** Weapon questions saying "two-hander", "2h" or "1h" now get the weapon master facts.
+- **Fixed** Questions on a pet, totem, stance or form quest now say the data has no class quest line.
+- **Fixed** "Where should I level at level 25" now says the data holds no zone level range.
+- **Fixed** Questions on a contested, hostile or one-side zone now say the data holds no zone control.
+- **Fixed** "Nearest capital city" and "neutral auction house" now get the capital services line.
+- **Added** The route can hearth to your bind once per plan when it is ready and saves travel time.
+- **Fixed** Dungeons now show 5 players, and Blackrock Spire shows 5 in Lower and 10 in Upper.
+- **Fixed** "How do I get attuned" and "what do I need for" a raid now bring up that raid's facts.
+- **Fixed** Short names such as ZF, WC, SM, Uld, ST, VC and DME now name their dungeon.
+- **Fixed** Questions on the gear level a dungeon needs now say the data holds no recommendation.
+- **Fixed** Questions on where a rare or elite stands, its level or respawn now say the data has none.
+- **Fixed** A creature asked for by name now shows what the data holds for it and what it drops.
+- **Fixed** Rare items, rare herbs and elite quests no longer get the rare creature note.
+
 ## 0.7.100
 
 - **Fixed** A quest turns grey at the game's level for your level, not a flat eight levels below.
