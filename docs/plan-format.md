@@ -78,7 +78,7 @@ WoWCompanionPlan = {
 
 | Field | Meaning |
 | ----- | ------- |
-| `kind` | `pickup`, `objective`, `turnin` or `travel` |
+| `kind` | `pickup`, `objective`, `turnin`, `travel` or `errand` (see "Step kinds and sections") |
 | `questID`, `quest` | the first quest of the stop and the names of every quest merged into it; `0` and `""` for travel |
 | `label` | a short line to show |
 | `map` | the `uiMapID` |
@@ -259,8 +259,7 @@ commitment and is in exactly one of three places.
   `zeppelin`, `boat` or `walk`; `x`, `y` are -1 when the arrival is not known. It is absent when the next
   trip is in the player's own zone (or there is no trip).
 - `trips` is the logged quests that wait outside the run, one entry per destination zone, in suggested
-  travel order (`order` 1..n): ready turn-ins first, then quest XP (when the table is known), then travel
-  cost from the exit (a known flight, then a walk, then a zeppelin or boat).
+  travel order (`order` 1..n): a route over the travel graph (see "Schema 1.7: trip order"), not a ranking.
 
   ```lua
   trips = {
@@ -404,3 +403,47 @@ errands = {
 
 `kind` is `train` (new ranks are trainable), `bank` (the bank is not captured), `class` (a class quest is
 offered here) or `turnin` (a ready turn-in here). `x` and `y` are -1 when the position is not known.
+
+## Schema 1.7: trip order, transports and `eta`
+
+Trips are ordered as a travel route, not a ranking. The advisor builds a small graph whose nodes are zones and
+whose edges are the zone borders (on foot or by mount), the faction's zeppelins and boats (Horde: Undercity,
+Orgrimmar and Grom'gol; the Ratchet and Booty Bay boat; Alliance: Menethil Harbor, Auberdine, Theramore and
+Rut'theran, and the Deeprun Tram) and the flight paths the character has opened. Every edge has an estimated
+time in minutes. The order minimises the total travel time from the run's exit, plus a value term (each ready
+turn-in and each 2,000 XP weighs the time spent before reaching a trip), so a very valuable trip can still go
+first. The search is nearest-neighbour from every start, improved by 2-opt.
+
+- `eta` on a trip is the estimated minutes of travel from the previous trip (from the exit for the first one).
+- A trip's `travel`, and the `exit` label, name the real legs: "Zeppelin from Undercity to Grom'gol, then ride
+  to Stranglethorn Vale", "Fly Tarren Mill → Hammerfall". "Walk or ride to <zone>" is used only when no faster
+  known link exists. A trip's travel starts where the trip before it ends.
+- A dungeon's `parked` reason and a trip's `instance` name the instance and its entrance zone: "needs a group:
+  Razorfen Kraul (The Barrens)". They never say "another area".
+- A `train` or `bank` errand has the position of the class trainer or banker in the city (Questie's NPC spawns,
+  read at run time). Only when none is known is it unplaced (`x = -1`), and its label then names the area when
+  that is known ("Train now at your class trainer (Rogues' Quarter)").
+
+## Step kinds and sections (the contract)
+
+Every step (in `steps`, `later` and `zones`) has `kind`, one of:
+
+| `kind` | Meaning |
+| ------ | ------- |
+| `pickup` | pick a quest up from its giver |
+| `objective` | do one open objective at its place |
+| `turnin` | hand a quest in at its finisher |
+| `travel` | a journey (older plans; schema 1.6 and later write none in `steps`) |
+| `errand` | a city errand: train, bank, profession or class quest; the step's `errand` key names which |
+
+A `Plan.lua` character holds these sections: `steps` (the run here), `exit` (how to leave it), `trips` (the
+logged quests outside the run, in route order), `parked` (set aside, with a `why` and a `kind`), `later` (stops
+off the run), `find` (quests with no known place) and `errands` (which steps are errands), beside `start`,
+`basis`, `guidance`, `here`, `finishers` and `zones`.
+
+**Consumers must keep unknown kinds.** A step whose `kind` a reader does not know is shown or skipped, never a
+reason to drop the plan: the advisor adds kinds without a schema bump. The same goes for unknown keys and
+sections. (An addon that rejected `errand` dropped the whole plan.)
+
+A golden example with synthetic names, covering every section, is `testdata/plan/Plan-1.7.lua`; the addon repo
+copies it for its contract test.
