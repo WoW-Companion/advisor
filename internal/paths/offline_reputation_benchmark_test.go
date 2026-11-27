@@ -242,9 +242,20 @@ func secondaryTrainer(t *testing.T, part string, cases []secTrainer) {
 			}
 		}
 		label := fmt.Sprintf("%s (%s, skill %d, level %d)", tc.prof, strings.ToLower(tc.faction), tc.skill, tc.level)
-		out = append(out, benchRow{label + ": trainer town", line, "trainer zones on the side: " + strings.Join(own, ", "), secTrainSrc, resultIf(inOwn, "a town that is not one of the side's trainer towns")})
-
 		tiers, _ := ds.Filter("profession_tiers", store.Range{Column: "profession", Min: tc.prof, Max: tc.prof})
+		ref := "trainer zones on the side: " + strings.Join(own, ", ")
+		if line == "no such line" {
+			// the rank due now is a book or a quest, not a trainer's: the answer names who gives it, as the tier row does
+			for _, r := range tiers {
+				if how := text(r["how"]); (how == "book" || how == "quest") && text(r["trainer_name"]) != "" && strings.Contains(words, "Train now: "+tc.prof+" "+text(r["tier"])) &&
+					strings.Contains(words, text(r["trainer_name"])) && strings.Contains(words, "It is not taught by a trainer") {
+					line, inOwn = firstWhere(words, "It is not taught by a trainer"), true
+					ref = fmt.Sprintf("%s %s is a %s from %s in %s, no trainer", tc.prof, text(r["tier"]), how, text(r["trainer_name"]), text(r["place"]))
+				}
+			}
+		}
+		out = append(out, benchRow{label + ": trainer town", line, ref, secTrainSrc, resultIf(inOwn, "a town that is not one of the side's trainer towns")})
+
 		next := firstWhere(words, "Next tier")
 		m := regexp.MustCompile(`Next tier: (\w+), cap \d+, opens at level (\d+)`).FindStringSubmatch(next)
 		res, ref := "differ: no next rank was stated", "a next rank"

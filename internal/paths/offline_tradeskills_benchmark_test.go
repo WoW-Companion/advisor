@@ -364,7 +364,24 @@ func TestOfflineBenchmarkSkillUpGate(t *testing.T) {
 	} {
 		c := tsChar(tc.faction, 12, tsSkill{tc.prof, tc.rank, tc.max})
 		gate := tsGate(professions.RouteFacts(c, ds, nil, tc.prof))
-		ok := strings.HasPrefix(gate, tc.wantStep) && !strings.HasPrefix(gate, tc.notStep) && strings.Contains(gate, "character level 10, skill 75")
+		// the rank opens at the skill and level the tier row holds (Journeyman: skill 50, level 10), and the rank held stops at 75
+		// (a tier row with no level takes the level of profession_notes' Journeyman rank)
+		need := ""
+		level := int64(0)
+		for _, r := range tsRows(t, "profession_notes", "section", "ranks") {
+			if text(r["subject"]) == "Journeyman" {
+				level = num(r["min_level"])
+			}
+		}
+		for _, r := range tsRows(t, "profession_tiers", "profession", tc.prof) {
+			if text(r["tier"]) == "Journeyman" {
+				if l := num(r["min_level"]); l > 0 {
+					level = l
+				}
+				need = fmt.Sprintf("character level %d, skill %d", level, num(r["skill_required"]))
+			}
+		}
+		ok := strings.HasPrefix(gate, tc.wantStep) && !strings.HasPrefix(gate, tc.notStep) && need != "" && strings.Contains(gate, need+"; the rank you hold stops at 75")
 		var firstOver string
 		var firstFrom int64
 		for _, r := range tsRows(t, "profession_routes", "profession", tc.prof) {
