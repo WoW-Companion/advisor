@@ -13,6 +13,7 @@ import (
 	"github.com/WoW-Companion/advisor/internal/ask"
 	"github.com/WoW-Companion/advisor/internal/character"
 	"github.com/WoW-Companion/advisor/internal/dungeons"
+	"github.com/WoW-Companion/advisor/internal/items"
 	"github.com/WoW-Companion/advisor/internal/paths"
 	"github.com/WoW-Companion/advisor/internal/quests"
 	"github.com/WoW-Companion/advisor/internal/store"
@@ -477,6 +478,10 @@ func TestOfflineBenchmarkHonorReward(t *testing.T) {
 	c := character.Character{Faction: "Horde", Class: "WARRIOR", Level: &level}
 	var out []benchRow
 	for _, tc := range honorItems {
+		c.Faction = "Horde"
+		if f := items.RankFaction(tc.name); f != "" {
+			c.Faction = f // rank gear is one faction's: asked by the other, it is left out of the answer
+		}
 		it := rowByName(t, ds, "items", tc.name)
 		id := num(it["id"])
 		loot, _ := ds.Filter("loot_sources", store.Range{Column: "item_id", Min: id, Max: id})

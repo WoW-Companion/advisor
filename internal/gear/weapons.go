@@ -5,6 +5,7 @@ import (
 
 	"github.com/WoW-Companion/advisor/internal/brief"
 	"github.com/WoW-Companion/advisor/internal/character"
+	itemdata "github.com/WoW-Companion/advisor/internal/items"
 	"github.com/WoW-Companion/advisor/internal/store"
 )
 
@@ -134,17 +135,21 @@ func (lo loadout) allows(slot string, it Item) bool {
 }
 
 // Fits reports whether the item suits the character's build at all: a shield never does for a
-// two-hand or dual-wield damage build. An item that does not fit is left out of the advice entirely.
+// two-hand or dual-wield damage build, and the other faction's PvP rank gear never does. An item that does not fit is left out of
+// the advice entirely.
 func Fits(c character.Character, ds store.DataStore, itemID int64) bool {
 	row, err := ds.Get("items", itemID)
 	if err != nil {
 		return true
+	}
+	it := itemOf(row)
+	if itemdata.WrongFaction(it.Name, c.Faction) {
+		return false
 	}
 	group := ""
 	if names, _ := brief.TopGroups(c.Talents); len(names) == 1 {
 		group = names[0]
 	}
 	lo := loadoutOf(c, ds, group)
-	it := itemOf(row)
 	return it.Slot != invShield || lo.allows("offhand", it)
 }
