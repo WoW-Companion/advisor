@@ -136,6 +136,8 @@ var limitTopics = []struct {
 		"Item set bonuses: the game data holds an item set only as a name and its member items (item_sets: set id, name, item id); it holds no set bonus, no piece-count threshold (2, 3, 5 or 8 pieces), no bonus text or spell, no tier number and no set's source. Say so; state no set bonus, threshold, tier or where a set drops from memory. What it does hold is which items make up a set, and each piece's class, slot and binding."},
 	{dropRateAsk,
 		"Drop chances and world drops: the game data holds no drop table, no guaranteed or bonus drop and no world drop flag, no loot level range and no creature's level for most drops; it holds the share of kills players saw drop an item (loot_sources: drops, kills and the share, for the creatures players reported) and nothing for a creature nobody reported. Say so; give a chance only as \"seen on N% of M kills\", never a fixed percentage from memory, and call an item a random world drop only when many creatures carry it."},
+	{potionAsk,
+		"Potions, elixirs and flasks: the game data holds no potion cooldown (shared or per potion), no elixir or flask duration, no battle or guardian category, no stacking, replacement or shared-slot rule and no effect text (an item row has a name, levels, binding, quality and prices only). Say so; give no cooldown, duration, category or stacking rule from memory. What the data does hold is the item's required level, binding and vendor price, and which recipe makes it."},
 }
 
 // questXPAsk is a question about the XP a quest gives (its reward, or how much of it a character keeps below the quest's level).
@@ -254,6 +256,12 @@ var mailArmor = regexp.MustCompile(`(?i)\bmail (armou?r|gear|helms?|chest|pieces
 // rainOfFire is the warlock spell: a question about it is no question about weather.
 var rainOfFire = regexp.MustCompile(`(?i)\brain of fire\b`)
 
+// potionAsk is a question about a potion, elixir or flask's cooldown, duration, category (battle or guardian) or how it combines with others.
+var potionAsk = regexp.MustCompile(`(?i)\b(?:battle|guardian) (?:elixirs?|flasks?)\b|\b(?:potions?|elixirs?|flasks?)\b.{0,60}\b(?:cooldowns?|cool down|shares?|shared|sharing|durations?|last|lasts|lasting|how long|replace\w*|overwrit\w*|together|same time|at once|both|categor\w*|in combat|again|ready|wait\w*|timers?|after (?:death|dying))\b|\b(?:cooldowns?|cool down|durations?|replace\w*|overwrit\w*|how long)\b.{0,60}\b(?:potions?|elixirs?|flasks?)\b|\b(?:drink|use|take|chug)\w*\b.{0,20}\b(?:two|2|another|more than one|multiple|several)\b.{0,20}\b(?:potions?|elixirs?|flasks?)\b`)
+
+// potionStack is a potion, elixir or flask "stacking" with another: a buff rule, not the size of a stack of items.
+var potionStack = regexp.MustCompile(`(?i)\bstack\w*\b.{0,30}\b(?:with|together|alongside|on top of)\b.{0,40}\b(?:potions?|elixirs?|flasks?|battle|guardian)\b|\b(?:potions?|elixirs?|flasks?)\b.{0,40}\bstack\w*\b.{0,30}\b(?:with|together|alongside|on top of|each other|another|other)\b|\b(?:battle|guardian) (?:elixirs?|flasks?)\b.{0,30}\bstack\w*|\bstack\w*\b.{0,30}\b(?:battle|guardian)\b`)
+
 // LimitFacts says what the game data does not hold about bags, banks, stacks, unique items, mail, the Auction House, gold making and gold fees, the trade window,
 // holiday events, weather and time of day, quest XP rewards, elite and group quests, a quest's minimum level, escort and timed quests, quests that start from an item, race, class and faction limits on quests, zone levels, a hunter's pet diet, abilities and taming, boss abilities, raid lockouts, dungeon difficulty, group roles and threat, battlegrounds, honor ranks, travel times, riding and mounts, class trainer prices, racial traits, capital city services, faction leaders, class reagents, soul shards, totems and summoning rituals, bandage and anti-venom effects, lockpicking, cooking fires and food effects and macros, for a question that asks about one. "" for any other question.
 func LimitFacts(text string) string {
@@ -261,13 +269,16 @@ func LimitFacts(text string) string {
 	var out []string
 	for _, tp := range limitTopics {
 		q := text
+		if tp.about != potionAsk {
+			q = potionStack.ReplaceAllString(q, " ")
+		}
 		if tp.about == petAsk {
 			if petCompanion.MatchString(text) {
 				continue
 			}
-			q = petSpells.ReplaceAllString(text, " ")
+			q = petSpells.ReplaceAllString(q, " ")
 		}
-		if tp.about.MatchString(q) {
+		if tp.about.MatchString(q) || tp.about == potionAsk && potionStack.MatchString(text) {
 			out = append(out, tp.fact)
 		}
 	}
