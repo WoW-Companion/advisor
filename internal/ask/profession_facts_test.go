@@ -54,3 +54,15 @@ func TestProfessionWithoutARouteSaysEstimated(t *testing.T) {
 		t.Errorf("a profession with no route is not marked estimated:\n%s", got)
 	}
 }
+
+// A vendor, trainer or flight-path question is answered from find_vendor, never "can't confirm": the
+// prompt names the tool and forbids answering without it, and an empty lookup is "not in my data".
+func TestPromptCallsVendorLookupFirst(t *testing.T) {
+	cfg := Config{Command: Presets["claude"]}
+	p := cfg.Prompt(Question{Text: "Is there a poison vendor in Booty Bay?"})
+	for _, want := range []string{"find_vendor first", "never say you cannot confirm", "not in my data", "Open your <Profession> window once so I can see your recipes"} {
+		if !strings.Contains(p, want) {
+			t.Errorf("the prompt lacks %q", want)
+		}
+	}
+}

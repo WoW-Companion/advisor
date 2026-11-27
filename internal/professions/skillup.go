@@ -122,6 +122,9 @@ func SkillUp(c character.Character, ds store.DataStore, profession string, targe
 		}
 		s := SkillUpStep{Recipe: r.Name, Difficulty: d, Crafts: crafts, Reaches: reaches,
 			Known: c.KnownSpells[r.SpellID], LearnFirst: listed && !c.KnownSpells[r.SpellID]}
+		if r.CreatesItem != 0 && c.LikelyKnowsMaker(sk.Name, r.CreatesItem) {
+			s.Known, s.LearnFirst = true, false // inferred from the product in the bags or bank, never "learn it"
+		}
 		if r.CreatesItem != 0 {
 			s.Creates = itemName(ds, r.CreatesItem)
 		}
