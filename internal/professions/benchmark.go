@@ -361,7 +361,7 @@ func classify(p *planner, t *BenchTotal) {
 			}
 		}
 		t.Kind, t.UnitCopper = "vendor", price
-		t.Source = "a vendor, " + Money(price) + " each"
+		t.Source = "a vendor, " + Money(price) + " each" + limitedNote(rows)
 		return
 	}
 	if profs := gatherProfs(ds, t.ID); len(profs) > 0 {
