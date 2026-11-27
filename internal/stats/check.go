@@ -177,7 +177,11 @@ func totalsOf(c character.Character, ds store.DataStore) held {
 				} else {
 					gear[s]++
 				}
-				h.items[s] = append(h.items[s], eq.Name)
+				name := eq.Name
+				if name == "" {
+					name = slot // a capture that names no item: the slot still says which one to swap
+				}
+				h.items[s] = append(h.items[s], name)
 			}
 		}
 	}

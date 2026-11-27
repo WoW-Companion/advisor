@@ -110,11 +110,14 @@ func Render(c character.Character, r Result) string {
 	} else {
 		fmt.Fprintf(&b, "Ranked by the gain over what is worn, weighted by %s stat types and listed by the level needed to wear it; advisor defaults, not authoritative (%s).\n", r.Spec, r.Rationale)
 	}
+	unknown := unknownLines(r)
 	if len(r.Slots) == 0 {
 		if len(r.Bags) > 0 {
+			b.WriteString(unknown)
 			return b.String()
 		}
 		b.WriteString("No upgrades found for the items the dataset holds.\n")
+		b.WriteString(unknown)
 		return b.String()
 	}
 	order := append([]string{}, brief.Slots...)
@@ -174,8 +177,23 @@ func Render(c character.Character, r Result) string {
 	for _, l := range beyondReach(reach) {
 		b.WriteString(l + "\n")
 	}
+	b.WriteString(unknown)
 	if credit {
 		b.WriteString("Sources: " + vendors.Credit + ".\n")
+	}
+	return b.String()
+}
+
+// unknownLines say, per slot, that the worn item is not known and so nothing was compared there.
+func unknownLines(r Result) string {
+	var slots []string
+	for s := range r.Unknown {
+		slots = append(slots, s)
+	}
+	sort.Strings(slots)
+	var b strings.Builder
+	for _, s := range slots {
+		fmt.Fprintf(&b, "%s: the dataset does not hold %s and the capture gives no item level for it, so nothing is compared there.\n", s, r.Unknown[s])
 	}
 	return b.String()
 }
