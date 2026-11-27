@@ -224,3 +224,30 @@ func TestLimitFactsHunterPets(t *testing.T) {
 		}
 	}
 }
+
+func TestLimitFactsSecondarySkills(t *testing.T) {
+	for _, tc := range []struct{ q, want string }{
+		{"how much does a Heavy Silk Bandage heal?", "First Aid bandages:"},
+		{"how long does bandaging take and what is Recently Bandaged?", "First Aid bandages:"},
+		{"what does Strong Anti-Venom cure?", "First Aid bandages:"},
+		{"can I bandage in combat?", "First Aid bandages:"},
+		{"what lockpicking skill do I need for a Large Iron Lockbox?", "Lockpicking:"},
+		{"when does a rogue learn Pick Lock?", "Lockpicking:"},
+		{"what is in a Battered Junkbox?", "Lockpicking:"},
+		{"do I need a cooking fire to cook?", "Cooking fires and food effects:"},
+		{"what does Well Fed give?", "Cooking fires and food effects:"},
+		{"how much health does Smoked Bear Meat restore?", "Cooking fires and food effects:"},
+	} {
+		if got := LimitFacts(tc.q); !strings.Contains(got, tc.want) || !strings.Contains(got, "Say so") {
+			t.Errorf("LimitFacts(%q) = %q, want %q", tc.q, got, tc.want)
+		}
+	}
+	for _, q := range []string{
+		"which bandage should I make to level First Aid?", "how much does a Silk Bandage cost?", "what skill do I need to make Heavy Silk Bandage?", "where do I learn Expert First Aid?",
+		"how long will it take to level First Aid?", "which food should I cook to reach 150 Cooking?", "where is the Cooking trainer?",
+	} {
+		if got := LimitFacts(q); strings.Contains(got, "First Aid bandages:") || strings.Contains(got, "Lockpicking:") || strings.Contains(got, "Cooking fires and food effects:") {
+			t.Errorf("LimitFacts(%q) = %q, want no secondary skill line", q, got)
+		}
+	}
+}

@@ -84,3 +84,15 @@ func TestFishingFactsSayNoSkill(t *testing.T) {
 		t.Errorf("fishing facts: %q", got)
 	}
 }
+
+// A question on a recipe's skill is asked many ways: "can I make it yet", "how high must my skill be to cook it".
+func TestRecipeAskPhrasings(t *testing.T) {
+	for _, q := range []string{"can I make Heavy Silk Bandage yet?", "how high must cooking be for Boiled Clams", "when can I cook Crocolisk Steak?", "what do I need to craft Anti-Venom?"} {
+		if !recipeAsk.MatchString(q) {
+			t.Errorf("%q is not read as a question on a recipe's skill", q)
+		}
+	}
+	if recipeAsk.MatchString("where do I sell Boiled Clams?") {
+		t.Error("a question on where to sell was read as one on a recipe's skill")
+	}
+}

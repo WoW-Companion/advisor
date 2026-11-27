@@ -8,6 +8,7 @@ package inventory
 
 import (
 	"fmt"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -86,6 +87,35 @@ func ClassKeepReason(c character.Character, name string) string {
 	return ""
 }
 
+// bandageSubclass is the item subclass of a bandage among the consumables (class 0).
+const bandageSubclass = 7
+
+// lockboxName is a lockbox or a junkbox, which a rogue opens with Pick Lock.
+var lockboxName = regexp.MustCompile(`(?i)\b(lock ?box(es)?|junk ?box(es)?)\b`)
+
+// IsLockbox reports whether an item is a lockbox or a junkbox, by name: the dataset files them as ordinary consumables and holds no lock skill or contents.
+func IsLockbox(name string) bool { return lockboxName.MatchString(name) }
+
+// FirstAidReason is why anyone keeps a bandage or an anti-venom: any character can use one with or without First Aid, and the dataset holds no heal amount or cure to rank
+// one against another. A bandage is an item the dataset files as class 0 subclass 7 or one named so (the dataset files the Dense Runecloth Bandage as subclass 8); an anti-venom is named.
+// "" for any other item.
+func FirstAidReason(name string, row store.Row) string {
+	if i64(row["class_id"]) == 0 && i64(row["subclass_id"]) == bandageSubclass || firstAidName.MatchString(name) {
+		return "First Aid supplies: any character can use a bandage or an anti-venom, with or without First Aid, so keep it; the dataset holds no heal amount or cure, so the advisor cannot rank one against another"
+	}
+	return ""
+}
+
+var firstAidName = regexp.MustCompile(`(?i)\b(anti-?venom|bandage)\b`)
+
+// LockboxReason is why a rogue keeps a lockbox or a junkbox: Pick Lock opens it; the dataset holds no lock skill or contents.
+func LockboxReason(c character.Character, name string) string {
+	if IsLockbox(name) && strings.EqualFold(c.Class, "ROGUE") {
+		return "a lockbox: your rogue picks it open, so keep it; the dataset holds no lock skill or contents"
+	}
+	return ""
+}
+
 // PetFoodReason is why a hunter keeps an item that is food for a pet: the dataset holds no pet diet, so the advisor's own short list of pet foods decides.
 func PetFoodReason(diet string) string {
 	return "pet food (" + diet + "): your pet eats it when you Feed Pet, so keep it, whatever a recipe or your own food rule says; the dataset holds no pet diet, so the advisor knows only its own short list of pet foods"
@@ -152,6 +182,12 @@ func classify(c character.Character, id int64, name string, row store.Row, known
 	}
 	if why := ClassKeepReason(c, name); why != "" {
 		// a class reagent is used up by the class's own spells, whatever a profession recipe also asks of it
+		return Keep, why
+	}
+	if why := FirstAidReason(name, row); why != "" {
+		return Keep, why
+	}
+	if why := LockboxReason(c, name); why != "" {
 		return Keep, why
 	}
 	if p, ok := keep[id]; ok {

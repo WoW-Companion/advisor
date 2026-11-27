@@ -2,8 +2,10 @@ package ask
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/WoW-Companion/advisor/internal/advice"
@@ -334,23 +336,53 @@ const planRunes = 2600
 
 var levelingWords = []string{"level", "leveling", "levelling", "skill", "train", "raise", "power", "grind", "get to", "from 1", "up my", "how do i get", "how to get", "plan", "recipes", "what should i make", "what do i make"}
 
+// ProfessionAsked is professionAsked for the benchmark: the profession of the character that a leveling question names, "" for any other question.
+func ProfessionAsked(c character.Character, text string) string { return professionAsked(c, text) }
+
 // professionAsked is the profession of the character that a leveling question names ("how do I level
 // tailoring?"), "" when the question is not about leveling one of their professions.
 func professionAsked(c character.Character, text string) string {
 	if i := strings.LastIndex(text, currentMarker); i >= 0 {
 		text = text[i+len(currentMarker):]
 	}
-	t := " " + strings.ToLower(text) + " "
-	if !hasAny(t, levelingWords) {
+	t := " " + spokenForm(text) + " "
+	if !hasAny(t, levelingWords) && !getToSkill.MatchString(t) {
 		return ""
 	}
 	for _, p := range c.Professions {
 		n := strings.ToLower(p.Name)
-		if strings.Contains(t, " "+n+" ") || strings.Contains(t, " "+n+"?") || strings.Contains(t, " "+n+".") || strings.Contains(t, " "+n+",") || strings.Contains(t, " "+n+"'") {
+		if strings.Contains(t, " "+n+" ") {
 			return p.Name
+		}
+		for _, a := range professionAliases[n] {
+			if strings.Contains(t, " "+a+" ") {
+				return p.Name
+			}
 		}
 	}
 	return ""
+}
+
+// getToSkill is "get cooking to 150": a way of asking to raise a skill that names the target, which the leveling words do not.
+var getToSkill = regexp.MustCompile(`\b(get|raise|bring|take|push)\b.{0,30}\bto \d{2,3}\b`)
+
+// professionAliases are the other words a player uses for a secondary profession in a leveling question.
+var professionAliases = map[string][]string{
+	"first aid": {"firstaid", "bandaging", "bandage skill", "bandages skill"},
+	"cooking":   {"cook", "cooking skill"},
+	"fishing":   {"angling"},
+}
+
+// spokenForm is a question lower-cased with every character that is no letter, digit or apostrophe turned into a space, so "first-aid?" and "fishing!" read as the words they are
+// and a profession name is found before any punctuation or a line break.
+func spokenForm(text string) string {
+	b := []rune(strings.ToLower(text))
+	for i, r := range b {
+		if !unicode.IsLetter(r) && !unicode.IsDigit(r) && r != '\'' {
+			b[i] = ' '
+		}
+	}
+	return strings.ReplaceAll(strings.Join(strings.Fields(string(b)), " ")+" ", "'s ", " ")
 }
 
 // professionPlanFacts is the profession_plan result for the profession a leveling question is about

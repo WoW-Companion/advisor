@@ -24,7 +24,7 @@ var (
 	nodeAsk   = regexp.MustCompile(`(?i)\b(skill|skills|need|needs|require|requires|required|node|nodes|zone|zones|where|level|rank)\b`)
 	skinWords = regexp.MustCompile(`(?i)\b(skin|skins|skinning|skinned|skinnable)\b`)
 	fishWords = regexp.MustCompile(`(?i)\b(fish|fishing|angling|angler)\b`)
-	recipeAsk = regexp.MustCompile(`(?i)\b(skill|skills|learn|learned|train|trained|need|needs|require|requires|required|unlock|rank|when|level)\b`)
+	recipeAsk = regexp.MustCompile(`(?i)\b(skill|skills|learn|learned|train|trained|need|needs|require|requires|required|unlock|rank|when|level|make|makes|craft|crafts|cook|cooks|high|yet)\b`)
 )
 
 // maxNodeZones caps the zones listed for one node.
@@ -207,7 +207,8 @@ func skinningFacts(ds store.DataStore, text string) string {
 func fishingFacts(ds store.DataStore, t string) string {
 	var b strings.Builder
 	b.WriteString("Fishing: the game data holds no fishing skill needed for a zone, a pool or a catch and no fishing pool locations. " +
-		"Say so; name no skill number or pool from memory.")
+		"It also holds no lure or bait effect, no bite time and no skill gained per cast or catch (a fishing pole is only an item row). " +
+		"Say so; name no skill number, pool, lure bonus or bite time from memory.")
 	rows, _ := ds.Filter("fishing_catches", store.Range{Column: "zone_id"})
 	byZone := map[string][]store.Row{}
 	for _, r := range rows {

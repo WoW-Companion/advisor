@@ -66,3 +66,18 @@ func TestPromptCallsVendorLookupFirst(t *testing.T) {
 		}
 	}
 }
+
+// A leveling question names a secondary skill however it is spelled or punctuated, by an alias of it, or by "get it to 150".
+func TestProfessionAskedSpellings(t *testing.T) {
+	c := character.Character{Professions: []character.Skill{{Name: "First Aid"}, {Name: "Fishing"}, {Name: "Cooking"}}}
+	for _, tc := range []struct{ q, want string }{
+		{"how do I level first aid?", "First Aid"}, {"how do I level first-aid?", "First Aid"}, {"How do I level up my bandaging?", "First Aid"}, {"get my First Aid to 150", "First Aid"},
+		{"level my fishing!", "Fishing"}, {"how do I raise my fishing's skill", "Fishing"}, {"how do I raise my angling skill?", "Fishing"},
+		{"how can I get cooking to 150?", "Cooking"}, {"how do I level up my cooking: what recipes?", "Cooking"}, {"how do I level cooking\n", "Cooking"}, {"what should I cook to level up?", "Cooking"},
+		{"what should I do next?", ""}, {"where can I get fish for cooking?", ""}, {"how do I level mining?", ""}, {"what is a good fishing spot?", ""},
+	} {
+		if got := professionAsked(c, tc.q); got != tc.want {
+			t.Errorf("professionAsked(%q) = %q, want %q", tc.q, got, tc.want)
+		}
+	}
+}

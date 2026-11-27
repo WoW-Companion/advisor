@@ -108,6 +108,12 @@ var limitTopics = []struct {
 		"Companion pets and vanity items: the game data holds a pet, tabard or toy only as an item row (name, item level, binding, vendor price, and a loot or vendor source for some): no pet species, summon spell, pet ability or level, no collection or active-pet limit, no pet battle and no tabard or toy effect. Say so; give no limit, ability or effect from memory. Where a pet comes from is only what its loot and vendor rows say."},
 	{toolEffectAsk,
 		"Profession tool effects: the game data holds a profession tool only as an item row (name, binding, buy price, vendor): no skill bonus, durability, lure or bait effect, speed or charges, and no row saying what a tool is needed for. Say so; give no bonus or comparison between tools from memory. The advisor's own table of which profession needs which tool (pick, knife, hammer, spanner, rod, pole) is the only tool rule it states."},
+	{firstAidAsk,
+		"First Aid bandages: the game data holds a bandage only as an item row (name, binding, price, a required level for the battleground ones) and a recipe row (the skill it is learned at and the skills it turns yellow and grey): no heal amount, no channel time or duration, no Recently Bandaged rule, no rule on bandaging in combat, and no Anti-Venom, Strong Anti-Venom or Powerful Anti-Venom effect (what poison it cures). Say so; name no heal amount, seconds or cure from memory."},
+	{lockpickAsk,
+		"Lockpicking: the game data holds no lockpicking skill, no skill-up for it, no Pick Lock spell row (class_spells lists none for the rogue, so no level the rogue learns it), no lock table (what skill a lockbox, chest or door needs) and no lockbox or junkbox contents; a lockbox is only an item row (name, binding, no sell price). Say so; name no lockpicking skill number, rogue level or contents from memory."},
+	{cookingAsk,
+		"Cooking fires and food effects: the game data holds no cooking fire or campfire rule (where one can be lit, how long it burns) and no food effect (what a dish restores, over how long, or what Well Fed gives); a dish is only an item row (name, level, price) and a recipe row (the skill it is learned at and the skills it turns yellow and grey). Say so; name no restore amount, duration or Well Fed bonus from memory."},
 	{regexp.MustCompile(`(?i)\bmacros?\b|/cast\b|/use\b|/castsequence\b`),
 		"Macros: the game data holds no macro commands or macro text and the advisor has no macro advice. Say so; do not write a macro and present it as from the game data."},
 }
@@ -146,6 +152,16 @@ var vanityAsk = regexp.MustCompile(`(?i)\b(companion|vanity|non-?combat|critter|
 
 // toolEffectAsk is a question about what a profession tool gives (a skill bonus, durability, a lure) or which of two is better.
 var toolEffectAsk = regexp.MustCompile(`(?i)\b(mining picks?|pickaxes?|skinning knives|skinning knife|blacksmith(?:ing)? hammers?|(?:runed )?(?:copper|silver|golden|truesilver|arcanite) rods?|enchanting rods?|arclight spanners?|fishing (?:poles?|rods?)|fishing lures?|bobbers?|thieves'? tools|jewelcrafting chisels?)\b.{0,60}\b(bonus|\+ ?\d+|skill|durability|break\w*|wears?|degrade\w*|last|faster|speed|best|better|upgrade\w*|stats?|charges?|difference)\b|\b(bonus|durability|best|better|faster|upgrade\w*|stats?|skill)\b.{0,40}\b(mining picks?|pickaxes?|skinning knives|skinning knife|blacksmith(?:ing)? hammers?|enchanting rods?|arclight spanners?|fishing (?:poles?|rods?|lures?|bait)|bobbers?)\b`)
+
+// firstAidAsk is a question about what a bandage or an anti-venom does: its heal, its channel time, the Recently Bandaged debuff, bandaging in combat or what poison an anti-venom cures.
+// A question about the skill a bandage needs, its price or which one to make to level First Aid is no such question: the data holds those.
+var firstAidAsk = regexp.MustCompile(`(?i)\brecently bandaged\b|\b(?:bandages?|bandaging|anti-?venoms?|tourniquets?)\b.{0,60}\b(?:heals?|healing|heal amounts?|per second|hps|channel\w*|cast time|how long|seconds?|duration|in combat|interrupt\w*|cures?|removes?|poisons?|diseases?|cooldown)\b|\b(?:heals?|healing|how long|channel\w*|cures?|removes?)\b.{0,40}\b(?:bandages?|bandaging|anti-?venoms?|tourniquets?)\b`)
+
+// lockpickAsk is a question about lockpicking or Pick Lock, about the skill a lockbox or a locked chest needs, or about what a lockbox or junkbox holds.
+var lockpickAsk = regexp.MustCompile(`(?i)\block ?picking\b|\block ?picks?\b|\bpick(?:ing)? (?:a |the |my )?locks?\b|\bpick lock\b|\block ?box(?:es)?\b|\bjunk ?box(?:es)?\b|\bthieves'? tools?\b|\blocked (?:chests?|doors?|boxes)\b`)
+
+// cookingAsk is a question about a cooking fire or campfire, or about what a food restores or the Well Fed buff gives.
+var cookingAsk = regexp.MustCompile(`(?i)\b(?:cooking ?fires?|camp ?fires?|well fed)\b|\bhow (?:much|many) (?:health|mana|hp)\b.{0,50}\b(?:restores?|gives?|heals?|regenerat\w*)\b|\b(?:food|dish(?:es)?|meals?|stews?|drinks?)\b.{0,40}\b(?:restores?|regenerat\w*|per second|buffs?)\b`)
 
 // goldMaking is a question about making gold: a profession, a farm, a craft or an item for profit, or what sells well.
 var goldMaking = regexp.MustCompile(`(?i)\b(make|making|makes|earn|earning|earns|farm|farming)\b.{0,25}\b(gold|money)\b|\bgold[- ]?(making|per hour|an hour|farm\w*|guide|tips)\b|\b(profit|profits|profitable|profiting|margins?|money[- ]?making|flip|flipping|undercut\w*)\b|\b(best|most)\b.{0,30}\b(gold|money)\b|\b(gold|money)\b.{0,30}\b(per hour|an hour|each hour|hourly)\b|\bwhat sells (best|well|fast)\b|\bworth (crafting|making|selling|farming|gathering)\b`)
@@ -198,7 +214,7 @@ var mailArmor = regexp.MustCompile(`(?i)\bmail (armou?r|gear|helms?|chest|pieces
 var rainOfFire = regexp.MustCompile(`(?i)\brain of fire\b`)
 
 // LimitFacts says what the game data does not hold about bags, banks, stacks, unique items, mail, the Auction House, gold making and gold fees, the trade window,
-// holiday events, weather and time of day, zone levels, a hunter's pet diet, abilities and taming, boss abilities, raid lockouts, dungeon difficulty, group roles and threat, battlegrounds, honor ranks, travel times, riding and mounts, class trainer prices, racial traits, capital city services, faction leaders, class reagents, soul shards, totems and summoning rituals and macros, for a question that asks about one. "" for any other question.
+// holiday events, weather and time of day, zone levels, a hunter's pet diet, abilities and taming, boss abilities, raid lockouts, dungeon difficulty, group roles and threat, battlegrounds, honor ranks, travel times, riding and mounts, class trainer prices, racial traits, capital city services, faction leaders, class reagents, soul shards, totems and summoning rituals, bandage and anti-venom effects, lockpicking, cooking fires and food effects and macros, for a question that asks about one. "" for any other question.
 func LimitFacts(text string) string {
 	text = mailArmor.ReplaceAllStringFunc(rainOfFire.ReplaceAllString(valleyOfHonor.ReplaceAllString(text, " "), " "), func(m string) string { return strings.ReplaceAll(m, "mail", "chainarmor") })
 	var out []string
