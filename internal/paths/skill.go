@@ -34,6 +34,8 @@ type SkillCheck struct {
 	Need        int           `json:"need"` // the recipe's learn skill
 	Gap         int           `json:"gap"`  // points short, 0 when none
 	Status      string        `json:"status" jsonschema:"can_make, needs_recipe, short, far or not_profession"`
+	Rank        string        `json:"rank,omitempty" jsonschema:"when the recipe is past the rank the character has trained: the rank it needs, such as Expert"`
+	RankLevel   int           `json:"rank_level,omitempty" jsonschema:"the character level that rank is trained from"`
 	RecipeKnown *bool         `json:"recipe_known,omitempty" jsonschema:"whether the capture says the recipe is known; left out when the capture does not list recipes"`
 	SkillUp     []SkillUpStep `json:"skill_up,omitempty" jsonschema:"when short: up to three recipes that give skill-ups now, estimates"`
 }

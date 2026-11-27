@@ -59,6 +59,8 @@ type Gate struct {
 	Skill   int    `json:"skill,omitempty" jsonschema:"the skill needed; 0 when no number is known"`
 	Unknown bool   `json:"unknown,omitempty" jsonschema:"a trainer recipe whose only value is the client minimum of 1: no number is stated"`
 	Line    string `json:"line"`
+	Rank    string `json:"rank,omitempty" jsonschema:"the profession rank a skill this high needs, such as Expert; empty when the first rank reaches it or the dataset lists no ranks"`
+	Level   int    `json:"level,omitempty" jsonschema:"the character level that rank is trained from"`
 }
 
 // Result is where to learn one recipe.
@@ -76,6 +78,8 @@ type Result struct {
 	// altItem names the recipe item of a recipe a trainer also teaches ("" when none), so a trainer answer with no
 	// place still says the item teaches it.
 	altItem string
+	// rankLine says the rank and character level the skill needs ("" when the first rank reaches it or no ranks are listed).
+	rankLine string
 }
 
 func i64(v any) int64 { n, _ := v.(int64); return n }
@@ -538,8 +542,44 @@ func Recipe(c character.Character, ds store.DataStore, qx *questie.Index, r stor
 	if len(ways) > 0 && ways[0].Seen && ways[0].Kind == Trainer && ways[0].req > 1 {
 		res.Gate = Gate{Skill: ways[0].req, Line: fmt.Sprintf("It needs %s %d (the trainer showed it to you).", prof, ways[0].req)}
 	}
+	if res.Gate.Skill > 1 {
+		if rank, lo, level, ok := RankFor(ds, res.Gate.Skill); ok {
+			res.Gate.Rank, res.Gate.Level = rank, level
+			res.rankLine = RankLine(rank, lo, level, f.skill, res.Gate.Skill, c.Level)
+		}
+	}
 	res.Text = text(res)
 	return res
+}
+
+// RankFor is the profession rank a skill needs, from the dataset's profession_notes ranks: the rank whose range holds the
+// skill above its floor (skill 190 is Expert, 150 to 225), the skill it starts above, and the character level it is trained
+// from. ok is false for a skill the first rank reaches, and for a dataset that lists no ranks: nothing is guessed.
+func RankFor(ds store.DataStore, skill int) (name string, floor, level int, ok bool) {
+	if ds == nil {
+		return "", 0, 0, false
+	}
+	all, _ := ds.Filter("profession_notes", store.Range{Column: "section"})
+	for _, r := range all {
+		if str(r["section"]) != "ranks" {
+			continue
+		}
+		lo, hi, lv := int(i64(r["skill_min"])), int(i64(r["skill_cap"])), int(i64(r["min_level"]))
+		if lo > 1 && lv > 0 && lo < skill && skill <= hi {
+			return str(r["subject"]), lo, lv, true
+		}
+	}
+	return "", 0, 0, false
+}
+
+// RankLine is the sentence that says a skill needs a rank and the character level it is trained from; when the character is
+// below that level and has not reached the skill, it says so.
+func RankLine(rank string, floor, level, have, need int, charLevel *int) string {
+	s := fmt.Sprintf("Skill above %d needs the %s rank, trained from character level %d.", floor, rank, level)
+	if charLevel != nil && *charLevel < level && have < need {
+		s += fmt.Sprintf(" You are level %d, so not yet.", *charLevel)
+	}
+	return s
 }
 
 func text(r Result) string {
@@ -564,6 +604,9 @@ func text(r Result) string {
 	}
 	if r.Gate.Line != "" {
 		b.WriteString("\n" + r.Gate.Line)
+	}
+	if r.rankLine != "" {
+		b.WriteString(" " + r.rankLine)
 	}
 	return b.String()
 }
