@@ -227,3 +227,73 @@ func TestBuildOrder(t *testing.T) {
 		t.Fatal("pick")
 	}
 }
+
+// multiRepo serves releases for the given builds.
+func multiRepo(t *testing.T, builds ...string) Store {
+	arch := map[string][]byte{}
+	var tags []string
+	for _, b := range builds {
+		m := manifestFor(b, files)
+		e := map[string]string{b + "/manifest.json": string(m)}
+		for p, c := range files {
+			e[b+"/"+p] = c
+		}
+		arch[b] = archive(t, b, e)
+		tags = append(tags, fmt.Sprintf(`{"tag_name":"dataset-%s"}`, b))
+	}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		for b, a := range arch {
+			if strings.Contains(r.URL.Path, "dataset-"+b+"/") {
+				if strings.HasSuffix(r.URL.Path, ".json") {
+					w.Write(manifestFor(b, files))
+				} else {
+					w.Write(a)
+				}
+				return
+			}
+		}
+		if strings.HasSuffix(r.URL.Path, "/releases") {
+			fmt.Fprintf(w, "[%s]", strings.Join(tags, ","))
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	t.Cleanup(srv.Close)
+	return Store{Root: filepath.Join(t.TempDir(), "cache"), ReleasesURL: srv.URL + "/dl", APIURL: srv.URL + "/api/releases"}
+}
+
+func TestSyncSwitchesToGameBuild(t *testing.T) {
+	st := multiRepo(t, "1.60.1.71091", "1.60.1.71139")
+	if _, err := st.Ensure(context.Background(), "1.60.1.71091", false); err != nil {
+		t.Fatal(err)
+	}
+	r, err := st.Sync(context.Background(), "71139")
+	if err != nil || r.Build != "1.60.1.71139" || !r.Updated || r.Missing {
+		t.Fatalf("sync = %+v, %v", r, err)
+	}
+	if good, _ := st.Cached(); len(good) != 2 {
+		t.Errorf("old dataset not kept for go-back: %v", good)
+	}
+}
+
+func TestSyncMissingGameBuildKeepsOlder(t *testing.T) {
+	st := multiRepo(t, "1.60.1.71091", "1.60.1.71200")
+	r, err := st.Sync(context.Background(), "71139")
+	if err != nil || r.Build != "1.60.1.71091" || !r.Missing {
+		t.Fatalf("sync = %+v, %v", r, err)
+	}
+	if good, _ := st.Cached(); len(good) != 1 || good[0] != "1.60.1.71091" {
+		t.Errorf("cache = %v (a newer-than-game build must not be fetched)", good)
+	}
+}
+
+func TestBuildNewer(t *testing.T) {
+	for _, c := range []struct {
+		a, b string
+		want bool
+	}{{"71139", "71091", true}, {"71091", "71139", false}, {"71091", "71091", false}, {"1.60.1.71139", "", true}, {"", "1", false}} {
+		if got := BuildNewer(c.a, c.b); got != c.want {
+			t.Errorf("BuildNewer(%q,%q)=%v", c.a, c.b, got)
+		}
+	}
+}

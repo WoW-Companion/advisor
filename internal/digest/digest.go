@@ -527,7 +527,12 @@ func captureNotes(c character.Character, ds store.DataStore, opt Options) []Line
 	case ds == nil:
 		// The NEXT section says so (NoDataText); no second line here.
 	case opt.DatasetBuild != "" && opt.Client.Build != "" && !dataset.Matches(opt.DatasetBuild, opt.Client.Version, opt.Client.Build):
-		out = append(out, Line{Text: fmt.Sprintf("Dataset is build %s, game is %s", opt.DatasetBuild, opt.Client.Build), Kind: KindNote, Asks: asksOf("What does the dataset mismatch mean?", "What does the dataset mismatch mean?"), Ref: noteRef("dataset-build")})
+		txt := datasetBuildNote(opt.DatasetBuild, opt.Client.Build)
+		ask := "What does the dataset mismatch mean?"
+		if strings.HasPrefix(txt, "No data") {
+			ask = "Why is there no data for my game build yet?"
+		}
+		out = append(out, Line{Text: txt, Kind: KindNote, Asks: asksOf(ask, ask), Ref: noteRef("dataset-build")})
 	}
 	return out
 }
@@ -573,4 +578,14 @@ func routeOrder(lines []Line, order []int) []Line {
 		}
 	}
 	return out
+}
+
+// datasetBuildNote is the Notes line for a dataset that does not match the game: older data says
+// none is published for the game's build yet (the app checks again later).
+func datasetBuildNote(have, game string) string {
+	short := func(b string) string { return b[strings.LastIndex(b, ".")+1:] }
+	if dataset.BuildNewer(short(game), short(have)) {
+		return fmt.Sprintf("No data for game build %s yet: using %s", short(game), short(have))
+	}
+	return fmt.Sprintf("Dataset is build %s, game is %s", have, game)
 }
