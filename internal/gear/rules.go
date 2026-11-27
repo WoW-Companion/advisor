@@ -1,5 +1,11 @@
 package gear
 
+import (
+	"strings"
+
+	"github.com/WoW-Companion/advisor/internal/store"
+)
+
 // Item-table values (see the data repo's items table: class_id, subclass_id, slot).
 const (
 	classWeapon = 2
@@ -146,4 +152,23 @@ func ArmorTypeWord(classID, subclass int) string {
 		return "plate"
 	}
 	return ""
+}
+
+// ArmorFor is the armor type word ("mail") the class wears at level by the rules above; "" for a class without rules.
+func ArmorFor(class string, level int) string {
+	rl, ok := rules[strings.ToUpper(class)]
+	if !ok {
+		return ""
+	}
+	return ArmorTypeWord(classArmor, rl.armorAt(level))
+}
+
+// AllowsClass reads an item row's allowable_class_mask for the class token: allowed is false when the mask leaves the
+// class out, and known is false for a class without rules or a row of nothing.
+func AllowsClass(class string, row store.Row) (allowed, known bool) {
+	rl, ok := rules[strings.ToUpper(class)]
+	if !ok || row == nil {
+		return false, false
+	}
+	return allowsClass(int32(i64(row["allowable_class_mask"])), rl.ID), true
 }

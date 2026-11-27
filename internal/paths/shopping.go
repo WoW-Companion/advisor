@@ -140,6 +140,10 @@ func Shop(c character.Character, ds store.DataStore, slot string, cands []gear.C
 		}
 	}
 	noun, isArmorSlot := itemNoun[slot]
+	if isArmorSlot && armor == "" {
+		// no example sits in the level range, but the class still wears one armor type there
+		armor = gear.ArmorFor(c.Class, hi)
+	}
 	switch {
 	case isArmorSlot && armor != "":
 		sh.Type = armor + " " + noun

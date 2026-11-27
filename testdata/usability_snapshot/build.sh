@@ -2,7 +2,7 @@
 # Rebuilds testdata/usability_snapshot from a built dataset directory: the rows the offline gear-usability, class training
 # and binding benchmark (make offline-benchmark, internal/paths/offline_usability_benchmark_test.go) compares: a spread of
 # worn armor and weapons (one item per item class, subclass and slot, every item a class mask restricts, items that list no
-# required level, shields and off-hand weapons), shirts, tabards and bags, the crafted items of each binding with their
+# required level, shields and off-hand weapons), shirts, tabards, bags (plain, soul, herb and enchanting), quivers, ammo pouches and ammo, the crafted items of each binding with their
 # recipes, the loot and vendor rows of those items, every class spell, the trainer spells, the talent trees and nodes, the weapon skills
 # and the Weapon Masters. Whole rows of the dataset; read-only on it. Needs duckdb. Usage: testdata/usability_snapshot/build.sh <dataset dir> [output dir]
 set -eu
@@ -27,7 +27,9 @@ create temp table want as
     where i.quality >= 2 and i.slot > 0 and i.class_id in (2, 4) and i.id in (select item_id from '$src/loot_sources.parquet')) where n <= 2
   union select id from (select i.id, row_number() over (order by i.id) n from '$src/items.parquet' i
     where i.bonding = 3 and i.id in (select creates_item_id from '$src/recipes.parquet')) where n <= 2
-  union select id from '$src/items.parquet' where bonding = 3 and class_id = 0 and id < 6000;
+  union select id from '$src/items.parquet' where bonding = 3 and class_id = 0 and id < 6000
+  union select id from '$src/items.parquet' where id in (3030, 10579, 274387, 8067, 8068, 8069, 10512, 10513, 15997, 274388,
+    7278, 7371, 8217, 7279, 7372, 8218, 4238, 10050, 14046, 14156, 21340, 21341, 22246, 22251);
 create temp table rec as select * from '$src/recipes.parquet' where creates_item_id in (select id from want);
 create temp table reag as select * from '$src/recipe_reagents.parquet' where spell_id in (select spell_id from rec);
 create temp table want2 as select id from want union select reagent_item_id from reag;
