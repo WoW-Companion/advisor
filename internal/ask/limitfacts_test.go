@@ -143,7 +143,7 @@ func TestLimitFactsVanityTitlesAndTools(t *testing.T) {
 		}
 	}
 	for _, q := range []string{
-		"where do I buy the Cat Carrier (Bombay)?", "what abilities does my hunter's pet learn?", "what is the title of the quest in Goldshire?",
+		"where do I buy the Cat Carrier (Bombay)?", "what is the title of the quest in Goldshire?",
 		"where do I buy a skinning knife?", "do I need a mining pick to mine copper?", "how do I lure the guards away?",
 	} {
 		if got := LimitFacts(q); got != "" {
@@ -200,6 +200,27 @@ func TestLimitFactsReagentsShardsTotemsRituals(t *testing.T) {
 	} {
 		if got := LimitFacts(q); strings.Contains(got, topic) {
 			t.Errorf("LimitFacts(%q) = %q, want no %s", q, got, topic)
+		}
+	}
+}
+
+func TestLimitFactsHunterPets(t *testing.T) {
+	const want = "Hunter pets, diet, abilities and taming:"
+	for _, q := range []string{
+		"what does my wolf eat?", "what food does my cat like?", "can my pet eat bread?", "what is the diet of a boar?", "how do I tame a pet?", "which beasts can I tame?",
+		"what does Growl do for my pet?", "what rank of Bite should my pet have?", "how do I train my pet's skills?", "what abilities does my hunter's pet learn?",
+		"what is my pet's happiness?", "how many stable slots does my hunter pet have?", "which family is exotic?", "which pets are best for a hunter?",
+	} {
+		if got := LimitFacts(q); !strings.Contains(got, want) || !strings.Contains(got, "Say so") || strings.Contains(got, "Companion pets") {
+			t.Errorf("LimitFacts(%q) = %q, want %q", q, got, want)
+		}
+	}
+	for _, q := range []string{
+		"at what level do I learn Feed Pet?", "what level is Mend Pet rank 3?", "when do I get Call Pet?", "which spell does Eyes of the Beast use?",
+		"what abilities does my imp learn?", "what level is Claw for a druid?", "how many companion pets can I keep?", "what is a pet battle?",
+	} {
+		if got := LimitFacts(q); strings.Contains(got, want) {
+			t.Errorf("LimitFacts(%q) = %q, want no %s", q, got, want)
 		}
 	}
 }

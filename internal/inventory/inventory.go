@@ -15,6 +15,7 @@ import (
 	"github.com/WoW-Companion/advisor/internal/character"
 	"github.com/WoW-Companion/advisor/internal/classreagent"
 	"github.com/WoW-Companion/advisor/internal/gear"
+	"github.com/WoW-Companion/advisor/internal/petfood"
 	"github.com/WoW-Companion/advisor/internal/professions"
 	"github.com/WoW-Companion/advisor/internal/questie"
 	"github.com/WoW-Companion/advisor/internal/store"
@@ -71,7 +72,7 @@ const KeyReason = "a key: keep it on your key ring; the dataset does not say wha
 
 // ClassKeepReason is why a character keeps an item their own class's spells use up (a druid's Maple Seed, a warlock's Soul Shard) or make (a
 // warlock's Healthstone), by the item's name; "" for any other item or another class's. The dataset holds no spell reagent table, so
-// this is the advisor's own short list (package classreagent).
+// this is the advisor's own short list (package classreagent). A hunter also keeps the pet food of the advisor's own short list (package petfood).
 func ClassKeepReason(c character.Character, name string) string {
 	if r, ok := classreagent.Of(name); ok && strings.EqualFold(c.Class, r.Class) {
 		return "a " + strings.ToLower(r.Class) + " reagent: your " + r.Spells + " use it up, so keep it, whatever a profession recipe also asks of it"
@@ -79,7 +80,15 @@ func ClassKeepReason(c character.Character, name string) string {
 	if cl := classreagent.MadeBy(name); cl != "" && strings.EqualFold(c.Class, cl) {
 		return "made by your " + strings.ToLower(cl) + " Create spell: a " + strings.ToLower(cl) + " keeps it for the fight or the raid"
 	}
+	if d, ok := petfood.Of(name); ok && strings.EqualFold(c.Class, "HUNTER") {
+		return PetFoodReason(d)
+	}
 	return ""
+}
+
+// PetFoodReason is why a hunter keeps an item that is food for a pet: the dataset holds no pet diet, so the advisor's own short list of pet foods decides.
+func PetFoodReason(diet string) string {
+	return "pet food (" + diet + "): your pet eats it when you Feed Pet, so keep it, whatever a recipe or your own food rule says; the dataset holds no pet diet, so the advisor knows only its own short list of pet foods"
 }
 
 // IsBag reports whether an item row is a bag, a quiver or an ammo pouch: a container worn in a bag slot, which is no gear to bank or sell.

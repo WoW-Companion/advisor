@@ -9,6 +9,7 @@ import (
 	"github.com/WoW-Companion/advisor/internal/character"
 	"github.com/WoW-Companion/advisor/internal/classreagent"
 	"github.com/WoW-Companion/advisor/internal/gear"
+	"github.com/WoW-Companion/advisor/internal/petfood"
 	"github.com/WoW-Companion/advisor/internal/professions"
 	"github.com/WoW-Companion/advisor/internal/questie"
 	"github.com/WoW-Companion/advisor/internal/store"
@@ -483,6 +484,18 @@ func decide(chars []character.Character, i int, e Entry, row store.Row, ds store
 					return Sell, "", "a reagent for " + who + "'s " + strings.ToLower(r.Class) + " spells, but it is bound to you when picked up and cannot be mailed", false
 				}
 				return Mail, who, "a reagent for " + who + "'s " + strings.ToLower(r.Class) + " spells (" + r.Spells + ")", false
+			}
+		}
+	}
+	if d, ok := petfood.Of(e.Name); ok {
+		// pet food goes to a hunter alt, whose pet eats it, unless it is bound to its holder
+		for j, o := range chars {
+			if j != i && strings.EqualFold(o.Class, "HUNTER") {
+				who := displayName(o)
+				if boundOnPickup(row) {
+					return Sell, "", "pet food for " + who + "'s pet, but it is bound to you when picked up and cannot be mailed", false
+				}
+				return Mail, who, "pet food (" + d + ") for " + who + "'s pet", false
 			}
 		}
 	}
