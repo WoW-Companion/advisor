@@ -251,3 +251,27 @@ func TestLimitFactsSecondarySkills(t *testing.T) {
 		}
 	}
 }
+
+func TestLimitFactsQuestDifficulty(t *testing.T) {
+	for _, tc := range []struct{ q, want string }{
+		{"how much XP does this quest give?", "Quest XP rewards:"},
+		{"how much experience do I get from that quest?", "Quest XP rewards:"},
+		{"what XP will the quest reward at level 30?", "Quest XP rewards:"},
+		{"is this an elite quest?", "Elite and group quests:"},
+		{"how many players does this quest need?", "Elite and group quests:"},
+		{"what is the suggested group size for the quest?", "Elite and group quests:"},
+		{"can I solo this quest?", "Elite and group quests:"},
+		{"what is the minimum level for this quest?", "Quest minimum level:"},
+		{"what level do I need to pick up the quest?", "Quest minimum level:"},
+		{"how low a level can I be to accept that quest?", "Quest minimum level:"},
+	} {
+		if got := LimitFacts(tc.q); !strings.Contains(got, tc.want) || !strings.Contains(got, "Say so") {
+			t.Errorf("LimitFacts(%q) = %q, want %q", tc.q, got, tc.want)
+		}
+	}
+	for _, q := range []string{"what quest should I do next?", "which quests are grey for me?", "how much XP do I need for level 30?", "is Westfall Stew worth it?", "what color is a level 30 quest for me?", "which quests should I do for XP?", "what level is the quest Tharil'zun?", "which dungeon quests can I turn in?"} {
+		if got := LimitFacts(q); got != "" {
+			t.Errorf("LimitFacts(%q) = %q, want none", q, got)
+		}
+	}
+}

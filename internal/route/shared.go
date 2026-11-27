@@ -22,10 +22,25 @@ const (
 
 // Limits of the parked list.
 const (
-	GreyGap = 8 // a quest this many levels or more below the player is grey
 	// FullLogShare is the share of the quest log (3 in 4: 30 of 40) from which a grey quest is "worth abandoning".
 	fullLogNum, fullLogDen = 3, 4
 )
+
+// GreyLevel is the highest quest level that is grey (gives next to no XP and no colour) for a player of level p, 0 when none is: the
+// game's gray level, which the Warcraft Wiki gives for quests as for creatures. Under level 5 no level is grey; to level 39 it is
+// p-5-p/10, to level 59 p-1-p/5, and from level 60 on p-9 (a gap of 6 at level 10, 7 at level 20, 8 at level 30, 11 at level 50, 9 at
+// level 60), not one gap for every level.
+func GreyLevel(p int) int {
+	switch {
+	case p < 5:
+		return 0
+	case p < 40:
+		return p - 5 - p/10
+	case p < 60:
+		return p - 1 - p/5
+	}
+	return p - 9
+}
 
 // Exit is the last line of the run here: how to leave for the next trip. It is nil when the next trip
 // is in the same zone.
@@ -150,7 +165,7 @@ func shapeSharedPlan(p *Plan, c character.Character, src source, opt Options, in
 			// Difficulty only matters for work not yet done: a ready turn-in is free XP at any level.
 			park(ParkTooHigh, doableAround(q.level, in.reach))
 			continue
-		case q.level > 0 && q.level <= in.lvl-GreyGap && !ready:
+		case q.level > 0 && q.level <= GreyLevel(in.lvl) && !ready:
 			why := "grey at your level"
 			if crowded {
 				why += ", worth abandoning"

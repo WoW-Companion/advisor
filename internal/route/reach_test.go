@@ -156,3 +156,47 @@ func TestDiffOf(t *testing.T) {
 		}
 	}
 }
+
+func TestGreyLevelFollowsThePlayersLevel(t *testing.T) {
+	for _, c := range []struct{ p, grey int }{{1, 0}, {4, 0}, {5, 0}, {6, 1}, {10, 4}, {20, 13}, {30, 22}, {39, 31}, {40, 31}, {50, 39}, {55, 43}, {59, 47}, {60, 51}, {70, 61}} {
+		if got := GreyLevel(c.p); got != c.grey {
+			t.Errorf("GreyLevel(%d) = %d, want %d", c.p, got, c.grey)
+		}
+	}
+	for _, c := range []struct {
+		q, p int
+		want string
+	}{{4, 10, "grey"}, {5, 10, "green"}, {13, 20, "grey"}, {14, 20, "green"}, {40, 50, "green"}, {39, 50, "grey"}, {45, 55, "green"}} {
+		if got := DiffOf(c.q, c.p); got != c.want {
+			t.Errorf("DiffOf(%d, %d) = %q, want %q", c.q, c.p, got, c.want)
+		}
+	}
+}
+
+func TestGreyQuestParkedAtTheGameGreyLevel(t *testing.T) {
+	at := func(x, y float64) []questie.Spawn { return []questie.Spawn{{Area: 901, X: x, Y: y}} }
+	ix := &questie.Index{
+		Quests:  map[int]*questie.Quest{},
+		Npcs:    map[int]questie.Entity{1: {Name: "Tiger", Spawns: at(70, 30)}, 100: {Name: "Wharfmaster", Spawns: at(49, 50)}, 2: {Name: "Wolf", Spawns: []questie.Spawn{{Area: 902, X: 40, Y: 40}}}, 101: {Name: "Harbourer", Spawns: []questie.Spawn{{Area: 902, X: 41, Y: 41}}}},
+		Objects: map[int]questie.Entity{},
+		Areas:   map[int]questie.Area{901: {UIMap: 7001, Sub: "Booty Cove", Zone: "Testisle"}, 902: {UIMap: 7002, Sub: "Far Shore", Zone: "Otherisle"}},
+	}
+	ix.Quests[400] = &questie.Quest{ID: 400, Name: "Quest 400", Level: 20, Finishers: []questie.Ref{{ID: 100}}, Creatures: []questie.Ref{{ID: 1}}}
+	open := []character.Objective{{Text: "Tiger slain: 0/1"}}
+	for _, tc := range []struct {
+		player, quest int
+		grey          bool
+	}{{20, 13, true}, {20, 14, false}, {50, 40, false}, {50, 39, true}, {10, 4, true}} {
+		ix.Quests[401] = &questie.Quest{ID: 401, Name: "Quest 401", Level: tc.quest, Finishers: []questie.Ref{{ID: 101}}, Creatures: []questie.Ref{{ID: 2}}}
+		c := hero()
+		lvl := tc.player
+		c.Level = &lvl
+		c.PlanPrefs = &character.PlanPrefs{LevelReach: -1}
+		c.Quests = []character.Quest{{QuestID: 400, Title: "Quest 400", Objectives: open}, {QuestID: 401, Title: "Quest 401", Objectives: []character.Objective{{Text: "Wolf slain: 0/1"}}}}
+		p := Build(c, ix)
+		k := parkedOfID(p, 401)
+		if grey := k != nil && k.Kind == ParkGrey; grey != tc.grey {
+			t.Errorf("a level %d quest for a level %d player: parked %+v, want grey %v", tc.quest, tc.player, k, tc.grey)
+		}
+	}
+}

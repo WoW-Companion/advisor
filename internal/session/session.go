@@ -597,12 +597,11 @@ func (in In) Triage() []Verdict {
 		if (far || offMap) && !v.Complete {
 			v.Flags = append(v.Flags, FlagFar)
 		}
-		diff := in.level() - v.Level
 		share := 100.0
 		if x := in.Char.XPMax; x != nil && *x > 0 {
 			share = float64(v.XP) / float64(*x) * 100
 		}
-		if v.Level > 0 && !v.Complete && (diff >= 6 || share < 1) {
+		if v.Level > 0 && !v.Complete && (v.Level <= route.GreyLevel(in.level()) || share < 1) {
 			v.Flags = append(v.Flags, FlagGrey)
 		}
 		if !v.Complete && in.Info.Group != nil && in.Info.Group(q.QuestID) {

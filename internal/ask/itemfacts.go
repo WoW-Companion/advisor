@@ -116,7 +116,22 @@ var limitTopics = []struct {
 		"Cooking fires and food effects: the game data holds no cooking fire or campfire rule (where one can be lit, how long it burns) and no food effect (what a dish restores, over how long, or what Well Fed gives); a dish is only an item row (name, level, price) and a recipe row (the skill it is learned at and the skills it turns yellow and grey). Say so; name no restore amount, duration or Well Fed bonus from memory."},
 	{regexp.MustCompile(`(?i)\bmacros?\b|/cast\b|/use\b|/castsequence\b`),
 		"Macros: the game data holds no macro commands or macro text and the advisor has no macro advice. Say so; do not write a macro and present it as from the game data."},
+	{questXPAsk,
+		"Quest XP rewards: the game data holds no XP reward for any quest (quests has no XP column). A quest's XP comes only from the player's own quest XP table when the game folder has one; otherwise it is an estimate from the quest's level, and the answer must call it an estimate. Say so; name no quest's XP from memory beyond what the facts give."},
+	{questGroupAsk,
+		"Elite and group quests: the game data holds no elite flag and no suggested group size for any quest (the group size column of quests_observed is empty); it holds only a few players' tags, \"group\" or \"dungeon\", on some quests, and nothing for a quest no player tagged. Say so; state no group size, elite status or number of players for a quest from memory, and do not call an untagged quest solo."},
+	{questMinLevelAsk,
+		"Quest minimum level: the game data holds no minimum level to pick up or accept a quest (quests has a level column with no values, and no minimum level), only the level players report for it (quests_observed). Say so; give no level needed to start a quest from memory, and do not take its reported level for a minimum."},
 }
+
+// questXPAsk is a question about the XP a quest gives (its reward, or how much of it a character keeps below the quest's level).
+var questXPAsk = regexp.MustCompile(`(?i)\b(?:xp|exp|experience)\b.{0,30}\b(?:from|for|of|does|do|will|would|per|gives?|rewards?)\b.{0,25}\bquests?\b|\bquests?\b.{0,40}\b(?:gives?|giving|rewards?|worth|pays?|yields?|grants?|awards?)\b.{0,30}\b(?:xp|exp|experience)\b|\bhow much (?:xp|exp|experience)\b.{0,40}\bquests?\b`)
+
+// questGroupAsk is a question about whether a quest is elite or needs a group, or how many players it is meant for.
+var questGroupAsk = regexp.MustCompile(`(?i)\b(?:elite|group|party) quests?\b|\bquests?\b.{0,40}\b(?:elite|needs? (?:a )?(?:group|party)|requires? (?:a )?(?:group|party)|(?:suggested|recommended) (?:group|players?)|how many (?:players|people))\b|\bhow many (?:players|people)\b.{0,30}\bquests?\b|\b(?:suggested|recommended) (?:group|players?)\b.{0,30}\bquests?\b|\bsolo(?:able|ed)?\b.{0,30}\bquests?\b|\bquests?\b.{0,30}\bsolo(?:able|ed)?\b`)
+
+// questMinLevelAsk is a question about the level needed to pick up or start a quest.
+var questMinLevelAsk = regexp.MustCompile(`(?i)\b(?:min(?:imum)?|lowest|required|requirement)\b.{0,20}\blevels?\b.{0,30}\bquests?\b|\bquests?\b.{0,40}\b(?:min(?:imum)?|lowest|required|requirement)\b.{0,15}\blevels?\b|\bwhat level\b.{0,30}\b(?:to|do i need to|can i|must i)\b.{0,15}\b(?:pick up|accept|start|take|get)\b.{0,20}\bquests?\b|\bquests?\b.{0,30}\b(?:available|offered|open)\b.{0,20}\b(?:at|from) level\b|\bhow low\b.{0,40}\bquests?\b`)
 
 // classReagentNames are the class reagents the advisor lists (package classreagent), as a player names them.
 const classReagentNames = `soul shards?|infernal stones?|demonic figurines?|(?:maple|stranglethorn|ashwood|hornbeam|ironwood) seeds?|wild (?:berries|thornroot)|symbols? of (?:kings|divinity)|runes? of (?:teleportation|portals)|arcane powder|light feathers?|(?:holy|sacred) candles?|flash powder|blinding powder|ankhs?`
@@ -214,7 +229,7 @@ var mailArmor = regexp.MustCompile(`(?i)\bmail (armou?r|gear|helms?|chest|pieces
 var rainOfFire = regexp.MustCompile(`(?i)\brain of fire\b`)
 
 // LimitFacts says what the game data does not hold about bags, banks, stacks, unique items, mail, the Auction House, gold making and gold fees, the trade window,
-// holiday events, weather and time of day, zone levels, a hunter's pet diet, abilities and taming, boss abilities, raid lockouts, dungeon difficulty, group roles and threat, battlegrounds, honor ranks, travel times, riding and mounts, class trainer prices, racial traits, capital city services, faction leaders, class reagents, soul shards, totems and summoning rituals, bandage and anti-venom effects, lockpicking, cooking fires and food effects and macros, for a question that asks about one. "" for any other question.
+// holiday events, weather and time of day, quest XP rewards, elite and group quests, a quest's minimum level, zone levels, a hunter's pet diet, abilities and taming, boss abilities, raid lockouts, dungeon difficulty, group roles and threat, battlegrounds, honor ranks, travel times, riding and mounts, class trainer prices, racial traits, capital city services, faction leaders, class reagents, soul shards, totems and summoning rituals, bandage and anti-venom effects, lockpicking, cooking fires and food effects and macros, for a question that asks about one. "" for any other question.
 func LimitFacts(text string) string {
 	text = mailArmor.ReplaceAllStringFunc(rainOfFire.ReplaceAllString(valleyOfHonor.ReplaceAllString(text, " "), " "), func(m string) string { return strings.ReplaceAll(m, "mail", "chainarmor") })
 	var out []string

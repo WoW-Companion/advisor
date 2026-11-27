@@ -210,3 +210,21 @@ func TestScaleFor(t *testing.T) {
 		}
 	}
 }
+
+func TestGreyFlagFollowsTheGameGrayLevel(t *testing.T) {
+	for _, c := range []struct {
+		mine, quest int
+		grey        bool
+	}{{20, 14, false}, {20, 13, true}, {50, 40, false}, {50, 39, true}, {10, 5, false}, {10, 4, true}} {
+		in := fixture()
+		in.Char.Level = ip(c.mine)
+		in.Char.XPMax = ip(10000) // a share never under 1%: only the level makes a quest grey
+		in.Char.Quests[1].Level = ip(c.quest)
+		in.Info.XP = func(int) (int, bool) { return 5000, true }
+		for _, v := range in.Triage() {
+			if v.Name == "Wolves" && v.Has(FlagGrey) != c.grey {
+				t.Errorf("a level %d quest for a level %d character: grey %v, want %v", c.quest, c.mine, v.Has(FlagGrey), c.grey)
+			}
+		}
+	}
+}
