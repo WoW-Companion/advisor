@@ -25,6 +25,8 @@ func (d Drop) String() string {
 	}
 	if d.Chance != nil {
 		s += ", drops " + percent(*d.Chance) + " of kills"
+	} else {
+		s += ", drop chance not known"
 	}
 	return s
 }
@@ -163,7 +165,7 @@ func Render(c character.Character, r Result, limit int) string {
 	}
 	var b strings.Builder
 	if f := r.First; f != nil {
-		fmt.Fprintf(&b, "Too low for dungeons yet. The first one is %s (%s)%s: %d more level(s) to go.\n", f.Name, f.levels(), f.where(), r.LevelsToGo)
+		fmt.Fprintf(&b, "Too low for dungeons yet. The first one is %s (%s)%s: %d more %s to go.\n", f.Name, f.levels(), f.where(), r.LevelsToGo, plural(r.LevelsToGo, "level", "levels"))
 		if r.Meanwhile != "" {
 			fmt.Fprintf(&b, "Meanwhile: %s.\n", r.Meanwhile)
 		}
@@ -182,7 +184,10 @@ func Render(c character.Character, r Result, limit int) string {
 	if len(r.Picks) == 0 {
 		b.WriteString("No dungeon suits this level right now.\n")
 	} else {
-		fmt.Fprintf(&b, "Dungeons for %s", name)
+		b.WriteString("Dungeons")
+		if name != "" {
+			b.WriteString(" for " + name)
+		}
 		if c.Level != nil {
 			fmt.Fprintf(&b, " (level %d %s)", *c.Level, strings.ToLower(c.Class))
 		}
@@ -199,7 +204,8 @@ func Render(c character.Character, r Result, limit int) string {
 		p.describe(&b, i+1)
 	}
 	if len(r.Picks) > len(picks) {
-		fmt.Fprintf(&b, "%d more dungeon(s) fit.\n", len(r.Picks)-len(picks))
+		n := len(r.Picks) - len(picks)
+		fmt.Fprintf(&b, "%d more %s.\n", n, plural(n, "dungeon fits", "dungeons fit"))
 	}
 	if len(r.Unknown) > 0 {
 		var ns []string
@@ -260,6 +266,14 @@ func RenderNamed(c character.Character, p DungeonPick, togo int) string {
 		b.WriteString("       Side: " + p.Faction + "\n")
 	}
 	return b.String()
+}
+
+// plural is one when n is 1, else many.
+func plural(n int, one, many string) string {
+	if n == 1 {
+		return one
+	}
+	return many
 }
 
 // capList keeps the first 12 names.

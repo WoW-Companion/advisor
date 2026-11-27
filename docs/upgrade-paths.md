@@ -27,7 +27,8 @@ Output uses names only, never an item, quest, recipe or NPC number.
 4. **Other quests**: in a plan or available now (not completed, not failed, no more than 2 levels above the
    character), not yet picked up.
 5. **Dungeon boss.** A boss (`instance_bosses`) of a dungeon whose level range is within 3 levels of the character,
-   dropping the item "often" (over 15%) or "sometimes" (5% to 15%).
+   dropping the item "often" (over 15%) or "sometimes" (5% to 15%). A boss of an alternate mode of the dungeon
+   (difficulty above 1, when the map has ordinary encounters) is not one of its bosses and is never named.
 6. **You can make it, missing materials.** Every missing reagent needs a way: gather it with the character's own
    gathering profession, buy it from a vendor, or buy it on the Auction House when it can be traded; otherwise the
    craft is dropped. See the skill check below.

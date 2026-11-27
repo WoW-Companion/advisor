@@ -5,6 +5,8 @@ package dungeons
 
 import (
 	"errors"
+	"fmt"
+	"slices"
 	"sort"
 	"strings"
 
@@ -153,10 +155,38 @@ func pickOfType(row store.Row, qx *questie.Index, raids bool) (DungeonPick, bool
 	return p, true
 }
 
+// aliases are the short names players use for a dungeon or raid that its map name does not hold: a
+// plain-text key (lower case, no apostrophe) and the map name it stands for. A name that fits one
+// dungeon by containment ("Stockade") needs none; these are the ones that do not.
+var aliases = []struct{ key, name string }{
+	{"temple of atalhakkar", "Sunken Temple"}, {"temple of ahnqiraj", "Ahn'Qiraj Temple"},
+	{"the stockade", "Stormwind Stockade"}, {"stockade", "Stormwind Stockade"},
+	{"onyxia", "Onyxia's Lair"}, {"ony", "Onyxia's Lair"}, {"naxx", "Naxxramas"},
+	{"rfc", "Ragefire Chasm"}, {"bfd", "Blackfathom Deeps"}, {"sfk", "Shadowfang Keep"}, {"rfk", "Razorfen Kraul"},
+	{"rfd", "Razorfen Downs"}, {"gnomer", "Gnomeregan"}, {"mara", "Maraudon"}, {"brd", "Blackrock Depths"},
+	{"brs", "Blackrock Spire"}, {"lbrs", "Blackrock Spire"}, {"ubrs", "Blackrock Spire"}, {"strat", "Stratholme"},
+	{"scholo", "Scholomance"}, {"zg", "Zul'Gurub"}, {"bwl", "Blackwing Lair"}, {"aq40", "Ahn'Qiraj Temple"},
+	{"aq20", "Ruins of Ahn'Qiraj"},
+}
+
+var plainName = strings.NewReplacer("'", "", "\u2019", "")
+
+// aliasOf is the map name a short name stands for; "" when it is none of the aliases.
+func aliasOf(name string) string {
+	key := strings.TrimSpace(plainName.Replace(strings.ToLower(name)))
+	for _, a := range aliases {
+		if a.key == key {
+			return a.name
+		}
+	}
+	return ""
+}
+
 // Named is the dungeon the player asked about by name (exactly, else by containment either way),
 // described whatever the character's level or side: it is for planning ahead, so nothing is
 // filtered. The int is how many levels the character is under its minimum (0 when open). It returns
-// nil when no dungeon has that name.
+// nil when no dungeon has that name, and an error naming the candidates when a part of a name fits
+// several dungeons (Blackrock, Zul): none of them is guessed.
 func Named(c character.Character, ds store.DataStore, qx *questie.Index, name string) (*DungeonPick, int, error) {
 	if ds == nil {
 		return nil, 0, errors.New("no dataset configured")
@@ -169,7 +199,11 @@ func Named(c character.Character, ds store.DataStore, qx *questie.Index, name st
 	if want == "" {
 		return nil, 0, nil
 	}
+	if full := aliasOf(want); full != "" {
+		want = strings.ToLower(full)
+	}
 	var best *DungeonPick
+	var near []DungeonPick
 	for _, row := range rows {
 		p, ok := pickOfType(row, qx, true)
 		if !ok {
@@ -177,15 +211,27 @@ func Named(c character.Character, ds store.DataStore, qx *questie.Index, name st
 		}
 		n := strings.ToLower(p.Name)
 		if n == want {
-			best = &p
+			best, near = &p, nil
 			break
 		}
-		if best == nil && n != "" && (strings.Contains(n, want) || strings.Contains(want, n)) {
-			best = &p
+		if n != "" && (strings.Contains(n, want) || strings.Contains(want, n)) && !slices.ContainsFunc(near, func(q DungeonPick) bool { return strings.EqualFold(q.Name, p.Name) }) {
+			near = append(near, p)
 		}
 	}
 	if best == nil {
-		return nil, 0, nil
+		switch len(near) {
+		case 0:
+			return nil, 0, nil
+		case 1:
+			best = &near[0]
+		default:
+			// a part of a name that fits several (Blackrock, Zul, Razorfen) is not a guess to make
+			var ns []string
+			for _, q := range near {
+				ns = append(ns, q.Name)
+			}
+			return nil, 0, fmt.Errorf("%q fits more than one dungeon: %s", name, strings.Join(ns, ", "))
+		}
 	}
 	group := ""
 	if names, _ := brief.TopGroups(c.Talents); len(names) == 1 {
@@ -411,6 +457,25 @@ func standardEncounters(rows []store.Row) []store.Row {
 	return base
 }
 
+// AlternateMode is true when boss, an instance_bosses row, belongs to an alternate mode of its map while
+// the map has ordinary encounters: the dungeon's own list leaves it out, so a drop from it is not the
+// dungeon's.
+func AlternateMode(ds store.DataStore, boss store.Row) bool {
+	d, ok := boss["difficulty_id"].(int64)
+	if !ok || d <= standardDifficulty {
+		return false
+	}
+	id := i64(boss["map_id"])
+	rows, err := ds.Filter("instance_bosses", store.Range{Column: "map_id", Min: id, Max: id})
+	if err != nil {
+		return false
+	}
+	return slices.ContainsFunc(rows, func(r store.Row) bool {
+		d, ok := r["difficulty_id"].(int64)
+		return !ok || d <= standardDifficulty
+	})
+}
+
 // maxPickups is how many dungeon quests a pick lists.
 const maxPickups = 3
 
@@ -566,25 +631,40 @@ func Mentioned(ds store.DataStore, qx *questie.Index, text string) string {
 	plain := strings.NewReplacer("'", "", "\u2019", "", "?", " ", ",", " ", ".", " ", "!", " ")
 	hay := " " + strings.ToLower(plain.Replace(text)) + " "
 	word := map[string][]string{}
+	anywhere := map[string]int{} // how many names hold a word, in any place
 	var longest string
+	names := map[string]bool{}
 	for _, row := range rows {
 		p, ok := pickOfType(row, qx, true)
 		if !ok || p.Name == "" {
 			continue
 		}
+		if names[p.Name] {
+			continue // a map the dataset lists twice
+		}
+		names[p.Name] = true
 		n := strings.ToLower(plain.Replace(p.Name))
 		if strings.Contains(hay, " "+n+" ") && len(n) > len(longest) {
 			longest = p.Name
 		}
-		if f := strings.Fields(n); len(f) > 1 && len(f[0]) >= 6 {
-			word[f[0]] = append(word[f[0]], p.Name)
+		fields := strings.Fields(n)
+		if len(fields) > 1 && len(fields[0]) >= 6 {
+			word[fields[0]] = append(word[fields[0]], p.Name)
+		}
+		for _, f := range slices.Compact(slices.Sorted(slices.Values(fields))) {
+			anywhere[f]++
 		}
 	}
 	if longest != "" {
 		return longest
 	}
+	for _, a := range aliases {
+		if strings.Contains(hay, " "+a.key+" ") && names[a.name] {
+			return a.name
+		}
+	}
 	for w, ns := range word {
-		if len(ns) == 1 && strings.Contains(hay, " "+w+" ") {
+		if len(ns) == 1 && anywhere[w] == 1 && strings.Contains(hay, " "+w+" ") {
 			return ns[0]
 		}
 	}
