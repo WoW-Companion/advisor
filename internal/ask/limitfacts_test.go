@@ -369,3 +369,33 @@ func TestLimitFactsClassReagentSpellPhrasings(t *testing.T) {
 		}
 	}
 }
+
+func TestLimitFactsWhereToLevelTerritoryCities(t *testing.T) {
+	for _, tc := range []struct{ q, want string }{
+		{"where should I level at level 25?", "Zone levels:"},
+		{"what zone should I quest in at level 30 as a horde?", "Zone levels:"},
+		{"where is a good place to grind at level 40?", "Zone levels:"},
+		{"which zones are good for a level 18 alliance character?", "Zone levels:"},
+		{"where should I go next, I'm level 35", "Zone levels:"},
+		{"what is the best zone for level 12 horde?", "Zone levels:"},
+		{"is Ashenvale contested territory for the Horde?", "Zone territory:"},
+		{"can I quest in Hillsbrad Foothills as Alliance?", "Zone territory:"},
+		{"is Stranglethorn Vale hostile for me?", "Zone territory:"},
+		{"which zones are Horde territory?", "Zone territory:"},
+		{"is Redridge Mountains an Alliance zone?", "Zone territory:"},
+		{"will I get attacked by guards in The Barrens?", "Zone territory:"},
+		{"where is the nearest capital city for me?", "Capital city services:"},
+		{"which city is closest to The Barrens for the Horde?", "Capital city services:"},
+		{"is there a neutral auction house?", "Capital city services:"},
+		{"where's the post office in Undercity?", "Capital city services:"},
+	} {
+		if got := LimitFacts(tc.q); !strings.Contains(got, tc.want) || !strings.Contains(got, "Say so") {
+			t.Errorf("LimitFacts(%q) = %q, want %q", tc.q, got, tc.want)
+		}
+	}
+	for _, q := range []string{"where do I level my mining?", "where do I level up my first aid to 150?", "what quests should I do at level 20?", "where can I mine copper in The Barrens as a horde?", "I am level 30 in Duskwood, what quests are there?"} {
+		if got := LimitFacts(q); strings.Contains(got, "Zone levels:") || strings.Contains(got, "Zone territory:") {
+			t.Errorf("LimitFacts(%q) = %q, want no zone level or territory fact", q, got)
+		}
+	}
+}
