@@ -123,8 +123,8 @@ var ieKeyCases = []struct {
 	q, subject, key, game string
 }{
 	{"what key do I need for Scholomance?", "Scholomance", "Skeleton Key", "the Skeleton Key (a rogue with 150 lockpicking opens the door instead)"},
-	{"where do I get the Crescent Key for Dire Maul?", "Dire Maul", "Crescent Key", "the Crescent Key, from Lower Blackrock Spire's Ras Frostwhisper... (a shortcut key, not needed to enter)"},
-	{"how do I get the Shadowforge Key for Blackrock Depths?", "Blackrock Depths", "Shadowforge Key", "the Shadowforge Key, a quest reward (opens the vault; no key needed to enter)"},
+	{"where do I get the Crescent Key for Dire Maul?", "Dire Maul", "Crescent Key", "the Crescent Key (opens a locked Dire Maul gate; a Lower Blackrock Spire drop)"},
+	{"how do I get the Shadowforge Key for Blackrock Depths?", "Blackrock Depths", "Shadowforge Key", "the Shadowforge Key (opens a vault door inside; no key needed to enter)"},
 	{"do I need a key for Stratholme?", "Stratholme", "Key to the City", "no key to enter; the Key to the City opens the service gate"},
 	{"where can I get the key for Upper Blackrock Spire?", "Blackrock Spire", "Unforged Seal of Ascension", "the Seal of Ascension (from the Unforged Seal quest chain)"},
 }
