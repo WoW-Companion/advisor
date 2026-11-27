@@ -172,3 +172,19 @@ func AllowsClass(class string, row store.Row) (allowed, known bool) {
 	}
 	return allowsClass(int32(i64(row["allowable_class_mask"])), rl.ID), true
 }
+
+// ArmorLadder is the armor the class wears by the rules above: the type worn from level 1 (low), the level it changes
+// at (0 when it never does) and the type worn from then (high), and whether the class carries a shield. ok is false for
+// a class without rules.
+func ArmorLadder(class string) (low string, gainLevel int, high string, shield, ok bool) {
+	rl, found := rules[strings.ToUpper(class)]
+	if !found {
+		return "", 0, "", false, false
+	}
+	high = ArmorTypeWord(classArmor, rl.Armor)
+	low = high
+	if rl.LowArmor != 0 {
+		low, gainLevel = ArmorTypeWord(classArmor, rl.LowArmor), rl.ArmorLevel
+	}
+	return low, gainLevel, high, rl.Shield, true
+}
