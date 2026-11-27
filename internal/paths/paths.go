@@ -221,6 +221,7 @@ type creature struct {
 	hasChance  bool
 	tier       string
 	inRange    bool
+	hasLevel   bool // the dataset holds a level for the creature
 }
 
 type finder struct {
@@ -307,12 +308,55 @@ func (f *finder) why(crs []creature, ways []Path) string {
 		// an empty table is no verdict: a reward the dataset does not list (an honor-rank piece, a boss drop it cannot
 		// link) is not shown to be a random drop
 		return "the game data lists no source for this item, so it can't say where to get it"
+	case f.carriedOften(crs) != "":
+		// a few creatures the players saw drop it at a fair rate are no random drop: say who, how often, and why the advisor cannot send the player to them
+		return f.carriedOften(crs)
 	case bonding == 1 && len(crs) > 0:
 		return "it is a random drop from creatures (and Bind on Pickup, so not on the Auction House), not worth chasing"
 	case len(crs) > 0:
 		return "it is a random drop, not worth chasing"
 	}
 	return "there is no dependable way to get this right now, so it is not worth chasing"
+}
+
+// carriedOften is the reason for an item that no more than WorldDropMany creatures carry and at least one of them drops at Sometimes or more of the kills players
+// reported: that is no random world drop, so the answer names the creatures and the rate the dataset holds and says why no path is given (the dataset has no level
+// for the creature, or its level is out of the character's range). "" for an item that is a random drop.
+func (f *finder) carriedOften(crs []creature) string {
+	if worldDrop(crs) {
+		return ""
+	}
+	var names []string
+	var best creature
+	levelKnown := false
+	for _, cr := range crs {
+		if !cr.hasChance || cr.chance < Sometimes {
+			continue
+		}
+		if best.id == 0 || cr.chance > best.chance {
+			best = cr
+		}
+		levelKnown = levelKnown || cr.hasLevel
+		if cr.name != "" && len(names) < NamedMax {
+			names = append(names, cr.name)
+		}
+	}
+	if best.id == 0 {
+		return ""
+	}
+	who := "a creature the game data does not name"
+	if len(names) > 0 {
+		who = strings.Join(names, ", ")
+	}
+	why := "the game data gives no level or zone for it, so it can't say where to farm it"
+	if levelKnown {
+		why = "none of them is in your level range, so it is not worth chasing now"
+	}
+	line := fmt.Sprintf("it drops from %s at about %.0f%% of the kills players reported, but %s", who, best.chance, why)
+	if int(i64(f.item["bonding"])) == 1 {
+		line += " (and it is Bind on Pickup, so not on the Auction House)"
+	}
+	return line
 }
 
 // hasCraftWay is true when one of the ways is a craft the character cannot make now.
@@ -1123,6 +1167,7 @@ func (f *finder) creatures() []creature {
 			if hi == nil {
 				hi = lo
 			}
+			cr.hasLevel = lo != nil
 			cr.inRange = f.level > 0 && lo != nil && *hi >= f.level-gear.SourceBelow && *lo <= f.level+gear.SourceAbove
 		}
 		out = append(out, cr)
