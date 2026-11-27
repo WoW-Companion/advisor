@@ -38,11 +38,11 @@ type SkillCheck struct {
 }
 
 // SkillUpStep is one recipe of a skill-up path. Crafts is an estimate: about one point per craft
-// while the recipe is orange, about one per two while it is yellow.
+// while the recipe is orange, three in four while it is yellow, one in four while it is green.
 type SkillUpStep struct {
 	Recipe     string    `json:"recipe"`
 	Creates    string    `json:"creates,omitempty"`
-	Difficulty string    `json:"difficulty" jsonschema:"orange or yellow at the character's skill"`
+	Difficulty string    `json:"difficulty" jsonschema:"orange, yellow or green at the character's skill, as the game colours it"`
 	Crafts     int       `json:"crafts_estimate"`
 	Reaches    int       `json:"reaches_skill"`
 	Known      bool      `json:"known,omitempty"`

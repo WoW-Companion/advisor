@@ -1,6 +1,7 @@
 package paths
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 
@@ -194,5 +195,13 @@ func TestSkillGapLineNamesProfession(t *testing.T) {
 	p := craftOf(t, For(smith(48, 40), skillFixture(t), gauntlets, Options{}))
 	if !strings.HasPrefix(p.Line, "Your Blacksmithing is 48;") {
 		t.Fatal(p.Line)
+	}
+}
+
+// A green recipe still gives skill, so the skill-up step's schema names all three colours the path can use.
+func TestSkillUpStepSchemaNamesGreen(t *testing.T) {
+	f, _ := reflect.TypeOf(SkillUpStep{}).FieldByName("Difficulty")
+	if d := f.Tag.Get("jsonschema"); !strings.Contains(d, "green") || !strings.Contains(d, "orange") || !strings.Contains(d, "yellow") {
+		t.Errorf("difficulty schema = %q, want orange, yellow and green", d)
 	}
 }

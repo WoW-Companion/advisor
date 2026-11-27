@@ -91,9 +91,9 @@ func splitCrafts(r Recipe, have, reaches int) (orange, yellow, green int) {
 }
 
 // SkillUp is the fastest path from the character's skill in a profession to target: up to
-// SkillUpMax recipes they know or can learn now that are orange or yellow at their skill, those
+// SkillUpMax recipes they know or can learn now that are orange, yellow or green at their skill, those
 // whose materials they already hold (bags and bank) first, then known ones, then orange before
-// yellow, then the most points per craft. exclude is a spell id left out (the recipe the path
+// yellow before green, then the most points per craft. exclude is a spell id left out (the recipe the path
 // leads to). Nil when the profession is not captured or no recipe qualifies.
 func SkillUp(c character.Character, ds store.DataStore, profession string, target int, exclude int64) []SkillUpStep {
 	sk, ok := skillOf(c, profession)
