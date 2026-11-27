@@ -46,20 +46,32 @@ func EventByKey(key string) (Event, bool) {
 	return Event{}, false
 }
 
-// FindEvent matches free text ("Midsummer", "hallows end", "winter veil") to an event.
+// eventAliases are the whole-word phrases a player uses for each event, beside its name and key.
+var eventAliases = map[string][]string{
+	"midsummer":          {"midsummer", "fire festival"},
+	"hallows-end":        {"hallows end", "hallowsend"},
+	"winter-veil":        {"winter veil", "winters veil"},
+	"lunar-festival":     {"lunar festival"},
+	"love-is-in-the-air": {"love is in the air"},
+	"noblegarden":        {"noblegarden", "noble garden"},
+	"childrens-week":     {"childrens week", "children week"},
+	"harvest-festival":   {"harvest festival"},
+	"brewfest":           {"brewfest", "brew fest"},
+}
+
+// FindEvent matches free text ("Midsummer", "hallows end", "winter veil") to an event. Only whole
+// words count, so "Winterspring" and "Harvest Golem" name no event, and a few letters name none.
 func FindEvent(text string) (Event, bool) {
-	t := normEvent(text)
-	if t == "" {
+	t := " " + normEvent(text) + " "
+	if strings.TrimSpace(t) == "" {
 		return Event{}, false
 	}
 	for _, e := range Events {
-		if t == normEvent(e.Key) || strings.Contains(normEvent(e.Name), t) || strings.Contains(t, normEvent(e.Name)) {
-			return e, true
-		}
-	}
-	for _, e := range Events {
-		if first := strings.Fields(strings.ReplaceAll(e.Key, "-", " "))[0]; len(first) > 4 && strings.Contains(t, first) {
-			return e, true
+		phrases := append([]string{normEvent(e.Name), normEvent(e.Key)}, eventAliases[e.Key]...)
+		for _, p := range phrases {
+			if strings.Contains(t, " "+p+" ") {
+				return e, true
+			}
 		}
 	}
 	return Event{}, false
@@ -68,11 +80,14 @@ func FindEvent(text string) (Event, bool) {
 func normEvent(s string) string {
 	var b strings.Builder
 	for _, r := range strings.ToLower(s) {
-		if r >= 'a' && r <= 'z' || r >= '0' && r <= '9' || r == ' ' {
+		switch {
+		case r >= 'a' && r <= 'z' || r >= '0' && r <= '9':
 			b.WriteRune(r)
+		case r == '-' || r == ' ' || r == '\t' || r == '\n':
+			b.WriteRune(' ')
 		}
 	}
-	return strings.TrimSpace(b.String())
+	return strings.Join(strings.Fields(b.String()), " ")
 }
 
 func eventOfSort(sort int) string {
@@ -245,7 +260,7 @@ func (ix *Index) EventQuests(key string, w Who) []EventQuest {
 // quest rows that carry no sort id.
 var eventQuestWords = map[string]string{
 	"flickering flames": "midsummer", "midsummer": "midsummer", "honor the flame": "midsummer",
-	"desecrate the flame": "midsummer", "hallow's end": "hallows-end", "winter veil": "winter-veil",
+	"desecrate the flame": "midsummer", "desecrate this fire": "midsummer", "hallow's end": "hallows-end", "winter veil": "winter-veil",
 	"lunar festival": "lunar-festival", "love is in the air": "love-is-in-the-air",
 	"noblegarden": "noblegarden", "children's week": "childrens-week",
 	"harvest festival": "harvest-festival", "brewfest": "brewfest",

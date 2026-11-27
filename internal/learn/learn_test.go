@@ -386,3 +386,11 @@ func TestTrainerWithoutFactionKeepsToOwnSideCapital(t *testing.T) {
 		}
 	}
 }
+
+func TestZoneIn(t *testing.T) {
+	for text, want := range map[string]bool{"what level is Duskwood?": true, "is Un'Goro Crater ok at 50": true, "what level is the Valley of Heroes": false, "how do I get to Winter": false, "": false} {
+		if got := ZoneIn(text); got != want {
+			t.Errorf("ZoneIn(%q) = %v, want %v", text, got, want)
+		}
+	}
+}

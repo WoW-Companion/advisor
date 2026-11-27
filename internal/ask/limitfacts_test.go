@@ -67,3 +67,26 @@ func TestLimitFactsRidingAndClassTrainer(t *testing.T) {
 		}
 	}
 }
+
+func TestLimitFactsEventsWeatherZoneLevels(t *testing.T) {
+	for _, tc := range []struct{ q, want string }{
+		{"when does Brewfest start and what does it give?", "Holiday and world events:"},
+		{"what is sold by the Winter Veil vendor?", "Holiday and world events:"},
+		{"is the Darkmoon Faire in town this month?", "Holiday and world events:"},
+		{"which holiday is on now?", "Holiday and world events:"},
+		{"does it rain in Tanaris? what is the weather like?", "Weather and time of day:"},
+		{"does the mob only spawn at night?", "Weather and time of day:"},
+		{"is there a day and night cycle?", "Weather and time of day:"},
+		{"what level is Duskwood for?", "Zone levels:"},
+		{"which zone is right for level 20, what level range?", "Zone levels:"},
+	} {
+		if got := LimitFacts(tc.q); !strings.Contains(got, tc.want) || !strings.Contains(got, "Say so") {
+			t.Errorf("LimitFacts(%q) = %q, want %q", tc.q, got, tc.want)
+		}
+	}
+	for _, q := range []string{"how do I cast Rain of Fire?", "what do night elf hunters get?", "I am level 30 in Duskwood, what quests are there?", "what level do I learn Frostbolt?", "where do I get the Darkmoon Card trinket?", "how do I get to Winterspring?", "where is the Harvest Golem?"} {
+		if got := LimitFacts(q); strings.Contains(got, "Holiday and world events:") || strings.Contains(got, "Weather and time of day:") || strings.Contains(got, "Zone levels:") {
+			t.Errorf("LimitFacts(%q) = %q, want none of the event, weather or zone level facts", q, got)
+		}
+	}
+}
