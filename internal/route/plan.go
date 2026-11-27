@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/WoW-Companion/advisor/internal/character"
+	"github.com/WoW-Companion/advisor/internal/learn"
 	"github.com/WoW-Companion/advisor/internal/questie"
 	"github.com/WoW-Companion/advisor/internal/store"
 	"github.com/WoW-Companion/advisor/internal/unlock"
@@ -1091,8 +1092,13 @@ func flyLegs(c character.Character, src source, later []*spot, cur, lvl int) []S
 	if fs, ok := src.(flightSource); ok {
 		known, haveData = fs.flights(c)
 	}
+	// A flight never crosses the sea: a town on another continent than the player's is reached by the zeppelin, boat or portal.
+	here := learn.ContinentOf(src.mapName(cur))
 	var keep []*town
 	for _, t := range towns {
+		if there := learn.ContinentOf(src.mapName(t.m)); here != "" && there != "" && here != there {
+			continue
+		}
 		if !haveData || known[t.m] {
 			keep = append(keep, t)
 		}

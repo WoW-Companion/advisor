@@ -12,11 +12,11 @@ WoWCompanionPlan = {
         { n = 1, kind = "errand", questID = 0, quest = "", label = "Train now with Rogue Master", map = 1458, x = 82.0, y = 14.0, done = false, place = "Undercity", errand = "train" },
         { n = 2, kind = "errand", questID = 0, quest = "", label = "Open your bank once", map = 1458, x = -1.0, y = -1.0, done = false, place = "Undercity", errand = "bank" },
       },
-      exit = { label = "Walk or ride to Silverpine Forest", map = 7102, x = -1.0, y = -1.0, via = "walk" },
+      exit = { label = "Walk or ride to Silverpine Forest: turn in Quest 102", map = 7102, x = -1.0, y = -1.0, via = "walk" },
       trips = {
-        { order = 1, map = 7102, zone = "Silverpine Forest", ready = 1, todo = 0, pickups = 0, questIDs = { 102 }, reason = "1 ready to turn in", travel = "Walk or ride to Silverpine Forest", eta = 10 },
+        { order = 1, map = 7102, zone = "Silverpine Forest", ready = 1, todo = 0, pickups = 0, questIDs = { 102 }, reason = "1 ready to turn in", travel = "Walk or ride to Silverpine Forest: turn in Quest 102", eta = 10 },
         { order = 2, map = 7100, zone = "Stranglethorn Vale", ready = 1, todo = 0, pickups = 0, questIDs = { 100 }, reason = "1 ready to turn in", travel = "Walk or ride to Undercity, then zeppelin from Undercity to Grom'gol, then ride to Stranglethorn Vale: turn in Quest 100", eta = 20 },
-        { order = 3, map = 7101, zone = "The Barrens", ready = 1, todo = 0, pickups = 0, questIDs = { 101 }, reason = "1 ready to turn in", travel = "Boat from Booty Bay to Ratchet, then ride to The Barrens: turn in Quest 101", eta = 8 },
+        { order = 3, map = 7101, zone = "The Barrens", ready = 1, todo = 0, pickups = 0, questIDs = { 101 }, reason = "1 ready to turn in", travel = "Boat from Booty Bay to Ratchet, then ride to The Barrens", eta = 8 },
       },
       parked = {
         { questID = 601, quest = "Guano Quest", why = "needs a group: Razorfen Kraul (The Barrens)", kind = "dungeon", level = 30, diff = "yellow" },
