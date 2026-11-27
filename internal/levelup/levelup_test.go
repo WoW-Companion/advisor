@@ -423,3 +423,28 @@ func TestSpellsLeaveOutATalentWhoseRanksAreAllAtLevelOne(t *testing.T) {
 		t.Errorf("window 1-20 = %s, a talent named as a trainer spell", got)
 	}
 }
+
+func TestOwnCitiesKeepsOneSidesTeleports(t *testing.T) {
+	rows := []store.Row{{"name": "Teleport: Stormwind"}, {"name": "Teleport: Orgrimmar"}, {"name": "Portal: Thunder Bluff"}, {"name": "Portal: Darnassus"}, {"name": "Teleport: Dalaran"}, {"name": "Blink"}}
+	for _, tc := range []struct {
+		faction string
+		want    int
+	}{{"Alliance", 4}, {"Horde", 4}, {"", 6}} {
+		if got := len(ownCities(character.Character{Faction: tc.faction}, rows)); got != tc.want {
+			t.Errorf("%q: %d rows kept, want %d", tc.faction, got, tc.want)
+		}
+	}
+}
+
+func TestIsTalentEffectRankOneAtLevelOne(t *testing.T) {
+	talents := map[string]bool{"mana tide totem": true, "bloodthirst": true}
+	for _, tc := range []struct {
+		name        string
+		rank, level int64
+		want        bool
+	}{{"Mana Tide Totem", 1, 1, true}, {"Mana Tide Totem", 2, 38, false}, {"Bloodthirst", 1, 40, false}, {"Mana Tide Totem", 0, 1, true}, {"Healing Wave", 1, 1, false}} {
+		if got := isTalentEffect(talents, tc.name, tc.rank, tc.level); got != tc.want {
+			t.Errorf("%s rank %d level %d: %v, want %v", tc.name, tc.rank, tc.level, got, tc.want)
+		}
+	}
+}
