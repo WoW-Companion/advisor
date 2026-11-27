@@ -35,6 +35,7 @@ type Facts struct {
 	Races      string `json:"races,omitempty" jsonschema:"races it is limited to; empty when open to all"`
 	Category   string `json:"category,omitempty"`
 	Faction    string `json:"faction,omitempty"`
+	Tag        string `json:"tag,omitempty" jsonschema:"group or dungeon when players tagged the quest as one that needs a group; empty otherwise"`
 	Source     string `json:"source" jsonschema:"questie or everloot (seen by players on Everloot)"`
 	Credit     string `json:"credit,omitempty" jsonschema:"set to the Everloot credit when any fact comes from Everloot"`
 	Followers  []int  `json:"-"`
@@ -82,6 +83,9 @@ func OfWith(ds store.DataStore, ix *questie.Index, questID int64) Chain {
 	c := Of(ds, questID)
 	if c.Found {
 		c.Source = SourceDataset
+		if f := observed(ds, questID); f != nil && f.groupWords() != "" {
+			c.Quest = f
+		}
 		return c
 	}
 	q := (*questie.Quest)(nil)
@@ -173,6 +177,17 @@ func (f Facts) label() string {
 	return n
 }
 
+// groupWords says a quest players tagged as one for a group or a dungeon; empty for any other.
+func (f Facts) groupWords() string {
+	switch f.Tag {
+	case "group":
+		return "a group quest"
+	case "dungeon":
+		return "a dungeon quest"
+	}
+	return ""
+}
+
 func (f Facts) detail() string {
 	var b strings.Builder
 	if f.Giver != "" {
@@ -197,6 +212,9 @@ func renderQuestie(c Chain, name string) string {
 			}
 			if f.Category != "" {
 				b.WriteString(", " + f.Category)
+			}
+			if w := f.groupWords(); w != "" {
+				b.WriteString(", " + w)
 			}
 		} else {
 			b.WriteString("From your Questie database: " + f.label())

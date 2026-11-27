@@ -126,6 +126,9 @@ func TestOfflineBenchmarkClassQuestFacts(t *testing.T) {
 			want += ", " + f
 		}
 		want += ", " + text(q["category"])
+		if tag := map[string]string{"group": "a group quest", "dungeon": "a dungeon quest"}[text(q["tag"])]; tag != "" {
+			want += ", " + tag // players tagged the quest as one for a group or a dungeon
+		}
 		ok := c.Found && strings.Contains(got, want+".") && !strings.Contains(got, " only")
 		out = append(out, benchRow{fmt.Sprintf("%s: name, level, side, class", tc.name), got, want, cqSrc, resultIf(ok, "the title, level, side or class heading")})
 	}
