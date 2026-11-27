@@ -44,6 +44,18 @@ func TestMoneyAndCheap(t *testing.T) {
 	}
 }
 
+func TestLineForSaysEachForMoreThanOne(t *testing.T) {
+	o := Offer{Vendor: "Dree", Zone: "Dunemark", Price: "10c", Limited: true}
+	for n, want := range map[int]string{0: "Buy from Dree in Dunemark for 10c (limited stock)", 1: "Buy from Dree in Dunemark for 10c (limited stock)", 2: "Buy from Dree in Dunemark for 10c each (limited stock)"} {
+		if got := o.LineFor(n); got != want {
+			t.Errorf("LineFor(%d) = %q, want %q", n, got, want)
+		}
+	}
+	if got := (Offer{Vendor: "Dree"}).LineFor(3); got != "Buy from Dree" {
+		t.Errorf("an unknown price says no each: %q", got)
+	}
+}
+
 func TestLineLimited(t *testing.T) {
 	o := Offer{Vendor: "Dree", Zone: "Dunemark", Price: "4s", Limited: true}
 	if got := o.Line(); got != "Buy from Dree in Dunemark for 4s (limited stock)" {

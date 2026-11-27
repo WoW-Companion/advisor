@@ -75,8 +75,8 @@ func TestVendorPathOnCraftReagent(t *testing.T) {
 			}
 		}
 	}
-	// The warrior mines, which stays first; the vendor is named with its price as the other way.
-	if !strings.HasSuffix(how, ", or buy from Oreseller Bo in Dunemark for 4s") || !strings.HasPrefix(how, "gather it") {
+	// The warrior mines, which stays first; the vendor is named with its price (each: the recipe needs more than one) as the other way.
+	if !strings.HasSuffix(how, ", or buy from Oreseller Bo in Dunemark for 4s each") || !strings.HasPrefix(how, "gather it") {
 		t.Fatalf("how %q", how)
 	}
 }

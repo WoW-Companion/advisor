@@ -194,3 +194,27 @@ func TestRender(t *testing.T) {
 		t.Errorf("object line = %q", got)
 	}
 }
+
+type pricedRow struct {
+	ID    int64  `parquet:"id"`
+	Name  string `parquet:"name"`
+	Price *int64 `parquet:"sell_price,optional"`
+}
+
+func TestValueSaysWhatAVendorPaysAndGivesNoGoldPerHour(t *testing.T) {
+	price := int64(150)
+	zero := int64(0)
+	ds := store.New(store.ReaderSource{"items": table(t, []pricedRow{{1, "Silk Cloth", &price}, {2, "Odd", nil}, {3, "Grey", &zero}})})
+	want := "A vendor pays 1s 50c for each. The dataset has no Auction House price, so no gold per hour is given.\n"
+	if got := Value(ds, 1); got != want {
+		t.Errorf("Value = %q, want %q", got, want)
+	}
+	for _, id := range []int64{2, 3, 99} {
+		if got := Value(ds, id); got != "" {
+			t.Errorf("Value(%d) = %q, want none: no sell price is never guessed", id, got)
+		}
+	}
+	if got := Value(nil, 1); got != "" {
+		t.Errorf("no dataset: %q", got)
+	}
+}

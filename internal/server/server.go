@@ -1149,6 +1149,9 @@ func New(cfg Config) *mcp.Server {
 			name = c.Key
 		}
 		text := farm.Render(item, spots, crafted, limit)
+		if len(spots) > 0 {
+			text += farm.Value(ds, id)
+		}
 		if len(spots) > limit {
 			spots = spots[:limit]
 		}

@@ -664,7 +664,8 @@ func (f *finder) reagents(spell int64) ([]Reagent, bool) {
 		if g.Missing > 0 {
 			g.How = f.getReagent(id, it)
 			if o, ok := vendors.BestFor(f.c, f.ds, id); ok {
-				buy := strings.ToLower(o.Line()[:1]) + o.Line()[1:]
+				line := o.LineFor(g.Missing)
+				buy := strings.ToLower(line[:1]) + line[1:]
 				switch {
 				case strings.HasPrefix(g.How, "gather"):
 					g.How += ", or " + buy // the character's own skill stays first
