@@ -304,3 +304,30 @@ func TestClassFactsListAbilitiesNotTalents(t *testing.T) {
 		}
 	}
 }
+
+func TestSessionLengthIsReadWhateverWayItIsSaid(t *testing.T) {
+	for text, want := range map[string]string{
+		"I have an hour and a half to play":      "min:90",
+		"I have 1.5 hours to play":               "min:90",
+		"I have 2 hours 30 minutes to play":      "min:150",
+		"I have 1 hr 15 min to play":             "min:75",
+		"I have two and a half hours to play":    "min:150",
+		"I have three hours to play":             "min:180",
+		"I've got forty five minutes to play":    "min:45",
+		"I only have twenty-five minutes":        "min:25",
+		"I've got half an hour":                  "min:30",
+		"I have 1h30 to play":                    "min:90",
+		"I have 400 minutes to play":             "min:240",
+		"I have 2 minutes to play":               "min:5",
+		"I've got 30 minutes, what should I do?": "min:30",
+	} {
+		if cl := Classify(text, nil, nil); cl.Topic != TopicSession || cl.Subject != want {
+			t.Errorf("%q = %+v, want %s", text, cl, want)
+		}
+	}
+	for _, text := range []string{"How long is the Deadmines run?", "I have 0 minutes", "What should I do next?"} {
+		if cl := Classify(text, nil, nil); cl.Topic == TopicSession {
+			t.Errorf("%q read as a session", text)
+		}
+	}
+}

@@ -330,6 +330,9 @@ func professions(c character.Character) []string {
 }
 
 func progress(c character.Character) string {
+	if c.XPMax != nil && *c.XPMax == 0 && c.XP != nil && *c.XP == 0 {
+		return "no XP to earn at this level, so no rested XP either" // the capture reads an empty XP bar: the top level
+	}
 	xp := "XP not captured"
 	if c.XP != nil && c.XPMax != nil {
 		xp = fmt.Sprintf("XP %d/%d", *c.XP, *c.XPMax)
