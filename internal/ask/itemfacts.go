@@ -44,18 +44,21 @@ func ItemTooltipFacts(ds store.DataStore, text string) string {
 // classTrainer is a class's trainer by name: "mage trainer", "priest trainers".
 const classTrainer = `(?:warrior|paladin|hunter|rogue|priest|shaman|mage|warlock|druid)s?(?:'s)? trainers?`
 
+// bagWord is a container a player asks the size of: a bag, the bank, the key ring, a quiver or ammo pouch, or a class bag.
+const bagWord = `(?:bag|bags|backpack|bank|bank slots?|key ?rings?|quivers?|ammo ?pouch(?:es)?|ammo bags?|soul (?:bags?|pouch(?:es)?)|herb(?:alism)? bags?|enchanting bags?|mining bags?|gem bags?)`
+
 // limitTopics are the game limits and tools the game data holds nothing on: a question that touches one gets the line that says so.
 var limitTopics = []struct {
 	about *regexp.Regexp
 	fact  string
 }{
-	{regexp.MustCompile(`(?i)\b(bag|bags|backpack|bank|bank slots?|key ?rings?)\b.*\b(slots?|size|sizes|space|capacity|big|bigger|biggest|large|larger|largest|many|price|cost|hold|holds|fit)\b|\b(slots?|size|capacity|big|bigger|biggest|large|larger|largest|many|price|cost)\b.*\b(bag|bags|backpack|bank|key ?rings?)\b`),
-		"Bag and bank size: the game data holds no bag slot count, no backpack, bank or key ring size and no bank slot price. Say so; give no slot count or price from memory."},
+	{regexp.MustCompile(`(?i)\b` + bagWord + `\b.*\b(slots?|size|sizes|space|capacity|big|bigger|biggest|large|larger|largest|many|price|cost|hold|holds|fit|fits|more)\b|\b(slots?|size|capacity|big|bigger|biggest|large|larger|largest|many|price|cost)\b.*\b` + bagWord + `\b`),
+		"Bag and bank size: the game data holds no bag slot count, no backpack, bank or key ring size, no quiver, ammo pouch or special bag (soul, herb, enchanting) size and no bank slot price. Say so; give no slot count or price from memory."},
 	{regexp.MustCompile(`(?i)\bstack(s|ed|ing)?\b|\bhow many\b.*\b(carry|hold|fit)\b`),
 		"Stack size: the game data holds no maximum stack size for any item. Say so; give no stack size from memory (the capture's own counts are what the character holds)."},
 	{regexp.MustCompile(`(?i)\bunique(?:-equipped)?\b|\bonly one\b.*\b(carry|equip|wear|hold)\b|\b(carry|equip|wear|hold)\b.*\bonly one\b`),
 		"Unique items: the game data holds no unique or unique-equipped flag and no per-character limit on an item. Say so; call no item unique."},
-	{regexp.MustCompile(`(?i)\b(mail|mailbox|mails|postage|cod)\b.*\b(attach\w*|limit|expire\w*|days?|cost|fee|postage|cod|how many|max\w*|return\w*)\b|\b(attach\w*|postage|cod)\b.*\bmail`),
+	{regexp.MustCompile(`(?i)\b(mail|mailbox|mails|postage|cod)\b.*\b(attach\w*|limit|expire\w*|days?|cost|fee|postage|cod|how many|max\w*|return\w*|stay|stays|kept|keep|last|lasts|held|wait|sent|send|sending|arrive|arrives|delay|delivered|delivery|gold|money|soulbound|bound)\b|\b(attach\w*|postage|cod)\b.*\bmail|\b(send|sending|sent|attach\w*)\b.{0,30}\b(through|by|via|in|with) (the )?(mail|mailbox)\b`),
 		"Mail: the game data holds no mail rules (items per mail, postage, cash on delivery, how long a mail is kept). Say so; give no figure from memory. What the data does hold is an item's binding, which decides whether it can be mailed at all."},
 	{regexp.MustCompile(`(?i)\b(auction|auctions|auction house|ah)\b.*\b(deposit|fee|fees|cut|duration|hours?|how long|listing|listings|limit|max\w*|price|prices|worth|cost|much|expire\w*|sell|sells|selling|sold|list|profit\w*|margin|undercut\w*|bid|bids|buyout)\b|\b(deposit|fee|fees|cut|duration|hours?|how long|listing|listings|limit|max\w*|price|prices|worth|cost|much|expire\w*|sell|sells|selling|sold|list|profit\w*|margin|undercut\w*|bid|bids|buyout)\b.*\b(auction|auctions|auction house|ah)\b`),
 		"Auction House: the game data holds no Auction House prices, deposit, cut, listing duration or listing limit. Say so; name no price or fee from memory. What the data does hold is an item's binding and quality, which decide whether it can be listed."},
@@ -93,6 +96,8 @@ var limitTopics = []struct {
 		"Dungeon difficulty and modes: the game data holds no difficulty rating, heroic or hard mode, and no gear or level recommendation beyond a dungeon's minimum and maximum level; an extra mode of a map in it is an alternate set of encounters with an id, not a named difficulty. Say so; call no dungeon heroic, easy or hard from memory. What it does hold is a dungeon's level range and group size."},
 	{rolesAsk,
 		"Group roles and threat: the game data holds no tank, healer or damage count for any dungeon or raid (instances has a group size and a level range only), no role flag on a spec, and no threat, aggro or taunt value. Say so; give no group composition or threat figure from memory. The advisor's own tables hold which talent trees fit a tank, a healer or a damage dealer and which stats each role weighs; use those for a spec or role question."},
+	{classQuestAsk,
+		"Class quest chains: the game data holds no class quest line and no prerequisite, follow-up or class restriction for any quest (its three quest lines are none of them a class's), and no quest reward; players' reports name only a few class quests, by title, level and faction. Say so; name no class quest, its order, its giver or its reward from memory. The class quests the player's own Questie holds are the ones in the Next list; name none besides."},
 	{achievementAsk,
 		"Achievements and titles: the game data holds no achievement, achievement point, criteria or achievement reward, and no character title (earned or otherwise); a quest row's title is only its name. Say so; name no achievement, point value or title and no way to earn one from memory."},
 	{vanityAsk,
@@ -102,6 +107,9 @@ var limitTopics = []struct {
 	{regexp.MustCompile(`(?i)\bmacros?\b|/cast\b|/use\b|/castsequence\b`),
 		"Macros: the game data holds no macro commands or macro text and the advisor has no macro advice. Say so; do not write a macro and present it as from the game data."},
 }
+
+// classQuestAsk is a question about a class's quests or quest chain: the class-only quests that teach a spell, a pet, a totem or a mount.
+var classQuestAsk = regexp.MustCompile(`(?i)\bclass[- ]quests?\b|\bclass quest ?(chains?|lines?)\b|\b(warrior|paladin|hunter|rogue|priest|shaman|mage|warlock|druid)s?(?:'s)? (?:\w+ ){0,2}(?:quest ?chains?|quest ?lines?|quests?)\b|\b(quest ?chains?|quest ?lines?|quests?)\b.{0,25}\b(for|of|as) (?:a |an |the )?(warrior|paladin|hunter|rogue|priest|shaman|mage|warlock|druid)s?\b`)
 
 // achievementAsk is a question about an achievement, its points or a character title: the Classic titles the advisor knows by name, or earning, unlocking or a reward of a title.
 var achievementAsk = regexp.MustCompile(`(?i)\bachievements?\b|\bachievement points?\b|\b(earn|earns|earning|get|gets|getting|gain|unlock|unlocks|obtain|win|wins|how do i)\b.{0,25}\b(the )?titles?\b|\btitles?\b.{0,25}\b(earn\w*|rewards?|unlock\w*|obtain\w*|available|requirements?|for (killing|exploring|completing|reaching|winning))\b|\bwhat titles\b|\b(scarab lord|bloodsail admiral|loremaster|the explorer|the insane|salty|the diplomat|the seeker)\b.{0,15}\btitles?\b|\btitles?\b.{0,15}\b(scarab lord|bloodsail admiral|loremaster|the explorer|the insane|salty|the diplomat|the seeker)\b`)
@@ -156,13 +164,16 @@ const zoneLevelFact = "Zone levels: the game data holds no level range, bracket 
 // valleyOfHonor is Orgrimmar's district: a question about it is no question about honor.
 var valleyOfHonor = regexp.MustCompile(`(?i)\bvalley of honou?r\b`)
 
+// mailArmor is the armor type: a question about mail armor is no question about the post.
+var mailArmor = regexp.MustCompile(`(?i)\bmail (armou?r|gear|helms?|chest|pieces?|wearers?|proficiency|items?|boots|gloves|legs|shoulders|bracers|belts?)\b|\b(wear|wearing|wears|equip) mail\b|\bmail (and|or) (plate|leather|cloth)\b|\b(plate|leather|cloth|chain)(,)? (and|or) mail\b|\bmail at level\b`)
+
 // rainOfFire is the warlock spell: a question about it is no question about weather.
 var rainOfFire = regexp.MustCompile(`(?i)\brain of fire\b`)
 
 // LimitFacts says what the game data does not hold about bags, banks, stacks, unique items, mail, the Auction House, gold making and gold fees, the trade window,
 // holiday events, weather and time of day, zone levels, boss abilities, raid lockouts, dungeon difficulty, group roles and threat, battlegrounds, honor ranks, travel times, riding and mounts, class trainer prices, racial traits, capital city services, faction leaders and macros, for a question that asks about one. "" for any other question.
 func LimitFacts(text string) string {
-	text = rainOfFire.ReplaceAllString(valleyOfHonor.ReplaceAllString(text, " "), " ")
+	text = mailArmor.ReplaceAllStringFunc(rainOfFire.ReplaceAllString(valleyOfHonor.ReplaceAllString(text, " "), " "), func(m string) string { return strings.ReplaceAll(m, "mail", "chainarmor") })
 	var out []string
 	for _, tp := range limitTopics {
 		if tp.about.MatchString(text) {

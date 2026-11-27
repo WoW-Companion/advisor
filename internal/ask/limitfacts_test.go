@@ -151,3 +151,32 @@ func TestLimitFactsVanityTitlesAndTools(t *testing.T) {
 		}
 	}
 }
+
+func TestLimitFactsQuiverMailAndClassQuests(t *testing.T) {
+	for _, tc := range []struct{ q, want string }{
+		{"how many slots does the Heavy Quiver have?", "Bag and bank size:"},
+		{"what is the biggest ammo pouch?", "Bag and bank size:"},
+		{"how many slots does a soul bag have?", "Bag and bank size:"},
+		{"how long does mail stay in my mailbox?", "Mail:"},
+		{"can I send gold through the mail?", "Mail:"},
+		{"can I mail a soulbound item to my alt?", "Mail:"},
+		{"what is the warlock class quest chain?", "Class quest chains:"},
+		{"which class quests does a paladin have?", "Class quest chains:"},
+		{"what is the hunter pet quest chain?", "Class quest chains:"},
+	} {
+		if got := LimitFacts(tc.q); !strings.Contains(got, tc.want) || !strings.Contains(got, "Say so") {
+			t.Errorf("LimitFacts(%q) = %q, want %q", tc.q, got, tc.want)
+		}
+	}
+	for _, q := range []string{
+		"what mail armor should my shaman buy, how much does it cost?", "can a priest wear mail?", "what is the best leather or mail for a hunter?",
+		"where do I buy a quiver?", "which class can use a quiver?", "what quests are in the Barrens?", "what comes after Murloc Gills in the Toxic Soil quest line?",
+	} {
+		got := LimitFacts(q)
+		for _, f := range []string{"Mail:", "Class quest chains:", "Bag and bank size:"} {
+			if strings.Contains(got, f) {
+				t.Errorf("LimitFacts(%q) = %q, want no %s", q, got, f)
+			}
+		}
+	}
+}
