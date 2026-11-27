@@ -1,5 +1,107 @@
 # Changelog
 
+## 0.7.97
+
+- **Changed** What's new always shows the release history, with a "New since you last looked" line.
+- **Fixed** What's new no longer says "Nothing new" right after you update.
+- **Fixed** Profession advice names a trainer and town for your side when the game data has one.
+- **Fixed** A dungeon's boss list no longer repeats a boss the game data lists twice.
+- **Changed** Profession advice says so when the game data names no trainer for your side.
+- **Changed** What's new opens at the top with the newest release, and reads top to bottom.
+- **Changed** The line now reads "You're caught up: everything below you've seen".
+- **Fixed** Open quests use the level players reported when the game data has none.
+- **Fixed** A recipe taught by a recipe item no longer points to a trainer when no seller is named.
+- **Fixed** A vendor price is no longer lower than what you pay with no reputation standing.
+- **Fixed** Skill-up advice calls a recipe green, one skill point in four crafts, instead of yellow.
+- **Fixed** Routes to Outland name the Dark Portal; Mount Hyjal and Uldaman count as known places.
+- **Fixed** "Train at" shows where to fly from when the save names your zone but no position.
+- **Fixed** Crafted flasks, elixirs and food are no longer called Bind on Equip.
+- **Fixed** A mount with no source in the game data says so, not "not worth chasing".
+- **Fixed** Trainer advice reads "an Enchanting trainer" and "an Enchanter", not "a Enchanting".
+- **Fixed** Librams, idols and totems are kept by paladins, druids and shamans, not sold as useless.
+- **Fixed** Shirts, tabards and cosmetic armor are kept by every class, not called unusable.
+- **Fixed** Gear above your level in the bag review reads "you can wear it from level N".
+- **Fixed** Plate gear needing level 40 is kept for a warrior or paladin from level 40, not sold.
+- **Fixed** Talents such as Frostbite or Combustion are not listed as spells a trainer teaches.
+- **Fixed** Bags and quivers get no wear verdict in the bag review.
+- **Fixed** A quest reward names its quest from what players saw, with its zone, level and side.
+- **Fixed** A quest reward for the other side, or far above your level, is no longer offered.
+- **Fixed** A session never ends at an inn or flight point of the other side.
+- **Fixed** Tailoring advice trains Artisan at skill 200 and level 35, not at the 225 cap.
+- **Fixed** A material a vendor sells is now sent to the vendor, not the Auction House.
+- **Fixed** A gathered material names where to find it, and is not offered below the skill it needs.
+- **Fixed** A craft now says how many of its materials sit in your bank.
+- **Fixed** Bind on Equip gear no character can wear is sent to the Auction House, not a vendor.
+- **Fixed** Session walking times now follow a typical zone's size and the speed of a first mount.
+- **Fixed** Cooking and Alchemy recipes with "Goblin" in the name are no longer left out of plans.
+- **Fixed** A quest can be found by its name when the game data only lists its title.
+- **Fixed** A Cooking trainer is a city of your own side, not a zone of no known side.
+- **Fixed** A dungeon's boss list no longer holds the bosses of its other game modes.
+- **Fixed** A raid asked by name now lists its size, entrance and bosses, and its lockout as unknown.
+- **Fixed** Zul'Farrak, Onyxia's Lair and other names with an apostrophe are found in a question.
+- **Fixed** A boss drop that is very rare is no longer worded as a zero chance.
+- **Fixed** An item the game data lists no source for is no longer called not worth chasing.
+- **Fixed** Quest line steps are named from the titles players saw when the game tables have none.
+- **Fixed** Quests that players tagged as group or dungeon quests are now marked as group quests.
+- **Fixed** A quest that asks you to kill a boss outside a dungeon is flagged as group content.
+- **Fixed** A recipe a trainer and a recipe item both teach now names the recipe item too.
+- **Fixed** An estimated recipe skill is now worded as "about" instead of an exact number.
+- **Fixed** Riverglades, Shen'dralas and the Darkspear Islands now count as zones for travel steps.
+- **Fixed** The Feast of Winter Veil now starts on December 16, as in the game.
+- **Fixed** A profession plan now shows the exact cost down to the copper, not rounded at 1 gold.
+- **Fixed** An item set name now finds its set once, with its real id, without a name index.
+- **Fixed** Fishing advice no longer sends you to the other faction's capital or starting zone.
+- **Fixed** Asking where to fish an item now answers from catch records when Questie has no school.
+- **Fixed** Expert and Artisan Fishing and Cooking now say they come from a book or a quest.
+- **Fixed** The "before this step" line for a Fishing step no longer leaves out the step's name.
+- **Fixed** A crafted pet nothing drops now says it is crafted instead of "also" crafted.
+- **Fixed** A skill-up route now names the trainer for your next rank when the guide names one.
+- **Fixed** The rank gate in a skill-up route now points at the step that needs the new rank.
+- **Fixed** A skill-up route no longer offers an alternative you have passed, with a negative count.
+- **Fixed** The missing-tool line names the Mining Pick, Skinning Knife or Hammer and its price.
+- **Fixed** Fishing now says you need a Fishing Pole when you carry none.
+- **Fixed** A bar or leather you can make with your own profession says so, not "buy it".
+- **Fixed** An item with a sourceless material no longer says you lack a profession you have.
+- **Fixed** A route names the zeppelin or boat even when your side is saved in lower case.
+- **Fixed** The class-trainer flight point is found when the zone name has stray spaces around it.
+- **Added** Your brief now says where your hearthstone is bound.
+- **Added** The train-at line says when your hearthstone is bound in the class trainer's city.
+- **Fixed** A class's trainer list no longer offers talents, stance passives or effect spells.
+- **Fixed** The Warrior's Execute is offered at its real level, not at the start beside its effect.
+- **Fixed** Quest XP is cut one level later for a quest you have out-levelled, as the game does.
+- **Fixed** Asking where to learn riding no longer answers with the riding enchant recipe.
+- **Fixed** Class training now picks a capital on your continent that has your trainer.
+- **Fixed** Starting areas such as Deathknell and Valley of Trials are placed on their continent.
+- **Fixed** An enemy capital no longer offers train and bank errands.
+- **Fixed** A quest typed without its apostrophe, such as "A Rogues Deal", is found.
+- **Fixed** A flask, elixir or food you can't make now points to the Auction House to buy it.
+- **Fixed** A dungeon you ask about says its key or entry requirement is not known, not nothing.
+- **Fixed** A raid that opens at level 60 is worded "level 60", not "levels 60-60".
+- **Fixed** An item vendors sell but the data doesn't name says so, not "not worth chasing".
+- **Fixed** A quest says when the game data doesn't name who gives it or takes it in.
+- **Fixed** A dungeon far below your level says so when you ask about it by name.
+- **Fixed** A chest that holds an ore or herb is no longer offered as a place to gather it.
+- **Fixed** The dungeons offered for your level are listed lowest level range first.
+- **Fixed** A quest you look up now says when players tagged it as a group or dungeon quest.
+- **Fixed** A craft's vendor-sold materials say "each" on the price when you need more than one.
+- **Fixed** Farming advice says what a vendor pays for the drop, and gives no gold per hour.
+- **Fixed** Class questions list only abilities a class learns, each at its first rank's level.
+- **Fixed** The level-up spell list no longer offers a talent whose ranks are all at level 1.
+- **Fixed** The bag review no longer mails a Bind on Pickup piece to an alt; it can't be mailed.
+- **Fixed** Leatherworking plans skip Cured Rugged Hide; its salt comes from a cooldown craft.
+- **Fixed** "An hour and a half" or "forty five minutes" now sets the length of the session asked for.
+- **Fixed** A top-level character's XP line says there is no XP to earn instead of an empty bar.
+- **Fixed** Class trainer advice now picks the city a flight from your zone reaches, like Ironforge.
+- **Fixed** A herb or ore too high for your skill now says what skill it needs, not "gather it".
+- **Fixed** Herb and ore zones now include every spot the game data lists for it, like The Barrens.
+- **Fixed** A fish with no other source now says it is a fishing catch and where to fish it.
+- **Fixed** Fishing zones are credited to the game data's fishing reports, not a Questie database.
+- **Improved** Trips are ordered as a travel route, so you cross between continents far less often.
+- **Improved** Exits and trips name the real way: zeppelins, boats and your known flight paths.
+- **Improved** Each trip shows an estimated travel time in minutes.
+- **Fixed** The train and bank errands in a city now have a position on the map.
+- **Fixed** Dungeon quests set aside now name the dungeon and its zone, not "another area".
+
 ## 0.7.96
 
 - A finished quest is never "too high": it gets a trip to turn it in, or a Find line with its hint.
