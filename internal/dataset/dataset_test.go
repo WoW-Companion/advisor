@@ -12,6 +12,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -33,7 +34,13 @@ func manifestFor(b string, files map[string]string) []byte {
 		Build   string  `json:"game_build"`
 		Tables  []table `json:"tables"`
 	}{Version: "v1", Build: b}
-	for p, c := range files {
+	paths := make([]string, 0, len(files))
+	for p := range files {
+		paths = append(paths, p)
+	}
+	sort.Strings(paths) // map order is random; the served and archived manifests must be byte-identical
+	for _, p := range paths {
+		c := files[p]
 		sum := sha256.Sum256([]byte(c))
 		m.Tables = append(m.Tables, table{p, hex.EncodeToString(sum[:])})
 	}
