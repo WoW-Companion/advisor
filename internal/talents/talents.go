@@ -187,7 +187,20 @@ func matchSpec(steps []buildStep, name string) string {
 			best = s.spec
 		}
 	}
-	return best
+	if best != "" || len(name) < 3 {
+		return best
+	}
+	// A short name a player types ("shadow", "feral", "prot") names the one spec it starts.
+	hit := ""
+	for _, s := range steps {
+		if strings.HasPrefix(strings.ToLower(s.spec), name) && s.spec != hit {
+			if hit != "" {
+				return ""
+			}
+			hit = s.spec
+		}
+	}
+	return hit
 }
 
 // CantSee is the line for a capture whose spent talents cannot be told apart.
@@ -407,12 +420,27 @@ func Plan(c character.Character, ds store.DataStore, opt Options) (p Result) {
 		}
 	}
 	if p.Remaining == 0 {
-		p.Notes = append(p.Notes, fmt.Sprintf("The Icy Veins %s build has nothing more to take at level %d.", p.Spec, *c.Level))
+		if first := firstLevel(build); p.Done == "" && first > *c.Level {
+			p.Notes = append(p.Notes, fmt.Sprintf("The Icy Veins %s build starts at level %d: there is no talent point to spend at level %d.", p.Spec, first, *c.Level))
+		} else {
+			p.Notes = append(p.Notes, fmt.Sprintf("The Icy Veins %s build has nothing more to take at level %d.", p.Spec, *c.Level))
+		}
 	}
 	if p.Unspent == nil {
 		p.Notes = append(p.Notes, "Unspent points not captured: the points listed may not all be affordable yet.")
 	}
 	return p
+}
+
+// firstLevel is the level of the build's first point.
+func firstLevel(build []buildStep) int {
+	first := 0
+	for _, s := range build {
+		if first == 0 || s.level < first {
+			first = s.level
+		}
+	}
+	return first
 }
 
 // roleOf is the role a spec name stands for: the tank, healer and damage specs of every class. The
