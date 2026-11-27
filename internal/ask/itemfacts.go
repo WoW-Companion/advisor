@@ -40,6 +40,9 @@ func ItemTooltipFacts(ds store.DataStore, text string) string {
 	return "Item tooltips (from the item rows; answer from these, not from memory):\n" + strings.Join(lines, "\n")
 }
 
+// classTrainer is a class's trainer by name: "mage trainer", "priest trainers".
+const classTrainer = `(?:warrior|paladin|hunter|rogue|priest|shaman|mage|warlock|druid)s?(?:'s)? trainers?`
+
 // limitTopics are the game limits and tools the game data holds nothing on: a question that touches one gets the line that says so.
 var limitTopics = []struct {
 	about *regexp.Regexp
@@ -61,6 +64,10 @@ var limitTopics = []struct {
 		"Battlegrounds: the game data holds no battleground row (no entry level, level bracket, team size, queue or objective rule, map or reward). Say so; give no level or bracket from memory. What the data does hold is the level, class and binding of a battleground's consumable or rank item."},
 	{regexp.MustCompile(`(?i)\bhonou?r (ranks?|points?|system|vendors?|rewards?|kills?|decay|standing|costs?|tokens?)\b|\b(how much|how many|earn|earns|gain|gains|gives?|gets?)\b.{0,30}\bhonou?r\b|\b(ranks?|points?)\b.{0,20}\bhonou?r\b|\bmarks? of honou?r\b|\bpvp\b.{0,20}\b(ranks?|titles?|vendors?|rewards?|sets?|gear)\b|\b(grand marshal|field marshal|high warlord|lieutenant (commander|general)|knight-(captain|lieutenant|champion)|stone guard|blood guard|legionnaire|centurion)\b`),
 		"Honor and PvP ranks: the game data holds no honor points, rank, rank requirement or title, and no honor vendor or its prices. Say so; give no honor cost, rank number or title from memory. What the data does hold is a rank piece's required level, class and binding, and which items only one faction can wear."},
+	{regexp.MustCompile(`(?i)\briding\b|\b(mounts?|mounted|saddles?|bridles?|steeds?|warhorse|felsteed|dreadsteed)\b`),
+		"Riding and mounts: the game data holds no riding skill, riding trainer, riding training cost or level, no mount vendor or drop, and no reputation or race requirement for a mount. What it does hold is a mount item's required level and binding. Say so; give no trainer, training or gold price, riding level or reputation from memory."},
+	{regexp.MustCompile(`(?i)\b(class trainers?|` + classTrainer + `)\b.*\b(costs?|prices?|charges?|gold|silver|copper|how much)\b|\b(costs?|prices?|charges?|how much)\b.*\b(class trainers?|` + classTrainer + `)\b|\b(how much|costs?|prices?)\b.*\b(train|trains|training|learn|learning)\b.*\b(spells?|abilit(y|ies))\b`),
+		"Class trainer prices: the game data holds no training cost for a class spell or ability and no class trainer's name or position. Say so; give no price from memory. What it does hold is the level a spell is learned at."},
 	{regexp.MustCompile(`(?i)\bmacros?\b|/cast\b|/use\b|/castsequence\b`),
 		"Macros: the game data holds no macro commands or macro text and the advisor has no macro advice. Say so; do not write a macro and present it as from the game data."},
 }
@@ -69,7 +76,7 @@ var limitTopics = []struct {
 var valleyOfHonor = regexp.MustCompile(`(?i)\bvalley of honou?r\b`)
 
 // LimitFacts says what the game data does not hold about bags, banks, stacks, unique items, mail, the Auction House, the trade window,
-// battlegrounds, honor ranks and macros, for a question that asks about one. "" for any other question.
+// battlegrounds, honor ranks, riding and mounts, class trainer prices and macros, for a question that asks about one. "" for any other question.
 func LimitFacts(text string) string {
 	text = valleyOfHonor.ReplaceAllString(text, " ")
 	var out []string
