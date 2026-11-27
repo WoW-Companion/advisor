@@ -110,3 +110,33 @@ func TestPetFoodKeptByHunter(t *testing.T) {
 		t.Errorf("a hunter's Boar Ribs with a mage alt: %+v, want keep", res.Lines)
 	}
 }
+
+func TestFirstAidReason(t *testing.T) {
+	bandage := store.Row{"class_id": int64(0), "subclass_id": int64(7)}
+	other := store.Row{"class_id": int64(0), "subclass_id": int64(8)}
+	for _, tc := range []struct {
+		name string
+		row  store.Row
+		want bool
+	}{
+		{"Heavy Silk Bandage", bandage, true}, {"Warsong Gulch Silk Bandage", bandage, true}, {"Dense Runecloth Bandage", other, true},
+		{"Anti-Venom", other, true}, {"Powerful Anti-Venom", other, true}, {"Minor Healing Potion", store.Row{"class_id": int64(0), "subclass_id": int64(1)}, false}, {"Spiced Wolf Meat", other, false},
+	} {
+		if got := FirstAidReason(tc.name, tc.row) != ""; got != tc.want {
+			t.Errorf("FirstAidReason(%q) kept = %v, want %v", tc.name, got, tc.want)
+		}
+	}
+}
+
+func TestLockboxReason(t *testing.T) {
+	for _, tc := range []struct {
+		class, name string
+		want        bool
+	}{
+		{"ROGUE", "Mysterious Lockbox", true}, {"ROGUE", "Battered Junkbox", true}, {"ROGUE", "Linen Bandage", false}, {"WARRIOR", "Mysterious Lockbox", false}, {"MAGE", "Heavy Junkbox", false},
+	} {
+		if got := LockboxReason(character.Character{Class: tc.class}, tc.name) != ""; got != tc.want {
+			t.Errorf("LockboxReason(%s, %q) = %v, want %v", tc.class, tc.name, got, tc.want)
+		}
+	}
+}

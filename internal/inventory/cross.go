@@ -499,6 +499,15 @@ func decide(chars []character.Character, i int, e Entry, row store.Row, ds store
 			}
 		}
 	}
+	if IsLockbox(e.Name) && !boundOnPickup(row) {
+		// a lockbox goes to a rogue alt, whose Pick Lock opens it; one bound to its holder cannot be mailed, so no rule places it
+		for j, o := range chars {
+			if j != i && strings.EqualFold(o.Class, "ROGUE") {
+				who := displayName(o)
+				return Mail, who, "a lockbox for " + who + "'s Pick Lock", false
+			}
+		}
+	}
 	if k := consumableKind(e.Name, row); k != "" {
 		if w := rangedAmmo(c, ds); (k == "arrows" || k == "bullets") && usesAmmo(c.Class) && w != "" && w != k {
 			return Unsure, "", "your ranged weapon fires " + w + ", not " + k + "; keep them only if you plan to change weapon", false
