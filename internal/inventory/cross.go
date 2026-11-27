@@ -357,10 +357,10 @@ func decide(chars []character.Character, i int, e Entry, row store.Row, ds store
 	if row == nil {
 		return Unsure, "", "the dataset does not know this item", false
 	}
-	// an upgrade for another character
+	// an upgrade for another character: a piece bound on pickup is bound to its holder and cannot be mailed
 	for _, u := range upgrade[e.ItemID] {
 		who, reason, _ := strings.Cut(u, "|")
-		if who != me {
+		if who != me && !boundOnPickup(row) {
 			return Mail, who, reason, false
 		}
 	}
@@ -410,6 +410,9 @@ func decide(chars []character.Character, i int, e Entry, row store.Row, ds store
 			if len(alts) > 0 {
 				sort.Strings(alts)
 				who, p, _ := strings.Cut(alts[0], "|")
+				if boundOnPickup(row) {
+					return Sell, "", "material for " + who + "'s " + p + ", but it is bound to you when picked up and cannot be mailed", false
+				}
 				return Mail, who, "material for " + who + "'s " + p, false
 			}
 			if q, ok := rowInt(row, "quality"); ok && q > poor {
@@ -476,10 +479,19 @@ func gearAction(chars []character.Character, i int, e Entry, row store.Row) (Act
 		return Keep_, "", fmt.Sprintf("you can wear it from level %d", from), false
 	case useful == displayName(chars[i]):
 		return Keep_, "", "you can wear it and it is not far below your level", false
+	case boundOnPickup(row):
+		return Sell, "", useful + " could wear it, but it is bound to you when picked up and cannot be mailed", false
 	case from > 0:
 		return Mail, useful, fmt.Sprintf("%s can wear it from level %d", useful, from), false
 	}
 	return Mail, useful, useful + " can wear it", false
+}
+
+// boundOnPickup reports a Bind on Pickup item (bonding 1): it is bound to whoever picked it up, so it cannot be
+// mailed to another character.
+func boundOnPickup(row store.Row) bool {
+	b, _ := rowInt(row, "bonding")
+	return b == 1
 }
 
 func moneyOrUnknown(l Line) string {
