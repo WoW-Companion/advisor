@@ -264,3 +264,30 @@ func TestSeenZonesFeedThePlannerFeeders(t *testing.T) {
 		t.Errorf("%q %+v", kind, zs)
 	}
 }
+
+type itemNameRow struct {
+	ID   int64  `parquet:"id"`
+	Name string `parquet:"name"`
+}
+
+type catchRow struct {
+	ItemID int64   `parquet:"item_id"`
+	Zone   string  `parquet:"zone_name"`
+	Casts  int64   `parquet:"casts"`
+	Rate   float64 `parquet:"rate"`
+}
+
+// A fish answered from the dataset's fishing reports names them as its source, never a Questie database the player may not have.
+func TestCatchZonesNameTheFishingReportsNotQuestie(t *testing.T) {
+	ds := store.New(store.ReaderSource{
+		"items":           table(t, []itemNameRow{{7, "Raw Testfish"}}),
+		"fishing_catches": table(t, []catchRow{{7, "Testisle", 40, 0.25}, {7, "Farland", 10, 0.5}}),
+	})
+	res := New(nil, ds).Find(character.Character{Faction: "Horde"}, "Raw Testfish", "fish")
+	if want := "Fish for Raw Testfish: Farland: 50% of 10 casts; Testisle: 25% of 40 casts (" + FromCatches + ")."; res.Text != want {
+		t.Errorf("text %q, want %q", res.Text, want)
+	}
+	if res.FromQuestie || strings.Contains(res.Text, "Questie") {
+		t.Errorf("a Questie source was claimed: %+v", res)
+	}
+}
