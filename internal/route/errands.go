@@ -1,12 +1,15 @@
 package route
 
 import (
+	"cmp"
+	"math"
 	"sort"
 	"strconv"
 	"strings"
 
 	"github.com/WoW-Companion/advisor/internal/character"
 	"github.com/WoW-Companion/advisor/internal/levelup"
+	"github.com/WoW-Companion/advisor/internal/questie"
 )
 
 // Errand kinds (Plan.lua 1.7).
@@ -82,17 +85,30 @@ func addErrands(p *Plan, c character.Character, src source, opt Options, in shar
 			p.Errands = append(p.Errands, Errand{N: s.N, Kind: ErrandTurnIn, Label: s.Label, Map: s.Map, X: s.X, Y: s.Y, Why: "ready to turn in here"})
 		}
 	}
+	qs, _ := src.(*questieSource)
 	if n := trainableCount(c, opt); n > 0 {
 		m, x, y, label := cur, float64(NoPos), float64(NoPos), "Train now at your class trainer"
-		if qs, ok := src.(*questieSource); ok {
-			if pl, ok := levelup.TrainAt(c, qs.qx); ok && pl.Here && pl.Trainer != nil && pl.Trainer.Map != 0 {
-				m, x, y, label = pl.Trainer.Map, pl.Trainer.X, pl.Trainer.Y, "Train now with "+pl.Trainer.Name
+		placed := false
+		if qs != nil {
+			if pl, ok := levelup.TrainAt(c, qs.qx); ok && pl.Trainer != nil && pl.Trainer.X > 0 && (pl.Here || strings.EqualFold(pl.City, zone)) {
+				m, x, y, label, placed = cmp.Or(pl.Trainer.Map, cur), pl.Trainer.X, pl.Trainer.Y, "Train now with "+pl.Trainer.Name, true
+			}
+		}
+		if !placed {
+			if area := trainerArea(zone, c.Class); area != "" {
+				label += " (" + area + ")"
 			}
 		}
 		add(ErrandTrain, label, trainWhy(n), m, x, y)
 	}
 	if !c.BankCaptured {
-		add(ErrandBank, "Open your bank once", "open your bank once so the advisor can see it", cur, NoPos, NoPos)
+		m, x, y, label := cur, float64(NoPos), float64(NoPos), "Open your bank once"
+		if qs != nil {
+			if name, bm, bx, by, ok := qs.bankerIn(cur, zone, playerSide(c), p.Start); ok {
+				m, x, y, label = cmp.Or(bm, cur), bx, by, "Open your bank once, at "+name
+			}
+		}
+		add(ErrandBank, label, "open your bank once so the advisor can see it", m, x, y)
 	}
 	sort.SliceStable(p.Errands, func(i, j int) bool { return p.Errands[i].N < p.Errands[j].N })
 	for i := range p.Steps {
@@ -139,4 +155,51 @@ func trainableCount(c character.Character, opt Options) int {
 		}
 	}
 	return n
+}
+
+// bankerFlag is the banker bit of an NPC's npcFlags.
+const bankerFlag = 0x20000
+
+// bankerIn is a banker standing in the city (map m, or the zone's name), the one nearest the player's
+// position when it is known, else the lowest id. ok is false when Questie holds none there.
+func (s *questieSource) bankerIn(m int, zone, side string, from *Point) (name string, bm int, x, y float64, ok bool) {
+	ids := make([]int, 0, 16)
+	for id, e := range s.qx.Npcs {
+		if e.Flags&bankerFlag != 0 && len(e.Spawns) > 0 {
+			ids = append(ids, id)
+		}
+	}
+	sort.Ints(ids)
+	best := -1.0
+	for _, id := range ids {
+		e := s.qx.Npcs[id]
+		if e.Faction != "" && !questie.FactionAdmits(e.Faction, side) {
+			continue
+		}
+		for _, sp := range e.Spawns {
+			a := s.qx.Areas[sp.Area]
+			if a.UIMap != m && !strings.EqualFold(a.Zone, zone) {
+				continue
+			}
+			d := 0.0
+			if from != nil && from.Map == a.UIMap {
+				d = math.Hypot(sp.X-from.X, sp.Y-from.Y)
+			}
+			if best < 0 || d < best {
+				best, name, bm, x, y, ok = d, e.Name, a.UIMap, sp.X, sp.Y, true
+			}
+		}
+	}
+	return name, bm, x, y, ok
+}
+
+// classQuarters is where each class's trainers stand in a capital: the named area, from public game facts.
+var classQuarters = map[string]map[string]string{
+	"undercity": {"ROGUE": "Rogues' Quarter", "WARRIOR": "War Quarter", "MAGE": "Magic Quarter", "PRIEST": "Magic Quarter"},
+	"orgrimmar": {"ROGUE": "Cleft of Shadow", "WARRIOR": "Valley of Honor"},
+}
+
+// trainerArea names the part of a city the class trainers are in, "" when it is not known.
+func trainerArea(zone, class string) string {
+	return classQuarters[strings.ToLower(strings.TrimSpace(zone))][strings.ToUpper(strings.TrimSpace(class))]
 }

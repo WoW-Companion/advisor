@@ -341,6 +341,6 @@ func tripLua(b *strings.Builder, indent string, t Trip) {
 	if t.Instance != "" {
 		extra = ", instance = " + digest.Quote(t.Instance)
 	}
-	fmt.Fprintf(b, "%s{ order = %d, map = %d, zone = %s, ready = %d, todo = %d, pickups = %d, questIDs = %s, reason = %s, travel = %s%s },\n",
-		indent, t.Order, t.Map, digest.Quote(t.Zone), t.Ready, t.Todo, t.Pickups, idList(t.QuestIDs), digest.Quote(t.Reason), digest.Quote(t.Travel), extra)
+	fmt.Fprintf(b, "%s{ order = %d, map = %d, zone = %s, ready = %d, todo = %d, pickups = %d, questIDs = %s, reason = %s, travel = %s, eta = %d%s },\n",
+		indent, t.Order, t.Map, digest.Quote(t.Zone), t.Ready, t.Todo, t.Pickups, idList(t.QuestIDs), digest.Quote(t.Reason), digest.Quote(t.Travel), t.ETA, extra)
 }

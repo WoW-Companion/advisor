@@ -49,7 +49,8 @@ type Trip struct {
 	Travel   string `json:"travel"`
 	Instance string `json:"instance,omitempty"`
 	XP       int    `json:"xp,omitempty"`
-	cost     int
+	ETA      int    `json:"eta"` // minutes of travel from the previous stop on the route (the exit for the first trip)
+	via      string
 }
 
 // Parked is a logged quest that is in no step and no trip, and why.
@@ -64,6 +65,12 @@ type Parked struct {
 type entranceSource interface {
 	// entranceOf is the dungeon's name and the map of the zone its entrance is in (0: unknown), for an instance map.
 	entranceOf(m int) (name string, zone int)
+}
+
+// dungeonSource is a source that knows which dungeon a quest leads to, and the zone its entrance is in.
+type dungeonSource interface {
+	// dungeonOf is the dungeon's name with its entrance zone, and the entrance zone's map (0: unknown).
+	dungeonOf(questID int) (label string, zone int)
 }
 
 type sharedInput struct {
@@ -113,6 +120,20 @@ func shapeSharedPlan(p *Plan, c character.Character, src source, opt Options, in
 		}
 		if q.turnin != nil && q.turnin.trip != nil && q.turnin.trip.Instance != "" {
 			instance = cmp.Or(instance, q.turnin.trip.Instance)
+		}
+		// A quest the dungeon table links to an instance names it and its zone, whatever the map says.
+		if ds, ok := src.(dungeonSource); ok {
+			if label, zone := ds.dungeonOf(q.id); label != "" {
+				if instance == "" || instance == "another area" || !strings.Contains(instance, "(") {
+					instance = label
+				}
+				if entrance == 0 {
+					entrance = zone
+				}
+			}
+		}
+		if instance == "another area" {
+			instance = "a dungeon"
 		}
 		park := func(kind, why string) {
 			p.Parked = append(p.Parked, Parked{QuestID: q.id, Quest: q.name, Why: why, Kind: kind})
@@ -175,7 +196,7 @@ func shapeSharedPlan(p *Plan, c character.Character, src source, opt Options, in
 		slices.Sort(t.QuestIDs)
 		t.Reason = reasonOf(t)
 		if t.Map == in.cur {
-			t.Travel, t.cost = "Here, once the run is done", 0
+			t.Travel = "Here, once the run is done"
 			continue
 		}
 		arr, ok := Arrival{}, false
@@ -191,13 +212,9 @@ func shapeSharedPlan(p *Plan, c character.Character, src source, opt Options, in
 		if l, ok := legOf[t.Map]; ok {
 			t.Travel = l.Label
 		}
-		t.cost = travelCost(t.Travel, arr)
+		t.via = viaOf(t.Travel, arr)
 	}
-	sort.SliceStable(trips, func(i, j int) bool {
-		a, b := trips[i], trips[j]
-		return a.Ready > b.Ready || (a.Ready == b.Ready && (a.XP > b.XP ||
-			(a.XP == b.XP && (a.cost < b.cost || (a.cost == b.cost && a.Map < b.Map)))))
-	})
+	orderAndRoute(p, c, src, trips, arrivals, legOf, in)
 	for i, t := range trips {
 		t.Order = i + 1
 		p.Trips = append(p.Trips, *t)
@@ -205,7 +222,7 @@ func shapeSharedPlan(p *Plan, c character.Character, src source, opt Options, in
 	if len(trips) > 0 && trips[0].Map != in.cur {
 		t := trips[0]
 		a := arrivals[t.Map]
-		e := &Exit{Label: t.Travel, Map: t.Map, X: NoPos, Y: NoPos, Via: viaOf(t.Travel, a)}
+		e := &Exit{Label: t.Travel, Map: t.Map, X: NoPos, Y: NoPos, Via: t.via}
 		if a.Known {
 			e.X, e.Y = a.X, a.Y
 		}
@@ -308,15 +325,4 @@ func viaOf(travel string, a Arrival) string {
 		return "flight"
 	}
 	return "walk"
-}
-
-// travelCost ranks the way to a zone: a known flight first, then a walk, then a crossing by zeppelin or boat.
-func travelCost(travel string, a Arrival) int {
-	switch viaOf(travel, a) {
-	case "flight":
-		return 1
-	case "walk":
-		return 2
-	}
-	return 3
 }

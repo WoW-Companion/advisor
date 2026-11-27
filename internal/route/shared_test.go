@@ -196,7 +196,7 @@ func TestTripsAreOrderedByReadyThenXPThenTravel(t *testing.T) {
 	c.Quests = []character.Quest{c.Quests[0], {QuestID: 501, Title: "Quest 501", Objectives: []character.Objective{{Text: "Plains Boar slain: 0/5"}}}}
 	lvl := 14
 	c.Level = &lvl
-	if got := zone(BuildWith(c, sharedWorld(), Options{XP: map[int]int{501: 9000}})); !slices.Equal(got, []int{mapSouth, mapPlains}) {
+	if got := zone(BuildWith(c, sharedWorld(), Options{XP: map[int]int{501: 500}})); !slices.Equal(got, []int{mapSouth, mapPlains}) {
 		t.Errorf("by ready: %v", got)
 	}
 }

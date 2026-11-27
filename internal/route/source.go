@@ -751,3 +751,17 @@ func (s *questieSource) entranceOf(m int) (string, int) {
 	}
 	return "", 0
 }
+
+// dungeonOf is the dungeon the quest leads to, named with the zone its entrance is in ("Razorfen Kraul (The
+// Barrens)"), and the map of that zone.
+func (s *questieSource) dungeonOf(questID int) (string, int) {
+	d := s.qx.DungeonOf(questID)
+	if d == nil || d.Name == "" {
+		return "", 0
+	}
+	pa, ok := s.qx.Areas[d.Parent]
+	if !ok || pa.Zone == "" || pa.Zone == d.Name {
+		return d.Name, pa.UIMap
+	}
+	return d.Name + " (" + pa.Zone + ")", pa.UIMap
+}
