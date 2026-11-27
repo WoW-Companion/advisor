@@ -65,6 +65,9 @@ func i64(v any) int64 { n, _ := v.(int64); return n }
 // BagReason is why a bag or quiver is left unplaced: the dataset holds no slot count for it.
 const BagReason = "a bag or quiver: the dataset holds no bag size, so it can't say whether it beats the one you carry"
 
+// KeyReason is why a key is kept: the dataset says what a key is (item class 13), never what it opens or how to get another.
+const KeyReason = "a key: keep it on your key ring; the dataset does not say what it opens or where to get another"
+
 // IsBag reports whether an item row is a bag, a quiver or an ammo pouch: a container worn in a bag slot, which is no gear to bank or sell.
 func IsBag(row store.Row) bool {
 	cl := i64(row["class_id"])
@@ -135,6 +138,9 @@ func classify(c character.Character, id int64, name string, row store.Row, known
 	}
 	if IsBag(row) {
 		return Unknown, BagReason
+	}
+	if isKey(row) {
+		return Keep, KeyReason
 	}
 	// a quest item is no vendor trash: the quest rule decides (a grey quest item nothing in the log asks for is not for the vendor)
 	if row["quality"] != nil && i64(row["quality"]) == poor && !isQuestItem(row) {

@@ -185,6 +185,7 @@ const (
 	classAmmo       = 6
 	classQuiver     = 11 // a quiver or an ammo pouch; class 1 is a plain or special bag
 	classQuest      = 12
+	classKey        = 13 // a key: a dungeon, door or chest key, kept on the key ring
 	subFood         = 5
 )
 
@@ -242,6 +243,29 @@ func containerAction(chars []character.Character, i int, row store.Row) (a Actio
 	return Sell, "", what, true
 }
 
+// rangedAmmo is the ammo the character's equipped ranged weapon fires, "arrows" for a bow or a crossbow and "bullets" for a gun; "" when no
+// ranged weapon is equipped or known, or it fires none (a wand, a thrown weapon).
+func rangedAmmo(c character.Character, ds store.DataStore) string {
+	it, ok := c.Equipment["ranged"]
+	if !ok || it.ItemID == nil || ds == nil {
+		return ""
+	}
+	row, err := ds.Get("items", int64(*it.ItemID))
+	if err != nil {
+		return ""
+	}
+	if cl, _ := rowInt(row, "class_id"); cl != 2 {
+		return ""
+	}
+	switch sub, _ := rowInt(row, "subclass_id"); sub {
+	case 2, 18: // bow, crossbow
+		return "arrows"
+	case 3: // gun
+		return "bullets"
+	}
+	return ""
+}
+
 func usesAmmo(class string) bool {
 	switch strings.ToUpper(class) {
 	case "HUNTER", "ROGUE", "WARRIOR":
@@ -250,10 +274,18 @@ func usesAmmo(class string) bool {
 	return false
 }
 
+// isQuestItem is a quest item by its class or its quest binding; a key is no quest item whatever its binding (a dungeon key is bound to a
+// quest in the dataset, yet it is kept, never destroyed).
 func isQuestItem(row store.Row) bool {
 	cl, _ := rowInt(row, "class_id")
 	b, _ := rowInt(row, "bonding")
-	return cl == classQuest || b == 4 || b == 5
+	return cl != classKey && (cl == classQuest || b == 4 || b == 5)
+}
+
+// isKey is a key by its item class.
+func isKey(row store.Row) bool {
+	cl, _ := rowInt(row, "class_id")
+	return cl == classKey
 }
 
 // requiredLevel is the item's required level, estimated from its item level when the dataset
@@ -442,6 +474,9 @@ func decide(chars []character.Character, i int, e Entry, row store.Row, ds store
 		return Unsure, "", BagReason, false
 	}
 	if k := consumableKind(e.Name, row); k != "" {
+		if w := rangedAmmo(c, ds); (k == "arrows" || k == "bullets") && usesAmmo(c.Class) && w != "" && w != k {
+			return Unsure, "", "your ranged weapon fires " + w + ", not " + k + "; keep them only if you plan to change weapon", false
+		}
 		if (k == "arrows" || k == "bullets") && !usesAmmo(c.Class) {
 			// an alt that can use ammo gets it, unless it is bound to its holder
 			for j, o := range chars {
