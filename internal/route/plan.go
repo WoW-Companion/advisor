@@ -256,6 +256,7 @@ type spot struct {
 	town     bool          // a dungeon quest's pick-up in the player's town: first on the route
 	dungeon  string        // with town: the dungeon, to keep its pick-ups together
 	xp       int           // with town: the quest's XP, for the order
+	endObj   bool          // placed from the quest's triggerEnd (an exploration objective)
 	areaObj  bool          // placed by an area objective of the player's Questie database, not an NPC or object
 	game     bool          // placed at the quest map point the client gave for the quest
 	approx   bool          // placed at a subzone's centre named in the quest text, not at the objective's own spot
