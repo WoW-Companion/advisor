@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.7.100
+
+- **Fixed** A quest turns grey at the game's level for your level, not a flat eight levels below.
+- **Fixed** The "grey" mark on a quest in your log means grey in the game, not six levels below.
+- **Added** Questions on quest XP, group size or minimum level now say the data has none.
+- **Fixed** An item a few creatures drop often is no longer called a random drop not worth chasing.
+- **Added** Questions on an item set's pieces now list them from the game data.
+- **Added** Questions on set bonuses, rare spawns or drop odds now say the data has none.
+- **Fixed** An item that starts a quest is now kept in your bags until you take the quest.
+- **Added** Questions on escort quests, timed quests and race limits now say the data has none.
+- **Added** Questions on a class trainer's or summoning stone's place now say what the data holds.
+- **Fixed** Questions on which weapons or armor a class can use now answer for the class you name.
+- **Fixed** "Locate…" exploration quest steps are now placed from Questie's end-of-quest area.
+- **Added** `doctor quests` counts the steps placed from that area.
+- **Added** The AI now thinks in routes and errands, per new product principles.
+- **Added** Plans attach restock, repair, junk-sale and alt-mail errands to stops the route visits.
+- **Added** The doctor says when durability or bag size is missing from the capture.
+- **Fixed** Vendors, repairers and trainers are found with your game's own NPC flag bit layout.
+- **Fixed** "Is there a poison vendor in Booty Bay?" finds Sly Garrett on Forever and Classic.
+- **Changed** `doctor quests` now says which NPC flag layout it read.
+
 ## 0.7.99
 
 - **Improved** Chat answers now show bold text, lists and small headings instead of raw asterisks.
