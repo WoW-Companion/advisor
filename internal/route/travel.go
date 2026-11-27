@@ -59,6 +59,8 @@ var transports = []transport{
 	{"A", "Wetlands", "Darkshore", "boat", "Boat from Menethil Harbor to Auberdine", "Boat from Auberdine to Menethil Harbor", 8},
 	{"A", "Wetlands", "Dustwallow Marsh", "boat", "Boat from Menethil Harbor to Theramore Isle", "Boat from Theramore Isle to Menethil Harbor", 8},
 	{"A", "Darkshore", "Teldrassil", "boat", "Boat from Auberdine to Rut'theran Village", "Boat from Rut'theran Village to Auberdine", 8},
+	{"A", "Darkshore", "Azuremyst Isle", "boat", "Boat from Auberdine to Valaar's Berth", "Boat from Valaar's Berth to Auberdine", 8},
+	{"H", "Undercity", "Silvermoon City", "portal", "Orb of Translocation from Undercity to Silvermoon City", "Orb of Translocation from Silvermoon City to Undercity", 2},
 	{"A", "Ironforge", "Stormwind City", "tram", "Deeprun Tram from Ironforge to Stormwind", "Deeprun Tram from Stormwind to Ironforge", 5},
 }
 
@@ -77,6 +79,8 @@ var borders = [][2]string{
 	{"Duskwood", "Stranglethorn Vale"}, {"Duskwood", "Deadwind Pass"}, {"Deadwind Pass", "Swamp of Sorrows"},
 	{"Swamp of Sorrows", "Blasted Lands"}, {"Eversong Woods", "Ghostlands"}, {"Silvermoon City", "Eversong Woods"},
 	{"Ghostlands", "Eastern Plaguelands"},
+	// Azuremyst Isle: an island off Kalimdor, reached by the Alliance boat from Auberdine
+	{"The Exodar", "Azuremyst Isle"}, {"Azuremyst Isle", "Bloodmyst Isle"},
 	// Kalimdor
 	{"Orgrimmar", "Durotar"}, {"Durotar", "The Barrens"}, {"The Barrens", "Mulgore"}, {"The Barrens", "Stonetalon Mountains"},
 	{"The Barrens", "Ashenvale"}, {"The Barrens", "Dustwallow Marsh"}, {"The Barrens", "Thousand Needles"},
@@ -88,7 +92,7 @@ var borders = [][2]string{
 }
 
 var cities = map[string]bool{"undercity": true, "orgrimmar": true, "thunder bluff": true, "darnassus": true,
-	"ironforge": true, "stormwind city": true, "silvermoon city": true}
+	"ironforge": true, "stormwind city": true, "silvermoon city": true, "the exodar": true}
 
 // graph is the travel graph for one character at one moment.
 type graph struct {
@@ -117,7 +121,8 @@ func newGraph(c character.Character) *graph {
 	}
 	side := sideLetter(c)
 	for _, t := range transports {
-		if t.faction != "" && side != "" && t.faction != side {
+		// A character whose side is not known is offered only the transport both sides may use.
+		if t.faction != "" && t.faction != side {
 			continue
 		}
 		g.add(t.from, t.to,
@@ -170,12 +175,12 @@ func (g *graph) route(from, to string, flights map[string][]flightPoint) (legs [
 	// that has one too, since the player is then already at a flight master.
 	neighbours := func(n string) []edge {
 		out := g.adj[n]
-		if learn.ContinentOf(n) == "" {
+		if learn.Landmass(n) == "" {
 			return out
 		}
 		out = append([]edge(nil), out...)
 		for z, pts := range flights {
-			if z == n || len(pts) == 0 || learn.ContinentOf(z) != learn.ContinentOf(n) {
+			if z == n || len(pts) == 0 || learn.Landmass(z) != learn.Landmass(n) {
 				continue
 			}
 			m := flightMinutes
@@ -240,7 +245,7 @@ type flightPoint struct {
 // flightPoints groups the character's known flight points by lower-case zone name.
 func flightPoints(c character.Character, src source) map[string][]flightPoint {
 	out := map[string][]flightPoint{}
-	fl := c.Seen.FlightsFor(c.Faction)
+	fl := c.Seen.FlightsFor(sideName(c))
 	for _, f := range fl {
 		zone := src.mapName(f.Map)
 		if zone == "" {
@@ -289,12 +294,12 @@ func legsText(legs []leg, flights map[string][]flightPoint, near, arrive *[2]flo
 			parts = append(parts, l.e.label)
 			if via == "" {
 				via = l.e.via
-				if via == "tram" {
+				if via == "tram" || via == "portal" {
 					via = "walk"
 				}
 			}
-			// The port is somewhere in the zone: the last transport ends with a ride.
-			if i == len(legs)-1 {
+			// The port is somewhere in the zone: the last boat or zeppelin ends with a ride. A tram or an orb lands in the city itself.
+			if i == len(legs)-1 && l.e.via != "portal" {
 				parts = append(parts, "ride to "+l.to)
 			}
 			i++
@@ -344,7 +349,7 @@ func lowerFirst(s string) string {
 	if strings.HasPrefix(s, "Fly ") || s == "" {
 		return strings.ToLower(s[:1]) + s[1:]
 	}
-	// Keep proper names: only the leading transport word is lower-cased. The Deeprun Tram is a name, so it stays whole.
+	// Keep proper names: only the leading transport word is lower-cased. The Deeprun Tram and the Orb of Translocation are names, so they stay whole.
 	for _, w := range []string{"Zeppelin ", "Boat "} {
 		if strings.HasPrefix(s, w) {
 			return strings.ToLower(w[:1]) + w[1:] + s[len(w):]
@@ -537,4 +542,36 @@ func tripMinutes(g *graph, start string, t *Trip, cur int, flights map[string][]
 		return 0
 	}
 	return g.hop(start, cmp.Or(t.Zone, start), flights, near, arrive).minutes
+}
+
+// transportHub is the boats, zeppelins and orbs on the fastest way the travel graph finds between two zones, in the short
+// wording of a crossing ("Boat to Auberdine, then boat to Menethil Harbor"): the legs the player cannot walk or ride. The
+// Deeprun Tram is left out, as it always was. endsHere is true when the last of them lands in the zone asked for. "" when the
+// graph does not join the zones (a zone it does not list) or the way needs no such leg; the continent table then decides.
+func transportHub(c character.Character, from, to string) (hub string, endsHere bool) {
+	if sideLetter(c) == "" {
+		return "", false
+	}
+	legs, _, ok := newGraph(c).route(from, to, nil)
+	if !ok {
+		return "", false
+	}
+	var parts []string
+	for i, l := range legs {
+		if l.e.kind != edgeTransport || l.e.via == "tram" {
+			continue
+		}
+		short := l.e.label
+		if a, b := strings.Index(short, " from "), strings.LastIndex(short, " to "); a >= 0 && b > a {
+			short = short[:a] + short[b:]
+		}
+		parts = append(parts, short)
+		endsHere = i == len(legs)-1 && strings.EqualFold(l.to, to)
+	}
+	for k := range parts {
+		if k > 0 {
+			parts[k] = lowerFirst(parts[k])
+		}
+	}
+	return strings.Join(parts, ", then "), endsHere
 }

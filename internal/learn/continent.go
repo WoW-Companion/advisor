@@ -61,6 +61,12 @@ const (
 	darkPortalOut = "the Dark Portal in Hellfire Peninsula"
 )
 
+// DarkPortalEntrance and DarkPortalExit are the Dark Portal as a crossing names it, from the Blasted Lands side and from Hellfire Peninsula.
+const (
+	DarkPortalEntrance = darkPortalIn
+	DarkPortalExit     = darkPortalOut
+)
+
 // Crossing is the travel step between two continents for a faction: "Zeppelin to Orgrimmar", or for
 // Outland the Dark Portal (after the zeppelin or boat first when the player is on Kalimdor). "" when both
 // are the same continent, or either is not known: the player then walks or rides.
@@ -86,4 +92,19 @@ func Crossing(faction, from, to string) string {
 		}
 	}
 	return crossings[[3]string{faction, from, to}]
+}
+
+// islands are the places the continent table puts on Kalimdor or the Eastern Kingdoms that stand on an island of their
+// own: no flight and no road reaches them, only a boat or a portal.
+var islands = map[string]string{
+	"azuremyst isle": "Azuremyst Isle", "the exodar": "Azuremyst Isle", "bloodmyst isle": "Azuremyst Isle",
+}
+
+// Landmass is the piece of land a zone stands on: its continent, except for the islands off Kalimdor (Azuremyst Isle, the
+// Exodar, Bloodmyst Isle), which a flight or a walk from the mainland never reaches. "" when the zone is not known.
+func Landmass(zone string) string {
+	if i := islands[strings.ToLower(strings.TrimSpace(zone))]; i != "" {
+		return i
+	}
+	return continentOf(zone)
 }

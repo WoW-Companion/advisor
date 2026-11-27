@@ -85,7 +85,7 @@ func (s *questieSource) travelName(m int, place string) string {
 
 // flights are the maps the player can fly to: the flight masters they opened, else none known.
 func (s *questieSource) flights(c character.Character) (map[int]bool, bool) {
-	fl := c.Seen.FlightsFor(c.Faction)
+	fl := c.Seen.FlightsFor(sideName(c))
 	if len(fl) == 0 {
 		return nil, false
 	}
@@ -628,6 +628,17 @@ func friendly(e questie.Entity, side string) bool {
 		return questie.FactionAdmits(e.Faction, side)
 	}
 	return e.Flags&flagQuestGiver != 0
+}
+
+// sideName is the faction's capture name, "Horde" or "Alliance": from the faction, else from the race; "" when neither says.
+func sideName(c character.Character) string {
+	switch playerSide(c) {
+	case "H":
+		return "Horde"
+	case "A":
+		return "Alliance"
+	}
+	return ""
 }
 
 // playerSide is "H" for a Horde character and "A" for an Alliance one, from the captured faction, else

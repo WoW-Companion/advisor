@@ -479,3 +479,16 @@ func TestNamedQuestFacts(t *testing.T) {
 		t.Errorf("NamedQuestFacts(nil store) = %q, want none", got)
 	}
 }
+
+func TestLimitFactsBoatAndZeppelinSides(t *testing.T) {
+	for _, q := range []string{"can the Horde take the Auberdine boat?", "which boat goes to Azuremyst Isle?", "which zeppelins can the Horde take?", "does the Alliance have a zeppelin?"} {
+		if got := LimitFacts(q); !strings.Contains(got, "Boats and zeppelins:") || !strings.Contains(got, "Say so") {
+			t.Errorf("LimitFacts(%q) = %q, want the boats and zeppelins fact", q, got)
+		}
+	}
+	for _, q := range []string{"where do I take the zeppelin to Undercity?", "how do I get to Silvermoon from Undercity?", "which quest do I do next in Westfall?"} {
+		if got := LimitFacts(q); strings.Contains(got, "Boats and zeppelins:") {
+			t.Errorf("LimitFacts(%q) = %q, want no boats and zeppelins fact", q, got)
+		}
+	}
+}

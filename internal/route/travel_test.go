@@ -230,3 +230,30 @@ func TestNoFlightAcrossContinents(t *testing.T) {
 		}
 	}
 }
+
+func TestTransportHubNamesEveryBoatZeppelinAndOrbForTheSide(t *testing.T) {
+	for _, tc := range []struct {
+		side, from, to, want string
+		ends                 bool
+	}{
+		{"Alliance", "Stormwind City", "The Exodar", "Boat to Auberdine, then boat to Valaar's Berth", false},
+		{"Alliance", "Darkshore", "Azuremyst Isle", "Boat to Valaar's Berth", true},
+		{"Horde", "Undercity", "Silvermoon City", "Orb of Translocation to Silvermoon City", true},
+		{"Horde", "The Barrens", "Stranglethorn Vale", "Boat to Booty Bay", true},
+		{"Alliance", "Undercity", "Silvermoon City", "", false}, // no orb for the Alliance
+		{"Horde", "Darkshore", "Azuremyst Isle", "", false},     // no Alliance boat for the Horde
+		{"", "Orgrimmar", "Undercity", "", false},               // a side not known rides only what both sides ride
+	} {
+		got, ends := transportHub(character.Character{Faction: tc.side}, tc.from, tc.to)
+		if got != tc.want || ends != tc.ends {
+			t.Errorf("%s %s to %s: transportHub = %q, %v; want %q, %v", tc.side, tc.from, tc.to, got, ends, tc.want, tc.ends)
+		}
+	}
+}
+
+func TestNoFlightIsOfferedFromTheOtherSidesMasterWhenOnlyTheRaceNamesTheSide(t *testing.T) {
+	c := character.Character{Race: "Orc", Seen: &character.Observed{Flights: []character.SeenFlight{{NPC: 1, Name: "Alliance Master", Map: 5, Faction: "Alliance", T: 1}}}}
+	if got := c.Seen.FlightsFor(sideName(c)); len(got) != 0 {
+		t.Errorf("an orc was offered the Alliance's flight master: %v", got)
+	}
+}

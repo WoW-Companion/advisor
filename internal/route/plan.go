@@ -1111,11 +1111,11 @@ func flyLegs(c character.Character, src source, later []*spot, cur, lvl int) []S
 	if fs, ok := src.(flightSource); ok {
 		known, haveData = fs.flights(c)
 	}
-	// A flight never crosses the sea: a town on another continent than the player's is reached by the zeppelin, boat or portal.
-	here := learn.ContinentOf(src.mapName(cur))
+	// A flight never crosses the sea: a town on another continent or island than the player's is reached by the zeppelin, boat or portal.
+	here := learn.Landmass(src.mapName(cur))
 	var keep []*town
 	for _, t := range towns {
-		if there := learn.ContinentOf(src.mapName(t.m)); here != "" && there != "" && here != there {
+		if there := learn.Landmass(src.mapName(t.m)); here != "" && there != "" && here != there {
 			continue
 		}
 		if !haveData || known[t.m] {

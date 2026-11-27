@@ -71,8 +71,8 @@ WoWCompanionPlan = {
         { questID = 102, quest = "Quest 102", npc = "Clerk Silverpine Forest", map = 7102, x = 50.0, y = 50.0, place = "Silverpine Forest" },
       },
       zones = {
-        [7100] = { zone = "Stranglethorn Vale", travel = "Walk or ride to Stranglethorn Vale", arrival = { kind = "walk" }, order = { 2 } },
-        [7101] = { zone = "The Barrens", travel = "Zeppelin to Orgrimmar, then walk or ride to The Barrens", arrival = { kind = "walk" }, order = { 3 } },
+        [7100] = { zone = "Stranglethorn Vale", travel = "Zeppelin to Grom'gol", arrival = { kind = "walk" }, order = { 2 } },
+        [7101] = { zone = "The Barrens", travel = "Zeppelin to Grom'gol, then boat to Ratchet", arrival = { kind = "walk" }, order = { 3 } },
         [7102] = { zone = "Silverpine Forest", travel = "Walk or ride to Silverpine Forest", arrival = { kind = "walk" }, order = { 4 } },
       },
     },
