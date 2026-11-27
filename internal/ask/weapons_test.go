@@ -128,3 +128,38 @@ func TestWeaponFactsDualWieldLevel(t *testing.T) {
 		t.Errorf("a question that is not about dual wielding got the Dual Wield line: %q", got)
 	}
 }
+
+type startSkillRow struct {
+	ClassID      int32  `parquet:"class_id"`
+	SkillID      int32  `parquet:"skill_line_id"`
+	SkillName    string `parquet:"skill_name"`
+	Learnable    bool   `parquet:"learnable"`
+	DefaultKnown bool   `parquet:"default_known"`
+	MinLevel     int16  `parquet:"min_level"`
+}
+
+func TestWeaponFactsStartSkillWithoutMasterIsNoSkillToTrain(t *testing.T) {
+	ds := store.New(store.ReaderSource{
+		"weapon_skills": parquetOf(t, []startSkillRow{{5, 228, "Wands", true, true, 1}, {5, 136, "Staves", true, false, 1}}),
+		"weapon_masters": parquetOf(t, []masterRow{{NPC: 1, Name: "Hanashi", Faction: "Horde", City: "Orgrimmar", Place: "Valley of Honor", X: 50, Y: 50,
+			Skills: []int32{136}, Cost: []int32{1000}, MinLevel: []int16{1}}}),
+	})
+	c := weaponPriest()
+	c.Skills = nil
+	got := WeaponFacts(c, ds, "which weapon master teaches wands?")
+	if !strings.Contains(got, "Wands: the class starts knowing it and no Weapon Master teaches it") || strings.Contains(got, "Wands: no master in the data") {
+		t.Errorf("a start skill no master teaches was sent to a master: %q", got)
+	}
+	if !strings.Contains(got, "Staves: Hanashi in Orgrimmar") {
+		t.Errorf("a skill a master teaches lost its master: %q", got)
+	}
+}
+
+func TestWeaponQuestionTwoHanderWords(t *testing.T) {
+	for q, want := range map[string]bool{"where do I learn to use a two-hander?": true, "where can I train 2h maces?": true, "which master teaches 1h swords?": true,
+		"how long is the two hour wait?": false, "which quest do I do next?": false} {
+		if got := WeaponQuestion(q); got != want {
+			t.Errorf("WeaponQuestion(%q) = %v, want %v", q, got, want)
+		}
+	}
+}

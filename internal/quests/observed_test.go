@@ -130,3 +130,11 @@ func TestResolveObservedIgnoresCaseAccentsAndApostrophes(t *testing.T) {
 		t.Errorf("two quests of one title are candidates: %d %v", id, cands)
 	}
 }
+
+func TestClassHeadingIsAClassNotAZone(t *testing.T) {
+	for cat, want := range map[string]string{"Warlock": "Warlock", "paladin": "Paladin", " Hunter ": "Hunter", "Westfall": "", "": "", "The Barrens": ""} {
+		if got := (Facts{Category: cat}).ClassHeading(); got != want {
+			t.Errorf("ClassHeading(%q) = %q, want %q", cat, got, want)
+		}
+	}
+}

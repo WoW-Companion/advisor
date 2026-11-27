@@ -347,3 +347,25 @@ func TestLimitFactsRidingFlightHearthstone(t *testing.T) {
 		}
 	}
 }
+
+func TestLimitFactsClassReagentSpellPhrasings(t *testing.T) {
+	const topic = "Class reagents, soul shards, totems and rituals:"
+	for _, q := range []string{
+		"do I need reagents for Rebirth?", "what do I need to cast Vanish?", "what does a paladin need for Divine Intervention?", "what do shamans need for Reincarnation?",
+		"do I need an ankh to resurrect myself?", "what do I need for Gift of the Wild?", "do mages need reagents for Arcane Brilliance?", "what do I need to summon a felhunter?",
+	} {
+		if got := LimitFacts(q); !strings.Contains(got, topic) || !strings.Contains(got, "Say so") {
+			t.Errorf("LimitFacts(%q) = %q, want %q", q, got, topic)
+		}
+	}
+	for _, q := range []string{"where do I buy flash powder?", "what do I need to level Alchemy?", "what do I need to craft Elixir of Fortitude?", "what do I need to summon my party to the dungeon?"} {
+		if got := LimitFacts(q); strings.Contains(got, topic) {
+			t.Errorf("LimitFacts(%q) = %q, want no %s", q, got, topic)
+		}
+	}
+	for _, q := range []string{"what does a hunter need to start the pet quest?", "where is the bear form quest?", "who gives the totem quests?"} {
+		if got := LimitFacts(q); !strings.Contains(got, "Class quest chains:") {
+			t.Errorf("LimitFacts(%q) = %q, want the class quest line", q, got)
+		}
+	}
+}

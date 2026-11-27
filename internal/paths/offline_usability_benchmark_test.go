@@ -687,7 +687,7 @@ func TestOfflineBenchmarkUsabilityNoAnswer(t *testing.T) {
 		if need != nil {
 			line = need.Line()
 		}
-		out = append(out, benchRow{class + ": who teaches Wands", line, "no weapon_masters row lists skill 228", usabNoneSrc, resultIf(need == nil || need.Master == "" && strings.Contains(line, "a Weapon Master"), "a master was named")})
+		out = append(out, benchRow{class + ": who teaches Wands", line, "no weapon_masters row lists skill 228", usabNoneSrc, resultIf(need == nil || need.Master == "" && strings.Contains(line, "no Weapon Master teaches it"), "a master was named")})
 	}
 	xp, xpMax, rested := 1000, 5000, 2800
 	c := usabChar("MAGE", 30, "Horde")

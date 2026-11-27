@@ -15,7 +15,7 @@ import (
 const NoWeaponFacts = "Weapon skills: this game data has no weapon-skill facts. For any question about which weapons the class can use or where to train a weapon skill, say you don't have those facts and the player should update the game data. Never answer it from memory: WoW Forever differs from Classic."
 
 // weaponWords make a question one about weapon skills, the weapons a class can use, or where to train.
-var weaponWords = regexp.MustCompile(`(?i)\b(weapons?|wield|dual wield|staffs?|staves|axes?|swords?|maces?|daggers?|polearms?|bows?|guns?|crossbows?|wands?|fist|thrown|weapon masters?|weapon skills?)\b`)
+var weaponWords = regexp.MustCompile(`(?i)\b(weapons?|wield|dual wield|staffs?|staves|axes?|swords?|maces?|daggers?|polearms?|bows?|guns?|crossbows?|wands?|fist|thrown|weapon masters?|weapon skills?|(?:one|two|1|2)[- ]?(?:hand(?:er|ers|ed)?|h))\b`)
 
 // dualWieldWords make a weapon question one about dual wielding.
 var dualWieldWords = regexp.MustCompile(`(?i)\bdual[- ]?wield`)
@@ -86,6 +86,10 @@ func WeaponFacts(c character.Character, ds store.DataStore, text string) string 
 	for _, id := range lacking {
 		ms := f.MastersFor(id)
 		if len(ms) == 0 {
+			if f.Default[id] {
+				fmt.Fprintf(&b, "  - %s: the class starts knowing it and no Weapon Master teaches it (no master in the data), so it is no skill to train: look for it in the skill list\n", f.Names[id])
+				continue
+			}
 			fmt.Fprintf(&b, "  - %s: no master in the data\n", f.Names[id])
 			continue
 		}
