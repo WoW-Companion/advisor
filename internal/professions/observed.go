@@ -223,6 +223,12 @@ func (p *planner) applyObserved(recipes []Recipe) (known map[int64]bool, only ma
 		r := &recipes[i]
 		e, ok := p.c.Recipe(p.prof, r.Name)
 		if !ok {
+			if r.CreatesItem != 0 && p.c.LikelyKnowsMaker(p.prof, r.CreatesItem) {
+				// No recipe list was captured and the product is in the bags or bank: the recipe is probably known.
+				known[r.SpellID] = true
+				p.likely = append(p.likely, r.Name)
+				continue
+			}
 			if o, _, seen := p.seenOfferOf(*r); seen {
 				if o.State == "used" {
 					known[r.SpellID] = true

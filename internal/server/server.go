@@ -660,6 +660,7 @@ func New(cfg Config) *mcp.Server {
 
 	addProfileTools(s, cfg)
 	addSeasonalTools(s, cfg)
+	addVendorTools(s, cfg)
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "server_info",
@@ -1333,6 +1334,36 @@ func QuestCoverage(cfg Config) (string, error) {
 	}
 	if b.Len() == 0 {
 		return "quests: no character has quests in the log\n", nil
+	}
+	return b.String(), nil
+}
+
+// ProfessionCoverage is the "doctor professions" report: for each captured character and each of their
+// professions, whether recipes were captured and what the dataset holds (recipes, trainers, recipe
+// vendors, recipe sources).
+func ProfessionCoverage(cfg Config) (string, error) {
+	f, res := load(cfg.SavedVariables)
+	if res != nil {
+		return "", errors.New(res.Content[0].(*mcp.TextContent).Text)
+	}
+	var ds store.DataStore
+	if cfg.Dataset != "" {
+		ds = store.NewDir(cfg.Dataset)
+	}
+	var b strings.Builder
+	for _, c := range f.Characters {
+		c = c.WithRecipeProfessions()
+		lv := "?"
+		if c.Level != nil {
+			lv = itoa(int64(*c.Level))
+		}
+		fmt.Fprintf(&b, "%s %s (level %s)\n", c.Class, "professions", lv)
+		for _, cv := range professions.CoverageOf(c, ds) {
+			fmt.Fprintf(&b, "  %s\n", cv.Line())
+		}
+	}
+	if b.Len() == 0 {
+		return "professions: no character was captured\n", nil
 	}
 	return b.String(), nil
 }

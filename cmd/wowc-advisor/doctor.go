@@ -42,6 +42,11 @@ func doctor(ctx context.Context, args []string, stdout, stderr io.Writer, client
 		fmt.Fprint(stdout, text)
 		return err
 	}
+	if fs.NArg() == 1 && fs.Arg(0) == "professions" {
+		text, err := server.ProfessionCoverage(cfg.FromEnv())
+		fmt.Fprint(stdout, text)
+		return err
+	}
 	if fs.NArg() != 0 {
 		return errors.New("doctor takes no arguments\n" + usage)
 	}

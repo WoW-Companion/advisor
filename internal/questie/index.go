@@ -14,7 +14,7 @@ import (
 	"strings"
 )
 
-const indexSchema = 11 // bump when the cached index's shape changes
+const indexSchema = 12 // bump when the cached index's shape changes
 
 // Spawn is a place, as percent of the area's map.
 type Spawn struct {
@@ -441,6 +441,7 @@ func Parse(st Status) (*Index, error) {
 			}
 		}
 	}
+	ix.keepService(npcs, lay)
 	zones := filepath.Join(filepath.Dir(st.TOC), "support", "Forever", "Zones", "areaIdToUiMapId.lua")
 	ix.Areas = parseAreas(zones)
 	ix.markEvents()

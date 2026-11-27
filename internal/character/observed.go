@@ -445,7 +445,41 @@ const (
 	RecipeKnown
 	// RecipeNotKnown: the character has a spell list or a recorded recipe list and the recipe is in neither.
 	RecipeNotKnown
+	// RecipeLikelyKnown: no recipe list was recorded for the profession (its window was never opened), but the
+	// character carries the item the recipe makes. It is inferred, never read: say "likely", never "learn it".
+	RecipeLikelyKnown
 )
+
+// OpenWindowTip is the one line to say when a profession's recipes were never captured.
+func OpenWindowTip(profession string) string {
+	return "Open your " + profession + " window once so I can see your recipes"
+}
+
+// HasRecipeList reports whether the capture holds recipes for the profession (its trade skill or craft window was read).
+func (c Character) HasRecipeList(profession string) bool {
+	return len(c.Recipes[strings.ToLower(strings.TrimSpace(profession))].Entries) > 0
+}
+
+// Carries reports whether the item is in the bags or the bank.
+func (c Character) Carries(item int64) bool {
+	if item == 0 {
+		return false
+	}
+	for _, l := range [][]ItemStack{c.Bags, c.Bank} {
+		for _, s := range l {
+			if int64(s.ItemID) == item && s.Count > 0 {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// LikelyKnowsMaker reports whether the character probably knows a recipe of the profession that makes the
+// item: no recipe list was captured for the profession and the item is in the bags or the bank.
+func (c Character) LikelyKnowsMaker(profession string, creates int64) bool {
+	return !c.HasRecipeList(profession) && c.Carries(creates)
+}
 
 // KnowsRecipe decides whether the character knows a recipe, by its spell id, its name and the item it
 // creates. Known spells and the recorded recipes for the profession both count as known; when either
@@ -463,6 +497,9 @@ func (c Character) KnowsRecipe(profession string, spell int64, name string, crea
 			creates != 0 && r.Makes == creates:
 			return RecipeKnown
 		}
+	}
+	if c.LikelyKnowsMaker(profession, creates) {
+		return RecipeLikelyKnown
 	}
 	if listed || len(c.KnownSpells) > 0 {
 		return RecipeNotKnown
