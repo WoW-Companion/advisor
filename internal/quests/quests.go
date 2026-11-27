@@ -88,6 +88,10 @@ func Of(ds store.DataStore, questID int64) Chain {
 	return c
 }
 
+// Name is the quest's name in the client tables, else the title players reported in quests_observed, else "". The client's
+// quests table holds no name column in a published dataset, so a quest named only there has the observed title.
+func Name(ds store.DataStore, id int64) string { return questName(ds, id) }
+
 // questName is the quest's name in the client tables, else the title players reported in quests_observed, else "".
 func questName(ds store.DataStore, id int64) string {
 	if row, err := ds.Get("quests", id); err == nil && str(row["name"]) != "" {

@@ -13,6 +13,7 @@ import (
 	"github.com/WoW-Companion/advisor/internal/character"
 	"github.com/WoW-Companion/advisor/internal/names"
 	"github.com/WoW-Companion/advisor/internal/questie"
+	"github.com/WoW-Companion/advisor/internal/quests"
 	"github.com/WoW-Companion/advisor/internal/store"
 	"github.com/WoW-Companion/advisor/internal/vendors"
 	"github.com/WoW-Companion/advisor/internal/wording"
@@ -388,11 +389,11 @@ func (f *finder) lootWays(item int64, name string) []Way {
 			f.rank(&w, cont)
 			out = append(out, w)
 		case strings.Contains(k, "quest"):
-			q, err := f.ds.Get("quests", i64(l["source_id"]))
-			if err != nil || str(q["name"]) == "" {
+			qname := quests.Name(f.ds, i64(l["source_id"]))
+			if qname == "" {
 				continue
 			}
-			out = append(out, Way{Kind: Quest, Name: str(q["name"]), Item: name, id: i64(l["source_id"]), tier: 2, dist: math.MaxFloat64})
+			out = append(out, Way{Kind: Quest, Name: qname, Item: name, id: i64(l["source_id"]), tier: 2, dist: math.MaxFloat64})
 		}
 	}
 	return out
