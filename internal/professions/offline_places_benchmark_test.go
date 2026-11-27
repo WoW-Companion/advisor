@@ -248,7 +248,7 @@ func TestOfflineBenchmarkNamedDungeon(t *testing.T) {
 		lo, hi := int(asI64(r["min_level"])), int(asI64(r["max_level"]))
 		wantTogo := max(lo-tc.level, 0)
 		got := fmt.Sprintf("levels %d-%d, %s, %d players, %d to go", *p.MinLevel, *p.MaxLevel, p.EntranceZone, *p.MaxPlayers, togo)
-		ref := fmt.Sprintf("levels %d-%d, %s, %d players, %d to go", lo, hi, asText(r["entrance_zone_name"]), asI64(r["max_players"]), wantTogo)
+		ref := fmt.Sprintf("levels %d-%d, %s, %d players, %d to go", lo, hi, asText(r["entrance_zone_name"]), dungeons.PartySize(tc.name, false, int(asI64(r["max_players"]))), wantTogo) // a dungeon's party is five, whatever the table's cap
 		text := dungeons.RenderNamed(c, *p, togo)
 		ok := got == ref && strings.Contains(text, fmt.Sprintf("about levels %d–%d", lo, hi)) && (wantTogo == 0) == !strings.Contains(text, "it opens around")
 		out = append(out, benchRow{fmt.Sprintf("%s asked at level %d", tc.name, tc.level), got, ref, instancesSrc, resultIf(ok, "the range, entrance, group size or levels to go")})

@@ -62,6 +62,13 @@ var stateWords = []string{"what should i do", "what do i do", "what next", "what
 	"my quest", "my talent", "my stats", "my inventory", "can i make", "can i craft", "should i equip", "should i wear", "an upgrade", "upgrades",
 	"which upgrade", "next quest", "what quest", "where do i get", "how do i get", "where can i get", "what do i need for"}
 
+// dungeonEntryAsk is a question about what a dungeon or raid needs before the group goes in: an attunement, a key, a quest, a level, a group size.
+var dungeonEntryAsk = regexp.MustCompile(`\b(?:attun\w*|keys?|lock ?pick\w*|requirements?|prerequisites?|prereqs?|get (?:in|into|inside)|enter\w*|entry|(?:min|minimum|recommended|required) level|level (?:range|requirement)|group size|how many (?:players|people)|what do i need for)\b`)
+
+// personalWords are the phrases of a question about the character's own plan: it stays a state question whatever dungeon it names.
+var personalWords = []string{"my ", "what should i do", "what do i do", "what next", "what's next", "whats next", "what quest", "next quest", "an upgrade",
+	"upgrades", "which upgrade", "should i equip", "should i wear", "can i make", "can i craft"}
+
 var professionNames = []string{"alchemy", "blacksmithing", "enchanting", "engineering", "herbalism", "leatherworking", "mining", "skinning",
 	"tailoring", "cooking", "first aid", "fishing"}
 
@@ -96,6 +103,11 @@ func Classify(text string, ds store.DataStore, c *character.Character) Class {
 	if d := dungeons.Mentioned(ds, nil, text); d != "" {
 		cl.Topic, cl.Subject = TopicDungeon, d
 		if cl.Kind == KindState && !hasAny(t, []string{"my ", "can i ", "what should i do", "where do i get", "how do i get"}) {
+			cl.Kind = KindKnowHow
+		}
+		// "how do I get attuned to Blackwing Lair", "where do I get the key for Dire Maul" and "what do I need for Molten Core" ask what a place
+		// needs before it is entered: that is no fact of the character's, and it gets the dungeon's facts like any dungeon question
+		if cl.Kind == KindState && dungeonEntryAsk.MatchString(t) && !hasAny(t, personalWords) {
 			cl.Kind = KindKnowHow
 		}
 		return cl

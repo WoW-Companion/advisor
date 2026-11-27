@@ -117,13 +117,14 @@ func TestOfflineBenchmarkGroupDungeonSize(t *testing.T) {
 			t.Fatalf("%s: %v", tc.name, err)
 		}
 		size := num(rows[0]["max_players"])
+		said := int64(dungeons.PartySize(tc.name, false, int(size))) // a dungeon's party is five, whatever the table's cap
 		words := dungeons.RenderNamed(c, *p, togo)
 		res := "match"
 		switch {
-		case int64(*p.MaxPlayers) != size || !strings.Contains(words, fmt.Sprintf("%d players", size)):
-			res = "differ: the answer words another size than the row"
-		case size != tc.guide:
-			res = fmt.Sprintf("differ (data): the dataset sizes it at %d players, the game at %d", size, tc.guide)
+		case int64(*p.MaxPlayers) != said || !strings.Contains(words, partyWords(tc.name, false, said)):
+			res = "differ: the answer words another size than the party"
+		case said != tc.guide:
+			res = fmt.Sprintf("differ: the advisor words %d players, the game %d", said, tc.guide)
 		}
 		out = append(out, benchRow{tc.name + ": group size", fmt.Sprintf("%d players", *p.MaxPlayers), fmt.Sprintf("%d players (dataset %d)", tc.guide, size), gpSizeSrc, res})
 	}
@@ -134,11 +135,8 @@ func TestOfflineBenchmarkGroupDungeonSize(t *testing.T) {
 	rows, _ := ds.Filter("instances", store.Range{Column: "name", Min: "Sunken Temple", Max: "Sunken Temple"})
 	size := num(rows[0]["max_players"])
 	r := "match"
-	switch {
-	case !strings.Contains(list, fmt.Sprintf("Sunken Temple (about levels 50–60; entrance in Swamp of Sorrows; %d players)", size)):
-		r = "differ: the list words another size or entrance than the row"
-	case size != 5:
-		r = fmt.Sprintf("differ (data): the dataset sizes it at %d players, the game at 5", size)
+	if !strings.Contains(list, "Sunken Temple (about levels 50–60; entrance in Swamp of Sorrows; 5 players)") {
+		r = "differ: the list words another size or entrance than the game's five-player dungeon"
 	}
 	out = append(out, benchRow{"Sunken Temple in the dungeon list for a level 55 warrior", firstMatch(list, "Sunken Temple"), fmt.Sprintf("5 players (dataset %d)", size), gpSizeSrc, r})
 	finish(t, "advice-group-dungeon-size", "Offline dungeon group play: the group size of a dungeon", out)

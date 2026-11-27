@@ -399,3 +399,22 @@ func TestLimitFactsWhereToLevelTerritoryCities(t *testing.T) {
 		}
 	}
 }
+
+func TestLimitFactsGearLevelOfAnInstance(t *testing.T) {
+	for _, q := range []string{
+		"what is the recommended gear level for Blackrock Depths?",
+		"what item level do I need for Molten Core?",
+		"what ilvl for Scholomance?",
+		"what gear score for BWL?",
+		"is a good gear score enough for Naxxramas?",
+	} {
+		if got := LimitFacts(q); !strings.Contains(got, "Dungeon difficulty and modes:") || !strings.Contains(got, "Say so") {
+			t.Errorf("LimitFacts(%q) = %q, want the dungeon difficulty fact", q, got)
+		}
+	}
+	for _, q := range []string{"what item level is the helm from Deadmines?", "what is the item level of the Deadmines drops?", "can I use an item level 30 helm in Deadmines?"} {
+		if got := LimitFacts(q); strings.Contains(got, "Dungeon difficulty and modes:") {
+			t.Errorf("LimitFacts(%q) = %q, want no dungeon difficulty fact: an item's level is in the data", q, got)
+		}
+	}
+}

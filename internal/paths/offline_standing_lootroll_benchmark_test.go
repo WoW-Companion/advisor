@@ -228,16 +228,17 @@ func TestOfflineBenchmarkInstanceEntry(t *testing.T) {
 				size = num(r["max_players"])
 			}
 		}
-		sizeSaid := p.MaxPlayers != nil && int64(*p.MaxPlayers) == size && strings.Contains(txt, fmt.Sprintf("%d players", size))
+		said := int64(dungeons.PartySize(tc.name, tc.raid, int(size))) // a dungeon's party is five, whatever the table's cap
+		sizeSaid := p.MaxPlayers != nil && int64(*p.MaxPlayers) == said && strings.Contains(txt, partyWords(tc.name, tc.raid, said))
 		out = append(out, benchRow{tc.name + ": the entry level", firstLine(strings.TrimSpace(txt)), tc.want, slEntrySrc, resultIf(strings.Contains(txt, tc.want), "the entry level")})
 		res := "match"
 		switch {
 		case !sizeSaid:
-			res = "differ: the group size is not the dataset's"
-		case size != tc.players:
-			res = fmt.Sprintf("differ (data): the dataset sizes it at %d players, the game at %d", size, tc.players)
+			res = "differ: the group size is not the party's"
+		case said != tc.players:
+			res = fmt.Sprintf("differ: the advisor words %d players, the game %d", said, tc.players)
 		}
-		out = append(out, benchRow{tc.name + ": the group size", fmt.Sprintf("%d players", size), fmt.Sprintf("%d players (dataset %d)", tc.players, size), slEntrySrc, res})
+		out = append(out, benchRow{tc.name + ": the group size", fmt.Sprintf("%d players", said), fmt.Sprintf("%d players (dataset %d)", tc.players, size), slEntrySrc, res})
 	}
 	finish(t, "advice-instance-entry", "Offline instance entry: level and group size", out)
 }

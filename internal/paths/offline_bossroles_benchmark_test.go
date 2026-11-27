@@ -208,6 +208,8 @@ func TestOfflineBenchmarkGroupSizeOfInstances(t *testing.T) {
 	for _, tc := range brSizes {
 		m := rowByName(t, ds, "instances", tc.name)
 		size := num(m["max_players"])
+		raid := text(m["instance_type"]) == "raid"
+		said := int64(dungeons.PartySize(tc.name, raid, int(size))) // a dungeon's party is five, whatever the table's cap
 		p, togo, err := dungeons.Named(c, ds, nil, tc.name)
 		if err != nil || p == nil || p.MaxPlayers == nil {
 			out = append(out, benchRow{tc.name + ": group size", "no answer", fmt.Sprintf("%d players", tc.guide), brSizeSrc, "differ: the instance or its size was not found"})
@@ -216,10 +218,10 @@ func TestOfflineBenchmarkGroupSizeOfInstances(t *testing.T) {
 		txt := dungeons.RenderNamed(c, *p, togo)
 		res := "match"
 		switch {
-		case int64(*p.MaxPlayers) != size || !strings.Contains(txt, fmt.Sprintf("%d players", size)):
-			res = "differ: the answer words another size than the row"
-		case size != tc.guide:
-			res = fmt.Sprintf("differ (data): the dataset sizes it at %d players, the game at %d", size, tc.guide)
+		case int64(*p.MaxPlayers) != said || !strings.Contains(txt, partyWords(tc.name, raid, said)):
+			res = "differ: the answer words another size than the party"
+		case said != tc.guide:
+			res = fmt.Sprintf("differ: the advisor words %d players, the game %d", said, tc.guide)
 		}
 		out = append(out, benchRow{tc.name + ": group size", fmt.Sprintf("%d players", *p.MaxPlayers), fmt.Sprintf("%d players (dataset %d)", tc.guide, size), brSizeSrc, res})
 	}

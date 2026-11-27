@@ -102,6 +102,14 @@ func (p DungeonPick) inside() string {
 	return strings.Join(parts, "; ")
 }
 
+// players is the group size as it is worded: Blackrock Spire is two parts, a five-player and a ten-player one.
+func (p DungeonPick) players() string {
+	if p.Name == blackrockSpire && !p.Raid && *p.MaxPlayers == 10 {
+		return "5 players in Lower Blackrock Spire, 10 in Upper"
+	}
+	return fmt.Sprintf("%d players", *p.MaxPlayers)
+}
+
 func (p DungeonPick) describe(b *strings.Builder, n int) {
 	prefix := "  - "
 	if n > 0 {
@@ -115,7 +123,7 @@ func (p DungeonPick) describe(b *strings.Builder, n int) {
 		meta = append(meta, "entrance in "+p.EntranceZone+p.coords())
 	}
 	if p.MaxPlayers != nil {
-		meta = append(meta, fmt.Sprintf("%d players", *p.MaxPlayers))
+		meta = append(meta, p.players())
 	}
 	fmt.Fprintf(b, "%s%s", prefix, p.Name)
 	if len(meta) > 0 {
