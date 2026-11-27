@@ -77,7 +77,7 @@ func TestHearthSlowerThanTheWalkIsNotUsed(t *testing.T) {
 func TestHearthOnCooldownLongerThanThePlanIsNotUsed(t *testing.T) {
 	ix, c := hearthWorld("Hillsbrad Foothills")
 	yes, wait, cd := true, 7200, 3600
-	c.HearthHave, c.HearthReadyIn, c.HearthCooldown = &yes, &wait, &cd
+	c.HearthHave, c.HearthReadyIn, c.HearthCD = &yes, &wait, &cd
 	p := Build(c, ix)
 	if hearthLegs(p) != 0 || strings.Contains(p.Trips[0].Travel, "Hearth") || strings.Contains(p.Trips[0].Travel, "cooldown") {
 		t.Errorf("trips %+v", p.Trips)

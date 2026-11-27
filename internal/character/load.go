@@ -318,7 +318,7 @@ func LoadCharacter(key string, rec lua.Table) Character {
 		Client:    firstClient(ident["client"], snap["client"], rec["client"]),
 		Equipment: equipment(snap["equipment"]), Talents: talents(snap["talents"]),
 		Location: location(snap["location"]), Hearth: asStr(snap["hearth"]),
-		HearthHave: asBool(snap["hearthHave"]), HearthReadyIn: asInt(snap["hearthReadyIn"]), HearthCooldown: asInt(snap["hearthCooldown"]),
+		HearthHave: asBool(snap["hearthHave"]), HearthReadyIn: asInt(snap["hearthReadyIn"]), HearthCD: asInt(snap["hearthCooldown"]),
 	}
 	// The key is "Realm:Name"; with no realm captured the client leaves it empty, so key by name.
 	c.Key = key

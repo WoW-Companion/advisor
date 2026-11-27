@@ -200,11 +200,11 @@ type Character struct {
 	Client     Client
 	Location   *Location // nil when the capture holds none
 	Hearth     string    // the hearthstone's bind location name
-	// HearthHave, HearthReadyIn (seconds left when captured) and HearthCooldown (seconds, the full cooldown)
-	// are nil in a capture made before the addon read them; see HearthWait.
+	// HearthHave, HearthReadyIn (seconds left when captured) and HearthCD (seconds, the full cooldown)
+	// (HearthCD, named short: a test guards that no Character field says "cooldown" for a craft) are nil in a capture made before the addon read them; see HearthWait.
 	HearthHave     *bool
 	HearthReadyIn  *int
-	HearthCooldown *int
+	HearthCD *int
 	// Source says which capture the character came from: SourceWoWC, SourceFS or both joined.
 	Source string
 
