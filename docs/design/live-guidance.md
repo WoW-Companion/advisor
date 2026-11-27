@@ -19,7 +19,7 @@ only moves at those three moments.
 | Map id and name | yes | `snapshot.location.mapID`, `.mapName` (`C_Map.GetBestMapForUnit`) | yes |
 | Map coordinates | yes, when the client returns them | `snapshot.location.x`, `.y`, percent of the map to 2 decimals (`MapPosition`); absent in instances and on maps without a position | yes (`Location.X`, `.Y`); not used yet |
 | Instance flag | yes | `snapshot.location.instance`, `.inInstance` | no |
-| Hearthstone bind | name only | `snapshot.hearth` (`GetBindLocation`), also the `HEARTH_BOUND` event | yes (`Character.Hearth`); name only, no coordinates or map id |
+| Hearthstone bind | name only | `snapshot.hearth` (`GetBindLocation`), also the `HEARTH_BOUND` event | yes (`Character.Hearth`); name only, no coordinates or map id; `hearthHave`, `hearthReadyIn`, `hearthCooldown` (seconds, ready-in aged by the capture time) feed the route's hearth leg, and an older capture counts as ready |
 | Objective progress | yes | `snapshot.quests[i].obj[j] {text, have, need, done, type}` (`numFulfilled`, `numRequired`) | yes (`Quest.Objectives`), unused by advice |
 | Quest zone | the log's header text | `snapshot.quests[i].zone` is the quest-log header, not a map id | yes |
 | Taxi nodes | node names and ids per continent, current flag | `char.taxi` (`FS.ScanTaxi`, `C_TaxiMap.GetAllTaxiNodes`) | no; no coordinates |
@@ -134,7 +134,7 @@ observation decides how much the addon must supply itself.
 |---|---|---|
 | data | Fetch `QuestPOIPoint`, `TaxiNodes`, `AreaTrigger`; add objective-area rows and a taxi table with credit | M |
 | data | Find a sanctioned source of quest level, name, class/race masks and giver zone (client dump from an addon, or Everloot) | L |
-| advisor | Use `location` x/y and the hearth in advice: distance to a step, "hearth first" | S |
+| advisor | Use `location` x/y and the hearth in advice: distance to a step, "hearth first". Done for the hearth: the route spends it once per plan as a "Hearth to <bind>" trip leg (1 minute, `via = "hearth"`) when it is ready and strictly quicker; the bind is placed by city, flight point or innkeeper, else the plan basis says it could not be. Open: distance to a step | S |
 | advisor | Write the plan file (`WoWCompanionPlan`) with a schema doc and tests | M |
 | addon | Read the plan, show next step, progress and direction, strictly read-only | M |
 | addon | Optional dump of the quest data the client does expose for Forever's custom zones | M |

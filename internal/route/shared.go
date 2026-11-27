@@ -49,7 +49,7 @@ type Exit struct {
 	Map   int     `json:"map"`
 	X     float64 `json:"x"`
 	Y     float64 `json:"y"`
-	Via   string  `json:"via"` // "flight", "zeppelin", "boat" or "walk"
+	Via   string  `json:"via"` // "flight", "zeppelin", "boat", "hearth" or "walk"
 }
 
 // Trip is the logged quests that wait in one zone outside the run here, in suggested travel order.
@@ -233,7 +233,7 @@ func shapeSharedPlan(p *Plan, c character.Character, src source, opt Options, in
 		}
 		t.via = viaOf(t.Travel, arr)
 	}
-	orderAndRoute(p, c, src, trips, arrivals, legOf, in)
+	orderAndRoute(p, c, src, opt, trips, arrivals, legOf, in)
 	for i, t := range trips {
 		t.Order = i + 1
 		p.Trips = append(p.Trips, *t)

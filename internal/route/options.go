@@ -2,6 +2,7 @@ package route
 
 import (
 	"os"
+	"time"
 
 	"github.com/WoW-Companion/advisor/internal/questie"
 	"github.com/WoW-Companion/advisor/internal/store"
@@ -28,6 +29,7 @@ func OptionsFor(addonSV string, ds store.DataStore) Options {
 	opt.Dungeons = dungeonLevels(ds)
 	opt.Places = placesFrom(ds)
 	opt.Data = ds
+	opt.Now = time.Now().Unix()
 	return opt
 }
 

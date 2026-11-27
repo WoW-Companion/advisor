@@ -19,6 +19,9 @@ func (e Entity) IsVendor() bool { return e.Flags&vendorMask != 0 }
 // IsTrainer reports whether the NPC trains a class or a profession.
 func (e Entity) IsTrainer() bool { return e.Flags&trainerMask != 0 }
 
+// IsInnkeeper reports whether the NPC runs an inn, where a hearthstone is bound.
+func (e Entity) IsInnkeeper() bool { return e.Flags&FlagInnkeeper != 0 }
+
 // IsFlightMaster reports whether the NPC runs a flight path.
 func (e Entity) IsFlightMaster() bool { return e.Flags&taxiFlag != 0 }
 
@@ -67,7 +70,7 @@ func (ix *Index) keepService(npcs map[int]rawRow, l Layout) {
 		if _, ok := ix.Npcs[id]; ok {
 			continue
 		}
-		if f := l.flags.canon(num(row.scalars()[fl])); f&(vendorMask|trainerMask|taxiFlag) == 0 {
+		if f := l.flags.canon(num(row.scalars()[fl])); f&(vendorMask|trainerMask|taxiFlag|FlagInnkeeper) == 0 {
 			continue
 		}
 		if e := buildEntity(row, l, "npc"); e.Name != "" && len(e.Spawns) > 0 {

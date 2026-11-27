@@ -444,7 +444,7 @@ func orderTrips(d0 []int, d [][]int, w []float64) []int {
 // orderAndRoute orders the trips as a travel route from the run's exit (in place), then words every trip's
 // travel from the one before it and sets its minutes. A pair of zones the graph cannot join keeps the older
 // wording and a flat estimate.
-func orderAndRoute(p *Plan, c character.Character, src source, trips []*Trip, arrivals map[int]Arrival, legOf map[int]Stop, in sharedInput) {
+func orderAndRoute(p *Plan, c character.Character, src source, opt Options, trips []*Trip, arrivals map[int]Arrival, legOf map[int]Stop, in sharedInput) {
 	if len(trips) == 0 {
 		return
 	}
@@ -480,7 +480,22 @@ func orderAndRoute(p *Plan, c character.Character, src source, trips []*Trip, ar
 			}
 		}
 	}
-	ord := orderTrips(d0, d, w)
+	// The hearthstone, once per plan: a leg to each trip from the bind zone, for the legs that start once it is ready.
+	hs := hearthFor(p, c, g, src, opt.Now)
+	var hb []int
+	if hs != nil {
+		hb = make([]int, n)
+		for i, t := range trips {
+			hb[i] = noHearth
+			if h := g.hop(hs.zone, zone(t), flights, nil, arriveAt(t)); h.ok && t.Map != in.cur {
+				hb[i] = hearthMinutes + h.minutes
+			}
+		}
+	}
+	ord, hp := orderTrips(d0, d, w), -1
+	if hs != nil {
+		ord, hp = orderWithHearth(d0, d, w, hs.wait, hb)
+	}
 	sorted := make([]*Trip, 0, n)
 	for _, i := range ord {
 		sorted = append(sorted, trips[i])
@@ -493,6 +508,10 @@ func orderAndRoute(p *Plan, c character.Character, src source, trips []*Trip, ar
 			fromNear = nil
 		}
 		h := g.hop(from, zone(t), flights, fromNear, arriveAt(t))
+		if i == hp {
+			rest := g.hop(hs.zone, zone(t), flights, nil, arriveAt(t))
+			h = hop{minutes: hearthMinutes + rest.minutes, text: hearthText(hs.name, rest.text), via: "hearth", ok: true}
+		}
 		if t.Map == in.cur {
 			t.ETA = 0
 		} else {
