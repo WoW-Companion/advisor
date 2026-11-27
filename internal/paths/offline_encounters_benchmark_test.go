@@ -404,7 +404,7 @@ func TestOfflineBenchmarkEncounterNoAnswer(t *testing.T) {
 	for _, d := range []string{"Deadmines", "Shadowfang Keep", "Uldaman"} {
 		p, _, _ := dungeons.Named(c, instStore(), nil, d)
 		txt := dungeons.RenderNamed(c, *p, 0)
-		out = append(out, benchRow{d + ": what its bosses drop", firstLine(strings.SplitN(txt, "Drops not known yet", 2)[1]), "the boss loot tables (Warcraft Wiki)", encNoneSrc,
+		out = append(out, benchRow{d + ": what its bosses drop", "drops not known yet" + firstLine(strings.SplitN(txt, "Drops not known yet", 2)[1]), "the boss loot tables (Warcraft Wiki)", encNoneSrc,
 			resultIf(len(p.Drops) == 0 && len(p.UnlinkedBosses) == len(p.Bosses) && strings.Contains(txt, "Drops not known yet"), "a drop was stated for a boss the dataset cannot link")})
 	}
 	// no respawn timer, spawn place or group size column
