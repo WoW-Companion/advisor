@@ -242,14 +242,7 @@ func level(c character.Character) int {
 	return *c.Level
 }
 
-func hasProfession(c character.Character, p string) bool {
-	for _, s := range c.Professions {
-		if strings.EqualFold(s.Name, p) {
-			return true
-		}
-	}
-	return false
-}
+func hasProfession(c character.Character, p string) bool { return HasProfession(c, p) }
 
 // ReviewAll judges every stack of every character: sell, mail to an alt, keep or toss. It never
 // guesses: an item the dataset lacks, or a rule the dataset cannot settle, is "unsure", and a price
@@ -372,6 +365,25 @@ func decide(chars []character.Character, i int, e Entry, row store.Row, ds store
 			}
 		}
 		return Toss, "", "no character has a quest that needs it", false
+	}
+	if p := professions.ToolOf(e.Name); p != "" {
+		// a profession's tool is no gear: its owner keeps it, and another character with the profession is sent it
+		if hasProfession(c, p) {
+			return Keep_, "", "the " + p + " tool: " + p + " needs it in your bags", false
+		}
+		for j, o := range chars {
+			if j != i && hasProfession(o, p) {
+				who := displayName(o)
+				if boundOnPickup(row) {
+					return Sell, "", "the " + p + " tool of " + who + "'s " + p + ", but it is bound to you when picked up and cannot be mailed", false
+				}
+				return Mail, who, "the " + p + " tool, for " + who + "'s " + p, false
+			}
+		}
+		return Sell, "", "no character has " + p + ", so its tool has no use", false
+	}
+	if IsBag(row) {
+		return Unsure, "", BagReason, false
 	}
 	if k := consumableKind(e.Name, row); k != "" {
 		if (k == "arrows" || k == "bullets") && !usesAmmo(c.Class) {

@@ -204,6 +204,7 @@ func (s Stock) where() string {
 // toolNames are the words of each profession's tool item name.
 var toolWords = map[string][]string{
 	"enchanting":    {"runed", "rod"},
+	"engineering":   {"arclight spanner"},
 	"mining":        {"mining pick"},
 	"skinning":      {"skinning knife"},
 	"blacksmithing": {"blacksmith hammer"},
@@ -213,6 +214,7 @@ var toolWords = map[string][]string{
 // toolItems are the base tool item of each profession that has one, named as the dataset names it.
 var toolItems = map[string]string{
 	"enchanting":    "Runed Copper Rod",
+	"engineering":   "Arclight Spanner",
 	"mining":        "Mining Pick",
 	"skinning":      "Skinning Knife",
 	"blacksmithing": "Blacksmith Hammer",
@@ -239,6 +241,22 @@ func toolHint(ds store.DataStore, profession string) string {
 		t += " (" + m + ")"
 	}
 	return t + "."
+}
+
+// ToolOf names the profession whose tool an item is, by the item's name ("Mining Pick" is Mining's; a fishing pole is
+// Fishing's); "" for any other item.
+func ToolOf(name string) string {
+	n := strings.ToLower(name)
+	for _, prof := range []string{"Enchanting", "Engineering", "Mining", "Skinning", "Blacksmithing", "Fishing"} {
+		found := true
+		for _, w := range toolWords[strings.ToLower(prof)] {
+			found = found && strings.Contains(n, w)
+		}
+		if found {
+			return prof
+		}
+	}
+	return ""
 }
 
 // HasTool reports whether the character carries or wears the profession's tool; needed is false

@@ -282,13 +282,13 @@ func For(c character.Character, ds store.DataStore, itemID int64, opt Options) R
 	}
 	sort.SliceStable(res.Paths, func(i, j int) bool { return res.Paths[i].rank < res.Paths[j].rank })
 	if !res.Dependable() {
-		res.Reason = f.why(crs)
+		res.Reason = f.why(crs, res.Paths)
 	}
 	return res
 }
 
 // why says why an item with no path is not worth chasing.
-func (f *finder) why(crs []creature) string {
+func (f *finder) why(crs []creature, ways []Path) string {
 	bonding := int(i64(f.item["bonding"]))
 	switch {
 	case f.caughtByFishing() != "":
@@ -297,6 +297,9 @@ func (f *finder) why(crs []creature) string {
 	case f.soldByVendors():
 		// the dataset lists vendors for it but names none (advice never points at a bare vendor id)
 		return "vendors sell it, but the game data you have names none of them, so it can't say which one to visit"
+	case hasCraftWay(ways):
+		// a crafted bag, tool or piece the character cannot make yet: the craft line says what is missing, so it is no drop and not a dead end
+		return "it is made by a profession, not dropped or sold, and you can't make it right now: the craft below says what is missing"
 	case len(f.loot) == 0 && isMount(f.item):
 		// a mount is bought from a vendor or trainer, or won: an empty table is no verdict on it
 		return "the game data lists no source for this mount, so it can't say where to get it"
@@ -310,6 +313,16 @@ func (f *finder) why(crs []creature) string {
 		return "it is a random drop, not worth chasing"
 	}
 	return "there is no dependable way to get this right now, so it is not worth chasing"
+}
+
+// hasCraftWay is true when one of the ways is a craft the character cannot make now.
+func hasCraftWay(ways []Path) bool {
+	for _, p := range ways {
+		if p.Kind == Craft && p.Informational {
+			return true
+		}
+	}
+	return false
 }
 
 // soldByVendors is true when the dataset lists a vendor for the item, named or not.

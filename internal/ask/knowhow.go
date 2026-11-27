@@ -54,7 +54,9 @@ type Class struct {
 var knowHowWords = []string{"strategy", "strategies", "tactic", "tips", "tip for", "how do i beat", "how to beat", "how do i kill",
 	"how to kill", "how do i handle", "mechanic", "rotation", "lore", "thinking ahead", "how does", "how do i play", "how should i play",
 	"how do you play", "general strategy", "what's it like", "what is it like", "is it hard", "boss", "how do i tank", "how to tank",
-	"how to level", "how do i level", "how do i work", "how does a", "how do i run", "how do i survive"}
+	"how to level", "how do i level", "how do i work", "how does a", "how do i run", "how do i survive",
+	// how dying, repairing, riding and bags work in the game: not a fact about the player's own character, even when it says "my gear" or "how do I get"
+	"corpse", "my body", "i died", "graveyard", "spirit healer", "resurrection sickness", "durability", "repair", "riding skill", "flying mount", "bag slots", "slots does"}
 
 var stateWords = []string{"what should i do", "what do i do", "what next", "what's next", "whats next", "my gear", "my bags", "my bank",
 	"my quest", "my talent", "my stats", "my inventory", "can i make", "can i craft", "should i equip", "should i wear", "an upgrade", "upgrades",
@@ -105,7 +107,7 @@ func Classify(text string, ds store.DataStore, c *character.Character) Class {
 		}
 	}
 	for _, k := range classNames {
-		if strings.Contains(t, " "+k) {
+		if classWord(t, k) {
 			cl.Topic, cl.Subject = TopicClass, k
 			return cl
 		}
@@ -115,6 +117,25 @@ func Classify(text string, ds store.DataStore, c *character.Character) Class {
 	}
 	return cl
 }
+
+// classWord is true when the class is named as a word, in the plural or with 's: "mage" is not the start of "Mageweave Bag".
+func classWord(t, class string) bool {
+	for from := 0; ; {
+		i := strings.Index(t[from:], " "+class)
+		if i < 0 {
+			return false
+		}
+		rest := t[from+i+1+len(class):]
+		for _, tail := range []string{"", "s", "'s", "es"} {
+			if r, ok := strings.CutPrefix(rest, tail); ok && (r == "" || !isLetter(r[0])) {
+				return true
+			}
+		}
+		from += i + 1
+	}
+}
+
+func isLetter(b byte) bool { return b >= 'a' && b <= 'z' }
 
 var atLevel = regexp.MustCompile(`\b(?:level|lvl)\s*(\d{1,2})\b`)
 var nextLevels = []string{"next level", "next lvl", "level up", "levelling up", "leveling up", "level after", "new at level", "get at level", "learn at level", "train at level", "next two levels", "next 2 levels"}

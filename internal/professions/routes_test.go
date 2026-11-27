@@ -164,3 +164,15 @@ func TestRouteFactsCountTheDatasetMaterials(t *testing.T) {
 		t.Errorf("materials not counted:\n%s", got)
 	}
 }
+
+func TestToolOfNamesTheProfessionOfATool(t *testing.T) {
+	for name, want := range map[string]string{"Mining Pick": "Mining", "Skinning Knife": "Skinning", "Blacksmith Hammer": "Blacksmithing", "Arclight Spanner": "Engineering",
+		"Runed Copper Rod": "Enchanting", "Strong Fishing Pole": "Fishing", "Linen Bag": "", "Copper Bar": ""} {
+		if got := ToolOf(name); got != want {
+			t.Errorf("ToolOf(%q) = %q, want %q", name, got, want)
+		}
+	}
+	if has, needed := HasTool(character.Character{}, "Engineering"); has || !needed {
+		t.Errorf("Engineering needs the Arclight Spanner: has %v needed %v", has, needed)
+	}
+}

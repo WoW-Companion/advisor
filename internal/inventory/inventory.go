@@ -61,6 +61,25 @@ type Result struct {
 
 func i64(v any) int64 { n, _ := v.(int64); return n }
 
+// BagReason is why a bag or quiver is left unplaced: the dataset holds no slot count for it.
+const BagReason = "a bag or quiver: the dataset holds no bag size, so it can't say whether it beats the one you carry"
+
+// IsBag reports whether an item row is a bag, a quiver or an ammo pouch: a container worn in a bag slot, which is no gear to bank or sell.
+func IsBag(row store.Row) bool {
+	cl := i64(row["class_id"])
+	return (cl == 1 || cl == 11) && i64(row["slot"]) == 18
+}
+
+// HasProfession reports whether the character has the named profession.
+func HasProfession(c character.Character, name string) bool {
+	for _, s := range c.Professions {
+		if strings.EqualFold(s.Name, name) {
+			return true
+		}
+	}
+	return false
+}
+
 // openItemQuests maps a lower-cased item name to the open quests whose item objectives name it.
 func openItemQuests(c character.Character) map[string][]string {
 	out := map[string][]string{}
@@ -92,7 +111,7 @@ func contains(l []string, s string) bool {
 }
 
 // classify picks the group of one item and says why.
-func classify(id int64, name string, row store.Row, known bool, up map[int64]gear.Candidate,
+func classify(c character.Character, id int64, name string, row store.Row, known bool, up map[int64]gear.Candidate,
 	keep map[int64][]string, far map[int64][]string, quests map[string][]string) (Group, string) {
 	if cd, ok := up[id]; ok {
 		if cd.Empty {
@@ -106,8 +125,14 @@ func classify(id int64, name string, row store.Row, known bool, up map[int64]gea
 	if q, ok := quests[strings.ToLower(name)]; ok {
 		return Quest, "needed for " + strings.Join(q, ", ")
 	}
+	if p := professions.ToolOf(name); p != "" && HasProfession(c, p) {
+		return Keep, "the " + p + " tool: " + p + " needs it in your bags"
+	}
 	if !known {
 		return Unknown, "not in the dataset"
+	}
+	if IsBag(row) {
+		return Unknown, BagReason
 	}
 	if row["quality"] != nil && i64(row["quality"]) == poor {
 		return Vendor, "poor quality (grey)"
@@ -183,7 +208,7 @@ func Review(c character.Character, ds store.DataStore) Result {
 			if name == "" {
 				name = fmt.Sprintf("item %d", id)
 			}
-			g, why := classify(id, name, row, known, up, keep, far, quests)
+			g, why := classify(c, id, name, row, known, up, keep, far, quests)
 			e := Entry{ItemID: id, Name: name, Count: s.Count, Where: loc.where, Group: g, Reason: why}
 			if p, ok := row["sell_price"].(int64); ok && known {
 				e.SellPrice = &p
