@@ -406,7 +406,8 @@ func decide(chars []character.Character, i int, e Entry, row store.Row, ds store
 		holders := questHolders[strings.ToLower(e.Name)]
 		for _, h := range holders {
 			if h != me {
-				return Mail, h, "needed for a quest in " + h + "'s log", false
+				// a quest item is bound to the one who looted it: it cannot be mailed or traded, so the alt must get their own
+				return Toss, "", "a quest item cannot be mailed or traded, so " + h + " must get their own for the quest in " + h + "'s log; no quest in your log needs it", false
 			}
 		}
 		if q := need.Finished(e.ItemID); q != "" {

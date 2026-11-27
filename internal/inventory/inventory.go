@@ -140,6 +140,10 @@ func classify(c character.Character, id int64, name string, row store.Row, known
 	if row["quality"] != nil && i64(row["quality"]) == poor && !isQuestItem(row) {
 		return Vendor, "poor quality (grey)"
 	}
+	// nor is it gear to bank: a quest item some quest does not need is the player's to destroy, as the all-characters review says
+	if isQuestItem(row) {
+		return Unknown, "a quest item no quest in your log needs: not for the vendor or the bank"
+	}
 	if p, ok := far[id]; ok {
 		return Bank, "material for " + strings.Join(p, ", ") + " recipes more than " + fmt.Sprint(professions.KeepWindow) + " skill points away"
 	}
