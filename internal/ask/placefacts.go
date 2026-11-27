@@ -94,7 +94,7 @@ func SummonStoneFacts(ds store.DataStore, text string) string {
 			if zone == "" {
 				break
 			}
-			fmt.Fprintf(&b, "What the data holds for %s: its entrance is in %s (level %d-%d, %d players). Give that as where to go, and the stone, if the game has one there, is for the player to look for by the entrance.", name, zone, numOf(r["min_level"]), numOf(r["max_level"]), numOf(r["max_players"]))
+			fmt.Fprintf(&b, "What the data holds for %s: its entrance is in %s (level %d-%d, %d players). Give that as where to go, and the stone, if the game has one there, is for the player to look for by the entrance.", name, zone, numOf(r["min_level"]), numOf(r["max_level"]), dungeons.PartySize(name, r["instance_type"] == "raid", int(numOf(r["max_players"]))))
 			return b.String()
 		}
 	}

@@ -142,6 +142,10 @@ func pickOfType(row store.Row, qx *questie.Index, raids bool) (DungeonPick, bool
 	p := DungeonPick{MapID: i64(row["map_id"]), MinLevel: optInt(row["min_level"]), MaxLevel: optInt(row["max_level"]), MaxPlayers: optInt(row["max_players"])}
 	p.Raid = kind == "raid"
 	p.Name, _ = row["name"].(string)
+	if p.MaxPlayers != nil {
+		n := PartySize(p.Name, p.Raid, *p.MaxPlayers)
+		p.MaxPlayers = &n
+	}
 	p.EntranceZone, _ = row["entrance_zone_name"].(string)
 	if p.EntranceZone == "" && p.MaxPlayers == nil && qx.FindDungeon(int(p.MapID), p.Name) == nil {
 		return DungeonPick{}, false
@@ -167,7 +171,23 @@ var aliases = []struct{ key, name string }{
 	{"brs", "Blackrock Spire"}, {"lbrs", "Blackrock Spire"}, {"ubrs", "Blackrock Spire"}, {"strat", "Stratholme"},
 	{"scholo", "Scholomance"}, {"zg", "Zul'Gurub"}, {"bwl", "Blackwing Lair"}, {"aq40", "Ahn'Qiraj Temple"},
 	{"aq20", "Ruins of Ahn'Qiraj"},
+	// "mc" and "dm" are left out: the first is a priest's Mind Control, the second Deadmines as often as Dire Maul
+	{"zf", "Zul'Farrak"}, {"wc", "Wailing Caverns"}, {"sm", "Scarlet Monastery"}, {"uld", "Uldaman"}, {"st", "Sunken Temple"},
+	{"vc", "Deadmines"}, {"dme", "Dire Maul"}, {"dmn", "Dire Maul"}, {"dmw", "Dire Maul"},
 }
+
+// PartySize is the number of players a dungeon or raid takes. The client's map table holds a cap of 10 for most
+// five-player dungeons and 20 for Sunken Temple, which is no group a player can bring: a dungeon's party is five.
+// Blackrock Spire is the one that holds a ten-player part (Upper Blackrock Spire), so it keeps the table's 10 and
+// is worded for both parts (see DungeonPick.players). A raid keeps the table's size.
+func PartySize(name string, raid bool, table int) int {
+	if raid || table <= 5 || name == blackrockSpire {
+		return table
+	}
+	return 5
+}
+
+const blackrockSpire = "Blackrock Spire"
 
 var plainName = strings.NewReplacer("'", "", "\u2019", "")
 

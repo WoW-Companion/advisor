@@ -649,3 +649,37 @@ func TestAlternateMode(t *testing.T) {
 		t.Error("an ordinary raid boss is an alternate mode")
 	}
 }
+
+func TestPartySizeIsFiveForADungeon(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		raid bool
+		in   int
+		want int
+	}{
+		{"Deadmines", false, 10, 5}, {"Sunken Temple", false, 20, 5}, {"Scholomance", false, 5, 5}, {"Blackrock Spire", false, 10, 10},
+		{"Molten Core", true, 40, 40}, {"Zul'Gurub", true, 20, 20}, {"Ruins of Ahn'Qiraj", true, 20, 20},
+	} {
+		if got := PartySize(tc.name, tc.raid, tc.in); got != tc.want {
+			t.Errorf("PartySize(%q, raid %v, %d) = %d, want %d", tc.name, tc.raid, tc.in, got, tc.want)
+		}
+	}
+	ten := 10
+	if got := (DungeonPick{Name: "Blackrock Spire", MaxPlayers: &ten}).players(); got != "5 players in Lower Blackrock Spire, 10 in Upper" {
+		t.Errorf("Blackrock Spire worded %q", got)
+	}
+}
+
+func TestMoreShortNames(t *testing.T) {
+	for alias, want := range map[string]string{"zf": "Zul'Farrak", "wc": "Wailing Caverns", "sm": "Scarlet Monastery", "uld": "Uldaman", "st": "Sunken Temple",
+		"vc": "Deadmines", "dme": "Dire Maul", "dmn": "Dire Maul", "dmw": "Dire Maul", "UBRS": "Blackrock Spire"} {
+		if got := aliasOf(alias); got != want {
+			t.Errorf("aliasOf(%q) = %q, want %q", alias, got, want)
+		}
+	}
+	for _, alias := range []string{"mc", "dm", "aq"} {
+		if got := aliasOf(alias); got != "" {
+			t.Errorf("aliasOf(%q) = %q, want none: it fits more than one thing", alias, got)
+		}
+	}
+}
