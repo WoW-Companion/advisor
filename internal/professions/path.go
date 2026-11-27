@@ -407,7 +407,7 @@ func (p *planner) price(r Recipe, from string, skill, target int, left map[int64
 	if name == "" {
 		name = fmt.Sprintf("spell %d", r.SpellID)
 	}
-	s := scored{opt: Option{Recipe: name, Crafts: crafts, Difficulty: d, Learn: ltext}, reach: reach, crafts: crafts,
+	s := scored{opt: Option{Recipe: name, Crafts: crafts, Difficulty: colourAt(r, skill), Learn: ltext}, reach: reach, crafts: crafts,
 		spell: r.SpellID, effort: le, use: map[int64]int{}, from: skill}
 	s.opt.Spell, s.opt.LearnInfo = r.SpellID, linfo
 	s.opt.LearnSkill, s.opt.LearnFrom, s.opt.Around = r.LearnSkill, r.LearnSource, r.LearnSource == "estimate"

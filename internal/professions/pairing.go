@@ -91,6 +91,9 @@ func heldPrimaries(c character.Character, n Notes) []string {
 	return out
 }
 
+// lossNote is said when a change would drop a profession: the dataset holds no skill lost, recipes forgotten or cost, so none is stated.
+const lossNote = " The game data does not say what dropping a profession costs (skill or recipes); check in the game before you unlearn one."
+
 // fullSlots rewrites the advice for a character whose two primary slots are taken: what the pair they hold is, first, and
 // every other pair as a change that means dropping one of them. A pair the notes do not list is said to have no note, not
 // praised or faulted.
@@ -99,18 +102,35 @@ func fullSlots(res []Advice, held []string) []Advice {
 	same := func(x Advice) bool {
 		return strings.EqualFold(x.A, a) && strings.EqualFold(x.B, b) || strings.EqualFold(x.A, b) && strings.EqualFold(x.B, a)
 	}
-	first := Advice{A: a, B: b, Reason: "Both of your primary slots are taken by " + a + " and " + b + ". The game data has no pairing note for this pair."}
+	first := Advice{A: a, B: b, Reason: "Both of your primary slots are taken by " + a + " and " + b + ". The game data has no pairing note for this pair." + lossNote}
 	var out []Advice
 	for _, x := range res {
 		if same(x) {
 			reason := strings.ReplaceAll(strings.ReplaceAll(x.Reason, " You already have "+a+".", ""), " You already have "+b+".", "")
-			first = Advice{A: x.A, B: x.B, Reason: reason + " You already have both."}
+			first = Advice{A: x.A, B: x.B, Reason: reason + " You already have both." + lossNote}
 			continue
 		}
-		x.Reason += " Both your primary slots are taken, so this means dropping " + a + " or " + b + "."
+		x.Reason += switchText(x, a, b)
 		out = append(out, x)
 	}
 	return append([]Advice{first}, out...)
+}
+
+// switchText says what taking a pair costs a character whose slots hold a and b: a pair that shares one of them keeps it and
+// drops only the other; a pair that shares none drops both. Skill already earned in a dropped profession is not stated: the
+// dataset holds nothing on it.
+func switchText(x Advice, a, b string) string {
+	const lead = " Both your primary slots are taken"
+	for _, kept := range [][2]string{{a, b}, {b, a}} {
+		if strings.EqualFold(x.A, kept[0]) || strings.EqualFold(x.B, kept[0]) {
+			add := x.A
+			if strings.EqualFold(x.A, kept[0]) {
+				add = x.B
+			}
+			return lead + ": this keeps " + kept[0] + " and means dropping " + kept[1] + " for " + add + "."
+		}
+	}
+	return lead + ", so this means dropping both " + a + " and " + b + "."
 }
 
 // RenderPairings is the plain text of pairing advice.

@@ -288,20 +288,37 @@ func (p *planner) disenchantable(material int64) []string {
 	return out
 }
 
+// maxNodeLines is how many nodes the preparation lines name for one material.
+const maxNodeLines = 3
+
 // prep fills the feeder and preparation lines from the notes and the gathering, fishing and
 // disenchanting tables, for the materials the path still needs.
 func (p *planner) prep(pa *Path, bands []Band) {
 	missing := map[string]bool{}
+	raw := map[int64]bool{} // the materials a made one (a bar, a bolt) bottoms out in: the ore a smelt takes is gathered
 	for _, b := range bands {
 		for _, n := range b.Best.Needs {
 			if n.Missing > 0 {
 				missing[n.Item] = true
+			}
+			if n.Make != nil && n.Missing > 0 {
+				for _, l := range n.Make.Leaves() {
+					if l.Missing > 0 && l.ID != 0 {
+						missing[l.Item] = true
+						raw[l.ID] = true
+					}
+				}
 			}
 		}
 	}
 	var ids []int64
 	for id := range p.short {
 		ids = append(ids, id)
+	}
+	for id := range raw {
+		if !p.short[id] {
+			ids = append(ids, id)
+		}
 	}
 	sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] })
 	add := func(s string) {
@@ -351,16 +368,18 @@ func (p *planner) prep(pa *Path, bands []Band) {
 			}
 			add(how + ".")
 		}
+		listed := 0 // the nodes named for this item: a few, so one common ore does not use up the lines of the materials after it
 		for _, y := range rowsBy(p.ds, "gathering_yields", "item_id", id) {
 			for _, n := range rowsBy(p.ds, "gathering_nodes", "node_id", asI64(y["node_id"])) {
-				if rs := asInt(n["skill_required"]); rs != nil && *rs > reach {
+				// a node with no skill is a client-language or variant name (Feuillargent, Gisement de fer) the dataset has not
+				// read: it is not named to the player, who may have no such node, and the line says nothing when no named node yields the item
+				rs := asInt(n["skill_required"])
+				if rs == nil || *rs > reach || listed >= maxNodeLines {
 					continue
 				}
+				listed++
 				prof := asText(n["profession"])
-				how := fmt.Sprintf("Gather %s: %s in %s", name, asText(n["name"]), asText(n["zone_name"]))
-				if rs := asInt(n["skill_required"]); rs != nil {
-					how += fmt.Sprintf(" (%s %d)", prof, *rs)
-				}
+				how := fmt.Sprintf("Gather %s: %s in %s (%s %d)", name, asText(n["name"]), asText(n["zone_name"]), prof, *rs)
 				if !p.has(prof) {
 					how += "; needs " + prof
 				}
