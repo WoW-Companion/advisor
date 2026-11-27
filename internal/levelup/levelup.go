@@ -113,7 +113,7 @@ func Spells(c character.Character, ds store.DataStore, from, to int) []Spell {
 		seen[id] = true
 		rank, _ := r["rank"].(int64)
 		sup, _ := r["superseded_spell_id"].(int64)
-		out = append(out, Spell{ID: id, Name: name, Rank: int(rank), Level: int(lv), New: sup == 0, Cost: costs[id], Usually: true})
+		out = append(out, Spell{ID: id, Name: name, Rank: int(rank), Level: int(lv), New: sup == 0 && rk <= 1, Cost: costs[id], Usually: true})
 	}
 	out = dedupeByName(out)
 	sortSpells(out)
@@ -358,7 +358,7 @@ func trainerSpells(c character.Character, ds store.DataStore, t *character.SeenT
 				sp.Level = int(lv)
 			}
 			sup, _ := r["superseded_spell_id"].(int64)
-			sp.New = sup == 0
+			sp.New = sup == 0 && sp.Rank <= 1
 			if sup != 0 {
 				superseded[sup] = true
 				if !c.KnownSpells[sup] {
@@ -835,7 +835,7 @@ func Ahead(c character.Character, ds store.DataStore) []Spell {
 		if id == 0 || name == "" || seen[id] || c.KnownSpells[id] || quest[id].Quest != "" || isRuneAbility(id, lv) || isTalentEffect(talents, name, rk) || sideEffect(late, name, rk, lv) {
 			continue
 		}
-		s := Spell{ID: id, Name: name, Rank: int(rk), Level: int(lv), New: sup == 0, Cost: costs[id], Usually: true}
+		s := Spell{ID: id, Name: name, Rank: int(rk), Level: int(lv), New: sup == 0 && rk <= 1, Cost: costs[id], Usually: true}
 		if sup != 0 && !c.KnownSpells[sup] {
 			s.Requires = sup
 		}

@@ -12,6 +12,9 @@ they have reached.
 - **Spec**: the `spec` argument, else the stored spec, else the spec matching the stored role, else the
   build whose tree holds most of the points spent. A tie, or no points, goes to the class's default
   leveling spec (the spec with the most build points).
+  A name typed in a few letters ("shadow", "feral", "prot") is the one spec whose name starts with it; one
+  that starts several, or none, is a spec the dataset has no build for. Below level 10 the plan says the build
+  starts at level 10, since no talent point exists before it.
 - **Next pick**: walk the build in `order`; a point is taken when the captured rank of its node (matched by
   node id, spell id, then name) is at least its `rank_after`. The next picks are the first untaken points
   with `level` at or below the character's level, up to three: "Spirit Tap 5/5 done · next: Improved Shadow

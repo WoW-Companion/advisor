@@ -230,15 +230,27 @@ type SkillNeed struct {
 	City     string
 	Cost     int64
 	MinLevel int
+	// Wait is true when the character is below MinLevel: no master trains the skill yet.
+	Wait bool
 }
 
 // Line is "Needs the Staves skill: train it at Hanashi in Orgrimmar, Valley of Honor (10s)".
 func (n SkillNeed) Line() string {
 	s := "Needs the " + n.Skill + " skill"
-	if n.Master == "" {
-		return s + ": train it at a Weapon Master"
+	from := ""
+	if n.Wait {
+		from = fmt.Sprintf("from level %d", n.MinLevel)
 	}
-	s += ": train it at " + n.Master + " in " + n.City + " (" + CostText(n.Cost) + ")"
+	if n.Master == "" {
+		if from != "" {
+			from = " " + from
+		}
+		return s + ": train it at a Weapon Master" + from
+	}
+	if from != "" {
+		from = ", " + from
+	}
+	s += ": train it at " + n.Master + " in " + n.City + " (" + CostText(n.Cost) + from + ")"
 	return s
 }
 
@@ -269,5 +281,6 @@ func (f WeaponSkillFacts) ItemSkill(c character.Character, classID, subclass int
 			n.MinLevel = m.MinLevel
 		}
 	}
+	n.Wait = c.Level != nil && n.MinLevel > *c.Level
 	return true, n
 }
