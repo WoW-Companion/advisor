@@ -247,3 +247,9 @@ patterns and sends you to the Auction House, and the dataset's trainer list lack
 ## Skill-up routes
 
 When the game data has a `profession_routes` table, skill-up advice follows it: the step that covers your skill and the next two, with crafts scaled to your skill inside the step, materials counted over bags and bank (the table holds what one craft uses, times the crafts left; a gathering step for Herbalism, Mining, Skinning or Fishing names its zones and what to gather), the profession's own trainer for your faction (nearest first), and the tool (rod, pick, knife) mentioned only when missing. Without a route the path is estimated from recipe colours and vendor prices.
+
+## Who sells it, and which recipes you know
+
+`find_vendor` answers "who sells poison?", "which vendor is here?" and "where is the flight master?" from the dataset's vendor offers and your QuestieDB (subnames such as Shady Goods or Trade Supplies, and each NPC's vendor type), neutral vendors included. When it finds nothing, the answer says the NPC is not in the data.
+
+Recipes come from the profession window you opened: the trade skill window, or the craft window for Poisons, Enchanting and Beast Training. When a profession's window was never opened, a recipe whose product is in your bags or bank counts as likely known and is never offered as "learn it"; open the window once to confirm. `wowc-advisor doctor professions` lists, per profession, whether recipes were captured and what the dataset holds (recipes, trainers, recipe vendors, sources).

@@ -513,13 +513,17 @@ func (f *finder) craft() (Path, bool) {
 		sc := &SkillCheck{Profession: prof, Have: have, Need: need}
 		kn := f.c.KnowsRecipe(prof, spell, str(r["name"]), f.itemID)
 		listed := kn != character.RecipeUnknown
-		known := kn == character.RecipeKnown
+		likely := kn == character.RecipeLikelyKnown
+		known := kn == character.RecipeKnown || likely
 		if listed {
 			sc.RecipeKnown = &known
 		}
 		src := RecipeSource{Kind: "known", Line: "you already know the recipe"}
 		if !known {
 			src = f.recipeSource(r, prof)
+		}
+		if likely {
+			src.Line = "you likely know the recipe (you carry its product). " + character.OpenWindowTip(prof)
 		}
 		reagents, rok := f.reagents(spell)
 		if have >= need {
@@ -628,6 +632,9 @@ func (f *finder) otherWays(prof string) string {
 // learnSentence says where the recipe comes from, in the right tense for what the capture knows.
 func learnSentence(src RecipeSource, known, listed bool) string {
 	if src.Kind == "known" {
+		if strings.HasPrefix(src.Line, "you likely know") {
+			return strings.ToUpper(src.Line[:1]) + src.Line[1:]
+		}
 		return "You already know the recipe"
 	}
 	lead := "Learn it"

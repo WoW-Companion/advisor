@@ -43,6 +43,11 @@ All character tools take an optional `character` name (omit it when only one was
   with the most nodes or schools that yield it, your own zone first, with coordinates; `kind` (mine,
   herb or fish) alone names the zones that suit your skill. Use it for "where can I mine copper?" and
   "where should I fish at my level?".
+- `find_vendor`: who sells an item or keyword and which vendor, trainer or flight master is where:
+  `query` (Instant Poison, poison, reagents, Shady Goods), `zone` or `here`, `kind` (vendor,
+  trainer, flight). Reads the dataset and your QuestieDB subnames, neutral vendors included, and
+  names the NPC, subname, place, coordinates and goods. Call it before saying a vendor is unknown;
+  an empty result means "not in my data".
 - `talent_plan`: where the next talent points go against the curated build (optional `spec`,
   `limit`).
 - `get_character_profile` / `set_character_profile`: the character's saved play style (role, focus,

@@ -237,7 +237,7 @@ func PromptFor(q Question, length string) string {
 
 // FormatRule asks for tight Markdown; the text after it is the length limit. Prompt rewriters find the
 // rule by this marker, so keep it at the start of the prompt's last sentence.
-const FormatRule = "Concise Markdown: short # headings, bullets with no blank lines, no tables over 3 columns,"
+const FormatRule = "Tight Markdown (no blank lines),"
 
 // ToolsUnavailable is the answer when the AI client would not run the advisor's tools.
 const ToolsUnavailable = "The advisor's tools weren't available to the AI client (setup problem)."

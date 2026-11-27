@@ -127,6 +127,8 @@ type planner struct {
 	short map[int64]bool
 	// gather names the zones of herb and ore nodes and fishing schools from the player's QuestieDB; nil without one.
 	gather *gather.Gatherer
+	// likely names the recipes inferred known from products in the bags or bank, for a profession with no recipe list.
+	likely []string
 	// fresh marks a synthetic character: no recipe is known, and each one says how it is learnt.
 	fresh bool
 	// patterns plans only recipes learnt from items that drop, come from quests or the Auction House.
@@ -564,6 +566,10 @@ func computePath(c character.Character, ds store.DataStore, profession string, t
 	}
 	var observedOnly map[string]bool
 	p.known, observedOnly = p.applyObserved(recipes)
+	if len(p.likely) > 0 {
+		pa.Notes = append(pa.Notes, fmt.Sprintf("You likely know %s already (you carry what they make), so do not plan to learn %s. %s.",
+			strings.Join(first(p.likely, 4), ", "), pluralIt(len(p.likely)), character.OpenWindowTip(sk.Name)))
+	}
 	var bands []Band
 	shortSeen := map[int64]bool{}
 	used := map[int64]int{} // raw materials the bands chosen so far take
@@ -854,4 +860,18 @@ func (p *planner) extend(recipes []Recipe, prev Band, next scored, stock, used m
 	}
 	p.learnt[next.spell] = wasLearnt
 	return extended{}, false
+}
+
+func first(l []string, n int) []string {
+	if len(l) > n {
+		return l[:n]
+	}
+	return l
+}
+
+func pluralIt(n int) string {
+	if n == 1 {
+		return "it"
+	}
+	return "them"
 }

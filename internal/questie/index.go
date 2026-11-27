@@ -446,6 +446,7 @@ func Parse(st Status) (*Index, error) {
 			}
 		}
 	}
+	ix.keepService(npcs, lay)
 	zones := filepath.Join(filepath.Dir(st.TOC), "support", "Forever", "Zones", "areaIdToUiMapId.lua")
 	ix.Areas = parseAreas(zones)
 	ix.markEvents()
