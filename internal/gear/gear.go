@@ -330,7 +330,8 @@ func Find(c character.Character, ds store.DataStore, group string, opt Options) 
 	anyStats := false
 	for _, row := range rows {
 		it := itemOf(row)
-		if itemdata.Unobtainable(it.Name) || it.ItemLevel <= 0 || it.Quality <= 0 || it.Quality == qualityArtifact || unequippableBonding(it.Bonding) {
+		// Rank gear is the other faction's when its rank name is: the items table has no faction column to say so.
+		if itemdata.Unobtainable(it.Name) || itemdata.WrongFaction(it.Name, c.Faction) || it.ItemLevel <= 0 || it.Quality <= 0 || it.Quality == qualityArtifact || unequippableBonding(it.Bonding) {
 			continue
 		}
 		if usable, _ := wsk.ItemSkill(c, it.Class, it.Subclass); !usable {

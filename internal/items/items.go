@@ -43,6 +43,7 @@ var Patterns = []Pattern{
 	{Label: "Test ", Prefix: "Test ", Except: []string{"test of "}},
 	{Label: "TEST", Prefix: "TEST", ExactCase: true, WholeWord: true},
 	{Label: "QA ", Prefix: "QA ", ExactCase: true},
+	{Label: "PVP TEST", Prefix: "PVP TEST", ExactCase: true, WholeWord: true},
 	{Label: "Monster -", Prefix: "Monster -"},
 	{Label: "Unused", Prefix: "Unused", WholeWord: true},
 	{Label: "(DNT)", Contains: "(DNT)"},

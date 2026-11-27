@@ -350,7 +350,7 @@ func TestOfflineBenchmarkHonorRankGearLevel(t *testing.T) {
 	for _, tc := range gnRankCases {
 		r := usabItem(t, tc.item)
 		rl, mask := num(r["required_level"]), num(r["allowable_class_mask"])
-		res, err := gear.Find(usabChar(tc.class, tc.level, "Horde"), ds, "", gear.Options{NoSources: true})
+		res, err := gear.Find(usabChar(tc.class, tc.level, pvOwn(tc.item)), ds, "", gear.Options{NoSources: true})
 		if err != nil {
 			t.Fatal(err)
 		}

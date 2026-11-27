@@ -19,6 +19,8 @@ func TestUnobtainable(t *testing.T) {
 		{"Test Ring", "Test "},
 		{"TEST-Helm", "TEST"},
 		{"QA Staff", "QA "},
+		{"PVP TEST Alliance Ear", "PVP TEST"},
+		{"PVP TEST Horde Ear", "PVP TEST"},
 		{"Monster - Sword, Axe", "Monster -"},
 		{"Unused Wand", "Unused"},
 		{"Sword (DNT)", "(DNT)"},
@@ -28,6 +30,7 @@ func TestUnobtainable(t *testing.T) {
 		// Real items the words merely appear in.
 		{"Old Blanchy's Blanket", ""},
 		{"Old Towsel", ""},
+		{"PVP Trinket", ""},
 		{"Testament of Light", ""},
 		{"Test of Endurance", ""},
 		{"Phoenix Feather", ""},
