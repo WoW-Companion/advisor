@@ -35,20 +35,22 @@ type Query struct {
 
 // Found is one NPC the search matched.
 type Found struct {
-	NPCID   int64    `json:"npc_id"`
-	Name    string   `json:"name"`
-	Sub     string   `json:"subname,omitempty" jsonschema:"the NPC's title, such as Shady Goods"`
-	Zone    string   `json:"zone,omitempty"`
-	Subzone string   `json:"subzone,omitempty"`
-	X       float64  `json:"x,omitempty"`
-	Y       float64  `json:"y,omitempty"`
-	HasXY   bool     `json:"has_coordinates"`
-	Faction string   `json:"faction,omitempty" jsonschema:"Alliance, Horde, or empty for a vendor both factions can use"`
-	Sells   []string `json:"sells,omitempty"`
-	Questie bool     `json:"from_questie" jsonschema:"the place or the subname was read from the player's QuestieDB"`
-	rank    int
-	dist    float64
-	matched map[string]bool
+	NPCID   int64   `json:"npc_id"`
+	Name    string  `json:"name"`
+	Sub     string  `json:"subname,omitempty" jsonschema:"the NPC's title, such as Shady Goods"`
+	Zone    string  `json:"zone,omitempty"`
+	Subzone string  `json:"subzone,omitempty"`
+	X       float64 `json:"x,omitempty"`
+	Y       float64 `json:"y,omitempty"`
+	HasXY   bool    `json:"has_coordinates"`
+	Faction string  `json:"faction,omitempty" jsonschema:"Alliance, Horde, or empty for a vendor both factions can use"`
+	// FactionKnown is true when a source holds the NPC's side: QuestieDB (an empty side there is a vendor both sides use) or the NPC row.
+	FactionKnown bool     `json:"faction_known" jsonschema:"false when no data says which side can use the NPC; Faction is then empty"`
+	Sells        []string `json:"sells,omitempty"`
+	Questie      bool     `json:"from_questie" jsonschema:"the place or the subname was read from the player's QuestieDB"`
+	rank         int
+	dist         float64
+	matched      map[string]bool
 }
 
 // Result is a search's answer: the NPCs (nearest first), the line to say, and Gap when nothing matched.
@@ -147,6 +149,7 @@ func Search(ds store.DataStore, qx *questie.Index, q Query) Result {
 		if f.Faction == "" {
 			f.Faction = factionName(s.Entity.Faction)
 		}
+		f.FactionKnown = true
 	}
 	var list []*Found
 	for id, f := range cand {
@@ -280,7 +283,9 @@ func place(ds store.DataStore, qx *questie.Index, f *Found, id int64, q Query) b
 	if e, ok := qx.NpcEntity(int(id)); ok {
 		f.Sub = cmp.Or(f.Sub, e.Sub)
 		f.Faction = cmp.Or(f.Faction, factionName(e.Faction))
+		f.FactionKnown = true // QuestieDB holds the NPC: an empty side there is a vendor both sides use
 	}
+	f.FactionKnown = f.FactionKnown || f.Faction != ""
 	if p, ok := qx.NpcPlace(int(id), at); ok && (f.Zone == "" || !f.HasXY || q.Zone != "" && !zoneIs(f.Zone, q.Zone)) {
 		if f.Zone == "" || q.Zone != "" && !zoneIs(f.Zone, q.Zone) {
 			f.Zone, f.Subzone = p.Zone, p.Sub
@@ -387,10 +392,13 @@ func (f Found) Line() string {
 	if f.HasXY {
 		s += fmt.Sprintf(" (%.1f, %.1f)", f.X, f.Y)
 	}
-	if f.Faction == "" {
-		s += ", open to both factions"
-	} else {
+	switch {
+	case f.Faction != "":
 		s += ", " + f.Faction
+	case f.FactionKnown:
+		s += ", open to both factions"
+	default:
+		s += ", which side can use it is not in the data"
 	}
 	if len(f.Sells) > 0 {
 		s += ": sells " + strings.Join(f.Sells, ", ")

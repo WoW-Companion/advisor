@@ -35,7 +35,10 @@ type Chain struct {
 	// follows and the quests it leads to.
 	Quest  *Facts  `json:"quest,omitempty"`
 	Before []Facts `json:"before,omitempty"`
-	After  []Facts `json:"after,omitempty"`
+	// BeforeAll is true when every quest in Before must be finished first (a group prerequisite), and false when
+	// one of them is enough (single prerequisites, when there are several).
+	BeforeAll bool    `json:"before_all,omitempty"`
+	After     []Facts `json:"after,omitempty"`
 }
 
 // Total is the number of steps in the line.
@@ -183,8 +186,8 @@ func Render(c Chain, name string) string {
 		b.WriteString("; it is the last step")
 	}
 	b.WriteString(".\n")
-	if c.Quest != nil && c.Quest.groupWords() != "" {
-		b.WriteString(label + " is " + c.Quest.groupWords() + ", as players reported on " + Credit + ".\n")
+	if c.Quest != nil && c.Quest.GroupWords() != "" {
+		b.WriteString(label + " is " + c.Quest.GroupWords() + ", as players reported on " + Credit + ".\n")
 	}
 	for _, s := range c.Steps {
 		mark := "  "

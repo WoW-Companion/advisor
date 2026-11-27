@@ -363,6 +363,7 @@ func (f *finder) quest() (Path, bool) {
 		zone   string
 		rank   int // 0 in the log, 1 in the plan, 2 available now
 		choice bool
+		group  string // "a dungeon quest" or "a group quest" when players tagged it so
 	}
 	var best *cand
 	done := map[int]bool{}
@@ -401,6 +402,7 @@ func (f *finder) quest() (Path, bool) {
 			if level == 0 {
 				level = facts.Level
 			}
+			cd.group = facts.GroupWords()
 		}
 		if level > 0 && f.level > 0 && level > f.level+2 {
 			continue // too far above the character to finish
@@ -458,6 +460,9 @@ func (f *finder) quest() (Path, bool) {
 	}
 	if best.zone != "" {
 		from = append(from, "in "+best.zone)
+	}
+	if best.group != "" {
+		from = append(from, best.group) // a quest for a group or a dungeon is not one to solo
 	}
 	line := "Finish " + best.name
 	if best.choice {
