@@ -83,7 +83,7 @@ func OfWith(ds store.DataStore, ix *questie.Index, questID int64) Chain {
 	c := Of(ds, questID)
 	if c.Found {
 		c.Source = SourceDataset
-		if f := observed(ds, questID); f != nil && f.groupWords() != "" {
+		if f := observed(ds, questID); f != nil && f.GroupWords() != "" {
 			c.Quest = f
 		}
 		return c
@@ -112,6 +112,7 @@ func OfWith(ds store.DataStore, ix *questie.Index, questID int64) Chain {
 			c.Before = append(c.Before, link(ix, id))
 		}
 	}
+	c.BeforeAll = len(q.PreGroup) > 1 // Questie: the group's quests must all be done; any one of the single ones will do
 	var after []int
 	add := func(id int) {
 		if id != 0 && id != int(questID) && !seen[-id] {
@@ -177,8 +178,8 @@ func (f Facts) label() string {
 	return n
 }
 
-// groupWords says a quest players tagged as one for a group or a dungeon; empty for any other.
-func (f Facts) groupWords() string {
+// GroupWords says a quest players tagged as one for a group or a dungeon; empty for any other.
+func (f Facts) GroupWords() string {
 	switch f.Tag {
 	case "group":
 		return "a group quest"
@@ -213,7 +214,7 @@ func renderQuestie(c Chain, name string) string {
 			if f.Category != "" {
 				b.WriteString(", " + f.Category)
 			}
-			if w := f.groupWords(); w != "" {
+			if w := f.GroupWords(); w != "" {
 				b.WriteString(", " + w)
 			}
 		} else {
@@ -245,7 +246,14 @@ func renderQuestie(c Chain, name string) string {
 		return b.String()
 	}
 	if len(c.Before) > 0 {
-		b.WriteString("Comes after:\n")
+		switch {
+		case c.BeforeAll:
+			b.WriteString("Comes after (finish all of these first):\n")
+		case len(c.Before) > 1:
+			b.WriteString("Comes after (finish any one of these first):\n")
+		default:
+			b.WriteString("Comes after:\n")
+		}
 		for _, s := range c.Before {
 			b.WriteString("  - " + s.label() + s.detail() + "\n")
 		}

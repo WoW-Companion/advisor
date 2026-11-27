@@ -31,6 +31,13 @@ var flightsTo = map[string]map[string]string{
 	"silvermoon city": {"ghostlands": "Tranquillien"},
 }
 
+// cityHome is the zone each capital stands beside: a character in it trains in that city when the class has a trainer
+// there, not in another capital on the same continent.
+var cityHome = map[string]string{
+	"Undercity": "Tirisfal Glades", "Orgrimmar": "Durotar", "Thunder Bluff": "Mulgore", "Silvermoon City": "Eversong Woods",
+	"Stormwind City": "Elwynn Forest", "Ironforge": "Dun Morogh", "Darnassus": "Teldrassil",
+}
+
 // TrainPlace is where the character should go to train class spells.
 type TrainPlace struct {
 	City    string
@@ -39,6 +46,7 @@ type TrainPlace struct {
 	Seen    bool     // the trainer is one the player opened
 	Here    bool     // the character is already in the city
 	Bound   bool     // the character's hearthstone is bound in the city, which the capture says
+	Cross   string   // the zeppelin or boat to take first, when the city is on another continent than the zone
 }
 
 // ClassCity is the capital for the faction's class trainers, "" when none is known.
@@ -61,6 +69,11 @@ func classCityFor(faction, class, zone string) string {
 	zone = strings.TrimSpace(zone)
 	for _, c := range list {
 		if strings.EqualFold(c, zone) {
+			return c
+		}
+	}
+	for _, c := range list {
+		if strings.EqualFold(cityHome[c], zone) {
 			return c
 		}
 	}
@@ -112,6 +125,7 @@ func TrainAt(c character.Character, qx *questie.Index) (TrainPlace, bool) {
 	if !pl.Here {
 		pl.From = FlightFrom(pl.City, zone)
 		pl.Bound = c.Hearth != "" && strings.EqualFold(strings.TrimSpace(c.Hearth), pl.City)
+		pl.Cross = learn.Crossing(c.Faction, learn.ContinentOf(zone), learn.ContinentOf(pl.City))
 	}
 	return pl, true
 }
@@ -150,6 +164,9 @@ func (p TrainPlace) Line(class string) string {
 		fmt.Fprintf(&b, ", your %s trainer there", class)
 	}
 	var how []string
+	if p.Cross != "" {
+		how = append(how, strings.ToLower(p.Cross[:1])+p.Cross[1:])
+	}
 	if p.From != "" {
 		how = append(how, "fly from "+p.From)
 	}
