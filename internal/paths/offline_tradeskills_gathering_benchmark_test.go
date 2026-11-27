@@ -12,7 +12,6 @@ import (
 	"github.com/WoW-Companion/advisor/internal/dungeons"
 	"github.com/WoW-Companion/advisor/internal/gather"
 	"github.com/WoW-Companion/advisor/internal/gear"
-	"github.com/WoW-Companion/advisor/internal/inventory"
 	"github.com/WoW-Companion/advisor/internal/paths"
 	"github.com/WoW-Companion/advisor/internal/store"
 )
@@ -87,10 +86,12 @@ func gnReagent(t *testing.T, ds store.DataStore, c character.Character, craft, r
 	return ""
 }
 
-var gnNodeCases = []struct {
+type gnCase struct {
 	craft, reagent, prof string
 	skill                int
-}{
+}
+
+var gnNodeCases = []gnCase{
 	{"Rough Blasting Powder", "Rough Stone", "Mining", 1}, {"Coarse Blasting Powder", "Coarse Stone", "Mining", 20}, {"Coarse Blasting Powder", "Coarse Stone", "Mining", 70},
 	{"Heavy Blasting Powder", "Heavy Stone", "Mining", 100}, {"Heavy Blasting Powder", "Heavy Stone", "Mining", 130}, {"Swiftness Potion", "Briarthorn", "Herbalism", 20},
 	{"Swiftness Potion", "Briarthorn", "Herbalism", 70}, {"Minor Troll's Blood Elixir", "Earthroot", "Herbalism", 1}, {"Minor Troll's Blood Elixir", "Earthroot", "Herbalism", 20},
@@ -100,10 +101,17 @@ var gnNodeCases = []struct {
 // TestOfflineBenchmarkGatherNodeSkill: a reagent a node yields is gathered when the character's skill reaches the lowest skill the dataset
 // gives for the nodes, with the zones of the nodes the skill reaches; below it the advisor says what the nodes need and what the
 // character has. A node with no row of its own never passes for one any skill can take. The dataset's skill is beside the game's.
-func TestOfflineBenchmarkGatherNodeSkill(t *testing.T) {
+func TestOfflineBenchmarkGatherNodeSkill(t *testing.T) { gatherNodeSkill(t, "ore", gnNodeCases[:5]) }
+
+// TestOfflineBenchmarkGatherNodeSkillHerbs is the same for herbs.
+func TestOfflineBenchmarkGatherNodeSkillHerbs(t *testing.T) {
+	gatherNodeSkill(t, "herb", gnNodeCases[5:])
+}
+
+func gatherNodeSkill(t *testing.T, part string, cases []gnCase) {
 	ds := tsStore()
 	var out []benchRow
-	for _, tc := range gnNodeCases {
+	for _, tc := range cases {
 		it := rowByName(t, ds, "items", tc.reagent)
 		nodes := gnNodes(t, ds, num(it["id"]))
 		least, guide := int64(0), int64(0)
@@ -141,7 +149,7 @@ func TestOfflineBenchmarkGatherNodeSkill(t *testing.T) {
 		}
 		out = append(out, benchRow{fmt.Sprintf("%s for %s at %s %d", tc.reagent, tc.craft, tc.prof, tc.skill), how, fmt.Sprintf("%s (game %d)", want, guide), gnNodeSrc, res})
 	}
-	finish(t, "advice-gather-node-skill", "Offline gathering: the skill a node needs and its zones", out)
+	finish(t, "advice-gather-node-skill-"+part, "Offline gathering: the skill a "+part+" node needs and its zones", out)
 }
 
 // TestOfflineBenchmarkGatherNodeUnknown: a herb the dataset holds no node for is still gathered by a herbalist, but the advisor says it
@@ -149,12 +157,25 @@ func TestOfflineBenchmarkGatherNodeSkill(t *testing.T) {
 func TestOfflineBenchmarkGatherNodeUnknown(t *testing.T) {
 	ds := tsStore()
 	var out []benchRow
-	for _, tc := range []struct{ craft, reagent string }{{"Mana Potion", "Kingsblood"}, {"Mana Potion", "Stranglekelp"}} {
-		it := rowByName(t, ds, "items", tc.reagent)
-		nodes := gnNodes(t, ds, num(it["id"]))
-		how := gnReagent(t, ds, tsChar("Horde", 30, tsSkill{"Alchemy", 150, 300}, tsSkill{"Herbalism", 1, 300}), tc.craft, tc.reagent)
+	c := tsChar("Horde", 30, tsSkill{"Alchemy", 150, 300}, tsSkill{"Herbalism", 1, 300})
+	hows := map[string]string{}
+	for _, p := range paths.For(c, ds, 3827, paths.Options{}).Paths { // 3827 is Mana Potion
+		for _, g := range p.Reagents {
+			hows[g.Name] = g.How
+		}
+	}
+	for _, reagent := range []struct {
+		name string
+		id   int64
+	}{{"Kingsblood", 3356}, {"Stranglekelp", 3820}} {
+		it, err := ds.Get("items", reagent.id)
+		if err != nil || text(it["name"]) != reagent.name {
+			t.Fatalf("item %d is not %s", reagent.id, reagent.name)
+		}
+		nodes := gnNodes(t, ds, reagent.id)
+		how := hows[reagent.name]
 		ok := len(nodes) == 0 && strings.HasPrefix(how, "gather it with your Herbalism") && strings.Contains(how, "can't say what skill it needs") && !regexp.MustCompile(`\d`).MatchString(how)
-		out = append(out, benchRow{tc.reagent + ": the skill it needs, no node in the dataset", how, fmt.Sprintf("%d gathering_yields rows; no skill to state", len(nodes)), gnNoneSrc, resultIf(ok, "a skill or a node stated, or no word that the skill is unknown")})
+		out = append(out, benchRow{reagent.name + ": the skill it needs, no node in the dataset", how, fmt.Sprintf("%d gathering_yields rows; no skill to state", len(nodes)), gnNoneSrc, resultIf(ok, "a skill or a node stated, or no word that the skill is unknown")})
 	}
 	ys, _ := ds.Filter("gathering_nodes", store.Range{Column: "node_id", Min: int64(2040), Max: int64(2040)})
 	ok := len(ys) > 0 && text(ys[0]["name"]) == "Gisement de mithril" && num(ys[0]["skill_required"]) == 0
@@ -355,25 +376,22 @@ func TestOfflineBenchmarkHonorRankGearLevel(t *testing.T) {
 	finish(t, "advice-honor-rank-gear", "Offline honor: the level a PvP rank piece is worn from", out)
 }
 
-// TestOfflineBenchmarkHonorBattlegroundItems: battleground rations, bandages and Marks of Honor have no gear rule: the bag review says it is
-// unsure and names no level to wear or use them from, and a Mark of Honor is not counted as a crafting material.
+// TestOfflineBenchmarkHonorBattlegroundItems: a battleground ration, bandage or Mark of Honor has no vendor or loot row in the dataset (the
+// honor and mark vendors are not in it): the advisor says the game data lists no source, never that it is a random drop not worth chasing.
 func TestOfflineBenchmarkHonorBattlegroundItems(t *testing.T) {
 	ds := consStore()
 	var out []benchRow
 	for _, name := range []string{"Warsong Gulch Field Ration", "Warsong Gulch Mageweave Bandage", "Arathi Basin Mark of Honor", "Warsong Gulch Mark of Honor"} {
 		r := rowByName(t, ds, "items", name)
-		c := usabChar("WARRIOR", 60, "Horde")
-		c.BagsCaptured, c.BankCaptured = true, true
-		c.Bags = []character.ItemStack{{ItemID: int(num(r["id"])), Count: 1, Name: name}}
-		rev := inventory.ReviewAll([]character.Character{c}, ds)
-		got := "no line"
-		if len(rev.Lines) == 1 {
-			got = string(rev.Lines[0].Action) + ": " + rev.Lines[0].Reason
-		}
-		out = append(out, benchRow{name + ": what to do with it", got, fmt.Sprintf("no gear rule (required_level %d); a battleground item is not worn", num(r["required_level"])), gnBGSrc,
-			resultIf(len(rev.Lines) == 1 && rev.Lines[0].Action == inventory.Unsure && !regexp.MustCompile(`level \d`).MatchString(got), "a keep or sell verdict, or a level, for a battleground item")})
+		id := num(r["id"])
+		v, _ := ds.Filter("vendor_sources", store.Range{Column: "item_id", Min: id, Max: id})
+		l, _ := ds.Filter("loot_sources", store.Range{Column: "item_id", Min: id, Max: id})
+		res := paths.For(usabChar("WARRIOR", 60, "Horde"), ds, id, paths.Options{})
+		ok := len(v)+len(l) == 0 && !res.Dependable() && strings.Contains(res.Reason, "lists no source") && !strings.Contains(res.Reason, "worth chasing")
+		out = append(out, benchRow{name + ": how to get it", res.Reason, fmt.Sprintf("%d vendor rows, %d loot rows (required_level %d)", len(v), len(l), num(r["required_level"])), gnBGSrc,
+			resultIf(ok, "a source or a random drop named for an item the dataset has no source for")})
 	}
-	finish(t, "advice-honor-battleground-items", "Offline honor: battleground items in the bags", out)
+	finish(t, "advice-honor-battleground-items", "Offline honor: how to get a battleground item", out)
 }
 
 // ---- no answer ----
