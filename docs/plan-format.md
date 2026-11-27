@@ -418,7 +418,7 @@ what to use), and `n = 0`: it is not a step of its own. The addon shows it as a 
 |---|---|---|
 | `restock` | reagents of a known recipe that still gives skill-ups are short of a batch of 5 | a vendor that sells them |
 | `repair` | durability is under 50%, or an item is under 25% | an NPC with the repair flag |
-| `selljunk` | bags are 80% full or more and something is safe to sell | a general vendor |
+| `selljunk` | bags are 80% full or more, or the route would fill them (see below), and something is safe to sell | a general vendor |
 | `mail` | the advice sends items to another character (`label` names them and the character) | a mailbox |
 
 The errand attaches to the nearest step within about 150 yards (5 map percent) of the NPC or mailbox. With no
@@ -426,6 +426,15 @@ such step it is dropped, unless it is urgent (an item under 25% durability, bags
 errand step (`n` is the step, `attach` absent) at the place nearest the route. Items a quest in the log needs
 are never sold or mailed. Durability and bag size may not be captured; the errand is then skipped and `doctor`
 says so. Consumers keep an errand kind they do not know.
+
+**Bag forecast.** When the bag size and the bags are captured, the advisor walks the steps in order from the
+bags in use. Quest items an objective collects, a rough allowance of loot for a quest with kills, a reward at
+each turn-in, and gathering, crafting and buying lines add stacks; the items a turn-in hands in free them. If
+the total passes the bag size at step k, a clearing errand rides on the last stop at or before k with the
+service: `selljunk` at a general vendor, then `mail` at a mailbox, then `bank` at a banker, each only for
+what is safe (never an item a quest in the log needs, never kept profession materials). `why` says "bags fill
+around step 9 (Kill Shadowmaw Panther)" and how many slots it frees. With no such stop before k, the errand
+rides on the first one after it and `why` says so. The 80% rule stays as the floor.
 
 ## Schema 1.7: trip order, transports and `eta`
 

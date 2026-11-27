@@ -186,6 +186,7 @@ type followSource interface {
 type Plan struct {
 	hints     []professions.RouteHint // the profession path's facts, once per plan
 	hintsDone bool
+	bags      *bagFacts    // what the bags review found, for the bag forecast
 	Character string       `json:"character"`
 	Zone      string       `json:"zone,omitempty"`
 	Start     *Point       `json:"start,omitempty"`
