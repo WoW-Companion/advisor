@@ -96,10 +96,12 @@ var limitTopics = []struct {
 		"Class trainer prices: the game data holds no training cost for a class spell or ability and no class trainer's name or position. Say so; give no price from memory. What it does hold is the level a spell is learned at."},
 	{regexp.MustCompile(`(?i)\bracials?\b|\b(race|races)\b.{0,25}\b(bonus|bonuses|traits?|abilit(y|ies)|passives?|perks?|advantages?)\b|\b(blood fury|berserking|war stomp|stoneform|shadowmeld|will of the forsaken|cannibalize|escape artist|expansive mind|cultivation|engineering specialization|beast slaying|wisp spirit|gun specialization|bow specialization|throwing specialization)\b|\b(blood fury|berserking|war stomp|stoneform|shadowmeld|will of the forsaken|cannibalize|escape artist|expansive mind|cultivation|engineering specialization|beast slaying|wisp spirit|gun specialization|bow specialization|throwing specialization|sword specialization|mace specialization|axe specialization|frost resistance|nature resistance|shadow resistance|fire resistance|underwater breathing|the human spirit|hardiness|regeneration|perception|diplomacy|quickness|endurance)\b.{0,40}\b(human|orc|dwarf|dwarves|gnome|gnomes|troll|trolls|tauren|undead|forsaken|night elf|night elves)\b|\b(human|orc|dwarf|dwarves|gnome|gnomes|troll|trolls|tauren|undead|forsaken|night elf|night elves)\b.{0,40}\b(blood fury|berserking|war stomp|stoneform|shadowmeld|will of the forsaken|cannibalize|escape artist|expansive mind|cultivation|engineering specialization|beast slaying|wisp spirit|gun specialization|bow specialization|throwing specialization|sword specialization|mace specialization|axe specialization|frost resistance|nature resistance|shadow resistance|fire resistance|underwater breathing|the human spirit|hardiness|regeneration|perception|diplomacy|quickness|endurance)\b`),
 		"Racial traits: the game data holds no race table, no racial ability or passive, no weapon skill, profession skill or resistance bonus by race, and no race requirement on a spell or item; the advisor knows only the race and faction the capture reports. Say so; give no racial ability, bonus or percentage from memory."},
-	{regexp.MustCompile(`(?i)\b(bankers?|auctioneers?|mail ?box(?:es)?|innkeepers?|stable ?masters?|battlemasters?|barbers?|portals?|teleport(?:s|ation)? trainers?)\b|\b(where|find|nearest|closest|locat\w+|which)\b.{0,40}\b(bank|auction house|ah|inn|mail ?box|stables?)\b|\b(bank|auction house|ah|inn|mail ?box)\b.{0,30}\b(in|at|of)\b.{0,15}\b(orgrimmar|undercity|thunder bluff|stormwind|ironforge|darnassus|silvermoon|exodar|capital|capitals|city|cities)\b`),
+	{regexp.MustCompile(`(?i)\b(bankers?|auctioneers?|mail ?box(?:es)?|innkeepers?|stable ?masters?|battlemasters?|barbers?|portals?|teleport(?:s|ation)? trainers?)\b|\b(where|find|nearest|closest|locat\w+|which)\b.{0,40}\b(bank|auction house|ah|inn|mail ?box|stables?)\b|\b(bank|auction house|ah|inn|mail ?box)\b.{0,30}\b(in|at|of)\b.{0,15}\b(orgrimmar|undercity|thunder bluff|stormwind|ironforge|darnassus|silvermoon|exodar|capital|capitals|city|cities)\b|\b(nearest|closest)\b[^.?!]{0,20}\b(capital|major city|city|cities)\b|\b(?:which|what) (?:capital|city)\b[^.?!]{0,30}\b(?:closest|nearest|near)\b|\bneutral (auction|ah|city|cities|goblin|town)\w*\b|\bpost ?office\b`),
 		"Capital city services: the game data holds no bank, auction house, mailbox, innkeeper, stable master, battlemaster, barber or portal row, no mage portal or teleport destination, and no position for any of them in a capital. What it holds is the capital's map, its profession trainers and Weapon Masters (by zone, not position). Say so; name no NPC, building or position from memory."},
 	{regexp.MustCompile(`(?i)\b(warchief|faction leaders?|city leaders?|(horde|alliance) (leader|leaders|leadership|king|queen|ruler)|leaders? of (the )?(horde|alliance|orgrimmar|undercity|thunder bluff|stormwind|ironforge|darnassus)|who (leads|rules)|high king|archdruid|thrall|cairne|sylvanas|vol'?jin|bolvar|varian|magni|tyrande|anduin|garrosh|saurfang)\b`),
 		"Faction leaders: the game data marks no NPC as a faction or city leader (no title, ruler or leadership row) and holds no leader's position, level or reputation reward. Say so; name no leader, title or position from memory."},
+	{zoneTerritoryAsk,
+		zoneTerritoryFact},
 	{holidayAsk,
 		"Holiday and world events: the game data holds no event table: no event dates or calendar, no event vendor, reward, currency or item source (an event item's row names no event), and no Darkmoon Faire row. Say so; give no date, vendor, price or reward from memory. State when an event runs only from the 'Running today' lines or the seasonal_events tool; the advisor's own table gives the usual windows of its holiday events, which the game moves by a few days some years."},
 	{weatherAsk,
@@ -264,6 +266,19 @@ var (
 	zoneWord     = regexp.MustCompile(`(?i)\b(zones?|areas?)\b`)
 )
 
+// zoneWhereAsk is a question about where to level, quest or grind at a level, in the words a player uses ("where should I level at level 25", "which zones are good for a level 18",
+// "best zone for level 12 horde", "where should I go next, I'm level 35"): it asks for the zone bracket the data does not hold. A level with a profession ("where do I level my mining") is no zone question.
+var zoneWhereAsk = regexp.MustCompile(`(?i)\b(?:where|which)\b[^.?!]{0,50}\b(?:levell?(?:ing)?|quest(?:ing)?|grind(?:ing)?|farm(?:ing)?|go|head|hunt(?:ing)?|adventur\w+|zones?|areas?|places?|spots?)\b[^.?!]{0,60}\b(?:levell?|lvl|lv)\.? ?\d{1,2}\b|\bwhat\b[^.?!]{0,30}\b(?:zones?|areas?|places?|spots?)\b[^.?!]{0,60}\b(?:levell?|lvl|lv)\.? ?\d{1,2}\b|\b(?:levell?|lvl|lv)\.? ?\d{1,2}\b[^.?!]{0,50}\b(?:where|which|what)\b[^.?!]{0,30}\b(?:zones?|areas?|places?|spots?|go|grind\w*|level up|levell?ing)\b`)
+
+// zoneTerritoryAsk is a question about which side holds a zone or whether it is hostile or contested ("is Ashenvale contested", "Horde territory", "guards attack me").
+var zoneTerritoryAsk = regexp.MustCompile(`(?i)\b(?:contested|hostile|enemy|neutral)\b[^.?!]{0,30}\b(?:zones?|areas?|territor\w+|lands?|towns?|villages?|cit(?:y|ies)|guards?)\b|\b(?:zones?|areas?|territor\w+|lands?)\b[^.?!]{0,30}\b(?:contested|hostile|enemy)\b|\b(?:horde|alliance|enemy|contested|hostile)[- ](?:controlled|held|owned|territor\w+)|\b(?:horde|alliance)(?:'s)? (?:zones?|areas?|lands?)\b|\bterritor(?:y|ies)\b|\bguards?\b[^.?!]{0,30}\b(?:attack\w*|kill\w*|hostile|aggro\w*)\b|\b(?:attack\w*|kill\w*)\b[^.?!]{0,20}\bby\b[^.?!]{0,15}\bguards?\b`)
+
+// zoneSideAsk is a question that names a zone and asks whether it is hostile, contested or one side's, or whether the character's side may quest there.
+var zoneSideAsk = regexp.MustCompile(`(?i)\b(?:contested|hostile|enemy|attacked|ganked)\b|\b(?:horde|alliance)(?:'s)? (?:zone|area|land|town|side|territory)\b|\b(?:is|are)\b[^.?!]{0,40}\b(?:an? )?(?:horde|alliance)\b[^.?!]{0,10}\b(?:zone|area|land|town)\b|\b(?:can|may|should|am i allowed)\b[^.?!]{0,30}\b(?:quest|go|enter|visit|travel|run|level)\w*\b[^.?!]{0,40}\bas (?:an? )?(?:horde|alliance)\b|\bwhose (?:zone|territory|land)\b`)
+
+const zoneTerritoryFact = "Zone territory: the game data holds no controlling faction, contested or hostile flag for a zone, and no town or guard hostility by side (ui_maps has no faction column; a trainer has no faction). " +
+	"What it holds is the faction of the quests players saw in a zone (quests_observed), which says what quests a side is offered there and not who holds it. Say so; do not call a zone Horde, Alliance, contested, safe or hostile from memory."
+
 const zoneLevelFact = "Zone levels: the game data holds no level range, bracket or recommended level for a zone (ui_maps has no level column). Say so; give no zone range from memory. What it does hold is each creature's level and zone (npcs) and each quest's level, which the farm and quest tools report."
 
 // valleyOfHonor is Orgrimmar's district: a question about it is no question about honor.
@@ -301,8 +316,11 @@ func LimitFacts(text string) string {
 			out = append(out, tp.fact)
 		}
 	}
-	if zoneLevelAsk.MatchString(text) && (zoneWord.MatchString(text) || learn.ZoneIn(text)) {
+	if zoneLevelAsk.MatchString(text) && (zoneWord.MatchString(text) || learn.ZoneIn(text)) || zoneWhereAsk.MatchString(text) {
 		out = append(out, zoneLevelFact)
+	}
+	if zoneSideAsk.MatchString(text) && learn.ZoneIn(text) && !zoneTerritoryAsk.MatchString(text) {
+		out = append(out, zoneTerritoryFact)
 	}
 	return strings.Join(out, "\n")
 }
