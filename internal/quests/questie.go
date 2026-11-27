@@ -77,20 +77,39 @@ func link(ix *questie.Index, id int) Facts {
 	return Facts{QuestID: int64(id), Source: SourceQuestie}
 }
 
+// beforeOf is the quests that come before q in the player's QuestieDB, and whether all of them must be finished (a group prerequisite) or any one is enough (single prerequisites, when there are several).
+func beforeOf(ix *questie.Index, q *questie.Quest) ([]Facts, bool) {
+	var before []Facts
+	seen := map[int]bool{}
+	for _, id := range append(append([]int{}, q.PreSingle...), q.PreGroup...) {
+		if !seen[id] {
+			seen[id] = true
+			before = append(before, link(ix, id))
+		}
+	}
+	return before, len(q.PreGroup) > 1
+}
+
 // OfWith is Of with a fallback: when the dataset has no quest line for the quest, the chain is built
 // from the player's QuestieDB (ix may be nil). The dataset wins whenever it has a line.
 func OfWith(ds store.DataStore, ix *questie.Index, questID int64) Chain {
 	c := Of(ds, questID)
+	q := (*questie.Quest)(nil)
+	if ix != nil {
+		q = ix.Quests[int(questID)]
+	}
 	if c.Found {
 		c.Source = SourceDataset
 		if f := observed(ds, questID); f != nil && f.GroupWords() != "" {
 			c.Quest = f
 		}
+		if q != nil {
+			// the line gives the order and wins over the player's Questie; the line holds no giver, turn-in or minimum level, which the Questie still gives
+			if f := FactsOf(ds, ix, questID); f != nil && (f.Giver != "" || f.TurnIn != "" || f.MinLevel > 0 || f.GroupWords() != "") {
+				c.Quest = f
+			}
+		}
 		return c
-	}
-	q := (*questie.Quest)(nil)
-	if ix != nil {
-		q = ix.Quests[int(questID)]
 	}
 	if q == nil {
 		f := FactsOf(ds, nil, questID)
@@ -105,14 +124,8 @@ func OfWith(ds store.DataStore, ix *questie.Index, questID int64) Chain {
 	if c.Quest != nil && c.Quest.Source == SourceEverloot {
 		c.Source = SourceEverloot
 	}
+	c.Before, c.BeforeAll = beforeOf(ix, q)
 	seen := map[int]bool{}
-	for _, id := range append(append([]int{}, q.PreSingle...), q.PreGroup...) {
-		if !seen[id] {
-			seen[id] = true
-			c.Before = append(c.Before, link(ix, id))
-		}
-	}
-	c.BeforeAll = len(q.PreGroup) > 1 // Questie: the group's quests must all be done; any one of the single ones will do
 	var after []int
 	add := func(id int) {
 		if id != 0 && id != int(questID) && !seen[-id] {
@@ -256,19 +269,7 @@ func renderQuestie(c Chain, name string) string {
 		b.WriteString("No follow-up quest is listed for it in the game data you have.\n")
 		return b.String()
 	}
-	if len(c.Before) > 0 {
-		switch {
-		case c.BeforeAll:
-			b.WriteString("Comes after (finish all of these first):\n")
-		case len(c.Before) > 1:
-			b.WriteString("Comes after (finish any one of these first):\n")
-		default:
-			b.WriteString("Comes after:\n")
-		}
-		for _, s := range c.Before {
-			b.WriteString("  - " + s.label() + s.detail() + "\n")
-		}
-	}
+	writeBefore(&b, c)
 	if len(c.After) == 0 {
 		b.WriteString("No follow-up quest is listed for it in the game data you have.\n")
 		return b.String()
@@ -278,4 +279,22 @@ func renderQuestie(c Chain, name string) string {
 		b.WriteString("  - " + s.label() + s.detail() + "\n")
 	}
 	return b.String()
+}
+
+// writeBefore lists the quests that must be finished first, when the chain holds any.
+func writeBefore(b *strings.Builder, c Chain) {
+	if len(c.Before) == 0 {
+		return
+	}
+	switch {
+	case c.BeforeAll:
+		b.WriteString("Comes after (finish all of these first):\n")
+	case len(c.Before) > 1:
+		b.WriteString("Comes after (finish any one of these first):\n")
+	default:
+		b.WriteString("Comes after:\n")
+	}
+	for _, s := range c.Before {
+		b.WriteString("  - " + s.label() + s.detail() + "\n")
+	}
 }

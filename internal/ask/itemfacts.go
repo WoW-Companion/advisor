@@ -139,7 +139,7 @@ var limitTopics = []struct {
 	{questGroupAsk,
 		"Elite and group quests: the game data holds no elite flag and no suggested group size for any quest (the group size column of quests_observed is empty); it holds only a few players' tags, \"group\" or \"dungeon\", on some quests, and nothing for a quest no player tagged. Say so; state no group size, elite status or number of players for a quest from memory, and do not call an untagged quest solo."},
 	{questMinLevelAsk,
-		"Quest minimum level: the game data holds no minimum level to pick up or accept a quest (quests has a level column with no values, and no minimum level), only the level players report for it (quests_observed). Say so; give no level needed to start a quest from memory, and do not take its reported level for a minimum."},
+		questMinLevelFact},
 	{escortAsk,
 		"Escort quests: the game data marks no quest as an escort and holds no escort NPC, route, waypoint, attacker wave or restart rule (quests has no flag or objective-type column; quests_observed has a \"group\" or \"dungeon\" tag on some quests only). Say so; do not call a quest an escort, give an escort's route, its attackers or the time it takes from memory. The player's own Questie objective text is the only place a quest says to escort someone."},
 	{timedAsk,
@@ -326,6 +326,7 @@ func LimitFacts(text string) string {
 			out = append(out, tp.fact)
 		}
 	}
+	out = append(out, questLimitFacts(text)...)
 	if zoneLevelAsk.MatchString(text) && (zoneWord.MatchString(text) || learn.ZoneIn(text)) || zoneWhereAsk.MatchString(text) {
 		out = append(out, zoneLevelFact)
 	}

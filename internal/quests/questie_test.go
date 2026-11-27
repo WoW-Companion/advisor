@@ -77,3 +77,23 @@ func TestResolveWithQuestieOnly(t *testing.T) {
 		t.Fatalf("%d %q", id, name)
 	}
 }
+
+// A quest in one of the dataset's lines keeps the giver, turn-in, minimum level of the player's QuestieDB: the line gives the order only.
+func TestOfWithLineKeepsQuestieFacts(t *testing.T) {
+	ix := qix()
+	ix.Quests[11] = &questie.Quest{ID: 11, Name: "Wolf Den", Level: 11, MinLevel: 9, PreSingle: []int{10}, Starters: []questie.Ref{{ID: 7}}, Finishers: []questie.Ref{{ID: 8}}}
+	got := Render(OfWith(synth(t, true), ix, 11), "")
+	for _, want := range []string{"step 2 of 3 in Wolf Hunt", "needs level 9", "starts with Sergeant Pike (Ash Vale)", "turn in to Scout Rhea", "> 2. Wolf Den"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in %s", want, got)
+		}
+	}
+	for _, id := range []int64{10, 12} { // no QuestieDB facts to add: the line alone, nothing made up
+		if got := Render(OfWith(synth(t, true), ix, id), ""); strings.Contains(got, "Questie") || strings.Contains(got, "Comes after") {
+			t.Errorf("quest %d: %s", id, got)
+		}
+	}
+	if got := Render(OfWith(synth(t, true), nil, 11), ""); strings.Contains(got, "Questie") {
+		t.Errorf("no QuestieDB: %s", got)
+	}
+}
