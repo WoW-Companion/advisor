@@ -15,7 +15,7 @@ import (
 const totalsSrc = "dataset recipe_reagents (reagent_item_id, count) times each band's crafts, recipes (creates_item_id)"
 
 func TestOfflineBenchmarkTotalsFirstAid(t *testing.T)      { offlineTotals(t, "First Aid", 75) }
-func TestOfflineBenchmarkTotalsCooking(t *testing.T)       { offlineTotals(t, "Cooking", 45) }
+func TestOfflineBenchmarkTotalsCooking(t *testing.T)       { offlineTotals(t, "Cooking", 70) }
 func TestOfflineBenchmarkTotalsAlchemy(t *testing.T)       { offlineTotals(t, "Alchemy", 75) }
 func TestOfflineBenchmarkTotalsBlacksmithing(t *testing.T) { offlineTotals(t, "Blacksmithing", 65) }
 
