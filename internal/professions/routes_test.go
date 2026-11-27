@@ -176,3 +176,20 @@ func TestToolOfNamesTheProfessionOfATool(t *testing.T) {
 		t.Errorf("Engineering needs the Arclight Spanner: has %v needed %v", has, needed)
 	}
 }
+
+func TestACreatureHeldPropIsNoTool(t *testing.T) {
+	for _, name := range []string{"Monster - Mining Pick", "Monster - Item, Fishing Pole", "monster - skinning knife"} {
+		if got := ToolOf(name); got != "" {
+			t.Errorf("ToolOf(%q) = %q, want none", name, got)
+		}
+	}
+	if got := ToolOf("Mining Pick"); got != "Mining" {
+		t.Errorf("ToolOf(Mining Pick) = %q", got)
+	}
+	rank, max := 30, 75
+	c := character.Character{Professions: []character.Skill{{Name: "Mining", Rank: &rank, Max: &max}},
+		Bags: []character.ItemStack{{Count: 1, Name: "Monster - Mining Pick"}}}
+	if has, needed := HasTool(c, "Mining"); has || !needed {
+		t.Errorf("HasTool with only a creature's prop = %v, %v; want false, true", has, needed)
+	}
+}

@@ -49,8 +49,8 @@ var limitTopics = []struct {
 	about *regexp.Regexp
 	fact  string
 }{
-	{regexp.MustCompile(`(?i)\b(bag|bags|backpack|bank|bank slots?)\b.*\b(slots?|size|sizes|space|capacity|big|bigger|biggest|large|larger|largest|many|price|cost)\b|\b(slots?|size|capacity|big|bigger|biggest|large|larger|largest|many|price|cost)\b.*\b(bag|bags|backpack|bank)\b`),
-		"Bag and bank size: the game data holds no bag slot count, no backpack or bank size and no bank slot price. Say so; give no slot count or price from memory."},
+	{regexp.MustCompile(`(?i)\b(bag|bags|backpack|bank|bank slots?|key ?rings?)\b.*\b(slots?|size|sizes|space|capacity|big|bigger|biggest|large|larger|largest|many|price|cost|hold|holds|fit)\b|\b(slots?|size|capacity|big|bigger|biggest|large|larger|largest|many|price|cost)\b.*\b(bag|bags|backpack|bank|key ?rings?)\b`),
+		"Bag and bank size: the game data holds no bag slot count, no backpack, bank or key ring size and no bank slot price. Say so; give no slot count or price from memory."},
 	{regexp.MustCompile(`(?i)\bstack(s|ed|ing)?\b|\bhow many\b.*\b(carry|hold|fit)\b`),
 		"Stack size: the game data holds no maximum stack size for any item. Say so; give no stack size from memory (the capture's own counts are what the character holds)."},
 	{regexp.MustCompile(`(?i)\bunique(?:-equipped)?\b|\bonly one\b.*\b(carry|equip|wear|hold)\b|\b(carry|equip|wear|hold)\b.*\bonly one\b`),
@@ -93,9 +93,24 @@ var limitTopics = []struct {
 		"Dungeon difficulty and modes: the game data holds no difficulty rating, heroic or hard mode, and no gear or level recommendation beyond a dungeon's minimum and maximum level; an extra mode of a map in it is an alternate set of encounters with an id, not a named difficulty. Say so; call no dungeon heroic, easy or hard from memory. What it does hold is a dungeon's level range and group size."},
 	{rolesAsk,
 		"Group roles and threat: the game data holds no tank, healer or damage count for any dungeon or raid (instances has a group size and a level range only), no role flag on a spec, and no threat, aggro or taunt value. Say so; give no group composition or threat figure from memory. The advisor's own tables hold which talent trees fit a tank, a healer or a damage dealer and which stats each role weighs; use those for a spec or role question."},
+	{achievementAsk,
+		"Achievements and titles: the game data holds no achievement, achievement point, criteria or achievement reward, and no character title (earned or otherwise); a quest row's title is only its name. Say so; name no achievement, point value or title and no way to earn one from memory."},
+	{vanityAsk,
+		"Companion pets and vanity items: the game data holds a pet, tabard or toy only as an item row (name, item level, binding, vendor price, and a loot or vendor source for some): no pet species, summon spell, pet ability or level, no collection or active-pet limit, no pet battle and no tabard or toy effect. Say so; give no limit, ability or effect from memory. Where a pet comes from is only what its loot and vendor rows say."},
+	{toolEffectAsk,
+		"Profession tool effects: the game data holds a profession tool only as an item row (name, binding, buy price, vendor): no skill bonus, durability, lure or bait effect, speed or charges, and no row saying what a tool is needed for. Say so; give no bonus or comparison between tools from memory. The advisor's own table of which profession needs which tool (pick, knife, hammer, spanner, rod, pole) is the only tool rule it states."},
 	{regexp.MustCompile(`(?i)\bmacros?\b|/cast\b|/use\b|/castsequence\b`),
 		"Macros: the game data holds no macro commands or macro text and the advisor has no macro advice. Say so; do not write a macro and present it as from the game data."},
 }
+
+// achievementAsk is a question about an achievement, its points or a character title: the Classic titles the advisor knows by name, or earning, unlocking or a reward of a title.
+var achievementAsk = regexp.MustCompile(`(?i)\bachievements?\b|\bachievement points?\b|\b(earn|earns|earning|get|gets|getting|gain|unlock|unlocks|obtain|win|wins|how do i)\b.{0,25}\b(the )?titles?\b|\btitles?\b.{0,25}\b(earn\w*|rewards?|unlock\w*|obtain\w*|available|requirements?|for (killing|exploring|completing|reaching|winning))\b|\bwhat titles\b|\b(scarab lord|bloodsail admiral|loremaster|the explorer|the insane|salty|the diplomat|the seeker)\b.{0,15}\btitles?\b|\btitles?\b.{0,15}\b(scarab lord|bloodsail admiral|loremaster|the explorer|the insane|salty|the diplomat|the seeker)\b`)
+
+// vanityAsk is a question about companion pets as a collection, a pet's abilities, tabards, toys or vanity items; a hunter's or warlock's pet is no companion.
+var vanityAsk = regexp.MustCompile(`(?i)\b(companion|vanity|non-?combat|critter|battle) pets?\b|\bpet (journal|battles?|collection|species)\b|\b(my|the|your) (companions?|critters?)\b|\bcompanions? (limit|slots?|abilit\w+|collection)\b|\b(toys?|tabards?|vanity items?)\b`)
+
+// toolEffectAsk is a question about what a profession tool gives (a skill bonus, durability, a lure) or which of two is better.
+var toolEffectAsk = regexp.MustCompile(`(?i)\b(mining picks?|pickaxes?|skinning knives|skinning knife|blacksmith(?:ing)? hammers?|(?:runed )?(?:copper|silver|golden|truesilver|arcanite) rods?|enchanting rods?|arclight spanners?|fishing (?:poles?|rods?)|fishing lures?|bobbers?|thieves'? tools|jewelcrafting chisels?)\b.{0,60}\b(bonus|\+ ?\d+|skill|durability|break\w*|wears?|degrade\w*|last|faster|speed|best|better|upgrade\w*|stats?|charges?|difference)\b|\b(bonus|durability|best|better|faster|upgrade\w*|stats?|skill)\b.{0,40}\b(mining picks?|pickaxes?|skinning knives|skinning knife|blacksmith(?:ing)? hammers?|enchanting rods?|arclight spanners?|fishing (?:poles?|rods?|lures?|bait)|bobbers?)\b`)
 
 // goldMaking is a question about making gold: a profession, a farm, a craft or an item for profit, or what sells well.
 var goldMaking = regexp.MustCompile(`(?i)\b(make|making|makes|earn|earning|earns|farm|farming)\b.{0,25}\b(gold|money)\b|\bgold[- ]?(making|per hour|an hour|farm\w*|guide|tips)\b|\b(profit|profits|profitable|profiting|margins?|money[- ]?making|flip|flipping|undercut\w*)\b|\b(best|most)\b.{0,30}\b(gold|money)\b|\b(gold|money)\b.{0,30}\b(per hour|an hour|each hour|hourly)\b|\bwhat sells (best|well|fast)\b|\bworth (crafting|making|selling|farming|gathering)\b`)
