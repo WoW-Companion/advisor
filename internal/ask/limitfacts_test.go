@@ -27,6 +27,26 @@ func TestLimitFactsPvP(t *testing.T) {
 	}
 }
 
+func TestLimitFactsTravelTimes(t *testing.T) {
+	for _, q := range []string{
+		"what is the hearthstone cooldown?",
+		"how long is the cooldown on my hearthstone?",
+		"how often does the zeppelin to Orgrimmar run?",
+		"what is the boat schedule from Menethil Harbor to Auberdine?",
+		"how long is the boat ride from Ratchet to Booty Bay?",
+		"how much does a flight path cost from Tarren Mill?",
+	} {
+		if got := LimitFacts(q); !strings.Contains(got, "Travel times:") || !strings.Contains(got, "Say so") {
+			t.Errorf("LimitFacts(%q) = %q, want the travel times fact", q, got)
+		}
+	}
+	for _, q := range []string{"where do I take the zeppelin to Undercity?", "bind my hearthstone in Goldshire, is that a good inn?", "which flight path should I take to Tarren Mill?", "how long to farm 20 boar meat?"} {
+		if got := LimitFacts(q); strings.Contains(got, "Travel times:") {
+			t.Errorf("LimitFacts(%q) = %q, want no travel times fact", q, got)
+		}
+	}
+}
+
 func TestLimitFactsRidingAndClassTrainer(t *testing.T) {
 	for _, tc := range []struct{ q, want string }{
 		{"how much does Apprentice Riding cost?", "Riding and mounts:"},

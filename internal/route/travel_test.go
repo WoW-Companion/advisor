@@ -196,3 +196,32 @@ func TestGoldenPlanLua(t *testing.T) {
 		t.Errorf("Plan.lua differs from %s (rewrite with WOWC_UPDATE_GOLDEN=1):\n%s", file, got)
 	}
 }
+
+// tripBetween is the plan of a character of side standing in zone from with one ready turn-in in zone to.
+func tripBetween(side, from, to string) Plan {
+	ix := &questie.Index{Quests: map[int]*questie.Quest{}, Npcs: map[int]questie.Entity{}, Objects: map[int]questie.Entity{},
+		Areas: map[int]questie.Area{900: {UIMap: 5001, Zone: from}, 901: {UIMap: 5002, Zone: to}}}
+	ix.Npcs[100] = questie.Entity{Name: "Clerk", Spawns: []questie.Spawn{{Area: 901, X: 50, Y: 50}}}
+	ix.Quests[100] = &questie.Quest{ID: 100, Name: "Errand", Level: 30, Finishers: []questie.Ref{{ID: 100}}}
+	lvl, mp, x, y, yes := 30, 5001, 50.0, 50.0, true
+	c := character.Character{Name: "Hero", Faction: side, Class: "ROGUE", QuestsCaptured: true, Level: &lvl,
+		Location: &character.Location{Zone: from, MapID: &mp, X: &x, Y: &y},
+		Quests:   []character.Quest{{QuestID: 100, Title: "Errand", Complete: &yes}}}
+	return Build(c, ix)
+}
+
+func TestTramKeepsItsNameInALongerRoute(t *testing.T) {
+	p := tripBetween("Alliance", "Darnassus", "Stormwind City")
+	if len(p.Trips) != 1 || !strings.Contains(p.Trips[0].Travel, ", then Deeprun Tram from Ironforge to Stormwind") {
+		t.Errorf("trips %+v", p.Trips)
+	}
+}
+
+func TestNoFlightAcrossContinents(t *testing.T) {
+	for _, tc := range [][3]string{{"Alliance", "Stormwind City", "Hellfire Peninsula"}, {"Horde", "Orgrimmar", "Undercity"}} {
+		p := tripBetween(tc[0], tc[1], tc[2])
+		if len(p.Trips) != 1 || strings.HasPrefix(p.Trips[0].Travel, "Fly ") {
+			t.Errorf("%v: trips %+v", tc, p.Trips)
+		}
+	}
+}

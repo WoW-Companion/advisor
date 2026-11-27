@@ -344,8 +344,8 @@ func lowerFirst(s string) string {
 	if strings.HasPrefix(s, "Fly ") || s == "" {
 		return strings.ToLower(s[:1]) + s[1:]
 	}
-	// Keep proper names: only the leading transport word is lower-cased.
-	for _, w := range []string{"Zeppelin ", "Boat ", "Deeprun Tram "} {
+	// Keep proper names: only the leading transport word is lower-cased. The Deeprun Tram is a name, so it stays whole.
+	for _, w := range []string{"Zeppelin ", "Boat "} {
 		if strings.HasPrefix(s, w) {
 			return strings.ToLower(w[:1]) + w[1:] + s[len(w):]
 		}
