@@ -21,7 +21,7 @@ type Layout struct {
 // classic is the numbering used when the install has no meta file for a table.
 var classic = map[string]map[string]int{
 	"quest": {"name": 1, "startedBy": 2, "finishedBy": 3, "requiredLevel": 4, "questLevel": 5, "requiredRaces": 6,
-		"requiredClasses": 7, "objectivesText": 8, "triggerEnd": 9, "objectives": 10, "preQuestGroup": 12,
+		"requiredClasses": 7, "objectivesText": 8, "triggerEnd": 9, "objectives": 10, "sourceItemId": 11, "requiredSourceItems": 21, "preQuestGroup": 12,
 		"preQuestSingle": 13, "exclusiveTo": 16, "zoneOrSort": 17, "nextQuestInChain": 22, "parentQuest": 25,
 		"extraObjectives": 27, "requiredMaxLevel": 32},
 	"npc":    {"name": 1, "rank": 6, "spawns": 7, "friendlyToFaction": 13, "subName": 14, "npcFlags": 15, "minLevel": 4, "maxLevel": 5},

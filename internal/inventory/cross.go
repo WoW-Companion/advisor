@@ -9,6 +9,7 @@ import (
 	"github.com/WoW-Companion/advisor/internal/character"
 	"github.com/WoW-Companion/advisor/internal/gear"
 	"github.com/WoW-Companion/advisor/internal/professions"
+	"github.com/WoW-Companion/advisor/internal/questie"
 	"github.com/WoW-Companion/advisor/internal/store"
 )
 
@@ -248,10 +249,16 @@ func hasProfession(c character.Character, p string) bool { return HasProfession(
 // guesses: an item the dataset lacks, or a rule the dataset cannot settle, is "unsure", and a price
 // the dataset lacks stays unknown.
 func ReviewAll(chars []character.Character, ds store.DataStore) CrossResult {
+	return ReviewAllWith(chars, ds, nil)
+}
+
+// ReviewAllWith is ReviewAll that also reads the quests' items from the player's QuestieDB (qx may be nil).
+// An item a quest in a character's log needs is kept by rule: never sold, tossed or mailed away.
+func ReviewAllWith(chars []character.Character, ds store.DataStore, qx *questie.Index) CrossResult {
 	var res CrossResult
 	reviews := make([]Result, len(chars))
 	for i, c := range chars {
-		reviews[i] = Review(c, ds)
+		reviews[i] = ReviewWith(c, ds, qx)
 	}
 	res.Notes = unseenNotes(chars)
 	if ds == nil {
@@ -268,11 +275,13 @@ func ReviewAll(chars []character.Character, ds store.DataStore) CrossResult {
 	// upgrades other characters could wear, and quests that name an item.
 	upgrade := map[int64][]string{}
 	questHolders := map[string][]string{}
+	needs := make([]Needs, len(chars))
 	for i, c := range chars {
 		for _, e := range reviews[i].Groups[Equip] {
 			upgrade[e.ItemID] = append(upgrade[e.ItemID], displayName(c)+"|"+e.Reason)
 		}
-		for name := range openItemQuests(c) {
+		needs[i] = NeedsOf(c, qx)
+		for _, name := range needs[i].Names() {
 			questHolders[name] = append(questHolders[name], displayName(c))
 		}
 	}
@@ -310,9 +319,14 @@ func ReviewAll(chars []character.Character, ds store.DataStore) CrossResult {
 				case Equip, Keep, Quest:
 					l.Action, l.Reason = Keep_, e.Reason
 				case Vendor:
+					if row != nil && isQuestItem(row) {
+						// a grey quest item the log does not need: the quest rule decides, not the vendor
+						l.Action, l.To, l.Reason, l.AH = decide(chars, i, e, row, ds, users, usersOK, upgrade, questHolders, best, needs[i])
+						break
+					}
 					l.Action, l.Reason = Sell, "grey item, only worth its vendor price"
 				default:
-					l.Action, l.To, l.Reason, l.AH = decide(chars, i, e, row, ds, users, usersOK, upgrade, questHolders, best)
+					l.Action, l.To, l.Reason, l.AH = decide(chars, i, e, row, ds, users, usersOK, upgrade, questHolders, best, needs[i])
 				}
 				res.Lines = append(res.Lines, l)
 				if l.Where == "bags" && (l.Action == Sell || l.Action == Toss || l.Action == Mail) {
@@ -344,7 +358,7 @@ func ReviewAll(chars []character.Character, ds store.DataStore) CrossResult {
 // decide is the cross-character rule for a stack the per-character review left in the bank or
 // unknown groups.
 func decide(chars []character.Character, i int, e Entry, row store.Row, ds store.DataStore, users map[int64][]string, usersOK bool,
-	upgrade map[int64][]string, questHolders map[string][]string, best map[string]int) (a Action, to, why string, ah bool) {
+	upgrade map[int64][]string, questHolders map[string][]string, best map[string]int, need Needs) (a Action, to, why string, ah bool) {
 	c := chars[i]
 	me := displayName(c)
 	if row == nil {
@@ -364,7 +378,10 @@ func decide(chars []character.Character, i int, e Entry, row store.Row, ds store
 				return Mail, h, "needed for a quest in " + h + "'s log", false
 			}
 		}
-		return Toss, "", "no character has a quest that needs it", false
+		if q := need.Finished(e.ItemID); q != "" {
+			return Toss, "", "safe to destroy: " + q + " is completed and no quest in your log needs it", false
+		}
+		return Toss, "", "safe to destroy: no quest in your log needs it", false
 	}
 	if p := professions.ToolOf(e.Name); p != "" {
 		// a profession's tool is no gear: its owner keeps it, and another character with the profession is sent it

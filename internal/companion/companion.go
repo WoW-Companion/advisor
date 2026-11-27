@@ -723,6 +723,9 @@ func (s *Server) answer(id, client string, t *turn, req askRequest, history stri
 	text, streamed, usage, err := ask.RespondUsage(s.ctx, ac, q, prompt, s.cfg.Stream, func(chunk string) {
 		t.emit("chunk", map[string]string{"text": chunk}, false)
 	})
+	if err == nil {
+		text = ask.GuardAnswer(ac, req.Character, text)
+	}
 	e.Answer, e.Streamed, e.Status = ask.WithSaved(text, usage.Saved), streamed, "done"
 	if s.settings().Usage {
 		e.Usage = usage.Line()
