@@ -285,12 +285,18 @@ func TestLimitFactsRareDropAndSetBonus(t *testing.T) {
 		{"what does the 8 piece Battlegear of Might give?", "Item set bonuses:"},
 		{"is Silk Cloth a world drop?", "Drop chances and world drops:"},
 		{"what is the drop chance of Skullsplitter Tusk?", "Drop chances and world drops:"},
+		{"what zone is the rare Gruff Swiftbite in?", "Rare spawns and named elites:"},
+		{"where do I find rares in Westfall?", "Rare spawns and named elites:"},
+		{"how many people do I need for the elite Hogger?", "Rare spawns and named elites:"},
+		{"what level is the boss Edwin VanCleef?", "Rare spawns and named elites:"},
+		{"what triggers the spawn of Mor'Ladim?", "Rare spawns and named elites:"},
+		{"is the rare always up?", "Rare spawns and named elites:"},
 	} {
 		if got := LimitFacts(tc.q); !strings.Contains(got, tc.want) || !strings.Contains(got, "Say so") {
 			t.Errorf("LimitFacts(%q) = %q, want %q", tc.q, got, tc.want)
 		}
 	}
-	for _, q := range []string{"what is a rare quality item worth?", "which quest should I do next?", "where do I buy Silk Cloth?", "is this an elite quest?", "what gear should I wear at level 40?"} {
+	for _, q := range []string{"what is a rare quality item worth?", "which quest should I do next?", "where do I buy Silk Cloth?", "is this an elite quest?", "what gear should I wear at level 40?", "where do I find rare herbs?", "where can I find elite gear?", "what level for the elite quests in Stonetalon?"} {
 		got := LimitFacts(q)
 		for _, topic := range []string{"Rare spawns and named elites:", "Item set bonuses:", "Drop chances and world drops:"} {
 			if strings.Contains(got, topic) {

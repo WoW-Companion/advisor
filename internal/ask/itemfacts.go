@@ -149,7 +149,7 @@ var limitTopics = []struct {
 	{raceQuestAsk,
 		"Race, class and faction limits on quests: the game data holds no race limit or class limit for any quest (quests has no race or class mask); it holds only the faction a few players saw a quest under (quests_observed.faction) and, for a class quest, the class that heading names. Say so; do not say a quest is open or closed to a race or a class from memory. The player's own Questie holds the race and class masks, and the advisor offers no quest those masks close to the character, nor one whose only givers are of the other faction."},
 	{rareAsk,
-		"Rare spawns and named elites: the game data marks no creature as a rare, a rare elite or an elite (npcs.classification is 0 or empty on every row) and holds no zone, spawn point, patrol route or respawn timer for any creature; it holds a level and a faction for a few creatures only (no rare among them). It names a creature only where players saw it drop an item (loot_sources: the item, the drops and kills, the share). Say so; name no zone, level, faction, spawn point, respawn time or elite status from memory, and call no creature a rare or an elite."},
+		"Rare spawns and named elites: the game data marks no creature as a rare, a rare elite or an elite (npcs.classification is zero or empty on every row) and holds no zone, spawn point, patrol route, respawn timer or spawn condition (a night-only, quest-triggered or placeholder spawn) for any creature, and no group size an elite needs; it holds a level and a faction for a few creatures only (no rare among them). It names a creature only where players saw it drop an item (loot_sources: the item, the drops and kills, the share). Say so; name no zone, level, faction, spawn point, respawn time or elite status from memory, and call no creature a rare or an elite."},
 	{setBonusAsk,
 		"Item set bonuses: the game data holds an item set only as a name and its member items (item_sets: set id, name, item id); it holds no set bonus, no piece-count threshold (2, 3, 5 or 8 pieces), no bonus text or spell, no tier number and no set's source. Say so; state no set bonus, threshold, tier or where a set drops from memory. What it does hold is which items make up a set, and each piece's class, slot and binding."},
 	{dropRateAsk,
@@ -319,6 +319,9 @@ func LimitFacts(text string) string {
 			}
 			q = petSpells.ReplaceAllString(q, " ")
 		}
+		if tp.about == rareAsk {
+			q = rareNotCreature.ReplaceAllString(q, " ")
+		}
 		if tp.about.MatchString(q) || tp.about == potionAsk && potionStack.MatchString(text) {
 			out = append(out, tp.fact)
 		}
@@ -332,8 +335,12 @@ func LimitFacts(text string) string {
 	return strings.Join(out, "\n")
 }
 
-// rareAsk is a question about a rare spawn or a named elite: where it stands, its level, its faction, whether a creature is a rare or an elite, or when it respawns.
-var rareAsk = regexp.MustCompile(`(?i)\b(?:rare|named|world) (?:spawns?|elites?|mobs?|creatures?|npcs?|monsters?)\b|\brare elites?\b|\belites? (?:mobs?|creatures?|npcs?|monsters?)\b|\b(?:respawns?|respawning|spawn (?:timers?|times?|points?|locations?|rates?|spots?))\b|\b(?:where|which zone|what zone|what level|which faction|what faction)\b.{0,40}\b(?:rare|elite)s?\b.{0,30}\b(?:spawns?|stands?|is|are|lives?|found|level|faction)\b|\bwhere (?:does|do|will|can)\b.{0,50}\bspawn\b|\b(?:a|an) (?:rare|elite)\s*[?.!]?\s*$`)
+// rareAsk is a question about a rare spawn or a named elite: where it stands or how to find it, its level and strength, whether a group is needed, its faction, whether a creature is a rare or
+// an elite, what makes it spawn and when it respawns. rareNotCreature is cut from the question first: a rare item, a rare herb, an elite quest or elite gear is no creature.
+var rareAsk = regexp.MustCompile(`(?i)\b(?:rare|named|world) (?:spawns?|elites?|mobs?|creatures?|npcs?|monsters?)\b|\brare elites?\b|\belites? (?:mobs?|creatures?|npcs?|monsters?)\b|\b(?:respawns?|respawning|spawn(?:s|ed|ing)?|placeholders?)\b|\b(?:where|which zone|what zone|what level|which faction|what faction)\b.{0,40}\b(?:rare|elite)s?\b.{0,30}\b(?:spawns?|stands?|is|are|lives?|found|level|faction)\b|\b(?:a|an) (?:rare|elite)\s*[?.!]?\s*$|\b(?:where|what zone|which zone|what area|which area|find|locate|location|camp|farm)\w*\b.{0,60}\b(?:rares?|elites?)\b|\b(?:rares?|elites?)\b.{0,50}\b(?:located|location|found|stands?|lives?|roams?|patrols?|levels?|strong|tough|hard|difficult|dangerous|solo\w*|groups?|part(?:y|ies)|always up|up all the time|camp\w*|how many (?:people|players)|which faction|what faction)\b|\b(?:what level|which level|how strong|how hard|how tough|how many (?:people|players)|solo\w*|groups?|part(?:y|ies)|camp\w*|faction)\b.{0,50}\b(?:rares?|elites?)\b|\b(?:what level|which level|how strong)\b.{0,40}\bbosse?s?\b`)
+
+// rareNotCreature is a use of "rare" or "elite" that names no creature: the rare quality of an item, a rare herb or recipe, an elite quest, elite gear or an elite status.
+var rareNotCreature = regexp.MustCompile(`(?i)\brare (?:quality|items?|gear|weapons?|armou?r|recipes?|patterns?|plans?|schematics?|formulas?|herbs?|ores?|gems?|loot|blues?|bows?|swords?|axes?|daggers?|staffs?|wands?|rings?|trinkets?|cloaks?|mounts?|pets?|materials?|reagents?|dyes?|finds?)\b|\b(?:elite|rare) quests?\b|\bquests?\b.{0,25}\b(?:elite|rare)\b|\belite (?:gear|armou?r|sets?|weapons?|status|badges?|titles?|ranks?)\b|\bblue rares?\b`)
 
 // setBonusAsk is a question about what an item set gives: its bonus, the piece counts that unlock one, or its tier.
 var setBonusAsk = regexp.MustCompile(`(?i)\bset bonus(?:es)?\b|\bset effects?\b|\b(?:\d|two|three|four|five|six|eight)[- ]?(?:piece|pieces|pc|pcs)\b|\bpieces?\b.{0,30}\b(?:bonus(?:es)?|unlock\w*|gives?|grants?|needed|required)\b|\b(?:bonus(?:es)?)\b.{0,30}\b(?:from|of|for) (?:the |a |an )?(?:[a-z' ]{1,30} )?(?:set|armou?r set|raiment|regalia|battlegear)\b|\btier ?\d{1,2}\b|\bwhat does (?:the |a |an )?[a-z' ]{1,30} set (?:give|do|grant)\b`)
