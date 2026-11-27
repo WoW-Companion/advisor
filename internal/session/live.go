@@ -13,8 +13,8 @@ import (
 
 // NPC flag bits of Questie's npcFlags.
 const (
-	flagInnkeeper = 0x80
-	flagFlight    = 0x2000
+	flagInnkeeper = questie.FlagInnkeeper
+	flagFlight    = questie.FlagFlightMaster
 )
 
 // friendlyTo is whether an NPC Questie marks friendly to "A", "H" or "AH" serves the character's side ("Alliance" or

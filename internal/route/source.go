@@ -614,10 +614,10 @@ func filterBig(cs []pt, biggest int) []pt {
 
 // npcFlags are the bits of an NPC's npcFlags the planner reads.
 const (
-	flagQuestGiver = 0x2
-	flagTrainer    = 0x10
-	flagVendor     = 0x80
-	flagRepair     = 0x1000
+	flagQuestGiver = questie.FlagQuestGiver
+	flagTrainer    = questie.FlagTrainer
+	flagVendor     = questie.FlagVendor
+	flagRepair     = questie.FlagRepair
 )
 
 // friendly reports whether e is an NPC to talk to, not a mob to fight, for a player of side ("H", "A"

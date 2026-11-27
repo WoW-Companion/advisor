@@ -14,7 +14,7 @@ import (
 	"strings"
 )
 
-const indexSchema = 13 // bump when the cached index's shape changes
+const indexSchema = 14 // bump when the cached index's shape changes
 
 // Spawn is a place, as percent of the area's map.
 type Spawn struct {
@@ -28,7 +28,7 @@ type Entity struct {
 	Level   int
 	Rank    int    // 0 normal, 1 elite, 2 rare elite, 3 boss, 4 rare
 	Faction string // friendlyToFaction: "A", "H", "AH"; empty when Questie names none
-	Flags   int    // npcFlags, a bit set; 0x10 marks a trainer
+	Flags   int    // npcFlags as canonical bits (the Flag constants)
 	Spawns  []Spawn
 }
 
@@ -94,14 +94,16 @@ type Area struct {
 }
 
 type Index struct {
-	Schema  int
-	DB      string
-	Layout  string // which field numbering was read: "meta", "classic" or "mixed"
-	Quests  map[int]*Quest
-	Npcs    map[int]Entity
-	Objects map[int]Entity
-	Items   map[int]Item
-	Areas   map[int]Area
+	Schema int
+	DB     string
+	Layout string // which field numbering was read: "meta", "classic" or "mixed"
+	// FlagLayout says where the npcFlags bit names came from ("enum ..." or a "fallback ..." with the reason); Npcs' Flags are canonical bits.
+	FlagLayout string
+	Quests     map[int]*Quest
+	Npcs       map[int]Entity
+	Objects    map[int]Entity
+	Items      map[int]Item
+	Areas      map[int]Area
 	// Dungeons are the dungeons from Zones/dungeons.lua with their creatures and quests;
 	// DungeonReason says why there are none. Drops maps a dungeon creature to the items it drops.
 	// Nodes are the objects that yield items (herbs, ore, fish, chests), with spawns; NodesReason
@@ -299,7 +301,7 @@ func buildEntity(r rawRow, l Layout, tbl string) Entity {
 	s := r.scalars()
 	sc := func(name string) any { return s[l.sc(tbl, name)] }
 	return Entity{Name: text(sc("name")), Sub: text(sc("subName")), Level: num(sc("maxLevel")), Rank: num(sc("rank")), Faction: text(sc("friendlyToFaction")),
-		Flags: num(sc("npcFlags")), Spawns: spawns(r[l.at(tbl, "spawns")])}
+		Flags: l.flags.canon(num(sc("npcFlags"))), Spawns: spawns(r[l.at(tbl, "spawns")])}
 }
 
 var areaLine = regexp.MustCompile(`^\s*\[(\d+)\]\s*=\s*(\d+),?\s*(?:--\s*(.*?))?\s*$`)
@@ -349,7 +351,7 @@ func Parse(st Status) (*Index, error) {
 	}
 	defer f.Close()
 	lay := ReadLayout(st)
-	ix := &Index{Schema: indexSchema, DB: st.DB, Layout: lay.Source,
+	ix := &Index{Schema: indexSchema, DB: st.DB, Layout: lay.Source, FlagLayout: lay.flags.Source,
 		Quests: map[int]*Quest{}, Npcs: map[int]Entity{}, Objects: map[int]Entity{}, Items: map[int]Item{}}
 	quests, npcs, objects, itemRows := map[int]rawRow{}, map[int]rawRow{}, map[int]rawRow{}, map[int]rawRow{}
 	wanted := lay.wantedFields()
@@ -471,7 +473,7 @@ var CacheDir = func() string {
 // metaStamp changes when any of the install's meta files does, so a cached index never outlives its layout.
 func metaStamp(st Status) string {
 	var b strings.Builder
-	for _, f := range []string{"questMeta.lua", "npcMeta.lua", "objectMeta.lua", "itemMeta.lua"} {
+	for _, f := range []string{"questMeta.lua", "npcMeta.lua", "objectMeta.lua", "itemMeta.lua", "../corrections/enum/expansions.lua"} {
 		for _, base := range []string{filepath.Dir(st.TOC), filepath.Join(filepath.Dir(st.TOC), "support", "Forever")} {
 			if fi, err := os.Stat(filepath.Join(base, "src", "meta", f)); err == nil {
 				fmt.Fprintf(&b, "%s:%d:%d;", f, fi.Size(), fi.ModTime().UnixNano())
