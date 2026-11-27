@@ -14,6 +14,7 @@ import (
 	"github.com/WoW-Companion/advisor/internal/gather"
 	"github.com/WoW-Companion/advisor/internal/gear"
 	"github.com/WoW-Companion/advisor/internal/items"
+	"github.com/WoW-Companion/advisor/internal/learn"
 	"github.com/WoW-Companion/advisor/internal/questie"
 	"github.com/WoW-Companion/advisor/internal/quests"
 	"github.com/WoW-Companion/advisor/internal/store"
@@ -563,15 +564,18 @@ func (f *finder) craft() (Path, bool) {
 			return Path{Kind: Craft, Line: line, Reagents: reagents, Skill: sc, Recipe: &src, rank: rank}, true
 		}
 		sc.Gap = need - have
+		rankNote := f.rankNote(sc, skill, have, need)
 		if sc.Gap > ShortMax {
 			sc.Status = Far
 			line := fmt.Sprintf("You're far short: your %s is %d; it needs %d (%d more points). ", prof, have, need, sc.Gap)
+			line += rankNote
 			line += f.otherWays(prof)
 			return Path{Kind: Craft, Line: line, Skill: sc, Recipe: &src, Informational: true, rank: rankOtherCraft}, true
 		}
 		sc.Status = Short
 		sc.SkillUp = f.skillUpSteps(prof, have, need, spell)
 		line := fmt.Sprintf("Your %s is %d; it needs %d (%d more points).", prof, have, need, sc.Gap)
+		line += strings.TrimSuffix(" "+rankNote, " ")
 		if len(sc.SkillUp) == 0 {
 			line += " The game data lists no recipe of yours that gives a skill-up now."
 		} else {
@@ -615,6 +619,21 @@ func (f *finder) craft() (Path, bool) {
 	}
 	line += f.otherWays(prof)
 	return Path{Kind: Craft, Line: line, Skill: sc, Informational: true, rank: rankOtherCraft}, true
+}
+
+// rankNote says, for a recipe past the rank cap the character has trained to, which rank it needs and the character level
+// that rank is trained from (the dataset's profession_notes ranks); it fills the check's Rank and RankLevel. It is empty when
+// the cap is not known, the recipe is within it, or the dataset lists no ranks.
+func (f *finder) rankNote(sc *SkillCheck, skill character.Skill, have, need int) string {
+	if skill.Max == nil || need <= *skill.Max {
+		return ""
+	}
+	rank, floor, level, ok := learn.RankFor(f.ds, need)
+	if !ok {
+		return ""
+	}
+	sc.Rank, sc.RankLevel = rank, level
+	return learn.RankLine(rank, floor, level, have, need, f.c.Level) + " "
 }
 
 // otherWays is the advice for a crafted item the character cannot make: the Auction House when the

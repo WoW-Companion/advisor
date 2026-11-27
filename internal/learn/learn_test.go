@@ -333,3 +333,29 @@ func TestItemRecipeWithNoNamedPlace(t *testing.T) {
 		t.Errorf("a trainer recipe still points to the trainers: %v %q", err, res.Text)
 	}
 }
+
+func TestRankLine(t *testing.T) {
+	lvl := func(n int) *int { return &n }
+	for _, tc := range []struct {
+		name         string
+		have, need   int
+		level        *int
+		want, absent string
+	}{
+		{"below the level", 0, 190, lvl(15), "Skill above 150 needs the Expert rank, trained from character level 20. You are level 15, so not yet.", ""},
+		{"at the level", 0, 190, lvl(20), "trained from character level 20.", "not yet"},
+		{"skill already reached", 190, 190, lvl(15), "trained from character level 20.", "not yet"},
+		{"level unknown", 0, 190, nil, "trained from character level 20.", "not yet"},
+	} {
+		got := RankLine("Expert", 150, 20, tc.have, tc.need, tc.level)
+		if !strings.Contains(got, tc.want) || tc.absent != "" && strings.Contains(got, tc.absent) {
+			t.Errorf("%s: %q", tc.name, got)
+		}
+	}
+}
+
+func TestRankForNoDataset(t *testing.T) {
+	if _, _, _, ok := RankFor(nil, 190); ok {
+		t.Error("a rank was named with no dataset")
+	}
+}
