@@ -122,6 +122,12 @@ var limitTopics = []struct {
 		"Elite and group quests: the game data holds no elite flag and no suggested group size for any quest (the group size column of quests_observed is empty); it holds only a few players' tags, \"group\" or \"dungeon\", on some quests, and nothing for a quest no player tagged. Say so; state no group size, elite status or number of players for a quest from memory, and do not call an untagged quest solo."},
 	{questMinLevelAsk,
 		"Quest minimum level: the game data holds no minimum level to pick up or accept a quest (quests has a level column with no values, and no minimum level), only the level players report for it (quests_observed). Say so; give no level needed to start a quest from memory, and do not take its reported level for a minimum."},
+	{rareAsk,
+		"Rare spawns and named elites: the game data marks no creature as a rare, a rare elite or an elite (npcs.classification is 0 or empty on every row) and holds no zone, spawn point, patrol route or respawn timer for any creature; it holds a level and a faction for a few creatures only (no rare among them). It names a creature only where players saw it drop an item (loot_sources: the item, the drops and kills, the share). Say so; name no zone, level, faction, spawn point, respawn time or elite status from memory, and call no creature a rare or an elite."},
+	{setBonusAsk,
+		"Item set bonuses: the game data holds an item set only as a name and its member items (item_sets: set id, name, item id); it holds no set bonus, no piece-count threshold (2, 3, 5 or 8 pieces), no bonus text or spell, no tier number and no set's source. Say so; state no set bonus, threshold, tier or where a set drops from memory. What it does hold is which items make up a set, and each piece's class, slot and binding."},
+	{dropRateAsk,
+		"Drop chances and world drops: the game data holds no drop table, no guaranteed or bonus drop and no world drop flag, no loot level range and no creature's level for most drops; it holds the share of kills players saw drop an item (loot_sources: drops, kills and the share, for the creatures players reported) and nothing for a creature nobody reported. Say so; give a chance only as \"seen on N% of M kills\", never a fixed percentage from memory, and call an item a random world drop only when many creatures carry it."},
 }
 
 // questXPAsk is a question about the XP a quest gives (its reward, or how much of it a character keeps below the quest's level).
@@ -250,3 +256,12 @@ func LimitFacts(text string) string {
 	}
 	return strings.Join(out, "\n")
 }
+
+// rareAsk is a question about a rare spawn or a named elite: where it stands, its level, its faction, whether a creature is a rare or an elite, or when it respawns.
+var rareAsk = regexp.MustCompile(`(?i)\b(?:rare|named|world) (?:spawns?|elites?|mobs?|creatures?|npcs?|monsters?)\b|\brare elites?\b|\belites? (?:mobs?|creatures?|npcs?|monsters?)\b|\b(?:respawns?|respawning|spawn (?:timers?|times?|points?|locations?|rates?|spots?))\b|\b(?:where|which zone|what zone|what level|which faction|what faction)\b.{0,40}\b(?:rare|elite)s?\b.{0,30}\b(?:spawns?|stands?|is|are|lives?|found|level|faction)\b|\bwhere (?:does|do|will|can)\b.{0,50}\bspawn\b|\b(?:a|an) (?:rare|elite)\s*[?.!]?\s*$`)
+
+// setBonusAsk is a question about what an item set gives: its bonus, the piece counts that unlock one, or its tier.
+var setBonusAsk = regexp.MustCompile(`(?i)\bset bonus(?:es)?\b|\bset effects?\b|\b(?:\d|two|three|four|five|six|eight)[- ]?(?:piece|pieces|pc|pcs)\b|\bpieces?\b.{0,30}\b(?:bonus(?:es)?|unlock\w*|gives?|grants?|needed|required)\b|\b(?:bonus(?:es)?)\b.{0,30}\b(?:from|of|for) (?:the |a |an )?(?:[a-z' ]{1,30} )?(?:set|armou?r set|raiment|regalia|battlegear)\b|\btier ?\d{1,2}\b|\bwhat does (?:the |a |an )?[a-z' ]{1,30} set (?:give|do|grant)\b`)
+
+// dropRateAsk is a question about a drop chance, a guaranteed drop or a world drop.
+var dropRateAsk = regexp.MustCompile(`(?i)\bworld drops?\b|\bdrop (?:rates?|chances?|tables?)\b|\b(?:guaranteed|bonus)\b.{0,20}\bdrops?\b|\bdrops?\b.{0,25}\b(?:guaranteed|every time|always)\b|\bhow (?:many|often|likely)\b.{0,30}\b(?:kills?|runs?|tries|attempts?)\b.{0,30}\bdrops?\b|\bchance\b.{0,25}\b(?:to drop|drops?|of dropping)\b|\b(?:to drop|drops?|dropping)\b.{0,25}\bchance\b|\bwhat (?:percent|percentage|%)\b.{0,30}\bdrops?\b`)

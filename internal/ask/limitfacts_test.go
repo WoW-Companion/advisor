@@ -275,3 +275,27 @@ func TestLimitFactsQuestDifficulty(t *testing.T) {
 		}
 	}
 }
+
+func TestLimitFactsRareDropAndSetBonus(t *testing.T) {
+	for _, tc := range []struct{ q, want string }{
+		{"where does the rare elite Gruff Swiftbite spawn?", "Rare spawns and named elites:"},
+		{"how long is the respawn timer of Hogger?", "Rare spawns and named elites:"},
+		{"what zone has the named elite with the best drop?", "Rare spawns and named elites:"},
+		{"what is the set bonus of Dreadmist Raiment?", "Item set bonuses:"},
+		{"what does the 8 piece Battlegear of Might give?", "Item set bonuses:"},
+		{"is Silk Cloth a world drop?", "Drop chances and world drops:"},
+		{"what is the drop chance of Skullsplitter Tusk?", "Drop chances and world drops:"},
+	} {
+		if got := LimitFacts(tc.q); !strings.Contains(got, tc.want) || !strings.Contains(got, "Say so") {
+			t.Errorf("LimitFacts(%q) = %q, want %q", tc.q, got, tc.want)
+		}
+	}
+	for _, q := range []string{"what is a rare quality item worth?", "which quest should I do next?", "where do I buy Silk Cloth?", "is this an elite quest?", "what gear should I wear at level 40?"} {
+		got := LimitFacts(q)
+		for _, topic := range []string{"Rare spawns and named elites:", "Item set bonuses:", "Drop chances and world drops:"} {
+			if strings.Contains(got, topic) {
+				t.Errorf("LimitFacts(%q) = %q, want no %s", q, got, topic)
+			}
+		}
+	}
+}
