@@ -31,7 +31,7 @@ const (
 	trTimesNone = "the dataset has no hearthstone cooldown, boat or zeppelin schedule, flight fare or flight time column or table"
 )
 
-var trDigit = regexp.MustCompile(`\d`)
+var travelDigit = regexp.MustCompile(`\d`)
 
 // trTrip is the plan of a level 30 character of side standing in zone from, with one ready turn-in in zone to.
 func trTrip(side, from, to string) route.Plan {
@@ -160,7 +160,7 @@ func TestOfflineBenchmarkTravelNoAnswer(t *testing.T) {
 		"how much does the flight path from Tarren Mill cost?",
 	} {
 		f := ask.LimitFacts(q)
-		ok := strings.Contains(f, "Travel times: the game data holds no hearthstone cooldown") && strings.Contains(f, "Say so") && !trDigit.MatchString(f)
+		ok := strings.Contains(f, "Travel times: the game data holds no hearthstone cooldown") && strings.Contains(f, "Say so") && !travelDigit.MatchString(f)
 		out = append(out, benchRow{"\"" + q + "\"", firstLine(f), "the data holds none: say so, give no cooldown, schedule, fare or time", trTimesNone, resultIf(ok, "no statement that the data holds none, or a figure in it")})
 	}
 	for _, q := range []string{"where do I take the zeppelin to Undercity?", "which flight path should I take to Tarren Mill?"} {

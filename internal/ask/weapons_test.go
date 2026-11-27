@@ -112,3 +112,19 @@ func TestWeaponFactsWithoutTablesSaySo(t *testing.T) {
 		t.Errorf("an old dataset adds weapon text to every question: %q", got)
 	}
 }
+
+func TestWeaponFactsDualWieldLevel(t *testing.T) {
+	for _, tc := range []struct{ class, want string }{
+		{"ROGUE", "learns it at level 10"}, {"WARRIOR", "learns it at level 20"}, {"SHAMAN", "learns it at level 40"}, {"PRIEST", "cannot dual wield"},
+	} {
+		c := weaponPriest()
+		c.Class = tc.class
+		got := WeaponFacts(c, weaponDS(t), "when can I dual wield?")
+		if !strings.Contains(got, tc.want) {
+			t.Errorf("%s: facts %q lack %q", tc.class, got, tc.want)
+		}
+	}
+	if got := WeaponFacts(weaponPriest(), weaponDS(t), "where do I train staves?"); strings.Contains(got, "Dual Wield") {
+		t.Errorf("a question that is not about dual wielding got the Dual Wield line: %q", got)
+	}
+}

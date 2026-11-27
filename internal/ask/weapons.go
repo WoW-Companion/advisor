@@ -17,6 +17,9 @@ const NoWeaponFacts = "Weapon skills: this game data has no weapon-skill facts. 
 // weaponWords make a question one about weapon skills, the weapons a class can use, or where to train.
 var weaponWords = regexp.MustCompile(`(?i)\b(weapons?|wield|dual wield|staffs?|staves|axes?|swords?|maces?|daggers?|polearms?|bows?|guns?|crossbows?|wands?|fist|thrown|weapon masters?|weapon skills?)\b`)
 
+// dualWieldWords make a weapon question one about dual wielding.
+var dualWieldWords = regexp.MustCompile(`(?i)\bdual[- ]?wield`)
+
 // WeaponQuestion reports whether a question is about which weapons a class can use or where to train a
 // weapon skill.
 func WeaponQuestion(text string) bool { return weaponWords.MatchString(text) }
@@ -64,6 +67,9 @@ func WeaponFacts(c character.Character, ds store.DataStore, text string) string 
 		b.WriteString("- The character has learned: " + strings.Join(have, ", ") + ".\n")
 	}
 	fmt.Fprintf(&b, "- The class can learn: %s.\n", strings.Join(learn, ", "))
+	if dualWieldWords.MatchString(text) {
+		b.WriteString(dualWieldFact(c, ds))
+	}
 	lacking := f.Lacking(c)
 	if len(lacking) == 0 {
 		return strings.TrimRight(b.String(), "\n")
@@ -109,4 +115,14 @@ func WeaponFacts(c character.Character, ds store.DataStore, text string) string 
 		fmt.Fprintf(&b, "  - %s: %s\n", f.Names[id], strings.Join(parts, "; "))
 	}
 	return strings.TrimRight(b.String(), "\n")
+}
+
+// dualWieldFact is the line for a question about dual wielding: Dual Wield is a class spell, not a weapon skill, so the Weapon Masters
+// do not teach it; the level is the class's own, and the dataset holds no price for it.
+func dualWieldFact(c character.Character, ds store.DataStore) string {
+	level, ok := gear.DualWieldLevel(c.Class, ds)
+	if !ok {
+		return "- Dual Wield: this class cannot dual wield; name no level for it.\n"
+	}
+	return fmt.Sprintf("- Dual Wield is a class trainer spell, not a weapon skill, so a Weapon Master does not teach it: this class learns it at level %d. The game data holds no price for it, so name none.\n", level)
 }

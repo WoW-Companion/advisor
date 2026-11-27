@@ -23,18 +23,15 @@ const (
 // it (Classic Era trainers). Classes not listed never dual wield.
 var dualWieldLevel = map[string]int{"WARRIOR": 20, "HUNTER": 20, "ROGUE": 10, "SHAMAN": 40}
 
-// knowsDualWield reports whether the character has learned Dual Wield: from the dataset's class_spells
-// level for it when there is one, else the table above. The capture holds no known spells, so the
-// class and level are what there is; a level not reached means not learned.
-func knowsDualWield(c character.Character, ds store.DataStore, class string) bool {
-	if c.Level == nil {
-		return false
-	}
+// DualWieldLevel is the level a class learns Dual Wield from its class trainer: the dataset's class_spells level
+// when it has a row for the spell, else the table above. ok is false for a class that cannot dual wield.
+func DualWieldLevel(class string, ds store.DataStore) (level int, ok bool) {
+	class = strings.ToUpper(class)
 	need, ok := dualWieldLevel[class]
 	if !ok {
-		return false
+		return 0, false
 	}
-	if cid, found := classIDs[class]; found {
+	if cid, found := classIDs[class]; found && ds != nil {
 		if rows, err := ds.Filter("class_spells", store.Range{Column: "class_id", Min: cid, Max: cid}); err == nil {
 			for _, r := range rows {
 				if n, _ := r["name"].(string); n == "Dual Wield" {
@@ -46,7 +43,17 @@ func knowsDualWield(c character.Character, ds store.DataStore, class string) boo
 			}
 		}
 	}
-	return *c.Level >= need
+	return need, true
+}
+
+// knowsDualWield reports whether the character has learned Dual Wield. The capture holds no known spells, so the
+// class and level are what there is; a level not reached means not learned.
+func knowsDualWield(c character.Character, ds store.DataStore, class string) bool {
+	if c.Level == nil {
+		return false
+	}
+	need, ok := DualWieldLevel(class, ds)
+	return ok && *c.Level >= need
 }
 
 var classIDs = map[string]int64{"WARRIOR": 1, "PALADIN": 2, "HUNTER": 3, "ROGUE": 4, "PRIEST": 5, "SHAMAN": 7, "MAGE": 8, "WARLOCK": 9, "DRUID": 11}
