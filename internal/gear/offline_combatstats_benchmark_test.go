@@ -69,6 +69,8 @@ var csHitCases = []struct {
 	{"ROGUE", "Combat", "damage", 31, "Hit Rating", "a dual wielder misses a lot without it"},
 	{"HUNTER", "Marksmanship", "damage", 31, "Hit Rating", "a ranged attacker misses without it"},
 	{"MAGE", "Fire", "damage", 31, "Hit Rating", "a spell can miss a boss"},
+	{"PRIEST", "Holy", "healer", 32, "Crit Rating", "a crit heals for more"},
+	{"PALADIN", "Holy", "healer", 43, "mana per five seconds", "a healer's mana lasts longer"},
 }
 
 // TestOfflineBenchmarkHitWeight: the stat types a damage dealer's gear carries for hit count for the build; the dataset gives
