@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+
+	"github.com/WoW-Companion/advisor/internal/store"
+	"github.com/WoW-Companion/advisor/internal/vendors"
 )
 
 func itoa(n int64) string { return strconv.FormatInt(n, 10) }
@@ -63,4 +66,22 @@ func Render(item string, spots []Spot, crafted bool, limit int) string {
 		b.WriteString("It can also be crafted: see profession_plan.\n")
 	}
 	return b.String()
+}
+
+// Value is the line that says what a drop is worth, for a farming answer: the vendor's price for the item from
+// items.sell_price. The dataset holds no Auction House price and no time per kill, so it says so and gives no gold
+// per hour. "" when the item has no sell price.
+func Value(ds store.DataStore, itemID int64) string {
+	if ds == nil {
+		return ""
+	}
+	it, err := ds.Get("items", itemID)
+	if err != nil {
+		return ""
+	}
+	m := vendors.Money(i64(it["sell_price"]))
+	if m == "" {
+		return ""
+	}
+	return "A vendor pays " + m + " for each. The dataset has no Auction House price, so no gold per hour is given.\n"
 }
