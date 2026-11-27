@@ -105,6 +105,7 @@ func addErrands(p *Plan, c character.Character, src source, opt Options, in shar
 		}
 		add(ErrandTrain, label, trainWhy(n), m, x, y)
 	}
+	addProfessionTrainers(p, c, qs, opt, cur, zone, add)
 	if !c.BankCaptured {
 		m, x, y, label := cur, float64(NoPos), float64(NoPos), "Open your bank once"
 		if qs != nil {

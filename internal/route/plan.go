@@ -10,6 +10,7 @@ import (
 
 	"github.com/WoW-Companion/advisor/internal/character"
 	"github.com/WoW-Companion/advisor/internal/learn"
+	"github.com/WoW-Companion/advisor/internal/professions"
 	"github.com/WoW-Companion/advisor/internal/questie"
 	"github.com/WoW-Companion/advisor/internal/store"
 	"github.com/WoW-Companion/advisor/internal/unlock"
@@ -183,6 +184,8 @@ type followSource interface {
 
 // Plan is the ordered route for one character.
 type Plan struct {
+	hints     []professions.RouteHint // the profession path's facts, once per plan
+	hintsDone bool
 	Character string       `json:"character"`
 	Zone      string       `json:"zone,omitempty"`
 	Start     *Point       `json:"start,omitempty"`
