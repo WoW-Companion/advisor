@@ -127,3 +127,27 @@ func TestLimitFactsBossLockoutDifficultyRoles(t *testing.T) {
 		}
 	}
 }
+
+func TestLimitFactsVanityTitlesAndTools(t *testing.T) {
+	for _, tc := range []struct{ q, want string }{
+		{"how many companion pets can I keep?", "Companion pets and vanity items:"},
+		{"does the Argent Dawn tabard give reputation?", "Companion pets and vanity items:"},
+		{"what achievements can I earn?", "Achievements and titles:"},
+		{"how do I get the Scarab Lord title?", "Achievements and titles:"},
+		{"how much skill does the Big Iron Fishing Pole give?", "Profession tool effects:"},
+		{"how much faster is a skinning knife than a dagger?", "Profession tool effects:"},
+		{"how many slots does the key ring have?", "Bag and bank size:"},
+	} {
+		if got := LimitFacts(tc.q); !strings.Contains(got, tc.want) || !strings.Contains(got, "Say so") {
+			t.Errorf("LimitFacts(%q) = %q, want %q", tc.q, got, tc.want)
+		}
+	}
+	for _, q := range []string{
+		"where do I buy the Cat Carrier (Bombay)?", "what abilities does my hunter's pet learn?", "what is the title of the quest in Goldshire?",
+		"where do I buy a skinning knife?", "do I need a mining pick to mine copper?", "how do I lure the guards away?",
+	} {
+		if got := LimitFacts(q); got != "" {
+			t.Errorf("LimitFacts(%q) = %q, want none", q, got)
+		}
+	}
+}

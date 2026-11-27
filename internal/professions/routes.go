@@ -243,10 +243,17 @@ func toolHint(ds store.DataStore, profession string) string {
 	return t + "."
 }
 
+// npcProp is true for a creature's held prop the dataset lists as an item ("Monster - Mining Pick", "Monster - Item, Fishing
+// Pole"): it is no tool a player can carry or use, so it counts for no profession.
+func npcProp(lowerName string) bool { return strings.HasPrefix(lowerName, "monster - ") }
+
 // ToolOf names the profession whose tool an item is, by the item's name ("Mining Pick" is Mining's; a fishing pole is
 // Fishing's); "" for any other item.
 func ToolOf(name string) string {
 	n := strings.ToLower(name)
+	if npcProp(n) {
+		return ""
+	}
 	for _, prof := range []string{"Enchanting", "Engineering", "Mining", "Skinning", "Blacksmithing", "Fishing"} {
 		found := true
 		for _, w := range toolWords[strings.ToLower(prof)] {
@@ -268,6 +275,9 @@ func HasTool(c character.Character, profession string) (has, needed bool) {
 	}
 	match := func(name string) bool {
 		n := strings.ToLower(name)
+		if npcProp(n) {
+			return false
+		}
 		for _, w := range words {
 			if !strings.Contains(n, w) {
 				return false
