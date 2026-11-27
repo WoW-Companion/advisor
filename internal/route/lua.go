@@ -80,8 +80,8 @@ func stops(b *strings.Builder, indent string, list []Stop) {
 				extra += ", instance = " + digest.Quote(s.Instance)
 			}
 		}
-		fmt.Fprintf(b, "%s{ n = %d, kind = %s, questID = %d, quest = %s, label = %s, map = %d, x = %.1f, y = %.1f, done = %t%s },\n",
-			indent, s.N, digest.Quote(s.Kind), s.QuestID, digest.Quote(s.Quest), digest.Quote(s.Label), s.Map, s.X, s.Y, s.Done, extra)
+		fmt.Fprintf(b, "%s{ n = %d, kind = %s, questID = %d, quest = %s, label = %s, map = %d, x = %.1f, y = %.1f, done = %t, after = %s%s },\n",
+			indent, s.N, digest.Quote(s.Kind), s.QuestID, digest.Quote(s.Quest), digest.Quote(s.Label), s.Map, s.X, s.Y, s.Done, idList(s.Needs), extra)
 	}
 }
 
@@ -93,9 +93,11 @@ func (e Envelope) Lua() string {
 	fmt.Fprintf(&b, "  schema = %s,\n  generated = %d,\n  characters = {\n", digest.Quote(Schema), e.Generated)
 	for _, p := range e.Plans {
 		fmt.Fprintf(&b, "    [%s] = {\n", digest.Quote(p.Character))
+		start := Point{X: NoPos, Y: NoPos}
 		if p.Start != nil {
-			fmt.Fprintf(&b, "      start = { map = %d, x = %.1f, y = %.1f },\n", p.Start.Map, p.Start.X, p.Start.Y)
+			start = *p.Start
 		}
+		fmt.Fprintf(&b, "      start = { map = %d, x = %.1f, y = %.1f, at = %d },\n", start.Map, start.X, start.Y, p.Basis.Captured)
 		fmt.Fprintf(&b, "      basis = { captured = %d, inLog = %s },\n", p.Basis.Captured, idList(p.Basis.InLog))
 		fmt.Fprintf(&b, "      zone = %s,\n      distance = %.1f,\n      steps = {\n", digest.Quote(p.Zone), p.Distance)
 		stops(&b, "        ", p.Steps)
@@ -133,7 +135,11 @@ func (e Envelope) Lua() string {
 			}
 			b.WriteString("      },\n")
 		}
-		b.WriteString("      guidance = {\n")
+		b.WriteString("      flights = {\n")
+		for _, f := range p.Flights {
+			fmt.Fprintf(&b, "        { map = %d, x = %.1f, y = %.1f, name = %s, node = %s, known = %t },\n", f.Map, f.X, f.Y, digest.Quote(f.Name), digest.Quote(f.Node), f.Known)
+		}
+		b.WriteString("      },\n      guidance = {\n")
 		for _, g := range p.Guides {
 			guideLua(&b, "        ", g)
 		}

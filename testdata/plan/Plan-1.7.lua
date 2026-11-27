@@ -4,13 +4,13 @@ WoWCompanionPlan = {
   generated = 1795363809,
   characters = {
     ["Hero"] = {
-      start = { map = 1458, x = 50.0, y = 50.0 },
+      start = { map = 1458, x = 50.0, y = 50.0, at = 0 },
       basis = { captured = 0, inLog = { 100, 101, 102, 601, 999 } },
       zone = "Undercity",
       distance = 0.0,
       steps = {
-        { n = 1, kind = "errand", questID = 0, quest = "", label = "Train now with Rogue Master", map = 1458, x = 82.0, y = 14.0, done = false, place = "Undercity", errand = "train" },
-        { n = 2, kind = "errand", questID = 0, quest = "", label = "Open your bank once", map = 1458, x = -1.0, y = -1.0, done = false, place = "Undercity", errand = "bank" },
+        { n = 1, kind = "errand", questID = 0, quest = "", label = "Train now with Rogue Master", map = 1458, x = 82.0, y = 14.0, done = false, after = {  }, place = "Undercity", errand = "train" },
+        { n = 2, kind = "errand", questID = 0, quest = "", label = "Open your bank once", map = 1458, x = -1.0, y = -1.0, done = false, after = {  }, place = "Undercity", errand = "bank" },
       },
       exit = { label = "Walk or ride to Silverpine Forest: turn in Quest 102", map = 7102, x = -1.0, y = -1.0, via = "walk" },
       trips = {
@@ -22,10 +22,10 @@ WoWCompanionPlan = {
         { questID = 601, quest = "Guano Quest", why = "needs a group: Razorfen Kraul (The Barrens)", kind = "dungeon", level = 30, diff = "yellow" },
       },
       later = {
-        { n = 1, kind = "objective", questID = 601, quest = "Guano Quest", label = "Kill Kraul Boar (0/1)", map = 7099, x = 30.0, y = 30.0, done = false, place = "Razorfen Kraul", level = 30, diff = "yellow" },
-        { n = 2, kind = "turnin", questID = 100, quest = "Quest 100", label = "Turn in Quest 100 to Clerk Stranglethorn Vale", map = 7100, x = 50.0, y = 50.0, done = false, place = "Stranglethorn Vale", level = 30, diff = "yellow" },
-        { n = 3, kind = "turnin", questID = 101, quest = "Quest 101", label = "Turn in Quest 101 to Clerk The Barrens", map = 7101, x = 50.0, y = 50.0, done = false, place = "The Barrens", level = 30, diff = "yellow" },
-        { n = 4, kind = "turnin", questID = 102, quest = "Quest 102", label = "Turn in Quest 102 to Clerk Silverpine Forest", map = 7102, x = 50.0, y = 50.0, done = false, place = "Silverpine Forest", level = 30, diff = "yellow" },
+        { n = 1, kind = "objective", questID = 601, quest = "Guano Quest", label = "Kill Kraul Boar (0/1)", map = 7099, x = 30.0, y = 30.0, done = false, after = {  }, place = "Razorfen Kraul", level = 30, diff = "yellow" },
+        { n = 2, kind = "turnin", questID = 100, quest = "Quest 100", label = "Turn in Quest 100 to Clerk Stranglethorn Vale", map = 7100, x = 50.0, y = 50.0, done = false, after = {  }, place = "Stranglethorn Vale", level = 30, diff = "yellow" },
+        { n = 3, kind = "turnin", questID = 101, quest = "Quest 101", label = "Turn in Quest 101 to Clerk The Barrens", map = 7101, x = 50.0, y = 50.0, done = false, after = {  }, place = "The Barrens", level = 30, diff = "yellow" },
+        { n = 4, kind = "turnin", questID = 102, quest = "Quest 102", label = "Turn in Quest 102 to Clerk Silverpine Forest", map = 7102, x = 50.0, y = 50.0, done = false, after = {  }, place = "Silverpine Forest", level = 30, diff = "yellow" },
       },
       find = {
         { n = 1, questID = 999, quest = "Lost Quest", hint = "Find who takes Lost Quest", done = false },
@@ -33,6 +33,8 @@ WoWCompanionPlan = {
       errands = {
         { n = 1, kind = "train", label = "Train now with Rogue Master", map = 1458, x = 82.0, y = 14.0, why = "2 new spells or ranks to train at this level" },
         { n = 2, kind = "bank", label = "Open your bank once", map = 1458, x = -1.0, y = -1.0, why = "open your bank once so the advisor can see it" },
+      },
+      flights = {
       },
       guidance = {
         [100] = {

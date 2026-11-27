@@ -2,6 +2,7 @@ package route
 
 import (
 	"cmp"
+	"github.com/WoW-Companion/advisor/internal/wording"
 	"math"
 	"regexp"
 	"sort"
@@ -511,7 +512,7 @@ func (s *questieSource) zoneOnly(qq *questie.Quest, q *quest, objs, unplaced []*
 			continue
 		}
 		sp.unplaced, sp.zoneOnly, sp.m, sp.place = false, true, m, zone
-		sp.label = strings.TrimSuffix(u.label, " (location unknown)") + " (somewhere in " + zone + ")"
+		sp.label = wording.Somewhere(strings.TrimSuffix(u.label, " (location unknown)"), zone)
 		if q.turnin != nil {
 			sp.x, sp.y = q.turnin.x, q.turnin.y // for ordering only; never shown
 		} else {

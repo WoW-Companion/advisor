@@ -62,7 +62,7 @@ WoWCompanionPlan = {
   generated = 1795363809,        -- unix seconds
   characters = {
     ["Hero"] = {                 -- the character name as captured, no realm
-      start = { map = 7001, x = 48.0, y = 49.0 },   -- last known position; absent when unknown
+      start = { map = 7001, x = 48.0, y = 49.0, at = 1795363000 },   -- the save's position; see "Live re-routing data"
       basis = { captured = 1795363000, inLog = { 10, 12 } },  -- what the plan was built from (below)
       zone = "Testisle",         -- the map the route is on ("" when unknown)
       distance = 106.9,          -- route length in map percent
@@ -449,6 +449,26 @@ planPrefs = { levelReach = 3, hidden = { [12345] = true }, includeElite = false 
 - A ready turn-in or delivery within about 250 yards of the player (or the run's start) is the first step, so it is
   NOW. A delivery step reads "Turn in <quest> to <NPC> (<place>)".
 
+## Live re-routing data: `after`, `flights`, `start`
+
+These keys are additive (no schema bump): a reader that does not know them ignores them.
+
+- `after = { n, ... }` is on every step in `steps` and `later` (`{ }` when nothing comes first): the numbers of
+  the steps in the same `steps` list that must be done first. A quest's pick-up comes before its objectives
+  and its turn-in, its objectives before its turn-in, and a locked follow-up waits for the turn-ins that
+  unlock it. The addon re-orders the run from the player's live position, keeping each step after its
+  `after` steps, instead of reading "after step 1" out of the label.
+- `flights = { { map, x, y, name, node, known }, ... }` lists the flight masters on the run's map and on the
+  maps of its other zones and trips, for the character's side: from Questie's taxi NPCs, and the character's
+  captured flight paths (`known = true`; one the data does not have is added). `name` is the flight master,
+  `node` the place the flight path is named after. At most 60 entries; the addon can suggest "Fly Booty Bay
+  -> Grom'gol" for a far stop from `known` masters.
+- `start = { map, x, y, at }` is always written: the position of the save the plan was built from and `at`,
+  the capture time (unix seconds, 0 when unknown). With no position, `map = 0` and `x = y = -1`. The addon
+  compares it with the player's live position to see how far they have moved since.
+- A label names a place once: an unplaced objective reads "Locate the hunters' camp (somewhere in
+  Stranglethorn Vale)", never with the zone repeated.
+
 ## Step kinds and sections (the contract)
 
 Every step (in `steps`, `later` and `zones`) has `kind`, one of:
@@ -464,7 +484,7 @@ Every step (in `steps`, `later` and `zones`) has `kind`, one of:
 A `Plan.lua` character holds these sections: `steps` (the run here), `exit` (how to leave it), `trips` (the
 logged quests outside the run, in route order), `parked` (set aside, with a `why` and a `kind`), `later` (stops
 off the run), `find` (quests with no known place) and `errands` (which steps are errands), beside `start`,
-`basis`, `guidance`, `here`, `finishers` and `zones`.
+`flights`, `basis`, `guidance`, `here`, `finishers` and `zones`.
 
 **Consumers must keep unknown kinds.** A step whose `kind` a reader does not know is shown or skipped, never a
 reason to drop the plan: the advisor adds kinds without a schema bump. The same goes for unknown keys and
