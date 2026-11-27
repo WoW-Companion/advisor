@@ -163,6 +163,9 @@ func TestOfflineBenchmarkBagInventory(t *testing.T) {
 	for _, name := range []string{"Linen Bag", "Woolen Bag", "Mageweave Bag", "Small Silk Pack", "Kodo Hide Bag", "Heavy Leather Ammo Pouch", "Heavy Quiver", "Thick Leather Ammo Pouch"} {
 		id := lgItemID(t, all, name)
 		c := tsChar("Horde", 40)
+		if num(rowOf(t, ds, "items", id)["class_id"]) == 11 {
+			c.Class = "HUNTER" // a quiver or ammo pouch is a hunter's: a mage's has no use (see the gear rules benchmark)
+		}
 		c.BagsCaptured = true
 		c.Bags = []character.ItemStack{{ItemID: int(id), Count: 1}}
 		r := inventory.Review(c, ds)

@@ -182,6 +182,7 @@ var drinkWord = regexp.MustCompile(`(?i)\b(water|drink|juice|tea|milk|wine|ale|b
 const (
 	classConsumable = 0
 	classAmmo       = 6
+	classQuiver     = 11 // a quiver or an ammo pouch; class 1 is a plain or special bag
 	classQuest      = 12
 	subFood         = 5
 )
@@ -208,6 +209,36 @@ func consumableKind(name string, row store.Row) string {
 		return "bullets"
 	}
 	return ""
+}
+
+// containerAction places a bag, quiver or ammo pouch that the holder cannot use: one whose class restriction leaves
+// their class out (a Soul Pouch is a warlock's), or a quiver or ammo pouch for a class that cannot use ammo. It goes to
+// an alt that can use it, else it sells. ok is false when the holder can use it: the dataset holds no bag size to compare.
+func containerAction(chars []character.Character, i int, row store.Row) (a Action, to, why string, ok bool) {
+	cl, _ := rowInt(row, "class_id")
+	canHold := func(o character.Character) (hold, known bool) {
+		allowed, known := gear.AllowsClass(o.Class, row)
+		if !known {
+			return false, false
+		}
+		return allowed && (cl != classQuiver || usesAmmo(o.Class)), true
+	}
+	if hold, known := canHold(chars[i]); hold || !known {
+		return "", "", "", false
+	}
+	what := "its class restriction leaves your class out"
+	if allowed, _ := gear.AllowsClass(chars[i].Class, row); allowed {
+		what = "your class cannot use ammo, so it has no use for a quiver or ammo pouch"
+	}
+	for j, o := range chars {
+		if hold, _ := canHold(o); j != i && hold {
+			if boundOnPickup(row) {
+				return Sell, "", what + "; " + displayName(o) + " could use it, but it is bound to you when picked up and cannot be mailed", true
+			}
+			return Mail, displayName(o), displayName(o) + " can use it", true
+		}
+	}
+	return Sell, "", what, true
 }
 
 func usesAmmo(class string) bool {
@@ -400,10 +431,19 @@ func decide(chars []character.Character, i int, e Entry, row store.Row, ds store
 		return Sell, "", "no character has " + p + ", so its tool has no use", false
 	}
 	if IsBag(row) {
+		if a, to, why, ok := containerAction(chars, i, row); ok {
+			return a, to, why, false
+		}
 		return Unsure, "", BagReason, false
 	}
 	if k := consumableKind(e.Name, row); k != "" {
 		if (k == "arrows" || k == "bullets") && !usesAmmo(c.Class) {
+			// an alt that can use ammo gets it, unless it is bound to its holder
+			for j, o := range chars {
+				if j != i && usesAmmo(o.Class) && !boundOnPickup(row) {
+					return Mail, displayName(o), displayName(o) + " can use " + k, false
+				}
+			}
 			return Sell, "", "your class cannot use ammo", false
 		}
 		rl, ok := requiredLevel(row)
