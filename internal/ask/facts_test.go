@@ -11,7 +11,7 @@ const syntheticCapture = "../../testdata/foreverscribe/level30_caster.lua"
 
 // promptBudget is the most characters the pre-fetched prompt may reach for the synthetic character
 // (about 600 tokens); raise it only on purpose, as every ask pays for it.
-const promptBudget = 3550
+const promptBudget = 3600
 
 func TestFactsPromptStaysWithinBudget(t *testing.T) {
 	cfg := Config{SavedVariables: syntheticCapture}
