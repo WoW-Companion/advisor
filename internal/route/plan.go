@@ -1291,7 +1291,7 @@ func earnPlace(opt Options, want []*quest, planned []*quest, at *questie.Where, 
 const NearReady = 5.0
 
 // DiffOf is the game's difficulty colour of a quest of level q for a player of level p: "red" 5 or more
-// levels above, "orange" 3 to 4, "yellow" within 2, "green" down to GreyGap-1 below, then "grey". Empty
+// levels above, "orange" 3 to 4, "yellow" within 2, "green" down to the level above GreyLevel, then "grey". Empty
 // when the level is unknown.
 func DiffOf(q, p int) string {
 	if q <= 0 || p <= 0 {
@@ -1304,7 +1304,7 @@ func DiffOf(q, p int) string {
 		return "orange"
 	case d >= -2:
 		return "yellow"
-	case d > -GreyGap:
+	case q > GreyLevel(p):
 		return "green"
 	}
 	return "grey"
