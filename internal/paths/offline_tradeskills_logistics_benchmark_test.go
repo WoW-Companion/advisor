@@ -146,7 +146,7 @@ func TestOfflineBenchmarkBagNotMakeable(t *testing.T) {
 		txt := res.Text()
 		prof := text(rec["skill_line_name"])
 		ok := !res.Dependable() && !strings.Contains(txt, "not worth chasing") && !strings.Contains(txt, "lists no source") && strings.Contains(txt, "made by a profession") && strings.Contains(txt, prof)
-		out = append(out, benchRow{fmt.Sprintf("%s for %s", tc.item, tc.who), strings.ReplaceAll(txt, "\n", " | "), fmt.Sprintf("a %s recipe, skill %d; a crafted item is no random drop and the data does have a source: the recipe", prof, num(rec["learn_skill"])), lgBagSrc,
+		out = append(out, benchRow{fmt.Sprintf("%s for %s", tc.item, tc.who), strings.ReplaceAll(txt, "\n", " / "), fmt.Sprintf("a %s recipe, skill %d; a crafted item is no random drop and the data does have a source: the recipe", prof, num(rec["learn_skill"])), lgBagSrc,
 			resultIf(ok, "called sourceless or not worth chasing, or the profession is not named")})
 	}
 	finish(t, "advice-bag-not-makeable", "Offline bags, quivers and tools: a craft the character cannot make", out)
