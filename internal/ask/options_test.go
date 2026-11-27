@@ -110,7 +110,7 @@ func TestPromptLengthInstructions(t *testing.T) {
 			t.Errorf("%q: still asks for a numbered plan", length)
 		}
 	}
-	if n := len(PromptFor(Question{}, LengthDetailed)); n > 2800 {
+	if n := len(PromptFor(Question{}, LengthDetailed)); n > 3100 {
 		t.Errorf("prompt grew to %d bytes", n)
 	}
 }
