@@ -217,12 +217,12 @@ type Character struct {
 	QuestPOI        map[int]QuestPOI
 	CompletedQuests []int
 	// PlanPrefs are the player's plan settings (WoWCompanionDB.characters[key].planPrefs); nil means defaults.
-	PlanPrefs *PlanPrefs
-	Talents         *Talents
-	Skills          []Skill
-	SkillsCaptured  bool
-	Professions     []Skill // each profession once
-	Reputations     []Reputation
+	PlanPrefs      *PlanPrefs
+	Talents        *Talents
+	Skills         []Skill
+	SkillsCaptured bool
+	Professions    []Skill // each profession once
+	Reputations    []Reputation
 
 	// Profile is the player's own, kept locally (internal/profile) and attached after the
 	// capture is read; nil when the player has set none. They are never part of a capture.
