@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/WoW-Companion/advisor/internal/character"
+	"github.com/WoW-Companion/advisor/internal/gather"
 	"github.com/WoW-Companion/advisor/internal/names"
 	"github.com/WoW-Companion/advisor/internal/questie"
 	"github.com/WoW-Companion/advisor/internal/quests"
@@ -229,6 +230,10 @@ func (f *finder) trainers(prof string, spell int64, from string, need int64) []W
 		fac := str(r["faction"])
 		if fac == "" {
 			fac = qf
+		}
+		if fac == "" {
+			// the dataset gives no faction for a trainer: one in a capital or starting zone serves that side only
+			fac = gather.SideOfZone(w.Zone)
 		}
 		if !factionOK(fac, f.c.Faction) {
 			continue

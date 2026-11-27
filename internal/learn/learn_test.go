@@ -2,6 +2,7 @@ package learn
 
 import (
 	"bytes"
+	"sort"
 	"strings"
 	"testing"
 
@@ -357,5 +358,31 @@ func TestRankLine(t *testing.T) {
 func TestRankForNoDataset(t *testing.T) {
 	if _, _, _, ok := RankFor(nil, 190); ok {
 		t.Error("a rank was named with no dataset")
+	}
+}
+
+// TestTrainerWithoutFactionKeepsToOwnSideCapital: the dataset gives no faction for a trainer, so one in the other side's capital or
+// starting zone is not offered, and one in a neutral zone is offered to both.
+func TestTrainerWithoutFactionKeepsToOwnSideCapital(t *testing.T) {
+	ds := store.New(store.ReaderSource{
+		"trainers": table(t, []trainerRow{
+			{1, "Orgrimmar Cook", "Cooking", 1, "Orgrimmar", nil, nil, "", 1, 3},
+			{2, "Stormwind Cook", "Cooking", 2, "Stormwind City", nil, nil, "", 1, 3},
+			{3, "Gadgetzan Cook", "Cooking", 3, "Tanaris", nil, nil, "", 1, 3},
+		}),
+	})
+	for _, tc := range []struct {
+		faction string
+		want    []string
+	}{{"Horde", []string{"Orgrimmar Cook", "Gadgetzan Cook"}}, {"Alliance", []string{"Stormwind Cook", "Gadgetzan Cook"}}} {
+		var got []string
+		for _, w := range ProfessionTrainers(character.Character{Faction: tc.faction}, ds, nil, "Cooking") {
+			got = append(got, w.Name)
+		}
+		sort.Strings(got)
+		sort.Strings(tc.want)
+		if strings.Join(got, ",") != strings.Join(tc.want, ",") {
+			t.Errorf("%s: trainers %v, want %v", tc.faction, got, tc.want)
+		}
 	}
 }
