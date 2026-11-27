@@ -204,7 +204,7 @@ func (s *Server) checkDatasetUpdate(ctx context.Context) bool {
 			}
 			s.data.dir = store.Dir(res.Build)
 			s.data.notice = DataNotice
-			if !res.Missing && res.Build != cur && client.Build != "" {
+			if !res.Missing && cur != "" && res.Build != cur && client.Build != "" {
 				s.data.notice = UpdatedNotice(res.Build)
 			}
 		}
