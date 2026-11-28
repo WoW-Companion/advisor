@@ -12,6 +12,16 @@ import (
 )
 
 func (s Source) String() string {
+	// A vendor's stock and a tradeskill recipe are no drop: no kill chance to leave unknown, and no creature id to show as a bare number.
+	switch s.Kind {
+	case "sold by":
+		if s.Name == "" {
+			return "sold by a vendor the data does not name, zone unknown"
+		}
+		return "sold by " + s.Name + ", zone unknown"
+	case "crafted":
+		return "crafted by a player who knows the recipe"
+	}
 	var b strings.Builder
 	name := s.Name
 	if name == "" {

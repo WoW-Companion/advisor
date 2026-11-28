@@ -289,6 +289,10 @@ func TestSourceNames(t *testing.T) {
 		{Source{Kind: "creature", ID: 7, Name: "Wolf"}, "Wolf, zone unknown, drop chance unknown"},
 		{Source{Kind: "creature", ID: 7, Name: "Imp", Everloot: true}, "Imp (name from Everloot), zone unknown, drop chance unknown"},
 		{Source{Kind: "creature", ID: 7}, "creature 7, zone unknown, drop chance unknown"},
+		// a vendor's stock and a recipe are no drop: no chance to leave unknown and no bare id
+		{Source{Kind: "sold by", ID: 4558, Name: "Innkeeper Bates"}, "sold by Innkeeper Bates, zone unknown"},
+		{Source{Kind: "sold by", ID: 4558}, "sold by a vendor the data does not name, zone unknown"},
+		{Source{Kind: "crafted", ID: 2160}, "crafted by a player who knows the recipe"},
 	} {
 		if got := tc.src.String(); got != tc.want {
 			t.Errorf("String() = %q, want %q", got, tc.want)
@@ -535,5 +539,29 @@ func TestCanUseOddGear(t *testing.T) {
 		if u, k := CanUse(tc.class, 60, tc.row); u != tc.usable || k != tc.known {
 			t.Errorf("%s: usable %v known %v, want %v %v", tc.name, u, k, tc.usable, tc.known)
 		}
+	}
+}
+
+// A vendor's stock is named by the creature that sells it, and neither it nor a recipe is described as a drop with no chance known.
+func TestVendorAndRecipeSourcesAreNoDrops(t *testing.T) {
+	lo := int32(10)
+	ds := store.New(store.ReaderSource{
+		"items":        table(t, items("")),
+		"loot_sources": table(t, []lootRow{{1, "sold by", 502, 0, 0}, {2, "crafted", 77, 0, 0}}),
+		"npcs":         table(t, []npcRow{{502, "Ring Thief", &lo, nil}}),
+	})
+	c := char("PRIEST", 12, nil)
+	res, err := Find(c, ds, "Test Holy", Options{Limit: 3})
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := Render(c, res)
+	for _, want := range []string{"Cloth Hood (at level 14; empty slot, by stats): from sold by Ring Thief, zone unknown", "Spirit Hood (at level 14; empty slot, by stats): from crafted by a player who knows the recipe"} {
+		if !strings.Contains(text, want) {
+			t.Errorf("render lacks %q:\n%s", want, text)
+		}
+	}
+	if strings.Contains(text, "sold by 502") || strings.Contains(text, "crafted 77") {
+		t.Errorf("a bare id is shown:\n%s", text)
 	}
 }

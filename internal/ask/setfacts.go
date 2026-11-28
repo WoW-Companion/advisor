@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/WoW-Companion/advisor/internal/gear"
 	"github.com/WoW-Companion/advisor/internal/names"
 	"github.com/WoW-Companion/advisor/internal/store"
 )
@@ -89,7 +90,11 @@ func SetFacts(ds store.DataStore, text string) string {
 				missing++
 				continue
 			}
-			pieces = append(pieces, text0(it["name"]))
+			piece := text0(it["name"])
+			if d := gear.PieceText(it); d != "" {
+				piece += " (" + d + ")"
+			}
+			pieces = append(pieces, piece)
 		}
 		sort.Strings(pieces)
 		line := fmt.Sprintf("- %s (set %d): %d pieces in the dataset", text0(rows[0]["name"]), id, len(rows))
