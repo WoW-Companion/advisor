@@ -156,9 +156,9 @@ func (s *Server) refreshPlan() (RefreshResult, error) {
 	s.mu.Lock()
 	before := s.planKeys
 	s.mu.Unlock()
-	out, err := server.WriteDigest(server.Config{
+	out, err := server.WriteDigest(s.withPending(server.Config{
 		SavedVariables: s.cfg.ForeverScribe, Dataset: s.datasetDir(), DigestPath: s.cfg.DigestPath,
-	}, "")
+	}), "")
 	if err != nil {
 		return RefreshResult{}, err
 	}

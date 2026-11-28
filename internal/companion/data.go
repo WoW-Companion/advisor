@@ -29,6 +29,9 @@ type dataState struct {
 	last   time.Time // when the last republish check ran
 	notice string    // shown dim once an update has installed
 	prev   string    // the dataset directory in use before the last switch, kept for a go-back
+
+	pendBuild, pendReason string // the game build whose data is not downloaded yet, and why
+	pendPublished         bool   // a release for it is known to exist
 }
 
 // DataNotice is the dim line shown after a dataset update installs.
@@ -46,6 +49,14 @@ func (s *Server) dataNotice() string {
 	s.data.mu.Lock()
 	defer s.data.mu.Unlock()
 	return s.data.notice
+}
+
+// withPending adds the not-downloaded-yet state to a digest config.
+func (s *Server) withPending(cfg server.Config) server.Config {
+	s.data.mu.Lock()
+	defer s.data.mu.Unlock()
+	cfg.PendingBuild, cfg.PendingReason, cfg.PendingPublished = s.data.pendBuild, s.data.pendReason, s.data.pendPublished
+	return cfg
 }
 
 // datasetDir is the dataset directory advice reads from, empty when there is none.
@@ -185,6 +196,14 @@ func (s *Server) checkDatasetUpdate(ctx context.Context) bool {
 	updated := false
 	s.data.mu.Lock()
 	s.data.busy = false
+	wasPending := s.data.pendBuild + s.data.pendReason
+	if err == nil {
+		s.data.pendBuild, s.data.pendReason, s.data.pendPublished = "", "", false
+	} else if client.Build != "" {
+		s.data.pendBuild, s.data.pendReason = client.Build, err.Error()
+		s.data.pendPublished = res.Build != "" && !res.Missing
+	}
+	pendChanged := wasPending != s.data.pendBuild+s.data.pendReason
 	if err == nil && res.Build != "" {
 		cur := ""
 		if s.data.dir != "" {
@@ -213,7 +232,13 @@ func (s *Server) checkDatasetUpdate(ctx context.Context) bool {
 	s.data.mu.Unlock()
 	if err != nil {
 		log.Printf("wowc-advisor: dataset update check failed (keeping the cached dataset): %v", err)
+		if pendChanged {
+			s.refreshPlan() // the Notes line now says why the data is not downloaded
+		}
 		return false
+	}
+	if pendChanged && !updated {
+		s.refreshPlan()
 	}
 	if updated {
 		s.reload()

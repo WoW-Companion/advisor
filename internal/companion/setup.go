@@ -157,7 +157,7 @@ func (s *Server) setupWriteData(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	res := map[string]any{}
-	cfg := server.Config{SavedVariables: s.cfg.ForeverScribe, Dataset: s.datasetDir(), DigestPath: s.cfg.DigestPath, SkipUnchanged: true}
+	cfg := s.withPending(server.Config{SavedVariables: s.cfg.ForeverScribe, Dataset: s.datasetDir(), DigestPath: s.cfg.DigestPath, SkipUnchanged: true})
 	if game, ok := gamesetup.Resolve(s.setupOptions(req.Game, false, r.Context())); ok && cfg.DigestPath == "" {
 		cfg.DigestPath = filepath.Join(game, "Interface", "AddOns", digest.SlotAddon, "Digest.lua")
 	}

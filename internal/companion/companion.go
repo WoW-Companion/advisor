@@ -876,9 +876,9 @@ func (s *Server) writeDigest() {
 		s.publish("game", s.snapshot())
 		return
 	}
-	_, err := server.WriteDigest(server.Config{
+	_, err := server.WriteDigest(s.withPending(server.Config{
 		SavedVariables: s.cfg.ForeverScribe, Dataset: s.datasetDir(), DigestPath: s.cfg.DigestPath, SkipUnchanged: true,
-	}, "")
+	}), "")
 	s.logDigest(err)
 	s.mu.Lock()
 	if err != nil {
