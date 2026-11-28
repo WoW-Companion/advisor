@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.7.103
+
+- **Added** The route forecasts your bag space and plans a sell, mail or bank stop before they fill.
+- **Added** Such a stop says when the bags fill ("bags fill around step 9") and what it frees.
+
 ## 0.7.102
 
 - **Fixed** Quest giver, turn-in, prerequisite and breadcrumb questions now say the data has none.
