@@ -119,6 +119,21 @@ func numOf(v any) int64 {
 // proficiencyAsk is a question about the armor a class can wear (armor type, shield, proficiency); the weapon words are WeaponQuestion's.
 var proficiencyAsk = regexp.MustCompile(`(?i)\b(?:wear|wearing|wears|wore|equip\w*|put on|armou?r (?:types?|proficienc\w+|skills?)|proficien\w+|allowed|able to use)\b.{0,60}\b(?:armou?r|cloth|leather|chain ?mail|mail|plate|shields?)\b|\b(?:armou?r|cloth|leather|chain ?mail|mail|plate|shields?)\b.{0,40}\b(?:wear|wearing|wearers?|proficien\w+|allowed|equip\w*|usable|can use)\b|\b(?:what|which)\b.{0,12}\b(?:armou?r|armou?r types?)\b.{0,30}\b(?:can|does|do|may|will)\b`)
 
+// armorLadderAsk is a question about when a class gains an armor type, which type it should wear or which of two types is better: "when do warriors get plate
+// armor", "what level do paladins get plate", "when does a warrior switch to plate", "what armor type should my shaman use", "mail or plate for my warrior at level
+// 45". The bare word mail also names the post, so armorMailAsk keeps it to a question that names a class.
+var armorLadderAsk = regexp.MustCompile(`(?i)\b(?:when|what level|which level|at what level|how soon)\b.{0,40}\b(?:get|gets|getting|learn\w*|gain\w*|switch\w*|chang\w*|mov\w*|start\w*|unlock\w*|wear\w*|equip\w*|upgrad\w*)\b.{0,30}\b(?:armou?r|cloth|leather|chain ?mail|plate ?(?:mail)?)\b|\b(?:what|which)\b.{0,10}\b(?:kind|type|sort)s? of armou?r\b|\barmou?r types?\b.{0,30}\b(?:should|use|best|wear|for|better)\b|\b(?:cloth|leather|mail|chain ?mail|plate)\b\s*(?:or|vs\.?|versus|and)\s*(?:cloth|leather|mail|chain ?mail|plate)\b.{0,20}\b(?:better|best|for|should|wear)\b|\b(?:better|best|should|wear)\b.{0,30}\b(?:cloth|leather|mail|chain ?mail|plate)\b\s*(?:or|vs\.?|versus)\s*(?:cloth|leather|mail|chain ?mail|plate)\b`)
+
+// armorMailAsk is the same question about bare mail ("when do shamans get mail", "mail or plate for my warrior"): a question that names a class, since mail is also the post.
+var armorMailAsk = regexp.MustCompile(`(?i)\b(?:when|what level|which level|at what level|how soon)\b.{0,40}\b(?:get|gets|getting|learn\w*|gain\w*|switch\w*|chang\w*|mov\w*|start\w*|unlock\w*|wear\w*|equip\w*|upgrad\w*)\b.{0,30}\bmail\b|\bmail\b\s*(?:or|vs\.?|versus|and)\s*(?:cloth|leather|plate)\b|\b(?:cloth|leather|plate)\b\s*(?:or|vs\.?|versus|and)\s*mail\b`)
+
+// armorSlotWord is an armor slot as a player says it. A chest, the feet and the waist are left to a question that has a wear or equip verb beside them.
+const armorSlotWord = `(?:helm(?:et)?s?|hats?|caps?|coifs?|shoulders?|shoulderpads?|pauldrons?|spaulders?|mantles?|chest ?(?:pieces?|armou?r|plates?)?|breastplates?|tunics?|vests?|hauberks?|robes?|bracers?|bracelets?|wristguards?|wrist armou?r|gloves?|gauntlets?|mitts?|belts?|girdles?|waistbands?|pants|trousers|leggings|legguards?|leg armou?r|boots|greaves|sabatons?|shoes|sandals|cloaks?|capes?)`
+
+// armorSlotAsk is a question whether a class wears a piece for an armor slot: "what helm can a rogue wear", "can my mage wear a chain helm", "can a priest wear plate boots". The verb is
+// wear or equip, never use, which asks about a chest in a dungeon as readily as about armor.
+var armorSlotAsk = regexp.MustCompile(`(?i)\b(?:wear|wearing|wears|equip\w*|put on)\b.{0,30}\b` + armorSlotWord + `\b|\b` + armorSlotWord + `\b.{0,30}\b(?:wear|wearing|wearers?|equip\w*|put on)\b`)
+
 // shieldAsk is a question about who may carry a shield: "can my paladin use a shield", "can priests use shields", "does a rogue get a shield". A
 // spell that is named for a shield (Power Word: Shield, Shield Slam) is no such question, as it names no one to carry it.
 var shieldAsk = regexp.MustCompile(`(?i)\b(?:use|carry|hold|wield|equip\w*|get|have|wear|put on|take)\s+(?:(?:a|an|the|my|any|one|their)\s+(?:\w+\s+)?shield\b|shields\b)|\bshield\b.{0,30}\b(?:or|vs\.?|versus)\b.{0,12}\b(?:two[- ]?hand\w*|2h|dual[- ]?wield\w*|weapon)\b|\b(?:which|what|who)\b.{0,30}\b(?:classes|class)\b.{0,25}\bshields\b`)
@@ -135,13 +150,14 @@ var allClassesAsk = regexp.MustCompile(`(?i)\b(?:which|what|who)\b.{0,20}\bclass
 // ProficiencyFacts is the weapon and armor rules of each class a question names, for a question about what a class can wear or wield, when the question names a class
 // other than the character's (the character's own weapon rules are WeaponFacts's) or asks about armor. "" for any other question.
 func ProficiencyFacts(c character.Character, ds store.DataStore, text string) string {
-	armor := proficiencyAsk.MatchString(text) || shieldAsk.MatchString(text) || jewelleryAsk.MatchString(text)
+	classes := classesNamed(text)
+	armor := proficiencyAsk.MatchString(text) || shieldAsk.MatchString(text) || jewelleryAsk.MatchString(text) || armorLadderAsk.MatchString(text) || armorSlotAsk.MatchString(text) ||
+		len(classes) > 0 && armorMailAsk.MatchString(text)
 	weapon := WeaponQuestion(text)
 	relic := relicAsk.MatchString(text)
 	if !armor && !weapon && !relic {
 		return ""
 	}
-	classes := classesNamed(text)
 	own := strings.ToLower(c.Class)
 	if len(classes) == 0 && allClassesAsk.MatchString(text) {
 		classes = classOrder

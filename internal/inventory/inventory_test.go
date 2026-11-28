@@ -222,3 +222,27 @@ func TestToolsAndBagsAreNotBankedGear(t *testing.T) {
 		}
 	}
 }
+
+// A piece that needs a level the character has not reached, within the finder's two-level window, is an upgrade for then: kept, with the level, not listed under "Equip now".
+func TestPieceAheadOfLevelIsKeptWithItsLevel(t *testing.T) {
+	soon := item(21, "Linen Hood Ahead", 2, headSlot, nil)
+	soon.RequiredLevel = 16 // the character is 15
+	soon.ItemLevel = 30
+	ready := item(22, "Linen Hood Ready", 2, feetSlot, nil)
+	ready.RequiredLevel = 15
+	ds := store.New(store.ReaderSource{"items": table(t, []itemRow{soon, ready})})
+	c := character.Character{Name: "Testpriest", Class: "PRIEST", Level: ip(15), BagsCaptured: true,
+		Bags: []character.ItemStack{{ItemID: 21, Count: 1, Name: "Linen Hood Ahead"}, {ItemID: 22, Count: 1, Name: "Linen Hood Ready"}}}
+	got := map[string]Entry{}
+	for _, l := range Review(c, ds).Groups {
+		for _, e := range l {
+			got[e.Name] = e
+		}
+	}
+	if e := got["Linen Hood Ahead"]; e.Group != Keep || !strings.Contains(e.Reason, "empty head slot") || !strings.Contains(e.Reason, "from level 16") {
+		t.Errorf("a piece that needs level 16: %+v, want Keep with the level", e)
+	}
+	if e := got["Linen Hood Ready"]; e.Group != Equip || strings.Contains(e.Reason, "from level") {
+		t.Errorf("a piece that needs level 15: %+v, want Equip now", e)
+	}
+}

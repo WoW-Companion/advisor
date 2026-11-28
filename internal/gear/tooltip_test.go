@@ -21,3 +21,22 @@ func TestItemTooltipSoulboundWithoutPrice(t *testing.T) {
 		}
 	}
 }
+
+func TestPieceTextSaysSlotTypeLimitLevelAndBinding(t *testing.T) {
+	for _, tc := range []struct {
+		row  store.Row
+		want string
+	}{
+		{store.Row{"slot": int64(7), "class_id": int64(4), "subclass_id": int64(2), "required_level": int64(38), "bonding": int64(2), "allowable_class_mask": int64(-1)}, "legs, leather, requires level 38, Bind on Equip"},
+		{store.Row{"slot": int64(1), "class_id": int64(4), "subclass_id": int64(4), "required_level": int64(0), "bonding": int64(1), "allowable_class_mask": int64(1)}, "head, plate, only warriors, Bind on Pickup"},
+		{store.Row{"slot": int64(16), "class_id": int64(4), "subclass_id": int64(1), "required_level": int64(10), "bonding": int64(0), "allowable_class_mask": int64(-1)}, "back, requires level 10"},
+		{store.Row{"slot": int64(20), "class_id": int64(4), "subclass_id": int64(1), "bonding": int64(0), "allowable_class_mask": int64(0)}, "chest, cloth"},
+	} {
+		if got := PieceText(tc.row); got != tc.want {
+			t.Errorf("PieceText = %q, want %q", got, tc.want)
+		}
+	}
+	if PieceText(nil) != "" {
+		t.Error("PieceText(nil) is not empty")
+	}
+}

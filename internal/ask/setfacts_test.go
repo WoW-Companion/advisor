@@ -11,7 +11,7 @@ func TestSetFacts(t *testing.T) {
 	ds := store.NewDir("../../testdata/items_snapshot")
 	for _, tc := range []struct{ q, want string }{
 		{"which pieces make up the Dreadmist Raiment set?", "Dreadmist Raiment (set 183): 8 pieces in the dataset"},
-		{"what set does [Stormshroud Pants] belong to?", "Stormshroud Armor (set 142): 4 pieces in the dataset: Stormshroud Armor, Stormshroud Gloves, Stormshroud Pants, Stormshroud Shoulders"},
+		{"what set does [Stormshroud Pants] belong to?", "Stormshroud Armor (set 142): 4 pieces in the dataset: Stormshroud Armor (chest, leather, requires level 52, Bind on Equip), Stormshroud Gloves (hands, leather, requires level 57, Bind on Equip), Stormshroud Pants (legs, leather, requires level 50, Bind on Equip), Stormshroud Shoulders (shoulder, leather, requires level 54, Bind on Equip)"},
 		{"which pieces are in The Elements set?", "The Elements (set 1678): 8 pieces"},
 	} {
 		if got := SetFacts(ds, tc.q); !strings.Contains(got, tc.want) || !strings.Contains(got, "state none") {

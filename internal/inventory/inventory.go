@@ -179,6 +179,14 @@ func classify(c character.Character, id int64, name string, row store.Row, known
 		return Quest, StartsReason(q)
 	}
 	if cd, ok := up[id]; ok {
+		// the finder looks two levels ahead: a piece that needs a level the character has not reached is an upgrade for then, kept until then and not
+		// listed under "Equip now"
+		if cd.Soon {
+			if cd.Empty {
+				return Keep, fmt.Sprintf("fills your empty %s slot: you can wear it from level %d", cd.Slot, cd.Item.ReqLevel)
+			}
+			return Keep, fmt.Sprintf("upgrade for %s (+%.1f): you can wear it from level %d", cd.Slot, cd.Delta, cd.Item.ReqLevel)
+		}
 		if cd.Empty {
 			return Equip, fmt.Sprintf("fills your empty %s slot", cd.Slot)
 		}

@@ -83,3 +83,31 @@ func sellText(c int64) string {
 	}
 	return "no vendor buys it: its sell price is 0"
 }
+
+// slotNames are the inventory types of the armor slots as a player says them.
+var slotNames = map[int64]string{1: "head", 2: "neck", 3: "shoulder", 5: "chest", 20: "chest", 6: "waist", 7: "legs", 8: "feet", 9: "wrist", 10: "hands", 11: "ring", 12: "trinket", 16: "back"}
+
+// PieceText is what an item row says about the piece itself: its slot, armor type, the classes its class limit names, the level it needs and how it binds
+// ("legs, leather, requires level 38, Bind on Equip"). "" for no row. Only what the row holds is said.
+func PieceText(row store.Row) string {
+	if row == nil {
+		return ""
+	}
+	var parts []string
+	if s, ok := slotNames[i64(row["slot"])]; ok {
+		parts = append(parts, s)
+	}
+	if w := ArmorTypeWord(int(i64(row["class_id"])), int(i64(row["subclass_id"]))); w != "" && i64(row["slot"]) != 16 {
+		parts = append(parts, w)
+	}
+	if ClassRestricted(row) {
+		parts = append(parts, "only "+ClassList(row))
+	}
+	if r := i64(row["required_level"]); r > 0 {
+		parts = append(parts, fmt.Sprintf("requires level %d", r))
+	}
+	if b := bindingNames[i64(row["bonding"])]; b != "" {
+		parts = append(parts, b)
+	}
+	return strings.Join(parts, ", ")
+}

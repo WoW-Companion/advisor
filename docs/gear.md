@@ -11,7 +11,9 @@ type ids an item carries), `stats` (the amount of each stat, read as `internal/s
 dataset without it has the types only) and `stats_status` (`known`, `none`, `unknown`). `loot_sources` has the source kind (creature, object,
 quest reward), the source id, kills, drops and rate. The `npcs` table has a creature's name and
 level range. There is no object table and no zone on any of them, so object sources show as
-"object <id>" and every source says "zone unknown".
+"object <id>" and every source says "zone unknown". A source of kind `sold by` reads "sold by <vendor>" (the creature's name from
+`npcs`, or "a vendor the data does not name") and one of kind `crafted` reads "crafted by a player who knows the recipe": neither is a drop, so neither
+carries a drop chance or a bare id.
 
 ## Which items
 
@@ -48,6 +50,12 @@ level range. There is no object table and no zone on any of them, so object sour
   (Arms, Fury, Enhancement, Retribution and the like). A two-hander is offered over a one-hand and
   off hand only then, and its gain is weighed against both slots together. No off hand is offered
   beside a worn two-hander.
+- Armor questions reach the class rules facts (`ask.ProficiencyFacts`) when they ask what a class wears, when a class gains plate or mail,
+  which armor type to use, mail or leather, or whether a class wears a piece for a slot ("what helm can a rogue wear", "can my mage wear a
+  chain helm"). The bare word mail also names the post, so a question about mail needs a class named. An item set answer gives each piece's
+  slot, armor type, class limit, required level and binding from its item row.
+- A bag piece within the finder's two-level window but above the character's level is kept with "you can wear it from level N", not listed
+  under "Equip now".
 - Shirts, tabards and bag containers are not considered. Items already in the character's bags are:
   `BagUpgrades` lists every usable one (class, armor type, required level at or below theirs) that beats
   what is worn, first in every gear answer. With captured stats (or dataset stats) on both items it weighs

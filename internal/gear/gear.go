@@ -585,6 +585,11 @@ func sources(ds store.DataStore, itemID int64, level int) []Source {
 			p := 100 * float64(i64(row["drops"])) / float64(kills)
 			s.Chance = &p
 		}
+		if s.Kind == "sold by" {
+			if n, err := ds.Get("npcs", s.ID); err == nil && n != nil {
+				s.Name, _ = n["name"].(string)
+			}
+		}
 		if s.Kind == "creature" {
 			if n, err := ds.Get("npcs", s.ID); err == nil {
 				s.Name, _ = n["name"].(string)

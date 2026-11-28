@@ -69,3 +69,38 @@ func TestOffHandQuestionsGetTheDualWieldLine(t *testing.T) {
 		t.Error("a gear question about the best off hand was read as a weapon-rule question")
 	}
 }
+
+func TestProficiencyFactsReachArmorLadderAndSlotQuestions(t *testing.T) {
+	c := character.Character{Class: "MAGE"}
+	for _, tc := range []struct {
+		q    string
+		want []string
+	}{
+		{"when do warriors get plate armor?", []string{"Warrior:", "mail until level 40, then plate"}},
+		{"what level do paladins get plate?", []string{"Paladin:", "mail until level 40, then plate"}},
+		{"when does a warrior switch to plate?", []string{"Warrior:", "mail until level 40, then plate"}},
+		{"when do shamans get mail", []string{"Shaman:", "leather until level 40, then mail"}},
+		{"when do hunters get mail armor", []string{"Hunter:", "leather until level 40, then mail"}},
+		{"what armor type should my rogue use?", []string{"Rogue:", "leather at every level"}},
+		{"mail or leather for my hunter at level 35?", []string{"Hunter:", "leather until level 40, then mail"}},
+		{"what kind of armor can priests equip", []string{"Priest:", "cloth at every level"}},
+		{"what helm can a rogue wear?", []string{"Rogue:", "leather at every level"}},
+		{"can a mage wear a chain helm", []string{"Mage:", "cloth at every level"}},
+		{"can my paladin wear pauldrons?", []string{"Paladin:", "mail until level 40, then plate"}},
+		{"what boots can a druid wear", []string{"Druid:", "leather at every level"}},
+	} {
+		got := ProficiencyFacts(c, nil, tc.q)
+		for _, w := range tc.want {
+			if !strings.Contains(got, w) {
+				t.Errorf("%q: facts lack %q:\n%s", tc.q, w, got)
+			}
+		}
+	}
+	// the post, a chest in a dungeon and a plate of food are no armor questions
+	for _, q := range []string{"when do I get my mail from the mailbox?", "what level do I get the mail from the quest", "where is the chest in the Deadmines?",
+		"where do I buy a plate of Lean Wolf Steak", "can I mail my gloves to my alt?", "how do I open the locked chest in Duskwood"} {
+		if got := ProficiencyFacts(c, nil, q); got != "" {
+			t.Errorf("%q: facts for a question that is none: %s", q, got)
+		}
+	}
+}
