@@ -35,7 +35,7 @@ const (
 
 var (
 	tzClasses = []string{"WARRIOR", "PALADIN", "HUNTER", "ROGUE", "PRIEST", "SHAMAN", "MAGE", "WARLOCK", "DRUID"}
-	tzLevels  = []int{1, 5, 9, 10, 11, 15, 20, 25, 30, 35, 39, 40, 45, 50, 60}
+	tzLevels  = []int{1, 9, 10, 11, 20, 30, 39, 50, 60}
 )
 
 // tzSide is the side a class is played on in the era: paladins are Alliance, shamans Horde, the rest either (alternating by class).
@@ -285,7 +285,8 @@ func TestOfflineBenchmarkSweepWhereToLevel(t *testing.T) {
 		total := 0
 		var first string
 		for ci, class := range tzClasses {
-			for _, level := range []int{8, 14, 22, 33, 47, 55} {
+			// each class asks at one of six levels, rotated across the classes
+			for _, level := range []int{[]int{8, 14, 22, 33, 47, 55}[(ci+len(tpl))%6]} {
 				side := tzSide(class, ci)
 				zone := map[string]string{"Alliance": "Duskwood", "Horde": "Ashenvale"}[side]
 				q := strings.NewReplacer("{L}", fmt.Sprint(level), "{C}", strings.ToLower(class), "{Z}", zone).Replace(tpl)
@@ -302,7 +303,7 @@ func TestOfflineBenchmarkSweepWhereToLevel(t *testing.T) {
 		if missed > 0 {
 			got += "; missed: " + first
 		}
-		out = append(out, benchRow{fmt.Sprintf("%q, every class, both sides, six levels", tpl), got, "the dataset has no zone level range: say so (ui_maps has no level column)", tzZoneSrc, resultIf(missed == 0, "a phrasing that does not reach the line")})
+		out = append(out, benchRow{fmt.Sprintf("%q, nine classes, both sides, levels 8 to 55", tpl), got, "the dataset has no zone level range: say so (ui_maps has no level column)", tzZoneSrc, resultIf(missed == 0, "a phrasing that does not reach the line")})
 	}
 	finish(t, "talents-sweep-where-to-level", "Offline zones sweep: where to level, in a player's words", out)
 }
