@@ -15,14 +15,20 @@ import (
 const NoWeaponFacts = "Weapon skills: this game data has no weapon-skill facts. For any question about which weapons the class can use or where to train a weapon skill, say you don't have those facts and the player should update the game data. Never answer it from memory: WoW Forever differs from Classic."
 
 // weaponWords make a question one about weapon skills, the weapons a class can use, or where to train.
-var weaponWords = regexp.MustCompile(`(?i)\b(weapons?|wield|dual wield|staffs?|staves|axes?|swords?|maces?|daggers?|polearms?|bows?|guns?|crossbows?|wands?|fist|thrown|weapon masters?|weapon skills?|(?:one|two|1|2)[- ]?(?:hand(?:er|ers|ed)?|h))\b`)
+var weaponWords = regexp.MustCompile(`(?i)\b(weapons?|wield|dual wield|staffs?|staves|axes?|swords?|maces?|daggers?|polearms?|spears?|bows?|guns?|crossbows?|wands?|fist|thrown|throwing|ranged (?:slot|weapons?)|weapon masters?|weapon skills?|(?:one|two|1|2)[- ]?(?:hand(?:er|ers|ed)?|h))\b`)
 
 // dualWieldWords make a weapon question one about dual wielding.
 var dualWieldWords = regexp.MustCompile(`(?i)\bdual[- ]?wield`)
 
+// offHandAsk is a question about whether a class may hold something in its off hand, or when it can: "can my rogue use an off hand",
+// "when do I get an offhand". Which off-hand item is best is a gear question, not this one.
+var offHandAsk = regexp.MustCompile(`(?i)\b(?:can|could|may|able|allowed|when|what level|how do|where)\b.{0,50}\boff[- ]?hands?\b|\boff[- ]?hands?\b.{0,40}\b(?:allowed|able|unlock\w*|learn\w*|at what level|from what level)\b`)
+
 // WeaponQuestion reports whether a question is about which weapons a class can use or where to train a
 // weapon skill.
-func WeaponQuestion(text string) bool { return weaponWords.MatchString(text) }
+func WeaponQuestion(text string) bool {
+	return weaponWords.MatchString(text) || offHandAsk.MatchString(text)
+}
 
 // weaponRule is added to the prompt of a weapon question: the facts are the only source.
 const weaponRule = " Weapon and armour rules come from the weapon-skill facts above, never from your general knowledge: WoW Forever differs from Classic " +
@@ -67,7 +73,7 @@ func WeaponFacts(c character.Character, ds store.DataStore, text string) string 
 		b.WriteString("- The character has learned: " + strings.Join(have, ", ") + ".\n")
 	}
 	fmt.Fprintf(&b, "- The class can learn: %s.\n", strings.Join(learn, ", "))
-	if dualWieldWords.MatchString(text) {
+	if dualWieldWords.MatchString(text) || offHandAsk.MatchString(text) {
 		b.WriteString(dualWieldFact(c, ds))
 	}
 	lacking := f.Lacking(c)

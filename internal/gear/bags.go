@@ -140,6 +140,11 @@ func BagUpgrades(c character.Character, ds store.DataStore, group string) []BagU
 			if worn && cur.ID == it.ID {
 				continue
 			}
+			// The dataset holds no unique-equipped flag, so an item worn in one slot of a pair (rings, trinkets) is not
+			// offered for the other, as the finder never offers it: one copy fills one slot.
+			if p := pairOf(slot); p != "" && wornID(c, p) == it.ID {
+				continue
+			}
 			up := BagUpgrade{Slot: slot, Item: it, Name: name, Empty: !worn, Likely: true, Need: need}
 			if worn {
 				up.Replaces = c.Equipment[slot].Name
@@ -147,17 +152,28 @@ func BagUpgrades(c character.Character, ds store.DataStore, group string) []BagU
 					up.Replaces = cur.Name
 				}
 			}
+			// A two-hander also takes the off hand, so it is weighed against both hands together, as the finder does.
+			var off *Item
+			if slot == "mainhand" && it.Slot == invTwoHand && lo.off != nil {
+				off = lo.off
+			}
 			var gain float64
 			switch {
 			case !worn:
-				if it.Slot == invTwoHand && lo.off != nil {
+				if off != nil {
 					continue
 				}
 				gain = 1e12 + fallbackValue(it)
-			case w != nil && it.statMap() != nil && cur.statMap() != nil:
+			case w != nil && it.statMap() != nil && cur.statMap() != nil && (off == nil || off.statMap() != nil):
 				gain = statSum(it.statMap(), w) - statSum(cur.statMap(), w)
+				if off != nil {
+					gain -= statSum(off.statMap(), w)
+				}
 				up.Likely = false
 				up.Notes = append(enchantNote(it, "bag item"), enchantNote(cur, "worn item")...)
+			case off != nil:
+				// No stats to weigh: item level decides, against what both hands hold.
+				gain = fallbackValue(it) - fallbackValue(cur) - fallbackValue(*off)
 			case it.ItemLevel > cur.ItemLevel || it.ItemLevel == cur.ItemLevel && it.Quality > cur.Quality:
 				// No stats to weigh: item level decides, and quality only breaks a tie.
 				gain = fallbackValue(it) - fallbackValue(cur)
@@ -207,6 +223,27 @@ func BagUpgrades(c character.Character, ds store.DataStore, group string) []BagU
 // slotOrder is the capture's slot order, as the panel lists slots.
 var slotOrder = []string{"head", "neck", "shoulder", "back", "chest", "wrist", "hands", "waist", "legs", "feet",
 	"finger1", "finger2", "trinket1", "trinket2", "mainhand", "offhand", "ranged"}
+
+// pairOf is the other slot of a pair of slots that hold the same kind of item (rings, trinkets); "" for any other slot.
+func pairOf(slot string) string {
+	for _, p := range pairedSlots {
+		switch slot {
+		case p[0]:
+			return p[1]
+		case p[1]:
+			return p[0]
+		}
+	}
+	return ""
+}
+
+// wornID is the id of the item the capture records in slot; 0 for an empty slot.
+func wornID(c character.Character, slot string) int64 {
+	if eq, ok := c.Equipment[slot]; ok && eq.ItemID != nil {
+		return int64(*eq.ItemID)
+	}
+	return 0
+}
 
 // wornFor is the item worn in slot: worn is false for an empty slot; known is false when something is
 // worn but neither the dataset nor the capture says enough about it.
