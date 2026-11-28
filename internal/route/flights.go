@@ -32,7 +32,7 @@ type flightMasterSource interface {
 func (s *questieSource) flightMasters(c character.Character, maps map[int]bool) []Flight {
 	ids := make([]int, 0, 64)
 	for id, e := range s.qx.Npcs {
-		if e.IsFlightMaster() && sideServed(e.Faction, c.Faction) {
+		if e.IsFlightMaster() && sideServed(e.Faction, sideName(c)) {
 			ids = append(ids, id)
 		}
 	}
@@ -73,7 +73,7 @@ func flightList(c character.Character, src source, p *Plan, cur int) []Flight {
 	for _, t := range p.Trips {
 		maps[t.Map] = true
 	}
-	seen := c.Seen.FlightsFor(c.Faction)
+	seen := c.Seen.FlightsFor(sideName(c))
 	known := map[int64]bool{}
 	for _, f := range seen {
 		known[f.NPC] = true

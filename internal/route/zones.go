@@ -133,7 +133,7 @@ func arrivalFor(c character.Character, src source, m int, spots []*spot, from *P
 		cx, cy = cx/float64(n), cy/float64(n)
 	}
 	var best *character.SeenFlight
-	fl := c.Seen.FlightsFor(c.Faction)
+	fl := c.Seen.FlightsFor(sideName(c))
 	for i := range fl {
 		f := &fl[i]
 		if f.Map != m {
@@ -219,9 +219,17 @@ func sharesQuest(a, b *spot) bool {
 // master; otherwise the player walks or rides.
 func travelLabel(c character.Character, src source, m int, a Arrival, cur int, curKnown bool) string {
 	zone := src.mapName(m)
-	hub := ""
+	hub, hubEndsHere := "", false
 	if curKnown {
-		hub = learn.Crossing(c.Faction, learn.ContinentOf(src.mapName(cur)), learn.ContinentOf(zone))
+		// A flight on the same piece of land needs no zeppelin or orb first: the player flies from where they stand.
+		if a.Kind != ArriveFlight || learn.Landmass(src.mapName(cur)) != learn.Landmass(zone) {
+			hub, hubEndsHere = transportHub(c, src.mapName(cur), zone)
+		}
+		if hub == "" {
+			from := src.mapName(cur)
+			hub = learn.Crossing(sideName(c), learn.ContinentOf(from), learn.ContinentOf(zone))
+			hub, hubEndsHere = viaDarkPortal(c, hub, from, zone)
+		}
 	}
 	if a.Kind == ArriveFlight {
 		where := cmp.Or(a.Place, a.Name, zone)
@@ -237,8 +245,29 @@ func travelLabel(c character.Character, src source, m int, a Arrival, cur int, c
 	if a.Name != "" {
 		walk += " from " + a.Name
 	}
+	if hub != "" && hubEndsHere {
+		return hub
+	}
 	if hub != "" {
 		return hub + ", then " + walk
 	}
 	return "W" + walk[1:]
+}
+
+// viaDarkPortal words the way to or from Outland with the boat or zeppelin the travel graph finds to the Blasted Lands, or
+// from them, in place of the continent table's one hub ("Boat to Menethil Harbor" is no way out of the Barrens). crossing is
+// the table's wording and is kept when the graph joins no such zones, or the trip does not use the Dark Portal.
+func viaDarkPortal(c character.Character, crossing, from, to string) (string, bool) {
+	const blasted = "Blasted Lands"
+	switch {
+	case learn.ContinentOf(to) == "Outland" && learn.ContinentOf(from) != "Outland" && learn.ContinentOf(from) != "Eastern Kingdoms":
+		if pre, _ := transportHub(c, from, blasted); pre != "" {
+			return pre + ", then " + learn.DarkPortalEntrance, false
+		}
+	case learn.ContinentOf(from) == "Outland" && learn.ContinentOf(to) != "Outland" && learn.ContinentOf(to) != "Eastern Kingdoms":
+		if post, ends := transportHub(c, blasted, to); post != "" {
+			return "Step through " + learn.DarkPortalExit + ", then " + lowerFirst(post), ends
+		}
+	}
+	return crossing, false
 }

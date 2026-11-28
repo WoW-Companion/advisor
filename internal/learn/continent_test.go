@@ -46,3 +46,12 @@ func TestIsRidingQuery(t *testing.T) {
 		}
 	}
 }
+
+func TestLandmassSeparatesTheIslandsOffKalimdor(t *testing.T) {
+	for zone, want := range map[string]string{"Azuremyst Isle": "Azuremyst Isle", "The Exodar": "Azuremyst Isle", "Bloodmyst Isle": "Azuremyst Isle",
+		"Darkshore": "Kalimdor", "Wetlands": "Eastern Kingdoms", "Zephras Isle": ""} {
+		if got := Landmass(zone); got != want {
+			t.Errorf("Landmass(%q) = %q, want %q", zone, got, want)
+		}
+	}
+}

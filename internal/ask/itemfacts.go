@@ -57,6 +57,9 @@ var ridingAsk = regexp.MustCompile(`(?i)\briding\b|\b(mounts?|mounted|saddles?|b
 // flightPathAsk is a question about which flight path to discover, where a flight master stands, which nodes connect, or what a node is called.
 var flightPathAsk = regexp.MustCompile(`(?i)\bflight (?:paths?|masters?|points?|nodes?|routes?|connections?)\b|\bflightmasters?\b|\b(?:gryphon|wind ?rider|bat|hippogryph) (?:masters?|handlers?|paths?|routes?)\b|\btaxi (?:paths?|nodes?|masters?)\b`)
 
+// transportSideAsk is a question about which faction may ride a boat, zeppelin, tram or airship, or which ports one joins.
+var transportSideAsk = regexp.MustCompile(`(?i)\b(boats?|zeppelins?|ferr(?:y|ies)|airships?|trams?)\b.{0,60}\b(horde|alliance|faction|neutral|both sides|either side|each side|my side|our side|other side)\b|\b(horde|alliance|faction|neutral|both sides|either side|each side|other side)\b.{0,60}\b(boats?|zeppelins?|ferr(?:y|ies)|airships?|trams?)\b|\bwhich (?:boats?|zeppelins?|ferr(?:y|ies)|airships?)\b|\bwhere (?:does|do) the (?:boats?|zeppelins?|ferr(?:y|ies)|airships?)\b.{0,30}\bgo\b`)
+
 // hearthstoneAsk is a question about the hearthstone itself: where it binds, how to change or replace it, what it does, or where it takes you.
 var hearthstoneAsk = regexp.MustCompile(`(?i)\bhearth(?:stone|stones)?\b`)
 
@@ -86,6 +89,8 @@ var limitTopics = []struct {
 		"Honor and PvP ranks: the game data holds no honor points, rank, rank requirement or title, and no honor vendor or its prices. Say so; give no honor cost, rank number or title from memory. What the data does hold is a rank piece's required level, class and binding, and which items only one faction can wear."},
 	{travelTimesAsk,
 		"Travel times: the game data holds no hearthstone cooldown, no boat, zeppelin or tram schedule or ride time, and no flight path fare or flight time. Say so; give no cooldown, schedule, fare or duration from memory. The routes and minute estimates a plan shows come from the advisor's own hand-written travel list, not from the game data."},
+	{transportSideAsk,
+		"Boats and zeppelins: the game data holds no boat, zeppelin, tram or airship row: no list of ports, no list of which ports a route joins and no faction that may ride one. Say so; name no port, route or faction from memory. What the advisor has is its own short hand-written list that words the route steps of a plan (the Horde zeppelins, the Alliance boats and the Ratchet to Booty Bay boat both sides share); the route step a plan shows is the answer to a route question."},
 	{ridingAsk,
 		"Riding and mounts: the game data holds no riding skill, riding trainer, riding training cost or level, no mount vendor or drop, and no reputation or race requirement for a mount. What it does hold is a mount item's required level and binding. Say so; give no trainer, training or gold price, riding level or reputation from memory."},
 	{flightPathAsk,

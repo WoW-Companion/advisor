@@ -151,11 +151,11 @@ func TestZoneWithoutKnownFlightIsWalkedFromTheBarrens(t *testing.T) {
 
 func TestCrossContinentTravelNamesTheZeppelin(t *testing.T) {
 	z, _ := zoneStops(t, Build(stoneChar(mapUndercity, true), stoneWorld()), mapStonetalon)
-	if want := "Zeppelin to Orgrimmar, then fly to Sun Rock Retreat (Tharm)"; z.Travel != want {
+	if want := "Zeppelin to Grom'gol, then boat to Ratchet, then fly to Sun Rock Retreat (Tharm)"; z.Travel != want {
 		t.Errorf("travel %q, want %q", z.Travel, want)
 	}
 	z, _ = zoneStops(t, Build(stoneChar(mapUndercity, false), stoneWorld()), mapStonetalon)
-	if want := "Zeppelin to Orgrimmar, then walk or ride to Stonetalon Mountains from The Barrens"; z.Travel != want {
+	if want := "Zeppelin to Grom'gol, then boat to Ratchet, then walk or ride to Stonetalon Mountains from The Barrens"; z.Travel != want {
 		t.Errorf("travel %q, want %q", z.Travel, want)
 	}
 }
