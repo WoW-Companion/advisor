@@ -65,7 +65,9 @@ func pi16(n int16) *int16   { return &n }
 func pstr(s string) *string { return &s }
 
 // profData is a small dataset: three ranks, a First Aid recipe, a Herbalism node and a few crafting professions.
-func profData(t *testing.T) store.DataStore {
+func profData(t *testing.T) store.DataStore { return profDataWith(t, []pfReagent{{500, 7, 1}}) }
+
+func profDataWith(t *testing.T, reagents []pfReagent) store.DataStore {
 	rank := func(name string, lo, hi, lv int16) pfNote {
 		return pfNote{"ranks", name, nil, pi16(lo), pi16(hi), pi16(lv), name}
 	}
@@ -76,8 +78,8 @@ func profData(t *testing.T) store.DataStore {
 	return store.New(store.ReaderSource{
 		"profession_notes": pfTable(t, []pfNote{rank("Apprentice", 1, 75, 5), rank("Journeyman", 75, 150, 10), rank("Expert", 150, 225, 20)}),
 		"recipes":          pfTable(t, recipes),
-		"recipe_reagents":  pfTable(t, []pfReagent{{500, 7, 1}}),
-		"items":            pfTable(t, []pfItem{{7, "Heavy Linen Cloth", 100}}),
+		"recipe_reagents":  pfTable(t, reagents),
+		"items":            pfTable(t, []pfItem{{7, "Heavy Linen Cloth", 100}, {8, "Rune Thread", 100}}),
 		"gathering_nodes":  pfTable(t, []pfNode{{1, "Bruiseweed", "Herbalism", pi16(1), "Durotar"}, {2, "Peacebloom", "Herbalism", pi16(1), "Mulgore"}}),
 	})
 }
@@ -195,5 +197,52 @@ func TestProfessionLinesCapAtThree(t *testing.T) {
 	c.Professions = []character.Skill{skillOf("Tailoring", 150, 150), skillOf("Blacksmithing", 150, 150), skillOf("Engineering", 150, 150), skillOf("Leatherworking", 150, 150)}
 	if es := profErrands(BuildWith(c, ix, opt)); len(es) != 3 {
 		t.Fatalf("want 3 profession errands, got %+v", es)
+	}
+}
+
+func restocks(p Plan) []Errand {
+	var out []Errand
+	for _, e := range p.Errands {
+		if e.Kind == ErrandRestock {
+			out = append(out, e)
+		}
+	}
+	return out
+}
+
+func TestRestockPathBandRecipeWithAllReagentsSoldIsOneLine(t *testing.T) {
+	ix, c, opt := profWorld()
+	opt.Data = profData(t)
+	c.Professions = []character.Skill{skillOf("First Aid", 60, 75)}
+	c.Seen = &character.Observed{Vendors: []character.SeenVendor{{NPC: 9, Name: "Cloth Clara", Map: 7001, X: 71, Y: 70,
+		Items: []character.SeenStock{{ItemID: 7, Price: 100}}}}}
+	es := restocks(BuildWith(c, ix, opt))
+	if len(es) != 1 || !strings.Contains(es[0].Why, "Heavy Linen Bandage") {
+		t.Fatalf("restock lines %+v", es)
+	}
+}
+
+func TestRestockPathRecipeWithAnUnsoldReagentIsNoLine(t *testing.T) {
+	ix, c, opt := profWorld()
+	opt.Data = profDataWith(t, []pfReagent{{500, 7, 1}, {500, 8, 1}})
+	c.Professions = []character.Skill{skillOf("First Aid", 60, 75)}
+	c.Seen = &character.Observed{Vendors: []character.SeenVendor{{NPC: 9, Name: "Cloth Clara", Map: 7001, X: 71, Y: 70,
+		Items: []character.SeenStock{{ItemID: 7, Price: 100}}}}}
+	if es := restocks(BuildWith(c, ix, opt)); len(es) != 0 {
+		t.Fatalf("half a craft was listed: %+v", es)
+	}
+}
+
+func TestRestockNoLineTwiceAcrossRestockAndPath(t *testing.T) {
+	ix, c, opt := profWorld()
+	opt.Data = profData(t)
+	c.Professions = []character.Skill{skillOf("First Aid", 60, 75)}
+	c.Recipes = map[string]character.SeenRecipes{"poisons": {Entries: []character.SeenRecipe{
+		{Name: "Instant Poison", Difficulty: "yellow", Reagents: []character.ItemStack{{ItemID: 7, Count: 1, Name: "Heavy Linen Cloth"}}}}}}
+	c.Seen = &character.Observed{Vendors: []character.SeenVendor{{NPC: 9, Name: "Cloth Clara", Map: 7001, X: 71, Y: 70,
+		Items: []character.SeenStock{{ItemID: 7, Price: 100}}}}}
+	es := restocks(BuildWith(c, ix, opt))
+	if len(es) != 1 || !strings.HasPrefix(es[0].Why, "for Instant Poison") {
+		t.Fatalf("restock lines %+v", es)
 	}
 }

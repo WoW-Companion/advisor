@@ -8,7 +8,9 @@ import (
 
 	"github.com/WoW-Companion/advisor/internal/character"
 	"github.com/WoW-Companion/advisor/internal/inventory"
+	"github.com/WoW-Companion/advisor/internal/professions"
 	"github.com/WoW-Companion/advisor/internal/questie"
+	"github.com/WoW-Companion/advisor/internal/store"
 )
 
 // Sourcing: before a reagent is bought, the player's own bank gives what it holds, then another captured character
@@ -185,19 +187,38 @@ func hasPickup(p *Plan, item string) bool {
 }
 
 // outgoingMail is what the other characters' plans take from c: the matching mail lines of their pickup errands.
-func outgoingMail(c character.Character, chars []character.Character, qx *questie.Index, nameOf func(id int64) string) []Mailing {
+func outgoingMail(c character.Character, chars []character.Character, qx *questie.Index, nameOf func(id int64) string, ds store.DataStore) []Mailing {
 	s := newSourcer(qx)
 	var out []Mailing
 	for _, o := range chars {
 		if !canMail(c, o) {
 			continue
 		}
-		for _, sh := range shortList(o, nameOf) {
+		for _, sh := range append(shortList(o, nameOf), pathShorts(o, ds)...) {
 			takes, _ := s.sources(o, chars, sh.ID, sh.Item, sh.Need, true, true)
 			for _, t := range takes {
 				if t.From == charName(c) {
 					out = append(out, Mailing{Item: sh.Item, ID: sh.ID, Count: t.Count, To: charName(o)})
 				}
+			}
+		}
+	}
+	return out
+}
+
+// pathShorts is what the profession path's next step of o lacks, the part of its plan the route's profession lines buy.
+func pathShorts(o character.Character, ds store.DataStore) []Short {
+	if ds == nil || len(o.Professions) == 0 {
+		return nil
+	}
+	var out []Short
+	for _, h := range professions.RouteHints(o, ds) {
+		if h.Next == nil {
+			continue
+		}
+		for _, n := range h.Next.Needs {
+			if n.Missing > 0 {
+				out = append(out, Short{Item: n.Item, ID: n.ID, Need: n.Missing})
 			}
 		}
 	}

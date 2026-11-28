@@ -151,25 +151,41 @@ func addProfessionChores(p *Plan, c character.Character, src source, opt Options
 	for _, s := range p.Steps {
 		maps[s.Map] = true
 	}
-	for _, h := range hints { // materials on the way
+	for _, h := range hints { // materials on the way: only for a step whose whole craft can be made
 		if h.Next == nil {
 			continue
 		}
+		type buy struct {
+			need    professions.Need
+			missing int
+			spots   []Spot
+		}
+		var picks []Chore
+		var buys []buy
+		whole := true
 		for _, n := range h.Next.Needs {
-			if n.Missing <= 0 || professionLines(p) >= maxProfessionLines || hasRestock(p, n.Item) || hasPickup(p, n.Item) {
+			if n.Missing <= 0 || hasRestock(p, n.Item) || hasPickup(p, n.Item) {
 				continue
 			}
 			pick, missing := pickupChores(p, c, qx, opt, maps, n.ID, n.Item, n.Missing)
-			bundleChores(p, pick)
+			picks = append(picks, pick...)
 			if missing <= 0 {
 				continue
 			}
 			spots := vendorSpots(c, qx, opt, maps, n.ID, n.Item)
 			if len(spots) == 0 {
-				continue
+				whole = false // a reagent neither held, mailable nor sold here: no craft can be finished
+				break
 			}
-			bundleChores(p, []Chore{{Kind: ErrandRestock, Do: fmt.Sprintf("buy %d %s", missing, n.Item), Prep: "from",
-				Why: fmt.Sprintf("%s%s skill-ups (%d to %d)", profWhyPrefix, h.Profession, h.Next.From, h.Next.To), Spots: spots}})
+			buys = append(buys, buy{n, missing, spots})
+		}
+		if !whole || professionLines(p)+len(buys) > maxProfessionLines {
+			continue
+		}
+		bundleChores(p, picks)
+		for _, b := range buys {
+			bundleChores(p, []Chore{{Kind: ErrandRestock, Do: fmt.Sprintf("buy %d %s", b.missing, b.need.Item), Prep: "from",
+				Why: fmt.Sprintf("%s%s skill-ups (%s, %d to %d)", profWhyPrefix, h.Profession, h.Next.Recipe, h.Next.From, h.Next.To), Spots: b.spots}})
 		}
 	}
 	tripUsed := map[int]bool{}
