@@ -4,12 +4,14 @@ import (
 	"cmp"
 	"fmt"
 	"math"
+	"slices"
 	"sort"
 	"strings"
 
 	"github.com/WoW-Companion/advisor/internal/character"
 	"github.com/WoW-Companion/advisor/internal/professions"
 	"github.com/WoW-Companion/advisor/internal/questie"
+	"github.com/WoW-Companion/advisor/internal/store"
 )
 
 // maxProfessionLines is how many profession lines a plan holds: the route stays about questing first.
@@ -41,10 +43,62 @@ func professionLines(p *Plan) int {
 	return n
 }
 
+// rankTrainers are the trainers the dataset's profession_tiers names for a rank on the player's side: where each stands
+// and who it is. The table holds a row per trainer and city, so a rank taught in fewer cities than a profession has
+// trainers (Expert Alchemy in Undercity and Darnassus, not in Orgrimmar) is told apart from the lower ranks' trainers.
+type rankTrainers struct {
+	places, names []string
+}
+
+// rankTrainersOf reads the table's rows of the profession and rank that a trainer teaches, for the side's faction. It
+// is empty when the table has none (no dataset, or no row naming a place), which leaves every trainer allowed.
+func rankTrainersOf(ds store.DataStore, profession, tier, faction string) (rt rankTrainers) {
+	if ds == nil || tier == "" {
+		return rt
+	}
+	rows, _ := ds.Filter("profession_tiers", store.Range{Column: "profession", Min: profession, Max: profession})
+	for _, r := range rows {
+		text := func(k string) string { v, _ := r[k].(string); return v }
+		if !strings.EqualFold(text("tier"), tier) || text("how") != "trainer" || text("place") == "" {
+			continue
+		}
+		if f := text("faction"); f != "" && !strings.EqualFold(f, "both") && faction != "" && !strings.EqualFold(f, faction) {
+			continue
+		}
+		rt.places = append(rt.places, strings.ToLower(text("place")))
+		if n := text("trainer_name"); n != "" {
+			rt.names = append(rt.names, strings.ToLower(n))
+		}
+	}
+	return rt
+}
+
+// teachesIn is true when a trainer of the rank stands in the city, or when the table names none (then it cannot say).
+func (rt rankTrainers) teachesIn(zone string) bool {
+	if len(rt.places) == 0 {
+		return true
+	}
+	zone = strings.ToLower(strings.TrimSpace(zone))
+	for _, p := range rt.places {
+		if p == zone || strings.HasPrefix(p, zone+",") {
+			return true
+		}
+	}
+	return false
+}
+
+func (rt rankTrainers) isNamed(name string) bool {
+	return slices.Contains(rt.names, strings.ToLower(name))
+}
+
 // trainerIn is a profession trainer standing in the city (map m, or the zone's name): an NPC with the trainer flag
-// whose subName names the profession, preferring one that names the rank, then the one nearest the player. ok is
-// false when Questie holds none there.
-func (s *questieSource) trainerIn(m int, zone, side string, from *Point, profession, tier string) (name string, tm int, x, y float64, ok bool) {
+// whose subName names the profession, preferring the one the dataset names for the rank, then one that names the
+// rank, then the one nearest the player. ok is false when Questie holds none there, or when the dataset says the rank
+// is not taught in this city.
+func (s *questieSource) trainerIn(m int, zone, side string, from *Point, profession, tier string, rt rankTrainers) (name string, tm int, x, y float64, ok bool) {
+	if !rt.teachesIn(cmp.Or(zone, zoneOfMap(s.qx, m))) {
+		return "", 0, 0, 0, false
+	}
 	stems := professions.ProfessionStems(profession)
 	bestScore, bestD := -1, 0.0
 	for _, id := range sortedIDs(s.qx.Npcs) {
@@ -67,6 +121,9 @@ func (s *questieSource) trainerIn(m int, zone, side string, from *Point, profess
 		if tier != "" && strings.Contains(sub, strings.ToLower(tier)) {
 			score = 1
 		}
+		if rt.isNamed(e.Name) {
+			score = 2
+		}
 		for _, sp := range e.Spawns {
 			a := s.qx.Areas[sp.Area]
 			if a.UIMap != m && !strings.EqualFold(a.Zone, zone) {
@@ -84,8 +141,38 @@ func (s *questieSource) trainerIn(m int, zone, side string, from *Point, profess
 	return name, tm, x, y, ok
 }
 
+// guideTrainRecipe is the recipe the dataset's guide step covering the character's skill needs, when a trainer teaches it
+// and the character does not know it yet, with the rank whose trainer teaches it. found says the dataset holds a guide
+// for the profession and the character's known spells are captured, so its answer stands over the skill-up path's: the
+// route's craft line and its train line then name the same recipe.
+func guideTrainRecipe(c character.Character, ds store.DataStore, profession string) (recipe, tier string, found bool) {
+	if ds == nil || len(c.KnownSpells) == 0 {
+		return "", "", false
+	}
+	skill := -1
+	for _, sk := range c.Professions {
+		if strings.EqualFold(sk.Name, profession) && sk.Rank != nil {
+			skill = *sk.Rank
+		}
+	}
+	rt, ok := professions.LoadRoute(ds, profession)
+	if skill < 0 || !ok {
+		return "", "", false
+	}
+	i := rt.Covering(skill)
+	if i < 0 {
+		return "", "", true
+	}
+	st := rt.Steps[i]
+	if st.Gather || st.LearnedFrom != "trainer" || st.SpellID == 0 || c.KnownSpells[st.SpellID] {
+		return "", "", true
+	}
+	return st.Recipe, professions.LoadNotes(ds).TierAt(skill).Name, true
+}
+
 // addProfessionTrainers adds a numbered profession errand for each profession that can train now, when a trainer
-// for it stands in the hub. A profession with no placeable trainer adds nothing.
+// for it stands in the hub. A profession with no placeable trainer adds nothing; nor does one whose rank the
+// dataset says is taught in other cities only.
 func addProfessionTrainers(p *Plan, c character.Character, qs *questieSource, opt Options, cur int, zone string, add func(kind, label, why string, m int, x, y float64)) {
 	if qs == nil {
 		return
@@ -94,16 +181,22 @@ func addProfessionTrainers(p *Plan, c character.Character, qs *questieSource, op
 		if professionLines(p) >= maxProfessionLines {
 			return
 		}
-		what, why := h.TrainTier, ""
-		switch {
-		case h.TrainTier != "":
+		what, tier, why := h.TrainTier, h.TrainTier, ""
+		if h.TrainTier == "" {
+			recipe, rank, found := guideTrainRecipe(c, opt.Data, h.Profession)
+			if !found {
+				recipe, rank = h.TrainRecipe, ""
+			}
+			if recipe != "" {
+				what, tier, why = recipe, rank, "your next "+h.Profession+" step uses a recipe a trainer teaches"
+			}
+		} else {
 			why = h.TrainTier + " is open at your level and skill"
-		case h.TrainRecipe != "":
-			what, why = h.TrainRecipe, "your next "+h.Profession+" step uses a recipe a trainer teaches"
-		default:
+		}
+		if why == "" {
 			continue
 		}
-		name, m, x, y, ok := qs.trainerIn(cur, zone, playerSide(c), p.Start, h.Profession, h.TrainTier)
+		name, m, x, y, ok := qs.trainerIn(cur, zone, playerSide(c), p.Start, h.Profession, tier, rankTrainersOf(opt.Data, h.Profession, tier, c.Faction))
 		if !ok {
 			continue
 		}

@@ -11,6 +11,7 @@ import (
 	"github.com/WoW-Companion/advisor/internal/classreagent"
 	"github.com/WoW-Companion/advisor/internal/inventory"
 	"github.com/WoW-Companion/advisor/internal/questie"
+	"github.com/WoW-Companion/advisor/internal/store"
 	"github.com/WoW-Companion/advisor/internal/vendors"
 )
 
@@ -346,6 +347,9 @@ func vendorSpots(c character.Character, qx *questie.Index, opt Options, maps map
 	if len(out) > 0 || opt.Data == nil {
 		return out
 	}
+	if out = datasetVendorSpots(c, qx, opt, maps, id); len(out) > 0 {
+		return out
+	}
 	zones := map[string]int{}
 	if qx != nil {
 		for _, a := range qx.Areas {
@@ -357,6 +361,42 @@ func vendorSpots(c character.Character, qx *questie.Index, opt Options, maps map
 	for _, f := range vendors.Search(opt.Data, qx, vendors.Query{Text: name, Faction: c.Faction}).Found {
 		if m, ok := zones[strings.ToLower(f.Zone)]; ok && f.HasXY && slices.Contains(f.Sells, name) {
 			out = append(out, Spot{Name: f.Name, Map: m, X: f.X, Y: f.Y})
+		}
+	}
+	return out
+}
+
+// datasetVendorSpots are the places on the route's maps of every vendor the dataset's vendor_sources lists for the item,
+// open to the player's side, as QuestieDB places them. A text search for the item's name keeps only its first few
+// matches in the whole world, so a vendor in the town the route stands in could be left out.
+func datasetVendorSpots(c character.Character, qx *questie.Index, opt Options, maps map[int]bool, id int64) []Spot {
+	if qx == nil || opt.Data == nil {
+		return nil
+	}
+	rows, err := opt.Data.Filter("vendor_sources", store.Range{Column: "item_id", Min: id, Max: id})
+	if err != nil {
+		return nil
+	}
+	npcs := map[int]bool{}
+	for _, r := range rows {
+		switch n := r["npc_id"].(type) {
+		case int64:
+			npcs[int(n)] = true
+		case int32:
+			npcs[int(n)] = true
+		}
+	}
+	side := playerSide(c)
+	var out []Spot
+	for _, npc := range sortedIDs(npcs) {
+		e, ok := qx.Npcs[npc]
+		if !ok || e.Name == "" || e.Faction != "" && !questie.FactionAdmits(e.Faction, side) {
+			continue
+		}
+		for _, sp := range e.Spawns {
+			if a := qx.Areas[sp.Area]; maps[a.UIMap] {
+				out = append(out, Spot{Name: e.Name, Map: a.UIMap, X: sp.X, Y: sp.Y})
+			}
 		}
 	}
 	return out
