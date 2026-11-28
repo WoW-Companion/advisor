@@ -294,8 +294,11 @@ func Plan(c character.Character, ds store.DataStore, opt Options) (p Result) {
 	if want == "" && c.Profile != nil {
 		want = strings.TrimSpace(c.Profile.Spec)
 	}
+	roleNote := ""
 	if want == "" && c.Profile != nil {
-		want = specForRole(all, c, c.Profile.Role)
+		if want = specForRole(all, c, c.Profile.Role); want == "" {
+			roleNote = noRoleSpec(all, c)
+		}
 	}
 	if want == "" {
 		if want = inferSpec(c); want != "" {
@@ -305,6 +308,9 @@ func Plan(c character.Character, ds store.DataStore, opt Options) (p Result) {
 		}
 	}
 	p.Spec = matchSpec(all, want)
+	if roleNote != "" && p.Spec != "" {
+		p.Notes = append(p.Notes, fmt.Sprintf("%s has no %s talent tree; this is the %s build.", classTitle(c.Class), c.Profile.Role, p.Spec))
+	}
 	if p.Spec == "" {
 		p.Spec, p.NoBuild = want, true
 		p.Missing = noBuildPre + want + noBuildPost
@@ -420,9 +426,13 @@ func Plan(c character.Character, ds store.DataStore, opt Options) (p Result) {
 		}
 	}
 	if p.Remaining == 0 {
-		if first := firstLevel(build); p.Done == "" && first > *c.Level {
+		first, last := firstLevel(build), lastLevel(build)
+		switch {
+		case p.Done == "" && first > *c.Level:
 			p.Notes = append(p.Notes, fmt.Sprintf("The Icy Veins %s build starts at level %d: there is no talent point to spend at level %d.", p.Spec, first, *c.Level))
-		} else {
+		case *c.Level >= last && allTaken(build, ranks):
+			p.Notes = append(p.Notes, fmt.Sprintf("The Icy Veins %s build ends at level %d (%d points): it has no pick past that, so name no talent for the points after it.", p.Spec, last, len(build)))
+		default:
 			p.Notes = append(p.Notes, fmt.Sprintf("The Icy Veins %s build has nothing more to take at level %d.", p.Spec, *c.Level))
 		}
 	}
@@ -441,6 +451,54 @@ func firstLevel(build []buildStep) int {
 		}
 	}
 	return first
+}
+
+// lastLevel is the level of the build's last point.
+func lastLevel(build []buildStep) int {
+	last := 0
+	for _, s := range build {
+		last = max(last, s.level)
+	}
+	return last
+}
+
+// allTaken is true when every point of the build is taken.
+func allTaken(build []buildStep, ranks map[int64]int) bool {
+	for _, s := range build {
+		if ranks[s.node] < s.rankAfter {
+			return false
+		}
+	}
+	return true
+}
+
+// classTitle is a class token in plain words ("WARRIOR" is "Warrior").
+func classTitle(class string) string {
+	if class == "" {
+		return "The class"
+	}
+	return strings.ToUpper(class[:1]) + strings.ToLower(class[1:])
+}
+
+// noRoleSpec is "no" (non-empty) when the stored role is one a spec of the class could hold but none does,
+// so the default spec is shown instead of a spec of that role.
+func noRoleSpec(all []buildStep, c character.Character) string {
+	role := c.Profile.Role
+	if role == "" || role == "balanced" {
+		return ""
+	}
+	for _, s := range all {
+		if roleOf(s.spec) == role || tankSpec(c.Class, s.spec) && role == "tank" {
+			return ""
+		}
+	}
+	return "no"
+}
+
+// tankSpec is true for a spec the class tanks in although its name is not a tank one: a druid's Feral Combat
+// (bear form).
+func tankSpec(class, spec string) bool {
+	return strings.EqualFold(class, "druid") && strings.EqualFold(spec, "Feral Combat")
 }
 
 // roleOf is the role a spec name stands for: the tank, healer and damage specs of every class. The
@@ -464,7 +522,7 @@ func specForRole(all []buildStep, c character.Character, role string) string {
 	var match []string
 	seen := map[string]bool{}
 	for _, s := range all {
-		if !seen[s.spec] && roleOf(s.spec) == role {
+		if !seen[s.spec] && (roleOf(s.spec) == role || role == "tank" && tankSpec(c.Class, s.spec)) {
 			seen[s.spec] = true
 			match = append(match, s.spec)
 		}
