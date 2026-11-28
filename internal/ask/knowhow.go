@@ -83,7 +83,7 @@ func Classify(text string, ds store.DataStore, c *character.Character) Class {
 	switch {
 	case hasAny(t, knowHowWords):
 		cl.Kind = KindKnowHow
-	case hasAny(t, stateWords):
+	case hasAny(t, stateWords), nextQuestion.MatchString(text):
 		cl.Kind = KindState
 	default:
 		cl.Kind = KindKnowHow
@@ -102,12 +102,12 @@ func Classify(text string, ds store.DataStore, c *character.Character) Class {
 	}
 	if d := dungeons.Mentioned(ds, nil, text); d != "" {
 		cl.Topic, cl.Subject = TopicDungeon, d
-		if cl.Kind == KindState && !hasAny(t, []string{"my ", "can i ", "what should i do", "where do i get", "how do i get"}) {
+		if cl.Kind == KindState && !hasAny(t, []string{"my ", "can i ", "what should i do", "where do i get", "how do i get"}) && !nextQuestion.MatchString(text) {
 			cl.Kind = KindKnowHow
 		}
 		// "how do I get attuned to Blackwing Lair", "where do I get the key for Dire Maul" and "what do I need for Molten Core" ask what a place
 		// needs before it is entered: that is no fact of the character's, and it gets the dungeon's facts like any dungeon question
-		if cl.Kind == KindState && dungeonEntryAsk.MatchString(t) && !hasAny(t, personalWords) {
+		if cl.Kind == KindState && dungeonEntryAsk.MatchString(t) && !hasAny(t, personalWords) && !nextQuestion.MatchString(text) {
 			cl.Kind = KindKnowHow
 		}
 		return cl
@@ -117,6 +117,10 @@ func Classify(text string, ds store.DataStore, c *character.Character) Class {
 			cl.Topic, cl.Subject = TopicProfession, p
 			return cl
 		}
+	}
+	if professionRankAsk.MatchString(t) {
+		cl.Topic, cl.Subject = TopicProfession, ranksSubject
+		return cl
 	}
 	for _, k := range classNames {
 		if classWord(t, k) {
@@ -129,6 +133,12 @@ func Classify(text string, ds store.DataStore, c *character.Character) Class {
 	}
 	return cl
 }
+
+// ranksSubject is the Subject of a profession question that names no profession but a rank, a skill cap or the trainer visit: the facts are the rank table.
+const ranksSubject = "ranks"
+
+// professionRankAsk is a question about the profession ranks and their skill caps with no profession named: "when can I train expert", "what skill cap do I have at level 20".
+var professionRankAsk = regexp.MustCompile(`\b(?:apprentice|journeyman|expert|artisan)\b|\b(?:skill|rank|profession)\s+(?:cap|caps|limit|max|maximum)\b|\bmax(?:imum)?\s+(?:skill|rank)\b|\bprofessions?\s+(?:skill|rank)s?\b|\b(?:train|learn|visit)\b.{0,25}\bprofessions?\b|\bprofessions?\s+trainers?\b`)
 
 // classWord is true when the class is named as a word, in the plural or with 's: "mage" is not the start of "Mageweave Bag".
 func classWord(t, class string) bool {
@@ -150,21 +160,53 @@ func classWord(t, class string) bool {
 func isLetter(b byte) bool { return b >= 'a' && b <= 'z' }
 
 var atLevel = regexp.MustCompile(`\b(?:level|lvl)\s*(\d{1,2})\b`)
-var nextLevels = []string{"next level", "next lvl", "level up", "levelling up", "leveling up", "level after", "new at level", "get at level", "learn at level", "train at level", "next two levels", "next 2 levels"}
+
+// namedLevel finds the level a level-up question names: "level 20", "lvl 20", or a bare number after "at", "by" or "when I hit" ("what do I get at 40").
+var namedLevel = regexp.MustCompile(`\b(?:level|lvl)\s*(\d{1,2})\b|\b(?:at|by|when i (?:hit|reach)|once i (?:hit|reach)|after hitting)\s+(?:level\s+|lvl\s*)?(\d{1,2})\b(\s+[a-z%]+)?`)
+
+// notLevelUnits are the words after a bare number that make it an amount, not a level: "at 5 gold", "by 10 minutes".
+var notLevelUnits = map[string]bool{"gold": true, "g": true, "silver": true, "copper": true, "s": true, "c": true, "minutes": true, "minute": true, "mins": true, "min": true,
+	"hours": true, "hour": true, "hrs": true, "hr": true, "percent": true, "mana": true, "rage": true, "energy": true, "slots": true, "slot": true, "stacks": true, "yards": true, "yds": true}
+
+// levelOf is the level a question names, 0 when it names none (a number above 60 is no level, nor is a bare amount).
+func levelOf(t string) int {
+	for _, m := range namedLevel.FindAllStringSubmatch(t, -1) {
+		n, _ := strconv.Atoi(m[1] + m[2])
+		if n < 1 || n > 60 || m[2] != "" && notLevelUnits[strings.TrimSpace(m[3])] {
+			continue
+		}
+		return n
+	}
+	return 0
+}
+
+var nextLevels = []string{"next level", "next lvl", "level up", "levelling up", "leveling up", "level after", "new at level", "get at level", "learn at level", "train at level", "next two levels", "next 2 levels",
+	"learn next", "train next", "get next", "when i ding", "when i level", "after i level", "at my next"}
+
+// canTrainAsk is a question whether the character's money covers training, or what training costs them now: the money check of the spells due.
+var canTrainAsk = regexp.MustCompile(`\b(?:gold|money) (?:do|should|will) i need to (?:train|learn)\w*\b|\b(?:afford|enough (?:gold|money|coin)|(?:gold|money) (?:to|for) (?:train|learn)\w*|cost me to (?:train|learn)|cost to (?:train|learn)|how much (?:to|for) (?:train|learn)\w*|how much (?:will|does|is|would) (?:my )?(?:training|learning|my spells)|training costs?|cost of (?:my )?(?:training|spells))\b.{0,40}\b(?:train\w*|learn\w*|spells?|abilit(?:y|ies)|ranks?|trainer)\b|\b(?:train\w*|learn\w*|spells?|abilit(?:y|ies)|ranks?|trainer)\b.{0,40}\b(?:afford|enough (?:gold|money|coin)|cost me)\b`)
 
 // levelUpSubject reports a "what's new at my next level?" question: Subject is "next", "next2" (the
-// next two levels) or the level asked about. It must ask for what the level brings, not how to level.
+// next two levels), "now" (what the money covers of the spells due now) or the level asked about. It
+// must ask for what the level brings, not how to level.
 func levelUpSubject(t string) (string, bool) {
 	asks := hasAny(t, []string{"what's new", "whats new", "what is new", "what do i get", "what will i get", "what do i learn", "what will i learn",
-		"what can i train", "what spells", "what abilities", "what new", "what comes", "what does", "what's coming", "whats coming", "what to train", "worth training"})
+		"what can i train", "what spells", "what abilities", "what new", "what comes", "what does", "what's coming", "whats coming", "what to train", "worth training",
+		"which spells", "which abilities", "which ranks", "what ranks", "what do i train", "what can i learn", "what skills do i get", "what new spells"})
 	if !asks {
+		if canTrainAsk.MatchString(t) && !hasAny(t, []string{"riding", "mount", "profession", "recipe", "flight"}) {
+			if n := levelOf(t); n > 0 {
+				return strconv.Itoa(n), true
+			}
+			return "now", true
+		}
 		return "", false
 	}
 	if hasAny(t, []string{"next two levels", "next 2 levels", "two levels"}) {
 		return "next2", true
 	}
-	if m := atLevel.FindStringSubmatch(t); m != nil {
-		return m[1], true
+	if n := levelOf(t); n > 0 {
+		return strconv.Itoa(n), true
 	}
 	if hasAny(t, nextLevels) {
 		return "next", true
@@ -388,6 +430,11 @@ func ground(cc loaded, q Question) Grounding {
 			switch n, err := strconv.Atoi(cl.Subject); {
 			case cl.Subject == "next2":
 				to++
+			case cl.Subject == "now":
+				from, to = *c.Level, *c.Level
+				if _, seen := levelup.SeenClassTrainer(c); seen || c.KnownSpells != nil {
+					from = 1 // the opened trainer's own window, or what the character does not know yet
+				}
 			case err == nil && n > *c.Level:
 				to = min(n, *c.Level+10)
 			case err == nil:

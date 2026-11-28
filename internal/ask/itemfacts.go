@@ -63,11 +63,23 @@ var transportSideAsk = regexp.MustCompile(`(?i)\b(boats?|zeppelins?|ferr(?:y|ies
 // hearthstoneAsk is a question about the hearthstone itself: where it binds, how to change or replace it, what it does, or where it takes you.
 var hearthstoneAsk = regexp.MustCompile(`(?i)\bhearth(?:stone|stones)?\b`)
 
+// levelMilestoneAsk is a question what a character should have done, learned or unlocked by a level: a level checklist or milestones, "what unlocks at 40", "what should I have by level 30".
+var levelMilestoneAsk = regexp.MustCompile(`(?i)\b(?:checklist|milestones?|to-?do list)\b.{0,30}\b(?:level|lvl|\d{1,2})\b|\b(?:level|lvl)\s*\d{1,2}\b.{0,20}\b(?:checklist|milestones?)\b|\bwhat\b.{0,30}\b(?:happens|changes|unlocks?|opens up|do i unlock|becomes? available|is available)\b.{0,20}\b(?:at|by|when i (?:hit|reach)|after)\b.{0,12}\d{1,2}\b|\bwhat\b.{0,25}\b(?:should i (?:already )?have(?: done)?|do i need to have(?: done)?)\b.{0,25}\b(?:by|at|before)\b.{0,12}\d{1,2}\b|\bbefore (?:level|lvl)\s*\d{1,2}\b.{0,40}\b(?:do|get|have|learn|buy|finish)\b|\banything (?:new|special)\b.{0,20}\b(?:ding|level up|next level)`)
+
+// goldTargetAsk is a question how much gold the character should have or save: by a level, for riding or a mount, bags, gear or training, or what to spend gold on.
+var goldTargetAsk = regexp.MustCompile(`(?i)\bhow much (?:gold|money)\b.{0,30}\b(?:should i (?:have|save|carry|keep)|do i need|will i need|to (?:have|save)|is enough)\b|\bhow much (?:gold|money)\b.{0,25}\b(?:for|on)\b.{0,15}\b(?:gear|armou?r|weapons?|bags?|training|mount|riding|level \d+)\b|\bwhat should i (?:spend|save|use) (?:my |the )?(?:gold|money|coin)\b|\b(?:gold|money)\b.{0,15}\b(?:target|goal|budget|benchmark)\b|\bwhat should i (?:buy|get|purchase)\b.{0,15}\b(?:at|by|before)\s+(?:level|lvl)?\s*\d{1,2}\b|\b(?:how much|enough) (?:gold|money)\b.{0,25}\b(?:by|at)\s+(?:level|lvl)?\s*\d{1,2}\b`)
+
+// trainMoney is the words of a question what training costs, cut from a gold-target question: the money check of the spells due answers it.
+var trainMoney = regexp.MustCompile(`(?i)\b(?:to|for|on) (?:train|training|learn|learning)\b`)
+
+// gearCheckpointAsk is a question whether the character is geared for a level or a dungeon, or what gear to have by a level.
+var gearCheckpointAsk = regexp.MustCompile(`(?i)\bwhat (?:gear|armou?r|weapons?|equipment|items?)\b.{0,30}\b(?:should i (?:have|be wearing|be using)|do i need)\b.{0,25}\b(?:at|by|before|for)\b.{0,10}\d{1,2}\b|\bam i (?:well[- ]|fully |under[- ])?(?:geared|equipped|ready|prepared)\b.{0,25}\b(?:for|at)\b|\bis my gear\b.{0,25}\b(?:ok|okay|good|enough|fine|on par|behind|ready)\b|\bwhat gear should i have\b`)
+
 var limitTopics = []struct {
 	about *regexp.Regexp
 	fact  string
 }{
-	{regexp.MustCompile(`(?i)\b` + bagWord + `\b.*\b(slots?|size|sizes|space|capacity|big|bigger|biggest|large|larger|largest|many|price|cost|hold|holds|fit|fits|more)\b|\b(slots?|size|capacity|big|bigger|biggest|large|larger|largest|many|price|cost)\b.*\b` + bagWord + `\b`),
+	{regexp.MustCompile(`(?i)\b(?:should|shall) i\b.{0,15}\b(?:buy|get|craft|make|upgrade|replace|have)\b.{0,20}\b` + bagWord + `\b|\bwhat (?:bags?|bag sizes?)\b.{0,30}\bshould i\b|\b` + bagWord + `\b.*\b(slots?|size|sizes|space|capacity|big|bigger|biggest|large|larger|largest|many|price|cost|hold|holds|fit|fits|more)\b|\b(slots?|size|capacity|big|bigger|biggest|large|larger|largest|many|price|cost)\b.*\b` + bagWord + `\b`),
 		"Bag and bank size: the game data holds no bag slot count, no backpack, bank or key ring size, no quiver, ammo pouch or special bag (soul, herb, enchanting) size and no bank slot price. Say so; give no slot count or price from memory."},
 	{regexp.MustCompile(`(?i)\bstack(s|ed|ing)?\b|\bhow many\b.*\b(carry|hold|fit)\b`),
 		"Stack size: the game data holds no maximum stack size for any item. Say so; give no stack size from memory (the capture's own counts are what the character holds)."},
@@ -81,6 +93,12 @@ var limitTopics = []struct {
 		"Gold making: the game data holds vendor prices only (an item's sell price to a vendor and a vendor's asking price): no Auction House price, no demand or how fast an item sells, and no profit, margin or gold per hour for a craft, a farm, a profession or a route. Say so; give no market price, profit or gold-per-hour figure from memory and do not rank professions or items by gold. What the data does hold is each item's vendor sell price, a recipe's materials and a drop's chance, which give the vendor value of what is made or farmed."},
 	{goldFees,
 		"Gold and fees: the game data holds no gold cap, no repair cost or rate, no talent respec cost and no guild bank rule. Say so; give no figure from memory."},
+	{levelMilestoneAsk,
+		"Level milestones: the game data holds no list of what a character should have done, learned or bought by a level: no riding, mount, bag, profession rank or quest-unlock row tied to a level, and no checklist. Say so; give no milestone list or level from memory. What it does hold: the spells and ranks a class learns at each level (ask what is new at a level), the character level each profession rank needs, a dungeon's level range and an item's required level."},
+	{goldTargetAsk,
+		"Gold targets: the game data holds no gold target, budget or savings goal for a level, a mount, riding, bags or gear. Say so; give no figure from memory. What it does hold is what a vendor charges for an item, what the player's own trainer showed for a spell, and what the character carries now."},
+	{gearCheckpointAsk,
+		"Gear checkpoints: the game data holds no target gear, item level or stat total a character should have at a level or before a dungeon. Say so; give no list of what to wear by a level from memory. What it holds is each item's required level, slot, quality and stats and where it drops or is sold: judge the character's own gear only by the upgrades the facts list."},
 	{regexp.MustCompile(`(?i)\btrade (window|slots?)\b|\b(trade|trading)\b.*\b(how many|limit|max\w*|slots?|gold|distance|range)\b`),
 		"Trade window: the game data holds no trade window rules (items or gold per trade, range). Say so; give no figure from memory. What the data does hold is an item's binding, which decides whether it can be traded."},
 	{regexp.MustCompile(`(?i)\b(battlegrounds?|bgs?|wsg|warsong gulch|arathi basin|alterac valley)\b`),
@@ -358,6 +376,9 @@ func LimitFacts(text string) string {
 		}
 		if tp.about == rareAsk {
 			q = rareNotCreature.ReplaceAllString(q, " ")
+		}
+		if tp.about == goldTargetAsk && trainMoney.MatchString(text) { // what training costs the player is answered by the money check of the spells due, not a gold target
+			continue
 		}
 		if tp.about.MatchString(q) || tp.about == potionAsk && potionStack.MatchString(text) {
 			out = append(out, tp.fact)

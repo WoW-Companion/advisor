@@ -91,7 +91,20 @@ const WordingRules = " Wording: lead with the answer. Never mention the advisor,
 // HeadsUpRule is added to a What next? answer only: the one place a heads-up line belongs.
 const HeadsUpRule = " One optional last line starting \"Heads-up:\" is allowed for something urgent and nearby (such as a quest ready to turn in on the way)."
 
-var nextQuestion = regexp.MustCompile(`(?i)\bwhat\s+(should\s+i\s+do\s+|do\s+i\s+do\s+|to\s+do\s+)?next\b`)
+// nextEnd ends a short question: nothing more than "for me", "now", "right now" or "I'm level 12" before the end.
+const nextEnd = `(?:\s+(?:for\s+me|now|right\s+now))?(?:[,.]?\s+(?:i'?m|i\s+am)\s+(?:level|lvl)\s*\d{1,2})?[\s?.!]*$`
+
+// nextQuestion is the words of a What next? question: "what should I do next", "what's next", "what now", "what's my next step", "what do I do",
+// "where should I go next", "what should I work on next". A question that goes on ("what should I do with this sword") is none of them.
+var nextQuestion = regexp.MustCompile(`(?i)\bwhat\s+(should\s+i\s+do\s+|do\s+i\s+do\s+|to\s+do\s+)?next\b` +
+	`|\bwhat(?:'s|’s|s|\s+is)\s+(?:my\s+|the\s+)?next(?:\s+(?:step|steps|goal|move|task|objective|thing(?:\s+to\s+do|\s+i\s+should\s+do)?))?` + nextEnd +
+	`|\bwhat\s+(?:now|then)` + nextEnd +
+	`|\bwhat\s+(?:should\s+i|do\s+i|can\s+i)\s+(?:do|be\s+doing)(?:\s+(?:first|today|tonight))?` + nextEnd +
+	`|\bwhat\s+(?:should\s+i|do\s+i)\s+(?:work\s+on|focus\s+on|tackle|do)\s+next\b` +
+	`|\bwhat\s+should\s+i\s+(?:focus\s+on|be\s+working\s+on|work\s+on)` + nextEnd +
+	`|\bwhat\s+are\s+(?:my|the)\s+next\s+(?:steps?|goals?|moves?)\b` +
+	`|(?:^|[\s,.;:])next\s+steps?` + nextEnd +
+	`|\bwhere\s+(?:should|do)\s+i\s+(?:go|head)\s+next\b`)
 
 // NextQuestion reports whether q is the What next? question, the only answer that carries a heads-up.
 func NextQuestion(q Question) bool {
