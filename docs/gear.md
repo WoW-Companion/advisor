@@ -69,7 +69,9 @@ of Intellect for a caster or healer (and the older bonus healing for a healer, b
 at the weight of Armor for a tank, and Attack Power at four-fifths of the better of Strength and Agility for a
 melee, ranged or feral build. The item's own armor (the `armor` column) is not in the score: it follows from item
 level, armor type, quality and slot, so item level already orders it. A bag item compared by captured stats against a
-worn item known only from the dataset counts the dataset's armor on that side too. Otherwise `score = item_level + quality`, and the answer says it is ranked by item level only and
+worn item known only from the dataset counts the dataset's armor on that side too. An item the dataset says has no stats at all (`stats_status` `none`: a plain white piece) is weighed on this same
+scale as an item with no stat the build wants, `item_level × 0.5`, so it never outranks an item of no lower item level that
+carries stats; an item whose stats are `unknown` keeps the item-level basis (nothing is claimed about it). Otherwise `score = item_level + quality`, and the answer says it is ranked by item level only and
 why (no stats in the dataset, spec unknown, or no weights for the spec). The comparison for a slot
 always uses one basis for both items. A slot's candidates are the items whose score is higher than the
 equipped item's (an empty slot takes any item), best gain first. An equipped item the dataset does
@@ -77,6 +79,12 @@ not hold is compared by its captured item level and quality.
 
 Weights are in `weights.json`: advisor defaults, not authoritative, one rationale per spec. The
 spec is the talent group holding the most points, matched by name inside the group's name.
+A character with no saved play style is weighed by `weights.json` where it lists their class and spec (priest and rogue),
+else by the stat table's profile (`internal/stats`) of the talent group they hold, when the group names a spec of the class;
+a group that names none (or no talent points) leaves the ranking by item level and says why.
+
+The loot roll (`LootRoll`) reads an item above the character's level at the level it needs, as the upgrade finder does: a plate
+piece that needs level 40 is Need for a level 38 warrior ("your class can use it from level 40"), not Greed.
 
 ## Sources
 

@@ -37,7 +37,29 @@ var gives = map[string]map[string]string{
 	archTank:   {Stamina: "your health", Strength: "block and threat", Agility: "dodge and armor", Armor: "fewer hits land", Intellect: "a little mana"},
 }
 
-func (p Profile) gives(stat string) string { return gives[p.Arch][stat] }
+func (p Profile) gives(stat string) string {
+	if o, ok := classGives[classStat{p.Class, p.Arch, stat}]; ok {
+		return o
+	}
+	return gives[p.Arch][stat]
+}
+
+// classStat keys a wording that differs from the archetype's for one class: a paladin or shaman has no rage to feed with crits,
+// and a druid cannot block.
+type classStat struct{ class, arch, stat string }
+
+var classGives = map[classStat]string{
+	{"PALADIN", archStr, Agility}: "crits",
+	{"SHAMAN", archStr, Agility}:  "crits",
+	{"DRUID", archTank, Strength}: "attack power and threat",
+}
+
+// classReasons are the longer reasons for the same classes.
+var classReasons = map[classStat]string{
+	{"PALADIN", archStr, Agility}: "more critical hits",
+	{"SHAMAN", archStr, Agility}:  "more critical hits",
+	{"DRUID", archTank, Strength}: "more attack power for holding enemies",
+}
 
 // Effects are the per-point numbers for a character, one phrase per stat ("+0.06% spell crit a
 // point"): the client's own when the capture has them, else derived from class rules and shown only when
