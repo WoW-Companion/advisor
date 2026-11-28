@@ -265,6 +265,34 @@ func containerAction(chars []character.Character, i int, row store.Row) (a Actio
 	return Sell, "", what, true
 }
 
+// containerNote is the reason a bag, quiver or ammo pouch the holder can use stays unplaced: the dataset holds no bag size, and where the row has a
+// required level above the holder's (a Heavy Quiver needs 30) the note names it, and where the holder's ranged weapon fires the other kind of ammo
+// (a bow beside an ammo pouch, a gun beside a quiver) the note says so, as for the ammo itself. A bag's own required level is 0 in the dataset, so no
+// level is estimated from its item level.
+func containerNote(c character.Character, row store.Row, ds store.DataStore) string {
+	var lead []string
+	if rl, _ := rowInt(row, "required_level"); rl > 0 && int(rl) > level(c) {
+		lead = append(lead, fmt.Sprintf("you can use it from level %d", rl))
+	}
+	if cl, _ := rowInt(row, "class_id"); cl == classQuiver && usesAmmo(c.Class) {
+		sub, _ := rowInt(row, "subclass_id")
+		holds, name := "", ""
+		switch sub {
+		case 2:
+			holds, name = "arrows", "a quiver"
+		case 3:
+			holds, name = "bullets", "an ammo pouch"
+		}
+		if w := rangedAmmo(c, ds); holds != "" && w != "" && w != holds {
+			lead = append(lead, "your ranged weapon fires "+w+", and "+name+" holds "+holds+"; keep it only if you plan to change weapon")
+		}
+	}
+	if len(lead) == 0 {
+		return BagReason
+	}
+	return strings.Join(lead, "; ") + "; " + BagReason
+}
+
 // rangedAmmo is the ammo the character's equipped ranged weapon fires, "arrows" for a bow or a crossbow and "bullets" for a gun; "" when no
 // ranged weapon is equipped or known, or it fires none (a wand, a thrown weapon).
 func rangedAmmo(c character.Character, ds store.DataStore) string {
@@ -493,7 +521,7 @@ func decide(chars []character.Character, i int, e Entry, row store.Row, ds store
 		if a, to, why, ok := containerAction(chars, i, row); ok {
 			return a, to, why, false
 		}
-		return Unsure, "", BagReason, false
+		return Unsure, "", containerNote(c, row, ds), false
 	}
 	if r, ok := classreagent.Of(e.Name); ok {
 		// a class reagent goes to an alt of the class whose spells use it, unless it is bound to its holder

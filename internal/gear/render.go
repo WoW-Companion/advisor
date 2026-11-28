@@ -115,6 +115,10 @@ func Render(c character.Character, r Result) string {
 			fmt.Fprintf(&b, "- %s\n", u.Line())
 		}
 	}
+	if r.Cosmetic != "" && len(r.Bags) == 0 {
+		fmt.Fprintf(&b, "A %s has no stats in the data and suits every class, so none is an upgrade over another: wear whichever you like (it never replaces your chest armor). The advisor lists none.\n", r.Cosmetic)
+		return b.String()
+	}
 	if r.ItemLevelOnly {
 		fmt.Fprintf(&b, "Ranked by the level needed to wear it only (quality breaks ties): %s.\n", r.Reason)
 	} else {

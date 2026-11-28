@@ -56,7 +56,9 @@ carries a drop chance or a bare id.
   slot, armor type, class limit, required level and binding from its item row.
 - A bag piece within the finder's two-level window but above the character's level is kept with "you can wear it from level N", not listed
   under "Equip now".
-- Shirts, tabards and bag containers are not considered. Items already in the character's bags are:
+- Shirts, tabards and bag containers are not considered: a shirt or tabard has no stats in the data and suits every class, so a request for
+  the shirt or tabard slot says none is an upgrade; a bag, quiver or ammo pouch is never ranked (no bag size), and the bag review adds the
+  level its row needs and the ammo it holds against the ranged weapon worn. Items already in the character's bags are:
   `BagUpgrades` lists every usable one (class, armor type, required level at or below theirs) that beats
   what is worn, first in every gear answer. With captured stats (or dataset stats) on both items it weighs
   each stat by the class weights (armor too) and says "better"; without, item level decides, quality only
