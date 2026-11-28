@@ -3,6 +3,7 @@ package character
 import (
 	"fmt"
 	"strings"
+	"unicode"
 )
 
 // standingNames are the eight reputation standings, indexed by the game's standing id (1 Hated to 8 Exalted).
@@ -48,13 +49,47 @@ func (r Reputation) Progress() string {
 	return out + fmt.Sprintf(" (%d of %d points in the standing; %d more to %s)", max(*r.Value-lo, 0), hi-lo, left, StandingName(id+1))
 }
 
-// ReputationNamed is the character's reputation with the faction whose name holds the text (case-insensitive), or false.
+// ReputationNamed is the character's reputation with the faction the text names, or false: the first of ReputationsNamed.
 func (c Character) ReputationNamed(text string) (Reputation, bool) {
-	t := strings.ToLower(text)
-	for _, r := range c.Reputations {
-		if r.Name != "" && strings.Contains(t, strings.ToLower(r.Name)) {
-			return r, true
-		}
+	if l := c.ReputationsNamed(text); len(l) > 0 {
+		return l[0], true
 	}
 	return Reputation{}, false
+}
+
+// ReputationsNamed are the character's reputations with the factions the text names. A faction whose full name the text holds
+// (case-insensitive) is the answer alone; failing that, the factions the short name a player says stands for: the first word of
+// the name without a leading "The" ("Timbermaw" for Timbermaw Hold, "Gnomeregan" for Gnomeregan Exiles, "Thorium" for Thorium
+// Brotherhood) or its last long word ("Nozdormu" for Brood of Nozdormu, "Arathor"), as a whole word.
+func (c Character) ReputationsNamed(text string) []Reputation {
+	t := strings.ToLower(text)
+	var full []Reputation
+	for _, r := range c.Reputations {
+		if r.Name != "" && strings.Contains(t, strings.ToLower(r.Name)) {
+			full = append(full, r)
+		}
+	}
+	if len(full) > 0 {
+		return full
+	}
+	words := map[string]bool{}
+	for _, w := range strings.FieldsFunc(t, func(r rune) bool { return !unicode.IsLetter(r) && r != '\'' }) {
+		words[w] = true
+	}
+	var short []Reputation
+	for _, r := range c.Reputations {
+		parts := strings.Fields(strings.ToLower(r.Name))
+		the := len(parts) > 1 && parts[0] == "the"
+		if the {
+			parts = parts[1:]
+		}
+		if len(parts) < 2 && !the { // a one-word name is matched in full above
+			continue
+		}
+		first, last := parts[0], parts[len(parts)-1]
+		if len(first) >= 5 && words[first] || len(last) >= 6 && words[last] {
+			short = append(short, r)
+		}
+	}
+	return short
 }

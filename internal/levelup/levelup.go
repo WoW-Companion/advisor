@@ -152,8 +152,41 @@ func Spells(c character.Character, ds store.DataStore, from, to int) []Spell {
 		out = append(out, Spell{ID: id, Name: name, Rank: int(rank), Level: int(lv), New: sup == 0 && rk <= 1, Cost: costs[id], Usually: true})
 	}
 	out = dedupeByName(out)
+	markNew(c, ds, out, from, to)
 	sortSpells(out)
 	return out
+}
+
+// markNew marks a higher rank as a new spell when the character has no lower rank of it: a capture that lists the known spells
+// and holds none of the name's lower ranks, or a window that holds the lower ranks too (levels 1 to 30 hold Fireball ranks 1 to 6,
+// and rank 6 is then the spell, not a new rank of one the character has). Without a capture of the known spells and with only
+// the one rank in the window, a higher rank stays "a new rank of a spell you have".
+func markNew(c character.Character, ds store.DataStore, out []Spell, from, to int) {
+	var all []store.Row
+	for i := range out {
+		s := &out[i]
+		if s.New || s.Rank <= 1 {
+			continue
+		}
+		if all == nil {
+			all = classRows(c, ds, 1, to)
+		}
+		known, inWindow := false, false
+		for _, r := range all {
+			name, _ := r["name"].(string)
+			rk, _ := r["rank"].(int64)
+			if rk <= 0 || int(rk) >= s.Rank || !strings.EqualFold(strings.TrimSpace(name), strings.TrimSpace(s.Name)) {
+				continue
+			}
+			id, _ := r["spell_id"].(int64)
+			lv, _ := r["level"].(int64)
+			known = known || c.KnownSpells[id]
+			inWindow = inWindow || int(lv) >= from
+		}
+		if !known && (c.KnownSpells != nil || inWindow) {
+			s.New = true
+		}
+	}
 }
 
 // Learned lists the abilities of the character's class a player has by level to: every first rank
@@ -216,11 +249,15 @@ func talentNames(ds store.DataStore, classID int64) map[string]bool {
 	if ds == nil || classID == 0 {
 		return nil
 	}
+	out := map[string]bool{}
+	classLess(ds, classID, out)
 	trees, err := ds.Filter("talent_trees", store.Range{Column: "class_id", Min: classID, Max: classID})
 	if err != nil || len(trees) == 0 {
-		return nil
+		if len(out) == 0 {
+			return nil
+		}
+		return out
 	}
-	out := map[string]bool{}
 	done := map[int64]bool{} // a tree has one row per talent group
 	for _, t := range trees {
 		id, _ := t["tree_id"].(int64)
@@ -239,6 +276,40 @@ func talentNames(ds store.DataStore, classID int64) map[string]bool {
 		}
 	}
 	return out
+}
+
+// classLess adds the talents of a tree the dataset gives no class (the mage's Arcane Focus sits in a tree whose class_id is empty):
+// a talent node whose spell is one of the class's own rank-less class_spells rows is that class's talent, whatever its tree says. The
+// row's own name is added too, for a talent the node names otherwise (the node "Feral Charge", the spell "Feral Charge (Bear)").
+func classLess(ds store.DataStore, classID int64, out map[string]bool) {
+	spells, err := ds.Filter("class_spells", store.Range{Column: "class_id", Min: classID, Max: classID})
+	if err != nil || len(spells) == 0 {
+		return
+	}
+	own := map[int64]string{}
+	for _, r := range spells {
+		id, _ := r["spell_id"].(int64)
+		if rk, _ := r["rank"].(int64); id != 0 && rk == 0 {
+			name, _ := r["name"].(string)
+			own[id] = name
+		}
+	}
+	nodes, err := ds.Filter("talent_nodes", store.Range{Column: "spell_id", Min: 1, Max: 1 << 40})
+	if err != nil {
+		return
+	}
+	for _, n := range nodes {
+		id, _ := n["spell_id"].(int64)
+		spell, ok := own[id]
+		if !ok {
+			continue
+		}
+		for _, name := range []string{spell, fmt.Sprint(n["name"])} {
+			if name = strings.ToLower(strings.TrimSpace(name)); name != "" && name != "<nil>" {
+				out[name] = true
+			}
+		}
+	}
 }
 
 // A ranked spell listed at level 1 under a talent's name is that talent's first rank (Mana Tide Totem rank 1,
