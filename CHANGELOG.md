@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.7.105
+
+- **Fixed** Routes to the Exodar and Azuremyst Isle now name the boat from Auberdine.
+- **Fixed** Horde routes to Silvermoon City now use the Undercity orb.
+- **Fixed** A route from the Barrens to Stranglethorn Vale now takes the Ratchet boat.
+- **Fixed** A flight is no longer offered to a flight master of the other faction or across the sea.
+- **Fixed** Boat and zeppelin side questions now say the data has no answer.
+- Restock buys reagents only for your next profession skill-ups or class consumables in use.
+- A restock is listed only when a whole craft can be made; half a recipe is never bought.
+- Each restock line says what it is for, and a reagent is never listed twice.
+- Elite quests are spotted from the quest log or QuestieDB and parked unless you include them.
+- Parked elite quests stay listed under later, and class quests you must do stay in the plan.
+- Elite steps are marked in the plan data, so the addon can tag them in the quest log.
+- Next-step and quest lists say "(elite, needs a group)" for these quests.
+
 ## 0.7.104
 
 - **Fixed** The next-recipe list now shows green, not yellow, for a recipe the game shows green.
