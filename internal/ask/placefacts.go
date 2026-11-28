@@ -119,25 +119,41 @@ func numOf(v any) int64 {
 // proficiencyAsk is a question about the armor a class can wear (armor type, shield, proficiency); the weapon words are WeaponQuestion's.
 var proficiencyAsk = regexp.MustCompile(`(?i)\b(?:wear|wearing|wears|wore|equip\w*|put on|armou?r (?:types?|proficienc\w+|skills?)|proficien\w+|allowed|able to use)\b.{0,60}\b(?:armou?r|cloth|leather|chain ?mail|mail|plate|shields?)\b|\b(?:armou?r|cloth|leather|chain ?mail|mail|plate|shields?)\b.{0,40}\b(?:wear|wearing|wearers?|proficien\w+|allowed|equip\w*|usable|can use)\b|\b(?:what|which)\b.{0,12}\b(?:armou?r|armou?r types?)\b.{0,30}\b(?:can|does|do|may|will)\b`)
 
+// shieldAsk is a question about who may carry a shield: "can my paladin use a shield", "can priests use shields", "does a rogue get a shield". A
+// spell that is named for a shield (Power Word: Shield, Shield Slam) is no such question, as it names no one to carry it.
+var shieldAsk = regexp.MustCompile(`(?i)\b(?:use|carry|hold|wield|equip\w*|get|have|wear|put on|take)\s+(?:(?:a|an|the|my|any|one|their)\s+(?:\w+\s+)?shield\b|shields\b)|\bshield\b.{0,30}\b(?:or|vs\.?|versus)\b.{0,12}\b(?:two[- ]?hand\w*|2h|dual[- ]?wield\w*|weapon)\b|\b(?:which|what|who)\b.{0,30}\b(?:classes|class)\b.{0,25}\bshields\b`)
+
+// jewelleryAsk is a question about whether a class may wear a ring, necklace, trinket or cloak: "can my warrior wear a ring", "what trinkets can a mage use".
+var jewelleryAsk = regexp.MustCompile(`(?i)\b(?:can|could|may|able|allowed|does|do|will)\b.{0,50}\b(?:wear|use|equip\w*)\b.{0,25}\b(?:rings?|necklaces?|amulets?|trinkets?|cloaks?)\b|\b(?:what|which)\b.{0,25}\b(?:rings?|necklaces?|amulets?|trinkets?|cloaks?)\b.{0,30}\b(?:can|may)\b.{0,30}\b(?:use|wear|equip)|\b(?:rings?|necklaces?|amulets?|trinkets?|cloaks?)\b.{0,30}\b(?:class(?:es)? (?:restrict\w*|limit\w*)|restricted|armou?r type)\b`)
+
+// relicAsk is a question about the relic slot, which the capture holds in the ranged slot for a paladin, druid or shaman.
+var relicAsk = regexp.MustCompile(`(?i)\b(?:can|could|may|able|allowed|use|wear|equip\w*|slot|class(?:es)?)\b.{0,40}\b(?:relics?|librams?|idols?)\b|\b(?:relics?|librams?|idols?)\b.{0,30}\b(?:slot|class(?:es)?|use|equip\w*|wear|best)\b|\branged slot\b`)
+
+// allClassesAsk is a question about every class at once: "which classes can use shields".
+var allClassesAsk = regexp.MustCompile(`(?i)\b(?:which|what|who)\b.{0,20}\bclasses\b|\ball (?:the )?classes\b|\bany class(?:es)?\b|\beach class\b`)
+
 // ProficiencyFacts is the weapon and armor rules of each class a question names, for a question about what a class can wear or wield, when the question names a class
 // other than the character's (the character's own weapon rules are WeaponFacts's) or asks about armor. "" for any other question.
 func ProficiencyFacts(c character.Character, ds store.DataStore, text string) string {
-	armor := proficiencyAsk.MatchString(text)
+	armor := proficiencyAsk.MatchString(text) || shieldAsk.MatchString(text) || jewelleryAsk.MatchString(text)
 	weapon := WeaponQuestion(text)
-	if !armor && !weapon {
+	relic := relicAsk.MatchString(text)
+	if !armor && !weapon && !relic {
 		return ""
 	}
 	classes := classesNamed(text)
 	own := strings.ToLower(c.Class)
-	if len(classes) == 0 && armor && own != "" {
+	if len(classes) == 0 && allClassesAsk.MatchString(text) {
+		classes = classOrder
+	} else if len(classes) == 0 && (armor || relic) && own != "" {
 		classes = []string{own}
 	}
 	var out []string
 	for _, k := range classes {
-		if !armor && k == own {
+		if !armor && !relic && k == own {
 			continue // WeaponFacts holds the character's own weapon rules
 		}
-		out = append(out, classRules(k, ds, armor, weapon))
+		out = append(out, classRules(k, ds, armor, weapon, relic))
 	}
 	if len(out) == 0 {
 		return ""
@@ -146,7 +162,7 @@ func ProficiencyFacts(c character.Character, ds store.DataStore, text string) st
 }
 
 // classRules is the one class's lines: the weapons it can learn (from weapon_skills) and its armor ladder (the advisor's own class rules).
-func classRules(class string, ds store.DataStore, armor, weapon bool) string {
+func classRules(class string, ds store.DataStore, armor, weapon, relic bool) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "- %s:", titleWord(class))
 	if weapon || armor {
@@ -174,8 +190,22 @@ func classRules(class string, ds store.DataStore, armor, weapon bool) string {
 			b.WriteString(" Cannot use a shield.")
 		}
 		b.WriteString(" The class may also be able to wear lighter armor than its own type, but recommend only its own type.")
+		b.WriteString(" Rings, necklaces, cloaks and trinkets have no armor type, so any class may wear them (an item's own class limit and required level still apply).")
+	}
+	if relic {
+		b.WriteString(relicRule(class))
 	}
 	return b.String()
+}
+
+// relicRule is what the class holds in its relic slot: the dataset lists each relic by type and the class that holds it, and has no relic effect, so one relic
+// cannot be ranked against another.
+func relicRule(class string) string {
+	kind := map[string]string{"paladin": "a libram", "druid": "an idol", "shaman": "a totem"}[strings.ToLower(class)]
+	if kind == "" {
+		return " Has no relic slot: a libram, idol or totem is for the paladin, druid or shaman alone, and the ranged slot takes a bow, gun, crossbow, thrown weapon or wand where the class may use one."
+	}
+	return " Relic slot (the ranged slot): takes " + kind + " and no other relic. The game data holds no relic effect, so say that no relic can be ranked above another and name none as the best."
 }
 
 func titleWord(s string) string {

@@ -55,7 +55,9 @@ level range. There is no object table and no zone on any of them, so object sour
   breaks a tie at equal item level, a lower item level is never offered, and it says "likely better
   (item level N vs M)". An enchant's stats are left out (no enchant table) and noted in debug output. An item missing from the dataset counts only when the
   addon recorded its quality, item level, required level and slot, and only in slots no armor type
-  restricts (neck, rings, trinkets, cloak). A class with no entry in `rules.go` (Death
+  restricts (neck, rings, trinkets, cloak). A bag two-hander is weighed against the main hand and the off hand
+  together, as the finder weighs it, and a ring or trinket worn in one slot is not offered for the other (the dataset
+  has no unique-equipped flag). A class with no entry in `rules.go` (Death
   Knight, Monk, Demon Hunter, Evoker) is reported as unsupported.
 
 ## Score and ranking
