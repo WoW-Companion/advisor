@@ -114,6 +114,9 @@ type Result struct {
 	Slot   string `json:"slot,omitempty"`
 	Paths  []Path `json:"paths"`
 	Reason string `json:"reason,omitempty"` // when there is no path: why, in words
+	// Use is what the character should know before getting a consumable: the level it needs to use it and the classes that
+	// can, when the character is below that level or not of those classes. "" for anything else.
+	Use string `json:"use,omitempty"`
 	// Unfit is true for an item the player's build cannot use well (a shield for a dual-wielder): it is
 	// left out of the answer entirely, never named as a thing to skip.
 	Unfit bool `json:"unfit,omitempty"`
@@ -152,6 +155,9 @@ func (r Result) Text() string {
 		for _, p := range r.Paths {
 			b.WriteString("\n" + p.Line)
 		}
+		if r.Use != "" {
+			b.WriteString("\n" + r.Use)
+		}
 		return b.String()
 	}
 	fmt.Fprintf(&b, "How to get %s, best way first:\n", r.Item)
@@ -165,10 +171,29 @@ func (r Result) Text() string {
 			b.WriteString("\n")
 		}
 	}
+	if r.Use != "" {
+		b.WriteString(r.Use + "\n")
+	}
 	if r.fromEverloot() {
 		b.WriteString("Sources: " + vendors.Credit + ".\n")
 	}
 	return strings.TrimRight(b.String(), "\n")
+}
+
+// useNote is the line a consumable's answer adds when the character cannot use it yet or at all: the dataset's required level
+// above the character's, and an allowable_class_mask that leaves its class out (a Rage Potion is for warriors and druids).
+func useNote(c character.Character, row store.Row) string {
+	if i64(row["class_id"]) != 0 {
+		return ""
+	}
+	var parts []string
+	if allowed, known := gear.AllowsClass(c.Class, row); known && !allowed {
+		parts = append(parts, "Only "+gear.ClassList(row)+" can use it, not your class.")
+	}
+	if rl := i64(row["required_level"]); rl > 1 && c.Level != nil && int(rl) > *c.Level {
+		parts = append(parts, fmt.Sprintf("It needs level %d to use; you are level %d.", rl, *c.Level))
+	}
+	return strings.Join(parts, " ")
 }
 
 // fromEverloot is true when a path or reagent of the result carries an Everloot fact.
@@ -256,6 +281,7 @@ func For(c character.Character, ds store.DataStore, itemID int64, opt Options) R
 		res.Reason = "this item is not for the player's build: leave it out of the answer entirely and never mention it"
 		return res
 	}
+	res.Use = useNote(c, row)
 	f := &finder{c: c, ds: ds, opt: opt, itemID: itemID, item: row}
 	if c.Level != nil {
 		f.level = *c.Level

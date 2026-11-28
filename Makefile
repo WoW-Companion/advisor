@@ -77,5 +77,5 @@ advice-benchmark:
 # BENCH_REPORT=<file> receives the result tables in Markdown. The last line is the summary, "advice-benchmark:
 # N checks, S same, D differ (...)". See docs/professions.md.
 offline-benchmark:
-	@log="$$(mktemp)"; status=0; WOWC_BENCH_REPORT="$(BENCH_REPORT)" go test ./internal/professions ./internal/gear ./internal/talents ./internal/paths -run 'OfflineBenchmark' -count=1 -v > "$$log" 2>&1 || status=$$?; \
+	@log="$$(mktemp)"; status=0; WOWC_BENCH_REPORT="$(BENCH_REPORT)" go test ./internal/professions ./internal/gear ./internal/talents ./internal/paths ./internal/inventory -run 'OfflineBenchmark' -count=1 -v > "$$log" 2>&1 || status=$$?; \
 	grep -E '^(---|FAIL|ok|    offline_)' "$$log" || true; go run ./internal/benchsummary/cmd < "$$log" || status=1; rm -f "$$log"; exit $$status
