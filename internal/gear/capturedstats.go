@@ -43,7 +43,24 @@ func namedWeights(c character.Character, group string) map[string]float64 {
 		}
 		return byName
 	}
+	if p, ok := groupProfile(c.Class, group); ok {
+		return p.ItemWeights()
+	}
 	return nil
+}
+
+// groupProfile is the stat table's profile for the talent group a character holds the most points in, for a character with no
+// saved play style whose class and group the gear weights file does not list (it lists only priest and rogue specs). ok is false
+// when the group names no spec of the class: the class's balanced fallback is not a spec, so it is not used.
+func groupProfile(class, group string) (stats.Prof, bool) {
+	if group == "" {
+		return stats.Prof{}, false
+	}
+	p, ok := stats.Lookup(class, group, "")
+	if !ok || p.Spec == "" {
+		return stats.Prof{}, false
+	}
+	return stats.Prof{Profile: p, Weights: p.Weights}, true
 }
 
 // statMap is the item's stats by name: the captured ones first, else the dataset's amounts; nil when

@@ -56,7 +56,15 @@ func LootRoll(class string, level int, row store.Row) LootRule {
 	if b == 4 || b == 5 || i64(row["class_id"]) == 12 {
 		return LootRule{RollPass, bind, "a quest item is looted for the quest, not rolled for"}
 	}
-	usable, known := CanUse(class, level, row)
+	// An item above the character's level is judged at the level it needs, as the upgrade finder does: a warrior's plate piece that
+	// needs level 40 is theirs from 40, though mail is theirs now.
+	at, from := level, 0
+	if req, il := int(i64(row["required_level"])), int(i64(row["item_level"])); !Levelless(row) && (req > 0 || il > 0) {
+		if rl, _ := ReqLevelOf(req, il); rl > level {
+			at, from = rl, rl
+		}
+	}
+	usable, known := CanUse(class, at, row)
 	switch {
 	case !known:
 		why := "it is not worn gear the class rules cover, so Greed unless you will use it yourself"
@@ -68,6 +76,9 @@ func LootRoll(class string, level int, row store.Row) LootRule {
 		return LootRule{RollGreed, bind, fmt.Sprintf("a %s cannot wear or wield it (armor or weapon type, or class restriction), so Greed for its vendor price", strings.ToLower(class))}
 	}
 	why := "your class can use it: Need only if it beats what you wear in that slot, else Greed"
+	if from > 0 {
+		why = fmt.Sprintf("your class can use it from level %d: Need only if it will beat what you wear in that slot, else Greed", from)
+	}
 	if bound != "" {
 		why += "; " + bound
 	}

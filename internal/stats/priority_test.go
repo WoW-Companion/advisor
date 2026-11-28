@@ -275,3 +275,46 @@ func TestSuffixesSkipStatsTheBuildIgnores(t *testing.T) {
 		}
 	}
 }
+
+// No wording names a resource or defense a class lacks: rage is the warrior's alone (a paladin or shaman crits for mana and
+// swings), and a druid cannot block.
+func TestWordingFitsTheClass(t *testing.T) {
+	for _, p := range table {
+		for stat := range p.Weights {
+			for _, text := range []string{p.gives(stat), p.Reason(stat)} {
+				if p.Class != "WARRIOR" && strings.Contains(text, "rage") {
+					t.Errorf("%s %s %s: %q names rage", p.Class, p.Spec, stat, text)
+				}
+				if p.Class == "DRUID" && strings.Contains(text, "block") {
+					t.Errorf("%s %s %s: %q names block", p.Class, p.Spec, stat, text)
+				}
+			}
+		}
+	}
+}
+
+func TestLeadLineWordsPerClass(t *testing.T) {
+	for _, tc := range []struct {
+		class, spec, role, pref, want string
+	}{
+		{"PALADIN", "Retribution", RoleDamage, PrefDamage, "Retribution: Strength first (your attack power), then Agility for crits."},
+		{"SHAMAN", "Enhancement", RoleDamage, "", "Enhancement: Strength first (your attack power), then Agility for crits."},
+		{"WARRIOR", "Fury", RoleDamage, "", "Fury: Strength first (your attack power), then Agility for crits and rage."},
+		{"DRUID", "Feral Combat", RoleTank, PrefDamage, "Feral Combat: Stamina first (your health), then Agility for dodge and armor."},
+		{"WARRIOR", "Protection", RoleTank, PrefDamage, "Protection: Stamina first (your health), then Strength for block and threat."},
+	} {
+		c := character.Character{Class: tc.class, Profile: &character.Profile{Role: tc.role, Spec: tc.spec, StatPref: tc.pref}}
+		p, ok := For(c, "")
+		if !ok {
+			t.Fatalf("%s %s: no profile", tc.class, tc.spec)
+		}
+		if got := p.leadLine(nil); got != tc.want {
+			t.Errorf("%s %s: %q", tc.class, tc.spec, got)
+		}
+	}
+	// the bear's Strength is named for attack power, not for block
+	p, _ := Lookup("DRUID", "Feral Combat", RoleTank)
+	if got, want := p.gives(Strength), "attack power and threat"; got != want {
+		t.Errorf("bear Strength gives %q", got)
+	}
+}

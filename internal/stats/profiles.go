@@ -197,7 +197,12 @@ var names = map[string]string{
 func Name(stat string) string { return names[stat] }
 
 // Reason is the one-line plain reason a stat matters (or not) to a profile.
-func (p Profile) Reason(stat string) string { return reasons[p.Arch][stat] }
+func (p Profile) Reason(stat string) string {
+	if o, ok := classReasons[classStat{p.Class, p.Arch, stat}]; ok {
+		return o
+	}
+	return reasons[p.Arch][stat]
+}
 
 // Label is the profile's short name: the spec, or the class for a fallback.
 func (p Profile) Label() string {

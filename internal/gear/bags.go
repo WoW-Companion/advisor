@@ -50,10 +50,7 @@ func bagItem(st character.ItemStack, ds store.DataStore, rl classRules, level in
 				return Item{}, false
 			}
 			it.Captured, it.Enchant = capturedStats(st.Stats), derefInt(st.Enchant)
-			it.ReqLevel = it.RequiredLevel
-			if est := EstimateRequiredLevel(it.ItemLevel); it.RequiredLevel == 0 || est-it.RequiredLevel > EstimateGap {
-				it.ReqLevel, it.Estimated = est, true
-			}
+			it.ReqLevel, it.Estimated = ReqLevelOf(it.RequiredLevel, it.ItemLevel)
 			return it, true
 		}
 	}

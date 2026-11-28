@@ -31,6 +31,15 @@ const EstimateOffset = 5
 // EstimateRequiredLevel is the required level assumed for an item whose dataset value is unknown.
 func EstimateRequiredLevel(itemLevel int) int { return max(1, itemLevel-EstimateOffset) }
 
+// ReqLevelOf is the level an item needs: the dataset's required level, or the estimate from the item level when the
+// dataset holds none (0) or one far below it. estimated says which.
+func ReqLevelOf(required, itemLevel int) (level int, estimated bool) {
+	if est := EstimateRequiredLevel(itemLevel); required == 0 || est-required > EstimateGap {
+		return est, true
+	}
+	return required, false
+}
+
 // EstimateGap is how far the estimate may exceed a known required level before the known one is
 // distrusted: the dataset holds required level 1 for about 80 equippable items of item level 30 to
 // 70 (scaling and event items), which are no use to a level-5 character. Real level-60 gear stays
@@ -156,6 +165,9 @@ type Item struct {
 	// dataset has types only.
 	Stats      map[int64]int `json:"-"`
 	StatsKnown bool
+	// NoStats is true when the dataset says the item carries no stats (stats_status "none": a plain white piece), which is
+	// a known answer, unlike "unknown".
+	NoStats bool
 	// Captured is the item's own stats by name (agility, stamina, armor, ...) as the addon recorded
 	// them, enchants not included; nil when none were captured.
 	Captured map[string]float64 `json:"-"`
@@ -230,7 +242,7 @@ func itemOf(row store.Row) Item {
 	it := Item{
 		ID: i64(row["id"]), ItemLevel: int(i64(row["item_level"])), RequiredLevel: int(i64(row["required_level"])),
 		Quality: int(i64(row["quality"])), Slot: int(i64(row["slot"])), Class: int(i64(row["class_id"])), Subclass: int(i64(row["subclass_id"])), Bonding: int(i64(row["bonding"])),
-		StatsKnown: row["stats_status"] == "known",
+		StatsKnown: row["stats_status"] == "known", NoStats: row["stats_status"] == "none",
 	}
 	it.Name, _ = row["name"].(string)
 	if l, ok := row["stat_types"].([]any); ok {
@@ -246,7 +258,10 @@ func itemOf(row store.Row) Item {
 // isResistance reports the client's item stat types for the six resistances.
 func isResistance(t int64) bool { return t >= 51 && t <= 56 }
 
-// score is the item's value; byStats needs it.StatsKnown and weights.
+// Weighable is true when the dataset answers what stats the item carries, even when the answer is none.
+func (it Item) Weighable() bool { return it.StatsKnown || it.NoStats }
+
+// score is the item's value; byStats needs it.Weighable and weights.
 func score(it Item, w map[int64]float64, byStats bool) float64 {
 	// Quality only breaks a tie at equal item level (it never adds up to a whole item level), and
 	// never counts toward a stat score.
@@ -308,6 +323,8 @@ func Find(c character.Character, ds store.DataStore, group string, opt Options) 
 		res.Spec, res.Rationale, w = p.Label(), "Ballpark stat priorities for "+p.Title(), idWeights(p.ItemWeights())
 	} else if spec, ww, why, ok := Weights(c.Class, group); ok {
 		res.Spec, res.Rationale, w = spec, why, ww
+	} else if p, ok := groupProfile(c.Class, group); ok {
+		res.Spec, res.Rationale, w = p.Label(), "Ballpark stat priorities for "+p.Label(), idWeights(p.ItemWeights())
 	} else if group == "" {
 		res.Reason = "spec unknown (no talent points captured)"
 	} else {
@@ -340,10 +357,7 @@ func Find(c character.Character, ds store.DataStore, group string, opt Options) 
 		// A required level of 0 is what the client table holds for many high-level items (the real
 		// dataset has 2,330 equippable ones, up to item level 83), so 0 is "unknown", not "none":
 		// the level is estimated from the item level and put through the same window.
-		it.ReqLevel = it.RequiredLevel
-		if est := EstimateRequiredLevel(it.ItemLevel); it.RequiredLevel == 0 || est-it.RequiredLevel > EstimateGap {
-			it.ReqLevel, it.Estimated = est, true
-		}
+		it.ReqLevel, it.Estimated = ReqLevelOf(it.RequiredLevel, it.ItemLevel)
 		if it.ReqLevel > level+EquipWindow {
 			continue
 		}
@@ -400,7 +414,7 @@ func Find(c character.Character, ds store.DataStore, group string, opt Options) 
 					cands[i].Craft = &cr
 				}
 			}
-			if cands[i].Basis == BasisStats {
+			if cands[i].Basis == BasisStats && cands[i].Item.StatsKnown {
 				res.ItemLevelOnly = false
 			}
 		}
@@ -515,7 +529,9 @@ func rank(c character.Character, ds store.DataStore, slot string, items []Item, 
 		if slot == "mainhand" && it.Slot == invTwoHand && lo.off != nil {
 			off = lo.off
 		}
-		byStats := w != nil && it.StatsKnown && (!worn || curKnown && cur.StatsKnown) && (off == nil || off.StatsKnown)
+		// A plain item with no stats is weighed like any other: half its item level, so a green that carries the stats the build
+		// wants is not ranked below a white of two item levels more.
+		byStats := w != nil && it.Weighable() && (!worn || curKnown && cur.Weighable()) && (off == nil || off.Weighable())
 		// A placeholder for an empty slot is no upgrade. By item level alone an item that is not above what is worn is none
 		// either; weighed by stats, the gain decides below, since a lower item level can carry the stats the build wants.
 		if off == nil && (!byStats && worn && it.ItemLevel <= cur.ItemLevel || !worn && it.ItemLevel <= 1) {
