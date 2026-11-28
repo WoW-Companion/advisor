@@ -13,7 +13,9 @@ they have reached.
   build whose tree holds most of the points spent. A tie, or no points, goes to the class's default
   leveling spec (the spec with the most build points).
   A name typed in a few letters ("shadow", "feral", "prot") is the one spec whose name starts with it; one
-  that starts several, or none, is a spec the dataset has no build for. Below level 10 the plan says the build
+  that starts several, or none, is a spec the dataset has no build for. A stored role of tank picks a druid's
+  Feral Combat (bear form); a class with no spec of the stored role (a healer warrior) gets its usual spec with a
+  note that it has none. Below level 10 the plan says the build
   starts at level 10, since no talent point exists before it.
 - **Next pick**: walk the build in `order`; a point is taken when the captured rank of its node (matched by
   node id, spell id, then name) is at least its `rank_after`. The next picks are the first untaken points
@@ -25,6 +27,8 @@ they have reached.
 - **No checked build**: a dataset without the `level` and `rank_after` columns, a spec whose rows are marked
   `curated (unverified)`, or a spec the dataset lacks says "I don't have a checked build for <spec> yet.",
   lists the unspent points and names no pick.
+- **Past the build**: the dataset's build ends at its last level (39, 30 points). A character who has taken every
+  point is told the build ends there and has no pick for the points after it, not that it has "nothing more".
 - The AI's facts carry the progress line, the priority list and the off-build note; the system prompt says
   talent picks come from them, never from general knowledge.
 

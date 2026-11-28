@@ -16,6 +16,9 @@ func Render(p Result) string {
 			if p.Unspent != nil {
 				fmt.Fprintf(&b, "Unspent points: %d\n", *p.Unspent)
 			}
+			for _, n := range p.Notes {
+				b.WriteString("Note: " + n + "\n")
+			}
 			b.WriteString("Name no specific talent to pick and no build: the dataset has none checked for this spec.\n")
 			return b.String()
 		}

@@ -259,3 +259,58 @@ func TestNoBuilds(t *testing.T) {
 		t.Errorf("mage: %q", mage.Missing)
 	}
 }
+
+// A character who has taken every point of the build is told the build ends at its last level, not that it has nothing more.
+func TestPlanBuildEnds(t *testing.T) {
+	ds := synth(t)
+	lvl := 60
+	var taken []character.Talent
+	for _, tl := range []struct {
+		id   int
+		name string
+		rank int
+	}{{1, "Spirit Tap", 5}, {2, "Mind Flay", 1}, {3, "Improved Shadow Word: Pain", 2}, {4, "Vampiric Embrace", 1}, {5, "Improved Mind Blast", 5}, {6, "Devouring Contagion", 1}, {7, "Shadowform", 1}} {
+		id := tl.id
+		taken = append(taken, character.Talent{Name: tl.name, Rank: tl.rank, NodeID: &id})
+	}
+	c := character.Character{Class: "PRIEST", Level: &lvl, Talents: &character.Talents{Unspent: ip(20), Trees: []character.TalentTree{{Name: "Shadow", Talents: taken}}}}
+	p := Plan(c, ds, Options{Spec: "Shadow"})
+	if len(p.Next) != 0 || len(p.Notes) == 0 || !strings.Contains(p.Notes[0], "build ends at level 25") || strings.Contains(p.Notes[0], "nothing more") {
+		t.Errorf("a finished build: next %v, notes %v", p.Next, p.Notes)
+	}
+	// Mid-build with nothing due, the build is not over.
+	lvl = 12
+	c.Talents.Trees[0].Talents = taken[:1]
+	c.Talents.Trees[0].Talents[0].Rank = 3
+	if p = Plan(c, ds, Options{Spec: "Shadow"}); len(p.Notes) == 0 || !strings.Contains(p.Notes[0], "nothing more to take at level 12") {
+		t.Errorf("a build in progress: %v", p.Notes)
+	}
+}
+
+// The tank role of a druid is Feral Combat; a class with no spec of the stored role is told so.
+func TestPlanRoleWithoutSpec(t *testing.T) {
+	var b []buildRow
+	b = append(b, pts("Druid", "Balance", 1, 10, 20, "Starfire", 1)...)
+	b = append(b, pts("Druid", "Feral Combat", 1, 10, 21, "Ferocity", 1)...)
+	b = append(b, pts("Druid", "Restoration", 1, 10, 22, "Improved Mark", 1)...)
+	b = append(b, pts("Hunter", "Beast Mastery", 1, 10, 23, "Endurance", 1)...)
+	ds := store.New(store.ReaderSource{"talent_builds": table(t, b), "talent_nodes": table(t, []nodeRow{{20, "Starfire"}, {21, "Ferocity"}, {22, "Improved Mark"}, {23, "Endurance"}})})
+	lvl := 20
+	druid := character.Character{Class: "DRUID", Level: &lvl, Profile: &character.Profile{Role: "tank"}}
+	if p := Plan(druid, ds, Options{}); p.Spec != "Feral Combat" || len(p.Notes) > 0 && strings.Contains(strings.Join(p.Notes, " "), "no tank") {
+		t.Errorf("a tank druid: spec %q, notes %v", p.Spec, p.Notes)
+	}
+	hunter := character.Character{Class: "HUNTER", Level: &lvl, Profile: &character.Profile{Role: "healer"}}
+	p := Plan(hunter, ds, Options{})
+	if p.Spec != "Beast Mastery" || !strings.Contains(strings.Join(p.Notes, " "), "Hunter has no healer talent tree") {
+		t.Errorf("a healer hunter: spec %q, notes %v", p.Spec, p.Notes)
+	}
+}
+
+// The no-build answer carries the role note too.
+func TestRenderNoBuildNote(t *testing.T) {
+	r := Result{NoBuild: true, Missing: "I don't have a checked build for Arms yet.", Notes: []string{"Warrior has no healer talent tree; this is the Arms build."}}
+	if got := Render(r); !strings.Contains(got, "Note: Warrior has no healer talent tree") {
+		t.Errorf("Render = %q", got)
+	}
+}

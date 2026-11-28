@@ -282,6 +282,38 @@ var (
 // "best zone for level 12 horde", "where should I go next, I'm level 35"): it asks for the zone bracket the data does not hold. A level with a profession ("where do I level my mining") is no zone question.
 var zoneWhereAsk = regexp.MustCompile(`(?i)\b(?:where|which)\b[^.?!]{0,50}\b(?:levell?(?:ing)?|quest(?:ing)?|grind(?:ing)?|farm(?:ing)?|go|head|hunt(?:ing)?|adventur\w+|zones?|areas?|places?|spots?)\b[^.?!]{0,60}\b(?:levell?|lvl|lv)\.? ?\d{1,2}\b|\bwhat\b[^.?!]{0,30}\b(?:zones?|areas?|places?|spots?)\b[^.?!]{0,60}\b(?:levell?|lvl|lv)\.? ?\d{1,2}\b|\b(?:levell?|lvl|lv)\.? ?\d{1,2}\b[^.?!]{0,50}\b(?:where|which|what)\b[^.?!]{0,30}\b(?:zones?|areas?|places?|spots?|go|grind\w*|level up|levell?ing)\b`)
 
+// The looser ways a player asks where to level at a level: "where to level at 55", "best zone to level at 22", "I'm level 14, where do I quest?", "where should my level 33
+// paladin quest?", "is Hillsbrad Foothills good for level 25?". A profession or skill word, or a question about finding something, is no zone question.
+var (
+	zoneLvl        = `(?:(?:levell?|lvl|lv)\.? ?\d{1,2}|(?:at|from|around|until|by) (?:levell?\.? ?)?\d{1,2})\b`
+	zoneDoing      = `(?:levell?(?:ing)?(?: up)?|quest(?:ing)?|grind(?:ing)?|farm(?:ing)?|go|head|hunt(?:ing)?|adventur\w+|move|travel)`
+	zoneWhereLoose = []*regexp.Regexp{
+		regexp.MustCompile(`(?i)\bwhere\b[^.?!]{0,50}\b` + zoneDoing + `\b[^.?!]{0,40}\b` + zoneLvl),
+		regexp.MustCompile(`(?i)\bwhere\b[^.?!]{0,30}\b(?:levell?|lvl|lv)\.? ?\d{1,2}\b[^.?!]{0,30}\b` + zoneDoing + `\s*[?.!]?\s*$`),
+		regexp.MustCompile(`(?i)\b(?:best|good|great|top|ideal|right|next)\b[^.?!]{0,15}\b(?:zones?|areas?|places?|spots?)\b[^.?!]{0,40}\b` + zoneLvl),
+		regexp.MustCompile(`(?i)\b(?:levell?|lvl|lv)\.? ?\d{1,2}\b[^.?!]{0,30}\bwhere\b[^.?!]{0,20}\b(?:do|should|can) (?:i|we)\b[^.?!]{0,10}\b` + zoneDoing + `\b`),
+		regexp.MustCompile(`(?i)\b(?:i'?m|i am|just hit|just reached|hit|reached)\b[^.?!]{0,10}\b\d{1,2}\b[^.?!]{0,20}\bwhere\b[^.?!]{0,20}\b(?:next|do i go|should i go|to go|to quest|to level)\b`),
+		regexp.MustCompile(`(?i)\bshould (?:i|we) (?:go|head|move|travel)\b[^.?!]{0,40}\b` + zoneLvl),
+		regexp.MustCompile(`(?i)\bwhere'?s? (?:the )?(?:good|best|great)\b[^.?!]{0,25}\b(?:xp|exp|experience|quests?|grinding)\b[^.?!]{0,25}\b` + zoneLvl),
+	}
+	// zoneFitAsk asks whether a zone suits a level; it needs a zone in the question.
+	zoneFitAsk = regexp.MustCompile(`(?i)\b(?:is|are)\b[^.?!]{0,50}\b(?:good|ok|okay|fine|suitable|right|too (?:high|low|hard|easy)|worth)\b[^.?!]{0,25}\b(?:for|at)\b[^.?!]{0,10}\b(?:levell?|lvl|lv)\.? ?\d{1,2}\b`)
+	zoneNot    = regexp.MustCompile(`(?i)\b(?:skill|mining|herbalism|herbs?|skinning|fishing|cooking|first aid|alchemy|blacksmithing|engineering|enchanting|leatherworking|tailoring|lockpicking|riding|professions?|find|get|buy|learn|train|pick up|obtain|loot|drops?|items?|gear|spells?)\b`)
+)
+
+// zoneWhereLooseAsk is true for the looser "where to level at a level" phrasings above.
+func zoneWhereLooseAsk(text string) bool {
+	if zoneNot.MatchString(text) {
+		return false
+	}
+	for _, re := range zoneWhereLoose {
+		if re.MatchString(text) {
+			return true
+		}
+	}
+	return zoneFitAsk.MatchString(text) && (zoneWord.MatchString(text) || learn.ZoneIn(text))
+}
+
 // zoneTerritoryAsk is a question about which side holds a zone or whether it is hostile or contested ("is Ashenvale contested", "Horde territory", "guards attack me").
 var zoneTerritoryAsk = regexp.MustCompile(`(?i)\b(?:contested|hostile|enemy|neutral)\b[^.?!]{0,30}\b(?:zones?|areas?|territor\w+|lands?|towns?|villages?|cit(?:y|ies)|guards?)\b|\b(?:zones?|areas?|territor\w+|lands?)\b[^.?!]{0,30}\b(?:contested|hostile|enemy)\b|\b(?:horde|alliance|enemy|contested|hostile)[- ](?:controlled|held|owned|territor\w+)|\b(?:horde|alliance)(?:'s)? (?:zones?|areas?|lands?)\b|\bterritor(?:y|ies)\b|\bguards?\b[^.?!]{0,30}\b(?:attack\w*|kill\w*|hostile|aggro\w*)\b|\b(?:attack\w*|kill\w*)\b[^.?!]{0,20}\bby\b[^.?!]{0,15}\bguards?\b`)
 
@@ -332,7 +364,7 @@ func LimitFacts(text string) string {
 		}
 	}
 	out = append(out, questLimitFacts(text)...)
-	if zoneLevelAsk.MatchString(text) && (zoneWord.MatchString(text) || learn.ZoneIn(text)) || zoneWhereAsk.MatchString(text) {
+	if zoneLevelAsk.MatchString(text) && (zoneWord.MatchString(text) || learn.ZoneIn(text)) || zoneWhereAsk.MatchString(text) || zoneWhereLooseAsk(text) {
 		out = append(out, zoneLevelFact)
 	}
 	if zoneSideAsk.MatchString(text) && learn.ZoneIn(text) && !zoneTerritoryAsk.MatchString(text) {

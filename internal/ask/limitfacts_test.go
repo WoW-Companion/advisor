@@ -492,3 +492,25 @@ func TestLimitFactsBoatAndZeppelinSides(t *testing.T) {
 		}
 	}
 }
+
+// A player says where to level at a level in many words; each reaches the zone level line, and a profession, item or quest question
+// that names a level does not.
+func TestLimitFactsWhereToLevelPhrasings(t *testing.T) {
+	for _, q := range []string{
+		"best zone to level at 22", "I'm level 14, where do I quest?", "where do I level from 20 to 30?", "where should my level 33 alliance paladin quest?",
+		"best place to level at level 50", "where to level at 55", "where should I be leveling at 38", "where should I level up at 17", "I just hit 20, where next?",
+		"is Hillsbrad Foothills good for level 25?", "should I go to Arathi Highlands at level 32?", "where should a level 8 night elf go?", "where's good XP at level 36?",
+	} {
+		if got := LimitFacts(q); !strings.Contains(got, "Zone levels:") {
+			t.Errorf("LimitFacts(%q) = %q, want the zone level line", q, got)
+		}
+	}
+	for _, q := range []string{
+		"best place to level mining at 25", "where do I find a level 20 quest?", "where can I buy a level 30 weapon?", "is this sword good for level 25?",
+		"what is the best gear at level 40?", "where do I learn level 20 spells", "where do I get the level 20 mage quest?", "where should I train at level 20",
+	} {
+		if got := LimitFacts(q); strings.Contains(got, "Zone levels:") {
+			t.Errorf("LimitFacts(%q) = %q, want no zone level line", q, got)
+		}
+	}
+}
