@@ -113,13 +113,16 @@ func item(id int64, name string, ilvl, req, quality, subclass, slot, bonding int
 func tier(s string) *string { return &s }
 
 // fixture is a small world around a level 10 warrior who mines and smiths.
-func fixture(t *testing.T) store.DataStore {
+func fixture(t *testing.T) store.DataStore { return fixtureWith(t) }
+
+// fixtureWith is fixture with more item rows.
+func fixtureWith(t *testing.T, extra ...itemRow) store.DataStore {
 	var world []lootRow
 	for i := int64(0); i < 7; i++ { // the belt: seven creatures, each under 5%
 		world = append(world, lootRow{belt, "creature", 700 + i, 100, 3, tier("verified")})
 	}
 	return store.New(store.ReaderSource{
-		"items": tbl(t, []itemRow{
+		"items": tbl(t, append([]itemRow{
 			item(shawl, "Traveler's Shawl", 23, 8, 2, 0, 16, 0),
 			item(vest, "Copper Chain Vest", 17, 8, 2, mail, 5, 0),
 			item(bracers, "Tough Bracers", 20, 8, 2, mail, 9, 2),
@@ -130,7 +133,7 @@ func fixture(t *testing.T) store.DataStore {
 			item(blade, "Fang Blade", 20, 8, 2, 1, 17, 1),
 			item(sword, "Mob's Pride", 21, 8, 2, mail, 8, 1),
 			item(unsourced, "Rank Gauntlets", 23, 8, 3, mail, 10, 1),
-		}),
+		}, extra...)),
 		"loot_sources": tbl(t, append(world, []lootRow{
 			{shawl, "quest", 500, 0, 0, nil},
 			{bracers, "creature", 701, 100, 2, nil},

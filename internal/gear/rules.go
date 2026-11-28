@@ -135,6 +135,45 @@ func allowsClass(mask int32, classID int) bool {
 	return mask <= 0 || mask&(1<<(classID-1)) != 0
 }
 
+// maskClasses is the game's classes by the bit an allowable_class_mask uses (1 << (id-1)), as a plural for a sentence.
+var maskClasses = []struct {
+	id   uint
+	name string
+}{{1, "warriors"}, {2, "paladins"}, {3, "hunters"}, {4, "rogues"}, {5, "priests"}, {7, "shamans"}, {8, "mages"}, {9, "warlocks"}, {11, "druids"}}
+
+// ClassRestricted is true for an item whose allowable_class_mask leaves a class out (a Rage Potion, a poison): 0 and -1
+// mean every class.
+func ClassRestricted(row store.Row) bool {
+	mask := i64(row["allowable_class_mask"])
+	if mask <= 0 {
+		return false
+	}
+	for _, c := range maskClasses {
+		if mask&(1<<(c.id-1)) == 0 {
+			return true
+		}
+	}
+	return false
+}
+
+// ClassList names the classes an item's allowable_class_mask allows: "warriors and druids".
+func ClassList(row store.Row) string {
+	mask := i64(row["allowable_class_mask"])
+	var names []string
+	for _, c := range maskClasses {
+		if mask <= 0 || mask&(1<<(c.id-1)) != 0 {
+			names = append(names, c.name)
+		}
+	}
+	switch len(names) {
+	case 0:
+		return "other classes"
+	case 1:
+		return names[0]
+	}
+	return strings.Join(names[:len(names)-1], ", ") + " and " + names[len(names)-1]
+}
+
 // ArmorTypeWord is an armor subclass as a player says it ("mail"); "" for anything else, a weapon or
 // a shield included.
 func ArmorTypeWord(classID, subclass int) string {

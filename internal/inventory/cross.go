@@ -179,7 +179,24 @@ func RenderFind(r FindResult) string {
 	return b.String()
 }
 
-var drinkWord = regexp.MustCompile(`(?i)\b(water|drink|juice|tea|milk|wine|ale|brew|cider|coffee)\b`)
+// drinkWord names a drink by its words; the dataset files food and drink alike (class 0, subclass 5) and holds no mana value.
+// A nectar and a dew are drinks too (Sweet Nectar, Morning Glory Dew, Hyjal Nectar).
+var drinkWord = regexp.MustCompile(`(?i)\b(water|drink|juice|tea|milk|wine|ale|brew|cider|coffee|nectar|dew)\b`)
+
+// noMana is true for the two classes with no mana: a warrior has rage and a rogue energy.
+func noMana(class string) bool {
+	return strings.EqualFold(class, "WARRIOR") || strings.EqualFold(class, "ROGUE")
+}
+
+// usesMana is true for a class that has mana, so a drink helps it: a warrior has rage and a rogue energy, and a class
+// the advisor does not know is not guessed at.
+func usesMana(class string) bool {
+	switch strings.ToUpper(class) {
+	case "PALADIN", "HUNTER", "PRIEST", "SHAMAN", "MAGE", "WARLOCK", "DRUID":
+		return true
+	}
+	return false
+}
 
 // item classes read from the dataset's items table
 const (
@@ -201,6 +218,9 @@ func rowInt(row store.Row, col string) (int64, bool) {
 func consumableKind(name string, row store.Row) string {
 	cl, _ := rowInt(row, "class_id")
 	sub, _ := rowInt(row, "subclass_id")
+	if gear.ClassRestricted(row) {
+		return "" // Thistle Tea is a rogue's, not a drink to rank against water
+	}
 	switch {
 	case cl == classConsumable && sub == subFood:
 		if drinkWord.MatchString(name) {
@@ -508,6 +528,17 @@ func decide(chars []character.Character, i int, e Entry, row store.Row, ds store
 			}
 		}
 	}
+	if i64(row["class_id"]) == classConsumable {
+		// a class potion or poison: the item's class mask names who can use it
+		if allowed, known := gear.AllowsClass(c.Class, row); known && !allowed {
+			for j, o := range chars {
+				if ok, _ := gear.AllowsClass(o.Class, row); j != i && ok && !boundOnPickup(row) {
+					return Mail, displayName(o), displayName(o) + " can use it: it is for " + gear.ClassList(row) + ", not your class", false
+				}
+			}
+			return Sell, "", "it is for " + gear.ClassList(row) + ", not your class", false
+		}
+	}
 	if k := consumableKind(e.Name, row); k != "" {
 		if w := rangedAmmo(c, ds); (k == "arrows" || k == "bullets") && usesAmmo(c.Class) && w != "" && w != k {
 			return Unsure, "", "your ranged weapon fires " + w + ", not " + k + "; keep them only if you plan to change weapon", false
@@ -520,6 +551,15 @@ func decide(chars []character.Character, i int, e Entry, row store.Row, ds store
 				}
 			}
 			return Sell, "", "your class cannot use ammo", false
+		}
+		if k == "drink" && noMana(c.Class) {
+			// a warrior has rage and a rogue energy: a drink restores mana, so an alt with mana gets it, unless it is bound to its holder
+			for j, o := range chars {
+				if j != i && usesMana(o.Class) && !boundOnPickup(row) {
+					return Mail, displayName(o), displayName(o) + " has mana and can drink it", false
+				}
+			}
+			return Sell, "", "your class has no mana, so a drink does nothing for it", false
 		}
 		rl, ok := requiredLevel(row)
 		switch {
