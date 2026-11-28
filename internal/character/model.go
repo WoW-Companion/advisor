@@ -225,7 +225,10 @@ type Character struct {
 	QuestPOI        map[int]QuestPOI
 	CompletedQuests []int
 	// PlanPrefs are the player's plan settings (WoWCompanionDB.characters[key].planPrefs); nil means defaults.
-	PlanPrefs      *PlanPrefs
+	PlanPrefs *PlanPrefs
+	// Abandoned are quests the player abandoned (from the addon's events) and has not accepted again or
+	// unhidden since; they count as hidden. Filled by unlock.Apply.
+	Abandoned      map[int]bool
 	Talents        *Talents
 	Skills         []Skill
 	SkillsCaptured bool
@@ -301,6 +304,7 @@ type PlanPrefs struct {
 	LevelReach   int
 	Hidden       map[int]bool
 	IncludeElite bool
+	Updated      int64 // when the addon last wrote the prefs (0 when it does not say)
 }
 
 // Reach is the level reach in effect: the default when the character has no prefs, -1 for off.
@@ -312,7 +316,14 @@ func (c Character) Reach() int {
 }
 
 // IsHidden reports whether the player hid the quest from the plan.
-func (c Character) IsHidden(id int) bool { return c.PlanPrefs != nil && c.PlanPrefs.Hidden[id] }
+func (c Character) IsHidden(id int) bool {
+	return c.PlanPrefs != nil && c.PlanPrefs.Hidden[id] || c.Abandoned[id]
+}
+
+// IsAbandoned reports whether the quest counts as hidden only because the player abandoned it.
+func (c Character) IsAbandoned(id int) bool {
+	return c.Abandoned[id] && !(c.PlanPrefs != nil && c.PlanPrefs.Hidden[id])
+}
 
 // IsElite reports whether the capture itself marks the quest elite, and whether it says anything: ok is
 // false for a capture with neither an elite flag nor a group size, which leaves the answer to other sources.

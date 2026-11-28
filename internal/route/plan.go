@@ -406,7 +406,9 @@ func planWith(c character.Character, src source, opt Options) Plan {
 			sp.level, sp.elite = q.level, q.elite
 		}
 		if c.IsHidden(q.id) {
-			if inLogSet(p.Basis.InLog, q.id) {
+			if c.IsAbandoned(q.id) {
+				p.Parked = append(p.Parked, parkedOf(q, lvl, ParkHidden, "Abandoned by you"))
+			} else if inLogSet(p.Basis.InLog, q.id) {
 				p.Parked = append(p.Parked, parkedOf(q, lvl, ParkHidden, "Hidden by you"))
 			}
 			continue

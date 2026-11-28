@@ -105,3 +105,29 @@ func TestAddonSV(t *testing.T) {
 		}
 	}
 }
+
+func TestApplyAbandonedQuestsAreHidden(t *testing.T) {
+	hero := character.Character{Name: "Hero"}
+	ev := func(at int64, kind string) Event { return Event{T: at, Kind: kind, QuestID: 7, Character: "Hero"} }
+	cases := []struct {
+		name  string
+		evs   []Event
+		prefs *character.PlanPrefs
+		want  bool
+	}{
+		{"abandoned only (older addon)", []Event{ev(10, EvAbandoned)}, nil, true},
+		{"abandoned after accepted", []Event{ev(5, EvAccepted), ev(10, EvAbandoned)}, &character.PlanPrefs{Updated: 3}, true},
+		{"accepted again", []Event{ev(10, EvAbandoned), ev(20, EvAccepted)}, nil, false},
+		{"unhidden after", []Event{ev(10, EvAbandoned)}, &character.PlanPrefs{Updated: 30}, false},
+		{"still hidden by the addon", []Event{ev(10, EvAbandoned)}, &character.PlanPrefs{Updated: 30, Hidden: map[int]bool{7: true}}, true},
+		{"other character", []Event{{T: 10, Kind: EvAbandoned, QuestID: 7, Character: "Other"}}, nil, false},
+	}
+	for _, tc := range cases {
+		c := hero
+		c.PlanPrefs = tc.prefs
+		got := Apply(c, tc.evs).IsHidden(7)
+		if got != tc.want {
+			t.Errorf("%s: hidden %v, want %v", tc.name, got, tc.want)
+		}
+	}
+}

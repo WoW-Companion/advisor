@@ -213,6 +213,9 @@ func wowcPlanPrefs(v any) *PlanPrefs {
 			}
 		}
 	}
+	if u := asInt(t["updated"]); u != nil {
+		pp.Updated = int64(*u)
+	}
 	pp.IncludeElite = asBool(t["includeElite"]) != nil && *asBool(t["includeElite"])
 	return pp
 }
