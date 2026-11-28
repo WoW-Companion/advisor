@@ -14,7 +14,7 @@ import (
 	"strings"
 )
 
-const indexSchema = 14 // bump when the cached index's shape changes
+const indexSchema = 15 // bump when the cached index's shape changes
 
 // Spawn is a place, as percent of the area's map.
 type Spawn struct {
@@ -65,6 +65,7 @@ type Quest struct {
 	Objective  string    // the objective text shown in the quest log (field 8)
 	Event      string    // the holiday event's key (Events) when this is a holiday quest, else ""
 	Restricted bool      // a requirement this reader cannot check (skill, reputation, spell, event)
+	Elite      bool      // the install's own quest tag or type says elite, group, dungeon or raid (false when the install has no such field)
 }
 
 // Trigger is an area objective: Questie marks Spawns on the map for it, and no NPC or object stands there.
@@ -216,6 +217,7 @@ func buildQuest(id int, r rawRow, l Layout) *Quest {
 			q.Restricted = true
 		}
 	}
+	q.Elite = l.eliteQuest(s)
 	field := func(name string) any { return r[l.at("quest", name)] }
 	for t, list := range []any{slot(field("startedBy"), 1), slot(field("startedBy"), 2)} {
 		q.Starters = append(q.Starters, refs(list, t == 1)...)

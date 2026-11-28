@@ -469,8 +469,12 @@ planPrefs = { levelReach = 3, hidden = { [12345] = true }, includeElite = false 
   player's level + `levelReach` is no step and no trip: it is `parked` as `toohigh`, "level 38 · doable around 35".
   Pick-up candidates use the same limit. A ready turn-in and a delivery ("speak with", nothing to do) are never
   filtered by level.
-- An elite quest (the capture's `elite = true` on a quest entry) is parked as `elite`, "Elite: needs a group", unless
-  `includeElite`.
+- An elite quest is parked as `elite`, "Elite: needs a group", unless `includeElite`. A quest is elite when the
+  capture says so (`elite = true`, or a `group` above 0, on its quest entry); where the capture is silent, when the
+  installed QuestieDB's own quest tag or type (read from its `src/meta/questMeta.lua` field names) says group,
+  dungeon or raid; else when the dataset marks it. This holds for a quest not yet accepted too: it is not planned
+  and stays listed under `later`. A class quest that must be done is never parked for it.
+- Every step, `later`, `find` and `parked` entry of an elite quest carries `elite = true` (absent otherwise).
 - A quest id in `hidden` is in no step, trip, `later` or `find`, and is not counted in a trip's totals. It is parked
   with `kind = "hidden"`, why "Hidden by you", so the player can bring it back.
 - Every step and every `later`, `parked` and `find` entry carries `level` (the quest's level; absent when unknown)
