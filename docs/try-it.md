@@ -4,9 +4,9 @@ This sets up the advisor so Claude can answer questions about your own character
 Sources read on 2026-11-20 are cited per step. A step marked **unverified** was not confirmed
 against current documentation, and none of it was run in a real Claude Desktop yet.
 
-## 1. Install the ForeverScribe addon
+## 1. Install the ForeverScribe addon (optional)
 
-Install [ForeverScribe](https://github.com/MattMaximo/foreverscribe) into your game's `AddOns`
+The WoW Companion addon is enough; see [Getting Started](getting-started.md). If you also want ForeverScribe, install [ForeverScribe](https://github.com/MattMaximo/foreverscribe) into your game's `AddOns`
 folder, log in with your character, then `/reload` (or log out). The addon writes your character
 data when you do. Addon installation steps are **unverified** here; follow the addon's own README.
 

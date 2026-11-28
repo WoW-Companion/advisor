@@ -13,8 +13,8 @@ Success: after your first `/reload` or logout, the addon has written
 `WTF\Account\<account>\SavedVariables\WoWCompanion.lua`. That file is all the overlay needs: it holds your
 character (bags, gear, quests, talents) and what you have seen (trainers, vendors, gathering).
 
-ForeverScribe is no longer needed. If you still have it, the overlay reads both files and uses the newer
-capture of each character. You can remove ForeverScribe once WoW Companion 0.6.N+ is installed.
+ForeverScribe is optional. If you already use it, the overlay reads both files and uses the newer
+capture of each character. You do not need it.
 
 ## 2. Get WoW Companion (the overlay, recommended)
 
@@ -162,7 +162,7 @@ Command: `wowc-advisor companion --agent claude`
 
 Success: your browser opens a chat page (URL `http://127.0.0.1:4317/?token=...`). Pick the character
 (the most recently captured is the default), type a question, and the answer streams in as the agent
-writes it. The "data from game" badge shows when ForeverScribe last saved; it updates the moment you
+writes it. The "data from game" badge shows when your character was last saved; it updates the moment you
 `/reload` or log out. Press Ctrl-C to stop.
 
 The companion sits beside the game, not inside it, and changes nothing in the client.
@@ -229,7 +229,7 @@ blocks it), then open the **Setup checklist** and press **Retry** (or **Download
 line. The file is kept in `%LOCALAPPDATA%\wowc\dataset\<build>`; deleting that folder only makes the advisor
 download it again.
 
-**The data is stale, or the age chip is amber or red.** The advice reflects the last ForeverScribe save.
+**The data is stale, or the age chip is amber or red.** The advice reflects the last save.
 Type `/reload` in game (or log out) and the chip returns to `now`. The in-game panel refreshes itself
 while the overlay runs (`/reload` twice, see step 5; needs the optional addon); without the overlay run `wowc-advisor digest`
 then `/reload`. The panel asks for a refresh after 12 hours.
@@ -248,7 +248,7 @@ does not find it. Check that the folders sit in `_forever_\Interface\AddOns`.
 through a `WoWCompanion_Answers` folder. That flow is gone: ask in the overlay (in-game question chips copy for pasting)
 and delete the folder.
 
-**A digest for another character.** `/reload` on that character so ForeverScribe captures it, then run
+**A digest for another character.** `/reload` on that character so the addon captures it, then run
 `wowc-advisor digest` (every captured character is kept in one digest) and `/reload`. In the overlay pick
 the character in the box at the top.
 
