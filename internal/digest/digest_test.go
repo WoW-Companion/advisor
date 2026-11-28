@@ -573,3 +573,27 @@ func TestStatsEntry(t *testing.T) {
 		t.Errorf("lua: %v", err)
 	}
 }
+
+func TestDatasetBuildNotes(t *testing.T) {
+	cases := []struct {
+		name string
+		opt  Options
+		want string
+	}{
+		{"not published", Options{DatasetBuild: "1.60.1.71091", Client: character.Client{Version: "1.60.1", Build: "71139"}}, "No data for game build 71139 yet: using 71091"},
+		{"published, download failed", Options{DatasetBuild: "1.60.1.71091", Client: character.Client{Version: "1.60.1", Build: "71139"}, PendingBuild: "1.60.1.71139", PendingReason: "offline", PendingPublished: true}, "Data for game build 71139 is published but not downloaded yet (offline): using 71091"},
+		{"check failed", Options{DatasetBuild: "1.60.1.71091", Client: character.Client{Version: "1.60.1", Build: "71139"}, PendingBuild: "71139", PendingReason: "boom"}, "Data for game build 71139 not downloaded yet (boom): using 71091"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			lines := captureNotes(character.Character{BankCaptured: true}, store.NewDir(t.TempDir()), c.opt)
+			if len(lines) != 1 || lines[0].Text != c.want {
+				t.Errorf("got %+v, want %q", lines, c.want)
+			}
+		})
+	}
+	in := Options{DatasetBuild: "1.60.1.71139", Client: character.Client{Version: "1.60.1", Build: "71139"}}
+	if lines := captureNotes(character.Character{BankCaptured: true}, store.NewDir(t.TempDir()), in); len(lines) != 0 {
+		t.Errorf("a matching dataset has a note: %+v", lines)
+	}
+}

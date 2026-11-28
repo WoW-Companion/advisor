@@ -173,6 +173,11 @@ type Options struct {
 	Now          time.Time
 	Client       character.Client // the game client that wrote the capture
 	DatasetBuild string           // the dataset's game build; empty when none
+	// PendingBuild is a game build whose dataset failed to download or could not be checked, with
+	// the reason; PendingPublished says a release is known to exist.
+	PendingBuild     string
+	PendingReason    string
+	PendingPublished bool
 	Questie      *questie.Index   // the player's own QuestieDB; nil when they have none
 	// PrevLevel is the character's level at the last capture, 0 when unknown. Training then covers
 	// the levels after it; with 0 it covers the character's own level only.
@@ -528,6 +533,9 @@ func captureNotes(c character.Character, ds store.DataStore, opt Options) []Line
 		// The NEXT section says so (NoDataText); no second line here.
 	case opt.DatasetBuild != "" && opt.Client.Build != "" && !dataset.Matches(opt.DatasetBuild, opt.Client.Version, opt.Client.Build):
 		txt := datasetBuildNote(opt.DatasetBuild, opt.Client.Build)
+		if opt.PendingBuild != "" && shortBuild(opt.PendingBuild) == shortBuild(opt.Client.Build) {
+			txt = pendingBuildNote(opt)
+		}
 		ask := "What does the dataset mismatch mean?"
 		if strings.HasPrefix(txt, "No data") {
 			ask = "Why is there no data for my game build yet?"
@@ -578,6 +586,25 @@ func routeOrder(lines []Line, order []int) []Line {
 		}
 	}
 	return out
+}
+
+func shortBuild(b string) string { return b[strings.LastIndex(b, ".")+1:] }
+
+// pendingBuildNote is the Notes line for a game build whose data is not downloaded yet: it never
+// says "no data" when a release exists or when the check itself failed.
+func pendingBuildNote(opt Options) string {
+	why := strings.Join(strings.Fields(opt.PendingReason), " ")
+	if len(why) > 80 {
+		why = why[:80] + "…"
+	}
+	if why == "" {
+		why = "will retry"
+	}
+	game, have := shortBuild(opt.Client.Build), shortBuild(opt.DatasetBuild)
+	if opt.PendingPublished {
+		return fmt.Sprintf("Data for game build %s is published but not downloaded yet (%s): using %s", game, why, have)
+	}
+	return fmt.Sprintf("Data for game build %s not downloaded yet (%s): using %s", game, why, have)
 }
 
 // datasetBuildNote is the Notes line for a dataset that does not match the game: older data says

@@ -69,6 +69,12 @@ type Config struct {
 	SVSource string
 	// SVNote is the one line telling which file auto-detect picked; empty otherwise.
 	SVNote string
+
+	// PendingBuild is the game build whose dataset is not downloaded yet, with the reason; the
+	// digest's dataset note says so. PendingPublished is true when a release is known to exist.
+	PendingBuild     string
+	PendingReason    string
+	PendingPublished bool
 }
 
 // Where SavedVariables came from.
@@ -130,17 +136,29 @@ func clientInfo(c character.Client) *ClientInfo {
 	return &ClientInfo{c.Version, c.Build, c.TOC}
 }
 
-// fileClient is the file's client block, else the first character's that has one.
+// fileClient is the client of the newest capture: the character captured last that has a client
+// block (the higher build when two share a time, so the order of characters never matters). A
+// file with no such character falls back to its own client block.
 func fileClient(f character.File) character.Client {
-	if !f.Client.Empty() {
-		return f.Client
-	}
+	var best character.Client
+	var bestAt int64
+	found := false
 	for _, c := range f.Characters {
-		if !c.Client.Empty() {
-			return c.Client
+		if c.Client.Empty() {
+			continue
+		}
+		var at int64
+		if c.CapturedAt != nil {
+			at = *c.CapturedAt
+		}
+		if !found || at > bestAt || (at == bestAt && dataset.BuildNewer(c.Client.Build, best.Build)) {
+			best, bestAt, found = c.Client, at, true
 		}
 	}
-	return character.Client{}
+	if found {
+		return best
+	}
+	return f.Client
 }
 
 // Describe reports on this server, the dataset it found and the character file it was given.
@@ -576,7 +594,7 @@ func WriteDigest(cfg Config, name string) (DigestOutput, error) {
 		ropt.Others = kept
 		plan := route.BuildWith(c, qx, ropt)
 		plans.Plans = append(plans.Plans, plan)
-		d := digest.Build(c, ds, digest.Options{Now: now, Client: f.ClientOf(c), DatasetBuild: datasetBuild, Questie: qx, Unlocks: route.UnlockNotes(plan), Order: route.QuestOrder(plan)})
+		d := digest.Build(c, ds, digest.Options{Now: now, Client: f.ClientOf(c), DatasetBuild: datasetBuild, PendingBuild: cfg.PendingBuild, PendingReason: cfg.PendingReason, PendingPublished: cfg.PendingPublished, Questie: qx, Unlocks: route.UnlockNotes(plan), Order: route.QuestOrder(plan)})
 		env.Characters = append(env.Characters, d)
 		out.Characters = append(out.Characters, d.Character)
 		out.Lines[d.Character] = map[string]int{}
