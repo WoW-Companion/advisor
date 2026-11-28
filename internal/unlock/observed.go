@@ -117,6 +117,7 @@ func Apply(c character.Character, events []Event) character.Character {
 		return -1
 	}
 	changed := false
+	c.Abandoned = abandonedBy(c, events)
 	for _, ev := range events {
 		if !forCharacter(c, ev) || ev.T <= since {
 			continue
@@ -145,6 +146,33 @@ func Apply(c character.Character, events []Event) character.Character {
 		c.Quests, c.CompletedQuests = log, done
 	}
 	return c
+}
+
+// abandonedBy finds the quests whose newest acceptance or abandon event is an abandon, minus those the
+// player unhid after it (planPrefs.updated is newer and the quest is not in planPrefs.hidden). Events
+// of any age count: an older capture holds only the event. Nil when there are none.
+func abandonedBy(c character.Character, events []Event) map[int]bool {
+	last := map[int]Event{}
+	for _, ev := range events {
+		if !forCharacter(c, ev) || (ev.Kind != EvAccepted && ev.Kind != EvAbandoned) {
+			continue
+		}
+		last[ev.QuestID] = ev
+	}
+	var out map[int]bool
+	for id, ev := range last {
+		if ev.Kind != EvAbandoned {
+			continue
+		}
+		if pp := c.PlanPrefs; pp != nil && !pp.Hidden[id] && pp.Updated > ev.T {
+			continue
+		}
+		if out == nil {
+			out = map[int]bool{}
+		}
+		out[id] = true
+	}
+	return out
 }
 
 // Learn finds the unlocks in events: a turn-in of A followed within LearnWindow seconds, on the same
