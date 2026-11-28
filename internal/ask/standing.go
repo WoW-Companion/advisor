@@ -8,7 +8,7 @@ import (
 )
 
 // standingWords make a question one about reputation: a faction's standing, what a standing unlocks, or how to earn it.
-var standingWords = regexp.MustCompile(`(?i)\b(reputation|rep|standing|friendly|honou?red|revered|exalted|unfriendly|hostile|hated|grind(?:ing)? rep)\b`)
+var standingWords = regexp.MustCompile(`(?i)\b(reputations?|reps?|standings?|friendly|honou?red|revered|exalted|unfriendly|hostile|hated|grind(?:ing)? reps?)\b`)
 
 // NoStandingGrindFacts is said for a reputation question: the game data holds no faction, no standing a vendor or an item asks for and
 // no reputation grind route, so the advisor names none.
@@ -24,9 +24,18 @@ func StandingFacts(c character.Character, text string) string {
 	}
 	var b strings.Builder
 	b.WriteString(NoStandingGrindFacts + "\n")
-	if r, ok := c.ReputationNamed(text); ok {
-		if p := r.Progress(); p != "" {
-			b.WriteString("The character's standing (from the capture): " + p + ".\n")
+	if named := c.ReputationsNamed(text); len(named) > 0 {
+		if len(named) == 1 {
+			if p := named[0].Progress(); p != "" {
+				b.WriteString("The character's standing (from the capture): " + p + ".\n")
+			}
+		} else {
+			b.WriteString("The character's standing with the factions the question names (from the capture):\n")
+			for _, r := range named {
+				if p := r.Progress(); p != "" {
+					b.WriteString("- " + p + "\n")
+				}
+			}
 		}
 		return strings.TrimRight(b.String(), "\n")
 	}
