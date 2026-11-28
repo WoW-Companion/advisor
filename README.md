@@ -3,7 +3,9 @@
 WoW Companion tells you what to do next in World of Warcraft. It plans your quests and draws the route on
 your map. You can also ask about your character in plain words.
 
-<!-- screenshot: map-plan.png — the world map with a numbered plan and the plan list open beside it -->
+![The world map with a numbered plan drawn on it and the plan list open beside it](docs/images/map-plan.png)
+
+*Your plan on the map: follow the numbered stops, and the list on the right shows each step.*
 
 **Ready? → [Getting Started](docs/getting-started.md)**
 
@@ -21,13 +23,15 @@ your map. You can also ask about your character in plain words.
 Three small pieces work together. Think of it as a loop.
 
 - **The WoW Companion addon** writes down what your character has and what you see (trainers, vendors,
-  gathering). WoW saves that to disk when you `/reload`, log out or quit. It is the one addon to install;
-  ForeverScribe is optional now.
+  gathering). WoW saves that to disk when you `/reload`, log out or quit. It is the one addon to install.
+  [ForeverScribe](https://github.com/MattMaximo/foreverscribe) can add extra detail if you already use it, but you do not need it.
 - **The WoW Companion app** is the small window that sits beside or over the game. It reads that save
   within seconds. It works out your plan and answers your questions. It writes the plan back for the addon.
 - **The addon also shows** your plan in the game: on your map, on the minimap and in its own panel.
 
-<!-- screenshot: overlay-beside-game.png — the whole screen, with the game and the app beside it -->
+![The game with the WoW Companion app on the left and the addon panel on the right](docs/images/overlay-beside-game.png)
+
+*The game with the app beside it and the next steps in the panel.*
 
 **The loop:** play, then type `/reload`. The app updates your plan within seconds. Type `/reload` again to
 see it on your map.
@@ -49,13 +53,15 @@ automated. Your AI sees only what you ask it.
 
 ## Ask about your character
 
-<!-- screenshot: overlay-answer.png — a question asked in the app and its answer -->
+![A question typed in the app and its answer](docs/images/overlay-answer.png)
+
+*You ask in plain words and the app answers.*
 
 Type a question in the app, such as "What should I do next?". Or click one of the suggestions.
 
 ## What you need to set up
 
-- **The WoW Companion addon** ([WoW-Companion/addon](https://github.com/WoW-Companion/addon)) records your character. It is the one addon you need. [ForeverScribe](https://github.com/MattMaximo/foreverscribe) is optional now: still read if present, and you can remove it once WoW Companion 0.6.N+ is installed.
+- **The WoW Companion addon** ([WoW-Companion/addon](https://github.com/WoW-Companion/addon)) records your character. It is the one addon you need. [ForeverScribe](https://github.com/MattMaximo/foreverscribe) is optional. The app reads it too if you already use it.
 - **The WoW Companion app** is the main thing. Download `WoW-Companion-Setup-<version>-x64.exe` from the
   [latest release](https://github.com/WoW-Companion/advisor/releases/latest). It works over the game in
   Windowed (Fullscreen) mode.
@@ -86,7 +92,7 @@ Client configuration for Claude Desktop, Claude Code, Codex, Antigravity CLI and
 Character-aware advice reads the file the WoW Companion addon (and, if present, the [ForeverScribe](https://github.com/MattMaximo/foreverscribe)
 addon, MIT) writes when you `/reload` or log out:
 `WTF/Account/<account>/SavedVariables/WoWCompanion.lua` (or `ForeverScribe.lua`) inside your game folder (on Windows,
-`World of Warcraft\_forever_\WTF\Account\<ACCOUNT>\SavedVariables\ForeverScribe.lua`). The advisor finds it itself on a standard install; otherwise point it
+`World of Warcraft\_forever_\WTF\Account\<ACCOUNT>\SavedVariables\WoWCompanion.lua`). The advisor finds it itself on a standard install; otherwise point it
 at it with `--savedvariables FILE` or `WOWC_SAVEDVARIABLES`; `server_info` then reports how many
 characters it found, when they were captured and which game client version and build wrote them. The file is only read, on your machine, by a
 parser that never executes it; it is never uploaded or written to. The format is documented in

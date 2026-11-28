@@ -8,7 +8,9 @@ Where you see `<account>`, use your own WoW account name.
 A plan of what to do next, drawn on your map. You follow the numbers. You can also ask about your
 character in plain words.
 
-<!-- screenshot: map-plan.png — the world map with a numbered plan and the plan list open beside it -->
+![The world map with a numbered plan drawn on it and the plan list open beside it](images/map-plan.png)
+
+*Your plan on the map: follow the numbered stops, and the list on the right shows each step.*
 
 Two things do the work:
 
@@ -18,8 +20,8 @@ Two things do the work:
   gear, quests, talents, and the trainers, vendors and gathering spots you visit. The app reads it. It also
   shows the plan inside the game.
 
-That is one addon to install. **ForeverScribe is no longer needed.** If you already use it, the app still
-reads it until you switch. You can remove ForeverScribe once WoW Companion 0.6.N+ is installed.
+That is one addon to install. **ForeverScribe is optional.** If you already use it, the app reads it too and can add extra detail.
+You do not need it. You can remove ForeverScribe once WoW Companion 0.6.N+ is installed.
 
 **Safe to use:** the app never touches the game. Nothing is automated. Your AI sees only what you ask it.
 
@@ -55,12 +57,13 @@ About 15 minutes. Most of that is installing one AI client and signing in. It's 
 5. **Open the app and follow the setup checklist.** The app opens a **Setup** checklist with these lines:
    game found, ForeverScribe (optional), characters captured, WoW Companion addon, display
    mode, Questie (optional), and game data. Fix any red line with the button next to it. ForeverScribe is
-   optional: if it is the only addon you have, the checklist says you can remove it once WoW Companion is
-   installed. The first time, the app downloads a small
+   optional: you can skip it. The first time, the app downloads a small
    game-data file (under 1 MB) from GitHub. There is nothing to install.
    *You'll see a green ✓ next to each line you need.*
 
-   <!-- screenshot: overlay-beside-game.png — the whole screen, with the game and the app beside it -->
+   ![The game with the WoW Companion app on the left and the addon panel on the right](images/overlay-beside-game.png)
+
+   *The game with the app beside it and the next steps in the panel.*
 
    You can reopen the checklist later. Click the gear, then **Setup checklist**.
 6. **Install an AI client and sign in once.** Pick one. Claude Code gives the most detailed answers in our
@@ -79,7 +82,9 @@ turn-ins in an efficient order.
 
 ## Ask your first question
 
-<!-- screenshot: overlay-answer.png — a question asked in the app and its answer -->
+![A question typed in the app and its answer](images/overlay-answer.png)
+
+*You ask in plain words and the app answers.*
 
 In the app's ask box, type `What should I do next?` Then click **Ask**.
 *You'll see the answer appear in the app within a few seconds.*
@@ -99,10 +104,6 @@ Type `/reload` in the game after it is installed.
 - **The plan tab.** A tab at the lower right of the map opens the plan list. It shows in the side panel, like the quest log.
 - **The minimap.** A marker shows your next step.
 - **The panel.** Your next steps are in the panel. Open it with `/wowc`, or click the minimap button.
-
-<!-- screenshot: map-route-closeup.png — the map zoomed in on a few numbered steps -->
-
-<!-- screenshot: minimap-next-step.png — the minimap with the next-step marker -->
 
 ![The addon panel in the game, listing your next quests](images/panel.png)
 
