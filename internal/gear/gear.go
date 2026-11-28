@@ -227,6 +227,8 @@ type Result struct {
 	// Unknown maps a slot to the name of the worn item the dataset does not hold and the capture gave no item level for:
 	// nothing is compared there.
 	Unknown map[string]string `json:"unknown,omitempty"`
+	// Cosmetic is the slot ("shirt" or "tabard") the request named: it holds no stats, so no item there beats another and none is listed.
+	Cosmetic string `json:"cosmetic,omitempty"`
 }
 
 // Upgrades returns, per capture slot, the items the character can use that beat what they wear,
@@ -304,6 +306,9 @@ func score(it Item, w map[int64]float64, byStats bool) float64 {
 // Find is Upgrades with options and the basis of the answer.
 func Find(c character.Character, ds store.DataStore, group string, opt Options) (Result, error) {
 	res := Result{Slots: map[string][]Candidate{}, ItemLevelOnly: true}
+	if opt.Slot == "shirt" || opt.Slot == "tabard" {
+		res.Cosmetic = opt.Slot
+	}
 	if ds == nil {
 		return res, errors.New("no dataset configured")
 	}

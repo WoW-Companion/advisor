@@ -565,3 +565,24 @@ func TestVendorAndRecipeSourcesAreNoDrops(t *testing.T) {
 		t.Errorf("a bare id is shown:\n%s", text)
 	}
 }
+
+// A request for the shirt or tabard slot says they have no stats, so none beats another and none is listed, not "no upgrades found".
+func TestCosmeticSlotRequestSaysNoneIsAnUpgrade(t *testing.T) {
+	ds := synth(t, "")
+	for _, slot := range []string{"shirt", "tabard"} {
+		c := char("MAGE", 20, nil)
+		res, err := Find(c, ds, "", Options{Slot: slot, NoSources: true})
+		if err != nil {
+			t.Fatal(err)
+		}
+		out := Render(c, res)
+		if res.Cosmetic != slot || len(res.Slots) != 0 || !strings.Contains(out, "has no stats") || strings.Contains(out, "No upgrades found") || strings.Contains(out, "Ranked by") {
+			t.Errorf("%s: %+v\n%s", slot, res, out)
+		}
+	}
+	c := char("MAGE", 20, nil)
+	res, _ := Find(c, ds, "", Options{Slot: "neck", NoSources: true})
+	if res.Cosmetic != "" || strings.Contains(Render(c, res), "has no stats") {
+		t.Errorf("a neck request is no cosmetic one: %+v", res)
+	}
+}

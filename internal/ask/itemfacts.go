@@ -75,16 +75,26 @@ var trainMoney = regexp.MustCompile(`(?i)\b(?:to|for|on) (?:train|training|learn
 // gearCheckpointAsk is a question whether the character is geared for a level or a dungeon, or what gear to have by a level.
 var gearCheckpointAsk = regexp.MustCompile(`(?i)\bwhat (?:gear|armou?r|weapons?|equipment|items?)\b.{0,30}\b(?:should i (?:have|be wearing|be using)|do i need)\b.{0,25}\b(?:at|by|before|for)\b.{0,10}\d{1,2}\b|\bam i (?:well[- ]|fully |under[- ])?(?:geared|equipped|ready|prepared)\b.{0,25}\b(?:for|at)\b|\bis my gear\b.{0,25}\b(?:ok|okay|good|enough|fine|on par|behind|ready)\b|\bwhat gear should i have\b`)
 
+// uniqueAsk is a question whether an item is unique or only one may be held, or whether two copies of a ring or trinket can be worn at once: "are rings
+// unique-equipped", "can I wear two of the same ring", "can I wear the same ring on both fingers", "can I equip two copies of a trinket".
+var uniqueAsk = regexp.MustCompile(`(?i)\bunique(?:-equipped)?\b|\bonly one\b.*\b(carry|equip|wear|hold)\b|\b(carry|equip|wear|hold)\b.*\bonly one\b|` +
+	`\b(?:wear|equip\w*|put on|use|carry|have|hold)\b.{0,50}\b(?:same|identical|duplicates?|cop(?:y|ies)|twice|two of)\b.{0,30}\b(?:rings?|trinkets?|necklaces?|amulets?)\b|` +
+	`\b(?:same|identical|duplicates?|cop(?:y|ies)|two of)\b.{0,30}\b(?:rings?|trinkets?)\b.{0,40}\b(?:both|each|twice|two|slots?|fingers?|worn|wear|equip\w*)\b|` +
+	`\b(?:two|2|both)\b.{0,12}\b(?:rings?|trinkets?)\b.{0,30}\b(?:same|identical|twice)\b`)
+
+// shirtAsk is a question about a shirt, or about what a tabard does for the character: "do shirts give stats", "can a warrior wear a shirt", "does a tabard replace my chest armor".
+var shirtAsk = regexp.MustCompile(`(?i)\bshirts?\b|\btabards?\b.{0,60}\b(?:stats?|armou?r|chest|class(?:es)?|slots?|wear|worn|equip\w*|replace\w*|upgrade\w*|better|best)\b|\b(?:wear|equip\w*|put on|replace\w*|which|best|better)\b.{0,40}\btabards?\b`)
+
 var limitTopics = []struct {
 	about *regexp.Regexp
 	fact  string
 }{
-	{regexp.MustCompile(`(?i)\b(?:should|shall) i\b.{0,15}\b(?:buy|get|craft|make|upgrade|replace|have)\b.{0,20}\b` + bagWord + `\b|\bwhat (?:bags?|bag sizes?)\b.{0,30}\bshould i\b|\b` + bagWord + `\b.*\b(slots?|size|sizes|space|capacity|big|bigger|biggest|large|larger|largest|many|price|cost|hold|holds|fit|fits|more)\b|\b(slots?|size|capacity|big|bigger|biggest|large|larger|largest|many|price|cost)\b.*\b` + bagWord + `\b`),
+	{regexp.MustCompile(`(?i)\b(?:should|shall) i\b.{0,15}\b(?:buy|get|craft|make|upgrade|replace|have)\b.{0,20}\b` + bagWord + `\b|\b(?:what|which) (?:bags?|bag sizes?|quivers?|ammo ?pouch(?:es)?)\b.{0,30}\b(?:should i|do i|is (?:better|best))\b|\b(?:best|better|good|worth)\b.{0,15}\b(?:bags?|quivers?|ammo ?pouch(?:es)?)\b|\b` + bagWord + `\b.*\b(slots?|size|sizes|space|capacity|big|bigger|biggest|large|larger|largest|many|price|cost|hold|holds|fit|fits|more)\b|\b(slots?|size|capacity|big|bigger|biggest|large|larger|largest|many|price|cost)\b.*\b` + bagWord + `\b`),
 		"Bag and bank size: the game data holds no bag slot count, no backpack, bank or key ring size, no quiver, ammo pouch or special bag (soul, herb, enchanting) size and no bank slot price. Say so; give no slot count or price from memory."},
 	{regexp.MustCompile(`(?i)\bstack(s|ed|ing)?\b|\bhow many\b.*\b(carry|hold|fit)\b`),
 		"Stack size: the game data holds no maximum stack size for any item. Say so; give no stack size from memory (the capture's own counts are what the character holds)."},
-	{regexp.MustCompile(`(?i)\bunique(?:-equipped)?\b|\bonly one\b.*\b(carry|equip|wear|hold)\b|\b(carry|equip|wear|hold)\b.*\bonly one\b`),
-		"Unique items: the game data holds no unique or unique-equipped flag and no per-character limit on an item. Say so; call no item unique."},
+	{uniqueAsk,
+		"Unique items: the game data holds no unique or unique-equipped flag and no per-character limit on an item. Say so; call no item unique. The advisor's own gear advice offers one copy of a ring or trinket for one slot only, never the same item for both."},
 	{regexp.MustCompile(`(?i)\b(mail|mailbox|mails|postage|cod)\b.*\b(attach\w*|limit|expire\w*|days?|cost|fee|postage|cod|how many|max\w*|return\w*|stay|stays|kept|keep|last|lasts|held|wait|sent|send|sending|arrive|arrives|delay|delivered|delivery|gold|money|soulbound|bound)\b|\b(attach\w*|postage|cod)\b.*\bmail|\b(send|sending|sent|attach\w*)\b.{0,30}\b(through|by|via|in|with) (the )?(mail|mailbox)\b`),
 		"Mail: the game data holds no mail rules (items per mail, postage, cash on delivery, how long a mail is kept). Say so; give no figure from memory. What the data does hold is an item's binding, which decides whether it can be mailed at all."},
 	{regexp.MustCompile(`(?i)\b(auction|auctions|auction house|ah)\b.*\b(deposit|fee|fees|cut|duration|hours?|how long|listing|listings|limit|max\w*|price|prices|worth|cost|much|expire\w*|sell|sells|selling|sold|list|profit\w*|margin|undercut\w*|bid|bids|buyout)\b|\b(deposit|fee|fees|cut|duration|hours?|how long|listing|listings|limit|max\w*|price|prices|worth|cost|much|expire\w*|sell|sells|selling|sold|list|profit\w*|margin|undercut\w*|bid|bids|buyout)\b.*\b(auction|auctions|auction house|ah)\b`),
@@ -145,6 +155,8 @@ var limitTopics = []struct {
 		"Class quest chains: the game data holds no class quest line and no prerequisite, follow-up or class restriction for any quest (its three quest lines are none of them a class's), and no quest reward; players' reports name only a few class quests, by title, level and faction. Say so; name no class quest, its order, its giver or its reward from memory. The class quests the player's own Questie holds are the ones in the Next list; name none besides."},
 	{achievementAsk,
 		"Achievements and titles: the game data holds no achievement, achievement point, criteria or achievement reward, and no character title (earned or otherwise); a quest row's title is only its name. Say so; name no achievement, point value or title and no way to earn one from memory."},
+	{shirtAsk,
+		"Shirts and tabards: the game data holds a shirt or tabard only as an item row (its own slot, quality, binding, vendor price) with no stats, no armor type and no class limit: any class may wear one, it sits in its own slot beside the chest armor and never replaces it, and no shirt or tabard is an upgrade over another, so the advisor's gear advice lists none. Say so; give no shirt or tabard stat, armor value or class limit from memory. The data has no race or faction column, so do not call a tabard faction-locked."},
 	{vanityAsk,
 		"Companion pets and vanity items: the game data holds a pet, tabard or toy only as an item row (name, item level, binding, vendor price, and a loot or vendor source for some): no pet species, summon spell, pet ability or level, no collection or active-pet limit, no pet battle and no tabard or toy effect. Say so; give no limit, ability or effect from memory. Where a pet comes from is only what its loot and vendor rows say."},
 	{toolEffectAsk,
