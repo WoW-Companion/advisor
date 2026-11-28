@@ -128,3 +128,42 @@ func TestProtectedQuestItemsAreNeverSold(t *testing.T) {
 		t.Errorf("safe junk %v", got)
 	}
 }
+
+func TestRestockSkipsKnownRecipesOutsideAPurpose(t *testing.T) {
+	ix, c := bundleWorld()
+	vial, water, thistle := 3371, 1179, 2447
+	c.Bags = []character.ItemStack{{ItemID: vial, Count: 1, Name: "Empty Vial"}}
+	c.BagsCaptured = true
+	c.Recipes = map[string]character.SeenRecipes{
+		"cooking": {Entries: []character.SeenRecipe{{Name: "Thistle Tea", Difficulty: "green", Reagents: []character.ItemStack{
+			{ItemID: water, Count: 1, Name: "Refreshing Spring Water"}, {ItemID: thistle, Count: 1, Name: "Swiftthistle"}}}}},
+		"poisons": {Entries: []character.SeenRecipe{{Name: "Instant Poison", Difficulty: "yellow", Reagents: []character.ItemStack{{ItemID: vial, Count: 1, Name: "Empty Vial"}}}}}}
+	c.Seen = &character.Observed{Vendors: []character.SeenVendor{{NPC: 7, Name: "Sly Garrett", Map: 7001, X: 52, Y: 51,
+		Items: []character.SeenStock{{ItemID: int64(vial), Price: 50}, {ItemID: int64(water), Price: 5}}}}}
+	p := Build(c, ix)
+	n := 0
+	for _, e := range p.Errands {
+		if e.Kind == ErrandRestock {
+			n++
+			if e.Label != "buy 4 Empty Vial from Sly Garrett" || !strings.HasPrefix(e.Why, "for Instant Poison") {
+				t.Errorf("restock %+v", e)
+			}
+		}
+	}
+	if n != 1 {
+		t.Fatalf("want only the vial line: %+v", p.Errands)
+	}
+}
+
+func TestRestockDropsACraftWithAnUnsoldReagent(t *testing.T) {
+	ix, c := bundleWorld()
+	vial, dust := 3371, 3372
+	c.BagsCaptured = true
+	c.Recipes = map[string]character.SeenRecipes{"poisons": {Entries: []character.SeenRecipe{{Name: "Deadly Poison", Difficulty: "orange", Reagents: []character.ItemStack{
+		{ItemID: vial, Count: 1, Name: "Empty Vial"}, {ItemID: dust, Count: 1, Name: "Dust of Decay"}}}}}}
+	c.Seen = &character.Observed{Vendors: []character.SeenVendor{{NPC: 7, Name: "Sly Garrett", Map: 7001, X: 52, Y: 51,
+		Items: []character.SeenStock{{ItemID: int64(vial), Price: 50}}}}}
+	if e := attached(Build(c, ix), ErrandRestock); e != nil {
+		t.Fatalf("half a craft: %+v", e)
+	}
+}

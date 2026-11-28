@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/WoW-Companion/advisor/internal/character"
+	"github.com/WoW-Companion/advisor/internal/classreagent"
 	"github.com/WoW-Companion/advisor/internal/inventory"
 	"github.com/WoW-Companion/advisor/internal/questie"
 	"github.com/WoW-Companion/advisor/internal/vendors"
@@ -24,7 +25,7 @@ const (
 // Bundling limits. A map percent is about 30 yards on a zone map, so BundleReach is about 150 yards.
 const (
 	BundleReach     = 5.0
-	RestockBatch    = 5  // crafts of each recipe that still gives skill-ups
+	RestockBatch    = 5  // crafts of each consumable a restock covers
 	maxRestock      = 6  // restock errands a plan lists
 	repairBelow     = 50 // percent of all durability
 	repairUrgent    = 25 // percent: an item or the whole set
@@ -172,7 +173,8 @@ type Short struct {
 	ID    int64
 	Need  int
 	Spots []Spot
-	Note  string // what the plan could not see, said in the buy's reason
+	Note  string   // what the plan could not see, said in the buy's reason
+	For   []string // what the reagent is for: a poison, a class spell
 }
 
 func restockChores(short []Short) []Chore {
@@ -180,6 +182,9 @@ func restockChores(short []Short) []Chore {
 	for _, s := range short {
 		if s.Need > 0 && len(s.Spots) > 0 && len(out) < maxRestock {
 			why := "short of reagents for a batch of " + fmt.Sprint(RestockBatch)
+			if len(s.For) > 0 {
+				why = "for " + strings.Join(s.For, ", ")
+			}
 			if s.Note != "" {
 				why += "; " + s.Note
 			}
@@ -189,10 +194,51 @@ func restockChores(short []Short) []Chore {
 	return out
 }
 
-// shortList is the reagents the character's recipes that still give skill-ups need for RestockBatch crafts, less what
-// the bags hold. Spots are not filled in.
-func shortList(c character.Character, nameOf func(id int64) string) []Short {
-	need, names, order := reagentNeeds(c)
+// craft is one thing the character makes or casts with reagents, the purpose a restock serves.
+type craft struct {
+	Name     string
+	Reagents []character.ItemStack // Name is the reagent's
+}
+
+// consumableCrafts are the class consumables the character uses: the poisons it knows (a recipe that still gives
+// skill-ups or is not grey), and the spell reagents of its own class that its bags already hold some of.
+func consumableCrafts(c character.Character) []craft {
+	var out []craft
+	for _, r := range c.Recipes["poisons"].Entries {
+		if r.Difficulty == "grey" || r.Difficulty == "gray" || len(r.Reagents) == 0 {
+			continue
+		}
+		out = append(out, craft{Name: r.Name, Reagents: r.Reagents})
+	}
+	seen := map[int64]bool{}
+	for _, b := range c.Bags {
+		id := int64(b.ItemID)
+		if r, ok := classreagent.Of(b.Name); ok && strings.EqualFold(c.Class, r.Class) && !seen[id] {
+			seen[id] = true
+			out = append(out, craft{Name: r.Spells, Reagents: []character.ItemStack{{ItemID: b.ItemID, Count: 1, Name: b.Name}}})
+		}
+	}
+	return out
+}
+
+// shortOf is the reagents the crafts need for RestockBatch crafts, less what the bags hold. Spots are not filled in.
+func shortOf(c character.Character, crafts []craft, nameOf func(id int64) string) []Short {
+	need, names := map[int64]int{}, map[int64]string{}
+	forWhat := map[int64][]string{}
+	var order []int64
+	for _, cr := range crafts {
+		for _, rg := range cr.Reagents {
+			id := int64(rg.ItemID)
+			if _, ok := need[id]; !ok {
+				order = append(order, id)
+			}
+			need[id] += rg.Count * RestockBatch
+			names[id] = rg.Name
+			if !slices.Contains(forWhat[id], cr.Name) {
+				forWhat[id] = append(forWhat[id], cr.Name)
+			}
+		}
+	}
 	have := map[int64]int{}
 	for _, b := range c.Bags {
 		have[int64(b.ItemID)] += b.Count
@@ -211,9 +257,48 @@ func shortList(c character.Character, nameOf func(id int64) string) []Short {
 		if names[id] == "" {
 			continue
 		}
-		out = append(out, Short{Item: names[id], ID: id, Need: need[id] - have[id]})
+		out = append(out, Short{Item: names[id], ID: id, Need: need[id] - have[id], For: forWhat[id]})
 	}
 	return out
+}
+
+// shortList is the reagents of the character's class consumables short for a batch. Spots are not filled in.
+func shortList(c character.Character, nameOf func(id int64) string) []Short {
+	return shortOf(c, consumableCrafts(c), nameOf)
+}
+
+// wholeCrafts plans the restock of the consumable crafts: what the bank and mail cover, and what a vendor sells.
+// A craft with a reagent that is short and neither held, mailable nor sold on this route is dropped whole, so no
+// buy is listed that cannot finish a craft.
+func wholeCrafts(p *Plan, c character.Character, qx *questie.Index, opt Options, maps map[int]bool, nameOf func(id int64) string) (pick []Chore, shorts []Short) {
+	crafts := consumableCrafts(c)
+	for {
+		pick, shorts = nil, shortOf(c, crafts, nameOf)
+		blocked := map[int64]bool{}
+		for i := range shorts {
+			sh := &shorts[i]
+			pk, rest := pickupChores(p, c, qx, opt, maps, sh.ID, sh.Item, sh.Need)
+			pick = append(pick, pk...)
+			sh.Need = rest
+			sh.Spots = vendorSpots(c, qx, opt, maps, sh.ID, sh.Item)
+			if !c.BankCaptured {
+				sh.Note = "your bank was not seen"
+			}
+			if rest > 0 && len(sh.Spots) == 0 {
+				blocked[sh.ID] = true
+			}
+		}
+		if len(blocked) == 0 {
+			return pick, shorts
+		}
+		n := len(crafts)
+		crafts = slices.DeleteFunc(crafts, func(cr craft) bool {
+			return slices.ContainsFunc(cr.Reagents, func(r character.ItemStack) bool { return blocked[int64(r.ItemID)] })
+		})
+		if len(crafts) == n {
+			return pick, shorts
+		}
+	}
 }
 
 // spotsWhere lists the places of the NPCs and objects that pass keep, on the maps the route's steps are on.
@@ -317,21 +402,12 @@ func addChores(p *Plan, c character.Character, src source, opt Options) {
 		chores = append(chores, ch)
 	}
 	nameOf := func(id int64) string { return itemName(opt, id) }
-	shorts := shortList(c, nameOf)
-	for i := range shorts {
-		sh := &shorts[i]
-		pick, rest := pickupChores(p, c, qx, opt, maps, sh.ID, sh.Item, sh.Need)
-		chores = append(chores, pick...)
-		sh.Need = rest
-		sh.Spots = vendorSpots(c, qx, opt, maps, sh.ID, sh.Item)
-		if !c.BankCaptured {
-			sh.Note = "your bank was not seen"
-		}
-	}
+	pick, shorts := wholeCrafts(p, c, qx, opt, maps, nameOf)
+	chores = append(chores, pick...)
 	chores = append(chores, restockChores(shorts)...)
 	if c.BagsCaptured || len(c.Bags) > 0 {
 		junk, mail := reviewLines(c, qx, opt)
-		for _, m := range outgoingMail(c, opt.Others, qx, nameOf) {
+		for _, m := range outgoingMail(c, opt.Others, qx, nameOf, opt.Data) {
 			if !slices.ContainsFunc(mail, func(x Mailing) bool { return x.ID == m.ID && x.To == m.To }) {
 				mail = append(mail, m)
 			}
