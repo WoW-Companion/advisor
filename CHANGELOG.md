@@ -1,5 +1,56 @@
 # Changelog
 
+## 0.7.106
+
+- A profession rank is sent to a trainer only in a city where the guide says that rank is taught.
+- When the guide names the trainer for a rank, the route sends you to that trainer first.
+- The recipe the route says to train now is the one your guide's next step uses.
+- Restock lines find a vendor in your town even when many other vendors sell the same reagent.
+- Gear ranking no longer puts a plain white piece above a green that carries the stats you want.
+- Without a saved play style, gear is ranked by your talent spec for every class, not item level.
+- Loot rolls say Need for armor you can wear once you reach its level, such as plate at 40.
+- Stat advice no longer mentions rage for paladins or shamans, or block for druids.
+- Bag review keeps Sweet Nectar and Morning Glory Dew as drinks, not food.
+- Bag review no longer keeps drinks for a warrior or rogue; an alt with mana gets them.
+- Class potions and poisons go to an alt of their class, or sell if you cannot use them.
+- A potion, elixir or food answer says the level it needs and the classes that can use it.
+- Reputation answers find a faction by its short name, such as Timbermaw or Gnomeregan.
+- Reputation answers also work for "reputations", "reps" and "standings".
+- Spell training no longer calls a first-time spell "a new rank" when you know no lower rank.
+- The class trainer list leaves out the mage's Arcane Focus and the druid's Feral Charge (Bear).
+- Where-to-level questions in more everyday words, like "best zone at 22", now get the zone answer.
+- A finished talent build now says it ends at its last level instead of "nothing more to take".
+- A role the class has no spec for, like a healer warrior, is now said so; a tank druid gets Feral.
+- "What's next", "what now" and "what's my next step" are now read as questions about your own plan.
+- "What do I get at 40" and "which spells at 14" now name the level and show that level's spells.
+- "Can I afford my spells" now checks your gold against what your class trainer teaches now.
+- Level checklists, gold targets and "am I geared for level 40" now say the game data has none.
+- Profession rank questions like "when can I train expert" now show the rank table.
+- "Should I buy bags" now gets the bag size answer.
+- "Can my paladin use a shield" and "which classes can use shields" now get the class shield rules.
+- "Can my rogue use an off hand" and "when do I get an offhand" now get the Dual Wield level.
+- Spear, throwing knife, relic, libram, idol, ring, trinket and necklace questions get class rules.
+- Equip-from-bags no longer offers a ring or trinket you wear in one slot for the other.
+- Equip-from-bags weighs a two-hander against both hands, as the gear finder does.
+- "When do warriors get plate" and "what armor type should my shaman use" now get the armor rules.
+- "What helm can a rogue wear" and "can my mage wear a chain helm" now get the class armor rules.
+- A bag piece one or two levels above you is kept with its level, not listed under Equip now.
+- Set piece answers now give each piece's slot, armor type, class limit, level and binding.
+- Vendor and crafted sources in gear answers no longer read as a drop with an unknown chance.
+- A quiver or ammo pouch above your level now says the level you can use it from.
+- A quiver beside a gun, or an ammo pouch beside a bow, now says which ammo your weapon fires.
+- "Can I wear two of the same ring" now gets the answer that the data flags no unique rings.
+- Shirt and tabard questions now say they carry no stats and suit every class.
+- Asking for the shirt or tabard slot now says none is an upgrade, not "no upgrades found".
+- Quiver, ammo pouch and class bag questions now name which classes each bag is for.
+- A quest reward the data lists twice is no longer called a choice of rewards.
+- "What can I mine at 100 mining" and "what herbs can I pick at 50" now get the node skills.
+- Asked about a skill you state, the advice says which ore and herb nodes you can gather.
+- Questions like "what skill do I need to mine gold" now get the nodes the data holds.
+- Fishing questions that leave off "the" or "Vale" ("fish in Barrens") find the zone's catches.
+- "Where do I catch Longjaw Mud Snapper" now lists the zones that catch it, with the rates.
+- Fishing zones of the other faction's home area are now marked as that faction's.
+
 ## 0.7.105
 
 - **Fixed** Routes to the Exodar and Azuremyst Isle now name the boat from Auberdine.
