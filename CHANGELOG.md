@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.7.104
+
+- **Fixed** The next-recipe list now shows green, not yellow, for a recipe the game shows green.
+- **Fixed** A route band's colour now reads green where the game shows green.
+- **Fixed** Changing a primary profession now says which one you keep and which you drop.
+- **Fixed** Dropping a profession now says the game data does not state what it costs.
+- **Fixed** Gather lines name up to three nodes per material and skip nodes of unknown skill.
+- **Fixed** Ore a smelt needs now gets gather lines, and ore and stone count as miner's materials.
+- Asking for a poison vendor now finds Sly Garrett in Booty Bay by the reagents he sells.
+- Other profession words (tailoring, alchemy, cooking) find vendors of that craft's reagents.
+- "Vendor in Booty Bay" works as one sentence, with no separate place.
+- When no vendor is found the answer says so and adds nothing from general knowledge.
+- Restock and profession shopping now take materials from your own bank first, before any purchase.
+- A character on your realm and faction can mail what it spares, and gets a matching mail errand.
+- Items that arrive by bank or mail count in the bag-space forecast.
+- The game data now follows the newest character capture, so a new game build gets its data
+- The Notes line says when game data is published but not downloaded yet, and why
+- Finding a vendor also searches the shops your characters opened, so Sly Garrett is found.
+- Those answers say "seen by your characters"; the dataset and QuestieDB win where they differ.
+
 ## 0.7.103
 
 - **Added** The route forecasts your bag space and plans a sell, mail or bank stop before they fill.
