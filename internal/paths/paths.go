@@ -508,13 +508,14 @@ func (f *finder) quest() (Path, bool) {
 			continue // never name a quest by its number
 		}
 		if rows, err := f.ds.Filter("loot_sources", store.Range{Column: "source_id", Min: id, Max: id}); err == nil {
-			n := 0
+			// a choice is two or more different reward items: a reward the dataset lists twice is still one
+			items := map[int64]bool{}
 			for _, r := range rows {
 				if kindHas(str(r["source_kind"]), "quest") {
-					n++
+					items[i64(r["item_id"])] = true
 				}
 			}
-			cd.choice = n > 1
+			cd.choice = len(items) > 1
 		}
 		if best == nil || cd.rank < best.rank || cd.rank == best.rank && cd.id < best.id {
 			c := cd

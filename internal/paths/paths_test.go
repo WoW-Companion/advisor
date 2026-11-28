@@ -367,6 +367,32 @@ func TestQuestRewardNamesItsQuestFromObserved(t *testing.T) {
 	}
 }
 
+// A choice is two or more different reward items: a reward the dataset lists twice for one quest is still one reward, and is worded "for it".
+func TestQuestRewardChoiceCountsDistinctItems(t *testing.T) {
+	const a, b = 60, 61
+	s := func(v string) *string { return &v }
+	l := func(v int16) *int16 { return &v }
+	ds := store.New(store.ReaderSource{
+		"items": tbl(t, []itemRow{item(a, "Oak Sash", 14, 9, 2, 3, 6, 0), item(b, "Oak Wraps", 14, 9, 2, 3, 9, 0)}),
+		"loot_sources": tbl(t, []lootRow{
+			{a, "quest reward", 811, 0, 0, nil}, {a, "quest reward", 811, 0, 0, nil},
+			{a, "quest reward", 812, 0, 0, nil}, {b, "quest reward", 812, 0, 0, nil}, {b, "quest reward", 812, 0, 0, nil},
+		}),
+		"quests_observed": tbl(t, []observedRow{{811, "Synthetic Sash", l(10), s("horde"), nil}, {812, "Synthetic Pair", l(10), s("horde"), nil}}),
+	})
+	lvl := 10
+	horde := character.Character{Name: "T", Class: "WARRIOR", Faction: "Horde", Level: &lvl}
+	for _, tc := range []struct {
+		item int64
+		want string
+	}{{a, "Finish Synthetic Sash for it"}, {b, "Finish Synthetic Pair and choose it"}} {
+		r := For(horde, ds, tc.item, Options{})
+		if len(r.Paths) == 0 || !strings.HasPrefix(r.Paths[0].Line, tc.want) || r.Paths[0].Choice != strings.Contains(tc.want, "choose") {
+			t.Errorf("item %d: want %q, got %+v", tc.item, tc.want, r.Paths)
+		}
+	}
+}
+
 // A node the dataset has no row for is a bare id: with its skill unknown it must not pass for one any skill can take.
 func TestPlacedNodesDropBareObjectIDs(t *testing.T) {
 	got := placedNodes([]node{{id: 1}, {id: 2, skill: 65}, {id: 3, zone: "Dunemark"}, {id: 4, name: "Tin Vein"}})

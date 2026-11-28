@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/WoW-Companion/advisor/internal/character"
+	"github.com/WoW-Companion/advisor/internal/gather"
 	"github.com/WoW-Companion/advisor/internal/learn"
 	"github.com/WoW-Companion/advisor/internal/store"
 )
@@ -21,7 +22,14 @@ var (
 	mineVerb  = regexp.MustCompile(`(?i)\b(mine|mines|mined|mining|miner|ore|ores|vein|veins|deposit|deposits)\b`)
 	herbWords = regexp.MustCompile(`(?i)\b(herbalism|herbalist|herb|herbs|herbing)\b`)
 	// nodeAsk are the words that make a bare profession name a question about its nodes.
-	nodeAsk   = regexp.MustCompile(`(?i)\b(skill|skills|need|needs|require|requires|required|node|nodes|zone|zones|where|level|rank)\b`)
+	nodeAsk = regexp.MustCompile(`(?i)\b(skill|skills|need|needs|require|requires|required|node|nodes|zone|zones|where|level|rank|pick|picks|gather|gathers|gathering|find|farm|best|should|which)\b`)
+	// mineDo is "mine" as a verb ("to mine gold", "can I mine"): a bare "mine" is also the possessive, so it counts only after a word that
+	// makes it a verb.
+	mineDo = regexp.MustCompile(`(?i)\b(?:to|can|i|should|will|could|would|do|did|and|or|you|we|please) mine\b|\b(?:mines|mined)\b`)
+	// shortAsk are the words that make a bare metal ("tin", "iron") a question about its vein, beside the mining verbs.
+	shortAsk = regexp.MustCompile(`(?i)\b(?:find|farm|gather|gathering|dig|where)\b`)
+	// skillAt reads a gathering skill out of a question: "at herbalism 50", "mining skill of 120", "100 mining", "skill 60".
+	skillAt   = regexp.MustCompile(`(?i)\b(?:(mining|herbalism)(?: skill)?(?: level)?(?: of| at| is| =|:)? (\d{1,3})|(\d{1,3}) (mining|herbalism)|\bskill(?: level)?(?: of| at| is| =|:)? (\d{1,3}))\b`)
 	skinWords = regexp.MustCompile(`(?i)\b(skin|skins|skinning|skinned|skinnable)\b`)
 	fishWords = regexp.MustCompile(`(?i)\b(fish|fishing|angling|angler)\b`)
 	recipeAsk = regexp.MustCompile(`(?i)\b(skill|skills|learn|learned|train|trained|need|needs|require|requires|required|unlock|rank|when|level|make|makes|craft|crafts|cook|cooks|high|yet)\b`)
@@ -95,7 +103,7 @@ func nodeNamed(t string, n gatherNode) bool {
 		return true
 	}
 	for _, suffix := range []string{" vein", " deposit"} {
-		if short, ok := strings.CutSuffix(name, suffix); ok && wordIn(t, short) && mineVerb.MatchString(t) {
+		if short, ok := strings.CutSuffix(name, suffix); ok && wordIn(t, short) && (mineVerb.MatchString(t) || mineDo.MatchString(t) || shortAsk.MatchString(t)) {
 			return true
 		}
 	}
@@ -120,6 +128,84 @@ func nodeLine(n gatherNode) string {
 	return fmt.Sprintf("- %s: needs %s %d; found in %s", n.name, n.prof, n.skill, where)
 }
 
+// nodesOf are the nodes a node question lists: the named ones, else every node of the professions it names.
+func nodesOf(nodes, named []gatherNode, profs map[string]bool) []gatherNode {
+	if len(named) > 0 {
+		return named
+	}
+	var out []gatherNode
+	for _, n := range nodes {
+		if profs[n.prof] {
+			out = append(out, n)
+		}
+	}
+	return out
+}
+
+// skillLines work out, for the gathering skill a question states ("what herbs can I pick at herbalism 50?"), which of the listed nodes it
+// reaches and which need more, so the answer compares the skill with the dataset's numbers and does not guess. A skill number with no
+// profession beside it counts for the one profession the listed nodes belong to; none for a mix.
+func skillLines(listed []gatherNode, t string) []string {
+	have := map[string]int64{}
+	var bare int64
+	for _, m := range skillAt.FindAllStringSubmatch(t, -1) {
+		switch {
+		case m[1] != "":
+			have[profOf(m[1])], _ = strconv.ParseInt(m[2], 10, 64)
+		case m[4] != "":
+			have[profOf(m[4])], _ = strconv.ParseInt(m[3], 10, 64)
+		default:
+			bare, _ = strconv.ParseInt(m[5], 10, 64)
+		}
+	}
+	profs := map[string]bool{}
+	for _, n := range listed {
+		profs[n.prof] = true
+	}
+	if bare > 0 && len(profs) == 1 {
+		for p := range profs {
+			if _, ok := have[p]; !ok {
+				have[p] = bare
+			}
+		}
+	}
+	var out []string
+	for _, p := range []string{"Herbalism", "Mining"} {
+		skill, ok := have[p]
+		if !ok || !profs[p] {
+			continue
+		}
+		var can, not []string
+		for _, n := range listed {
+			switch {
+			case n.prof != p:
+			case n.skill <= skill:
+				can = append(can, n.name)
+			default:
+				not = append(not, fmt.Sprintf("%s (needs %d)", n.name, n.skill))
+			}
+		}
+		line := fmt.Sprintf("At %s %d: ", p, skill)
+		if len(can) > 0 {
+			line += "can gather " + strings.Join(can, ", ")
+		} else {
+			line += "can gather none of the listed nodes"
+		}
+		if len(not) > 0 {
+			line += "; not yet " + strings.Join(not, ", ")
+		}
+		out = append(out, line+".")
+	}
+	return out
+}
+
+func profOf(word string) string {
+	if strings.EqualFold(word, "mining") {
+		return "Mining"
+	}
+	return "Herbalism"
+}
+
 // nodeFacts is the dataset's skill and zones for the ore or herb nodes the question names (all of a profession's when it names only the
 // profession), and what the data does not hold.
 func nodeFacts(ds store.DataStore, t string) string {
@@ -131,7 +217,7 @@ func nodeFacts(ds store.DataStore, t string) string {
 		}
 	}
 	profs := map[string]bool{}
-	if mineWords.MatchString(t) {
+	if mineWords.MatchString(t) || mineDo.MatchString(t) {
 		profs["Mining"] = true
 	}
 	if herbWords.MatchString(t) {
@@ -143,7 +229,7 @@ func nodeFacts(ds store.DataStore, t string) string {
 		for _, n := range named {
 			lines = append(lines, nodeLine(n))
 		}
-	case len(profs) > 0 && nodeAsk.MatchString(t):
+	case len(profs) > 0 && (nodeAsk.MatchString(t) || skillAt.MatchString(t)):
 		for _, n := range nodes {
 			if profs[n.prof] {
 				lines = append(lines, nodeLine(n))
@@ -152,6 +238,7 @@ func nodeFacts(ds store.DataStore, t string) string {
 	default:
 		return ""
 	}
+	lines = append(lines, skillLines(nodesOf(nodes, named, profs), t)...)
 	none := "Gathering nodes: the game data holds a skill and zones for only the nodes listed here. For any other ore or herb (and for a node listed with no skill), " +
 		"say the data has none; name no skill or zone from memory."
 	if len(lines) == 0 {
@@ -221,7 +308,7 @@ func fishingFacts(ds store.DataStore, t string) string {
 	sort.Strings(zones)
 	named := false
 	for _, z := range zones {
-		if z == "" || !wordIn(t, strings.ToLower(z)) {
+		if z == "" || !zoneNamed(t, z) {
 			continue
 		}
 		named = true
@@ -242,8 +329,92 @@ func fishingFacts(ds store.DataStore, t string) string {
 		}
 		fmt.Fprintf(&b, "\nCatches reported in %s, best rate first: %s.", z, strings.Join(parts, ", "))
 	}
+	if fish := caughtFacts(ds, t, rows); fish != "" {
+		named = true
+		b.WriteString(fish)
+	}
 	if !named && len(zones) > 0 {
 		b.WriteString("\nThe data's fishing reports cover only these zones: " + strings.Join(zones, ", ") + ". For any other zone, say there is no report.")
+	}
+	return b.String()
+}
+
+// zoneTail are the last words of a zone's name that a player leaves off ("Stranglethorn", "Hillsbrad", "Silverpine").
+var zoneTail = map[string]bool{"vale": true, "forest": true, "foothills": true, "mountains": true, "highlands": true, "glades": true, "city": true}
+
+// minZoneShort is the shortest short name of a zone (after the leading "the" and the trailing word are left off) a question may name it by.
+const minZoneShort = 6
+
+// zoneNamed is true when the question names the zone: by its full name, without a leading "the" ("fish in Barrens" is the zone The
+// Barrens) or without a trailing "Vale", "Forest", "Foothills" or "Mountains" ("Stranglethorn", "Hillsbrad").
+func zoneNamed(t, zone string) bool {
+	z := strings.ToLower(zone)
+	if wordIn(t, z) {
+		return true
+	}
+	z = strings.TrimPrefix(z, "the ")
+	if wordIn(t, z) {
+		return true
+	}
+	if i := strings.LastIndex(z, " "); i > 0 && zoneTail[z[i+1:]] && i >= minZoneShort {
+		return wordIn(t, z[:i])
+	}
+	return false
+}
+
+// homeNote marks a capital or starting zone of one faction, which a character of the other side does not fish in ("Alliance zone, "), and
+// is "" for any other zone.
+func homeNote(zone string) string {
+	switch gather.SideOfZone(zone) {
+	case "horde":
+		return "Horde home zone, "
+	case "alliance":
+		return "Alliance home zone, "
+	}
+	return ""
+}
+
+// minFishName is the shortest fish name (after a leading "raw") a question may name a catch by: a shorter one is a common word.
+const minFishName = 6
+
+// caughtFacts is where each fish the question names is caught, by the dataset's fishing reports, best rate first: for "where do I catch
+// Longjaw Mud Snapper?", with or without "raw" in the name. "" when the question names no catch.
+func caughtFacts(ds store.DataStore, t string, rows []store.Row) string {
+	ids := map[int64]bool{}
+	var order []int64
+	for _, r := range rows {
+		if id := i64(r["item_id"]); !ids[id] {
+			ids[id] = true
+			order = append(order, id)
+		}
+	}
+	sort.Slice(order, func(i, j int) bool { return order[i] < order[j] })
+	var b strings.Builder
+	for _, id := range order {
+		it, err := ds.Get("items", id)
+		name := strings.ToLower(str(it["name"]))
+		if err != nil || name == "" {
+			continue
+		}
+		short := strings.TrimPrefix(name, "raw ")
+		if len(short) < minFishName || !wordIn(t, name) && !wordIn(t, short) {
+			continue
+		}
+		var at []store.Row
+		for _, r := range rows {
+			if i64(r["item_id"]) == id && str(r["zone_name"]) != "" {
+				at = append(at, r)
+			}
+		}
+		if len(at) == 0 {
+			continue
+		}
+		sort.SliceStable(at, func(i, j int) bool { return f64(at[i]["rate"]) > f64(at[j]["rate"]) })
+		var parts []string
+		for _, r := range at[:min(maxNodeZones, len(at))] {
+			parts = append(parts, fmt.Sprintf("%s (%s%.0f%% of %d casts)", str(r["zone_name"]), homeNote(str(r["zone_name"])), 100*f64(r["rate"]), i64(r["casts"])))
+		}
+		fmt.Fprintf(&b, "\n%s is caught in these zones, best rate first: %s. The reports cover only the zones they list; for any other zone, say there is no report.", str(it["name"]), strings.Join(parts, ", "))
 	}
 	return b.String()
 }
@@ -266,6 +437,16 @@ func i64(v any) int64 {
 	return 0
 }
 
+// fishCaughtFacts is the fishing section for a question that names a catch but has no fishing word ("where do I catch Longjaw Mud Snapper?"):
+// the same no-data line as any fishing question, then the zones that catch the fish.
+func fishCaughtFacts(ds store.DataStore, t string) string {
+	rows, _ := ds.Filter("fishing_catches", store.Range{Column: "zone_id"})
+	if len(rows) == 0 || caughtFacts(ds, t, rows) == "" {
+		return ""
+	}
+	return fishingFacts(ds, t)
+}
+
 // GatherFacts is the gathering section of the facts for a question about an ore or herb node's skill or zones, about the skill a
 // creature needs to be skinned, or about fishing: what the game data holds, and a line saying it holds nothing for the rest. "" for any
 // other question or without a dataset.
@@ -283,6 +464,8 @@ func GatherFacts(ds store.DataStore, text string) string {
 	}
 	if fishWords.MatchString(t) {
 		out = append(out, fishingFacts(ds, t))
+	} else if s := fishCaughtFacts(ds, t); s != "" {
+		out = append(out, s)
 	}
 	return strings.Join(out, "\n")
 }
