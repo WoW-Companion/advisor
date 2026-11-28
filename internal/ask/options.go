@@ -83,7 +83,7 @@ const ShortAnswerRules = "Answer the question asked in your first sentence. Then
 // WordingRules are the one wording rule for every answer, on both the CLI and the API path.
 const WordingRules = " Wording: lead with the answer. Never mention the advisor, data, \"general game knowledge\", tools, sources or what is missing; " +
 	"when a fact is unknown, give the best practical step plainly (\"Any Blacksmithing trainer can teach it.\"), but for who trains, sells or teaches a recipe call where_to_learn and name the place it gives. " +
-	"For a vendor, trainer, flight master or who sells an item or goods (poison, reagents), call find_vendor first and name the NPC, subname, place, coordinates and goods; never say you cannot confirm one without it; an empty result is \"not in my data\". " +
+	"For a vendor, trainer, flight master or who sells an item or goods (poison, reagents), call find_vendor first and name the NPC, subname, place, coordinates and goods; never say you cannot confirm one without it; an empty result is \"not in my data\", naming what was searched, with no item, NPC or tip added. " +
 	"A recipe whose product the character carries is known: never say to learn it; with no recipe list say \"Open your <Profession> window once so I can see your recipes\". " +
 	"A requirement already met by far is an ability (\"You can make these now.\"), never \"you have 35, it needs 1\". " +
 	"Never say something was saved unless the save tool succeeded in this answer."

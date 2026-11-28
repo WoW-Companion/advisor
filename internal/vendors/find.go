@@ -71,11 +71,57 @@ var stopWords = map[string]bool{"a": true, "an": true, "the": true, "in": true, 
 var flagTerms = map[string]int{"poison": questie.FlagVendorPoison, "poisons": questie.FlagVendorPoison, "reagent": questie.FlagVendorReagent,
 	"reagents": questie.FlagVendorReagent, "food": questie.FlagVendorFood, "ammo": questie.FlagVendorAmmo}
 
+// professionWords map a keyword that names a profession or its goods to the dataset's skill line: a vendor
+// of that profession's reagents answers it ("poison vendor" is a vendor of the Poisons reagents).
+var professionWords = map[string]string{"poison": "Poisons", "poisons": "Poisons", "alchemy": "Alchemy", "alchemist": "Alchemy",
+	"tailoring": "Tailoring", "tailor": "Tailoring", "enchanting": "Enchanting", "enchanter": "Enchanting",
+	"leatherworking": "Leatherworking", "leatherworker": "Leatherworking", "blacksmithing": "Blacksmithing",
+	"blacksmith": "Blacksmithing", "engineering": "Engineering", "engineer": "Engineering", "cooking": "Cooking", "cook": "Cooking"}
+
 func keywords(s string) []string {
 	var out []string
 	for _, w := range strings.FieldsFunc(strings.ToLower(s), func(r rune) bool { return !(r >= 'a' && r <= 'z' || r >= '0' && r <= '9' || r == '\'') }) {
 		if !stopWords[w] {
 			out = append(out, w)
+		}
+	}
+	return out
+}
+
+// dropSupplyNoise removes "supplies" and "supply" from a question that already names a profession ("tailoring
+// supplies"): the profession word carries the meaning.
+func dropSupplyNoise(terms []string) []string {
+	named := false
+	for _, t := range terms {
+		named = named || professionWords[t] != ""
+	}
+	if !named {
+		return terms
+	}
+	var out []string
+	for _, t := range terms {
+		if t != "supplies" && t != "supply" {
+			out = append(out, t)
+		}
+	}
+	return out
+}
+
+// reagentItems are the items the recipes of the skill line use, from the dataset's recipes and recipe_reagents.
+func reagentItems(ds store.DataStore, line string) map[int64]bool {
+	out := map[int64]bool{}
+	recipes, err := ds.Filter("recipes", store.Range{Column: "skill_line_name", Min: line, Max: line})
+	if err != nil {
+		return out
+	}
+	spells := map[int64]bool{}
+	for _, r := range recipes {
+		spells[i64(r["spell_id"])] = true
+	}
+	reag, _ := ds.Filter("recipe_reagents", store.Range{Column: "spell_id"})
+	for _, r := range reag {
+		if spells[i64(r["spell_id"])] {
+			out[i64(r["reagent_item_id"])] = true
 		}
 	}
 	return out
@@ -112,8 +158,25 @@ func open(npc, side string) bool {
 // Search finds NPCs of the kind for the query, from the dataset's vendor offers and NPC rows and from
 // the player's QuestieDB (its subnames and vendor types). Either source may be nil.
 func Search(ds store.DataStore, qx *questie.Index, q Query) Result {
+	res := search(ds, qx, q, keywords(q.Text))
+	if len(res.Found) > 0 || q.Zone != "" {
+		return res
+	}
+	// "poison vendor in Booty Bay" with no separate zone: the longest tail of the words that names a place with a match.
+	all := keywords(q.Text)
+	for n := min(3, len(all)-1); n >= 1; n-- {
+		zq := q
+		zq.Zone = strings.Join(all[len(all)-n:], " ")
+		if r := search(ds, qx, zq, all[:len(all)-n]); len(r.Found) > 0 {
+			return r
+		}
+	}
+	return res
+}
+
+func search(ds store.DataStore, qx *questie.Index, q Query, terms []string) Result {
 	kind := cmp.Or(strings.ToLower(q.Kind), KindVendor)
-	terms := keywords(q.Text)
+	terms = dropSupplyNoise(terms)
 	cand := map[int64]*Found{}
 	get := func(id int64) *Found {
 		if f := cand[id]; f != nil {
@@ -219,6 +282,14 @@ func datasetVendors(ds store.DataStore, terms []string, zone string, cand map[in
 	byTerm := map[int64][]string{}
 	lo, hi := int64(1<<62), int64(0)
 	for _, t := range terms {
+		if line := professionWords[t]; line != "" {
+			for id := range reagentItems(ds, line) {
+				if id != 0 {
+					byTerm[id] = append(byTerm[id], t)
+					lo, hi = min(lo, id), max(hi, id)
+				}
+			}
+		}
 		items, err := ds.SearchName("items", t, 60)
 		if err != nil {
 			continue
@@ -233,7 +304,7 @@ func datasetVendors(ds store.DataStore, terms []string, zone string, cand map[in
 			lo, hi = min(lo, id), max(hi, id)
 		}
 	}
-	if len(names) == 0 {
+	if len(byTerm) == 0 {
 		return
 	}
 	rows, err := ds.Filter("vendor_sources", store.Range{Column: "item_id", Min: lo, Max: hi})
@@ -254,7 +325,14 @@ func datasetVendors(ds store.DataStore, terms []string, zone string, cand map[in
 		if sold[npc] == nil {
 			sold[npc] = map[string]bool{}
 		}
-		sold[npc][names[item]] = true
+		if names[item] == "" {
+			if it, err := ds.Get("items", item); err == nil {
+				names[item] = str(it["name"])
+			}
+		}
+		if names[item] != "" {
+			sold[npc][names[item]] = true
+		}
 	}
 }
 
@@ -267,6 +345,9 @@ func place(ds store.DataStore, qx *questie.Index, f *Found, id int64, q Query) b
 				f.Name = str(n["name"])
 			}
 			f.Zone = cmp.Or(str(n["zone_name"]), str(n["located_in"]))
+			if in := str(n["located_in"]); in != "" && in != f.Zone {
+				f.Subzone = in
+			}
 			if x, ok := f64(n["x"]); ok {
 				if y, ok := f64(n["y"]); ok {
 					f.X, f.Y, f.HasXY = x, y, true
@@ -340,6 +421,9 @@ func fillSells(ds store.DataStore, f *Found, terms []string, known map[string]bo
 		return c
 	}
 	sort.Slice(f.Sells, func(i, j int) bool {
+		if a, b := known[f.Sells[i]], known[f.Sells[j]]; a != b {
+			return a
+		}
 		if a, b := hits(f.Sells[i]), hits(f.Sells[j]); a != b {
 			return a > b
 		}

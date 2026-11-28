@@ -79,6 +79,53 @@ func TestEmptyLookupSaysNotInMyData(t *testing.T) {
 	}
 }
 
+type fRecipe struct {
+	Spell int64  `parquet:"spell_id"`
+	Line  string `parquet:"skill_line_name"`
+}
+type fReagent struct {
+	Spell int64 `parquet:"spell_id"`
+	Item  int64 `parquet:"reagent_item_id"`
+}
+
+// supplyData: Sly Garrett sells Poisons reagents but no item named poison; a trade vendor sells Tailoring reagents.
+func supplyData(t *testing.T) store.DataStore {
+	return store.New(store.ReaderSource{
+		"items":           ftable(t, []fItem{{20, "Empty Vial"}, {21, "Dust of Decay"}, {22, "Rough Arrow"}, {23, "Coarse Thread"}}),
+		"npcs":            ftable(t, []fNpc{{2622, "Sly Garrett", "Stranglethorn Vale"}, {8, "Cloth Trader", "Orgrimmar"}, {9, "Arrow Seller", "Orgrimmar"}}),
+		"vendor_sources":  ftable(t, []fOffer{{2622, 20, 5}, {2622, 21, 9}, {8, 23, 3}, {9, 22, 1}}),
+		"recipes":         ftable(t, []fRecipe{{1, "Poisons"}, {2, "Tailoring"}}),
+		"recipe_reagents": ftable(t, []fReagent{{1, 20}, {1, 21}, {2, 23}}),
+	})
+}
+
+func TestProfessionWordFindsReagentVendor(t *testing.T) {
+	for _, q := range []Query{{Text: "poison", Zone: "Booty Bay"}, {Text: "poison vendor in Booty Bay"}, {Text: "poison vendor Booty Bay"}} {
+		q.Faction = "Horde"
+		res := Search(supplyData(t), findIndex(), q)
+		if len(res.Found) != 1 || res.Found[0].NPCID != 2622 || res.Found[0].Sub != "Shady Goods" {
+			t.Fatalf("%+v: %+v", q, res)
+		}
+		if got := strings.Join(res.Found[0].Sells, ","); got != "Dust of Decay,Empty Vial" {
+			t.Errorf("sells %q", got)
+		}
+	}
+}
+
+func TestSupplyWordsNameTradeVendor(t *testing.T) {
+	res := Search(supplyData(t), nil, Query{Text: "tailoring supplies", Zone: "Orgrimmar", Faction: "Horde"})
+	if len(res.Found) != 1 || res.Found[0].Name != "Cloth Trader" || len(res.Found[0].Sells) == 0 || res.Found[0].Sells[0] != "Coarse Thread" {
+		t.Errorf("%+v", res)
+	}
+}
+
+func TestProfessionWordMissStaysHonest(t *testing.T) {
+	res := Search(supplyData(t), findIndex(), Query{Text: "alchemy vendor", Zone: "Booty Bay"})
+	if len(res.Found) != 0 || !strings.HasPrefix(res.Text, "Not in my data") {
+		t.Errorf("%+v", res)
+	}
+}
+
 func ftable[T any](t *testing.T, rows []T) store.SizedReaderAt {
 	t.Helper()
 	var buf bytes.Buffer
