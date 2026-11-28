@@ -343,9 +343,16 @@ func addChores(p *Plan, c character.Character, src source, opt Options) {
 		if ch, ok := junkChore(len(c.Bags), opt.BagSlots, len(safe), shops); ok {
 			chores = append(chores, ch)
 		}
-		chores = append(chores, mailChores(mail, guard, spotsWhere(qx, c, maps, true, func(e questie.Entity) bool {
+		boxes := spotsWhere(qx, c, maps, true, func(e questie.Entity) bool {
 			return strings.Contains(strings.ToLower(e.Name), "mailbox")
-		}))...)
+		})
+		chores = append(chores, mailChores(mail, guard, boxes)...)
+		p.bags = &bagFacts{junk: len(safe), guard: guard, mailSpot: boxes, shops: shops}
+		for _, m := range mail {
+			if m.To != "" && !guard(m.ID, m.Item) {
+				p.bags.mail++
+			}
+		}
 	}
 	bundleChores(p, chores)
 }

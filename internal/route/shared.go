@@ -251,6 +251,7 @@ func shapeSharedPlan(p *Plan, c character.Character, src source, opt Options, in
 	addErrands(p, c, src, opt, in)
 	addChores(p, c, src, opt)
 	addProfessionChores(p, c, src, opt)
+	addBagForecast(p, c, src, opt)
 	p.Total = len(p.Steps)
 	linkSteps(p.Steps)
 	p.Flights = flightList(c, src, p, in.cur)
