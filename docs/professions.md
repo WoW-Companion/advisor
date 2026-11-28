@@ -95,6 +95,8 @@ The skill gate is the trainer's required skill when the dataset has it. Where th
 
 ## Where to gather and fish
 
+A free-text question about an ore or herb node, or about fishing, is answered from the dataset's own rows (`ask`'s gathering facts). A skill the question states ("what can I mine at 100 mining?") is compared with each listed node's skill. A fishing question finds a zone by its name with or without "the", "Vale", "Forest", "Foothills" or "Mountains", and a fish by its name with or without "Raw"; a capital or starting zone of one faction is marked as that faction's.
+
 `where_to_gather` answers "where can I mine copper?" (an `item`, optionally with `kind`: mine, herb or fish) and "where should I fish at my level?" (a `kind` alone). It reads the herb nodes, ore veins and fishing schools from the player's own QuestieDB, so it needs Questie installed; the dataset's gathering tables are empty.
 
 - **Item answer.** Up to three zones with the most nodes or schools that yield the item (ids from either source agree, and one item may come from several object ids), the character's own zone first, with one or two sample coordinates, the nearest to the character first within their own zone.
