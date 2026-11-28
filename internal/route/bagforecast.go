@@ -93,7 +93,7 @@ func bagDeltas(p *Plan, c character.Character, qx *questie.Index) []int {
 			d[i] += gatherSlots
 		case e.Kind == ErrandProfession && strings.HasPrefix(e.Label, "Craft"):
 			d[i] += craftSlots
-		case e.Kind == ErrandRestock:
+		case e.Kind == ErrandRestock, isPickup(e):
 			d[i] += buySlots
 		}
 	}
@@ -170,7 +170,7 @@ func addBagForecast(p *Plan, c character.Character, src source, opt Options) {
 	frees := map[int]int{}
 	done := map[string]bool{}
 	for _, e := range p.Errands {
-		if i, ok := at[e.Attach]; ok && e.Attach > 0 {
+		if i, ok := at[e.Attach]; ok && e.Attach > 0 && !isPickup(e) {
 			switch e.Kind {
 			case ErrandSellJunk:
 				frees[i] += f.junk
@@ -183,7 +183,7 @@ func addBagForecast(p *Plan, c character.Character, src source, opt Options) {
 	if done[ErrandMail] { // mail errands are placed already; they free the list once, at the latest
 		last := -1
 		for _, e := range p.Errands {
-			if i, ok := at[e.Attach]; ok && e.Attach > 0 && e.Kind == ErrandMail {
+			if i, ok := at[e.Attach]; ok && e.Attach > 0 && e.Kind == ErrandMail && !isPickup(e) {
 				last = max(last, i)
 			}
 		}

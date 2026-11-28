@@ -169,45 +169,30 @@ func mailChores(items []Mailing, protected func(id int64, name string) bool, spo
 // Short is a reagent the player is short of for a batch, and who sells it.
 type Short struct {
 	Item  string
+	ID    int64
 	Need  int
 	Spots []Spot
+	Note  string // what the plan could not see, said in the buy's reason
 }
 
 func restockChores(short []Short) []Chore {
 	var out []Chore
 	for _, s := range short {
 		if s.Need > 0 && len(s.Spots) > 0 && len(out) < maxRestock {
-			out = append(out, Chore{Kind: ErrandRestock, Do: fmt.Sprintf("buy %d %s", s.Need, s.Item), Prep: "from", Why: "short of reagents for a batch of " + fmt.Sprint(RestockBatch), Spots: s.Spots})
+			why := "short of reagents for a batch of " + fmt.Sprint(RestockBatch)
+			if s.Note != "" {
+				why += "; " + s.Note
+			}
+			out = append(out, Chore{Kind: ErrandRestock, Do: fmt.Sprintf("buy %d %s", s.Need, s.Item), Prep: "from", Why: why, Spots: s.Spots})
 		}
 	}
 	return out
 }
 
-// shortOf is the reagents the character's recipes that still give skill-ups need for RestockBatch crafts, less what the bags hold.
-func shortOf(c character.Character, nameOf func(id int64) string, spotsFor func(id int64, name string) []Spot) []Short {
-	need := map[int64]int{}
-	names := map[int64]string{}
-	var order []int64
-	profs := make([]string, 0, len(c.Recipes))
-	for k := range c.Recipes {
-		profs = append(profs, k)
-	}
-	sort.Strings(profs)
-	for _, k := range profs {
-		for _, r := range c.Recipes[k].Entries {
-			if r.Difficulty == "grey" || r.Difficulty == "gray" {
-				continue
-			}
-			for _, rg := range r.Reagents {
-				id := int64(rg.ItemID)
-				if _, ok := need[id]; !ok {
-					order = append(order, id)
-				}
-				need[id] += rg.Count * RestockBatch
-				names[id] = rg.Name
-			}
-		}
-	}
+// shortList is the reagents the character's recipes that still give skill-ups need for RestockBatch crafts, less what
+// the bags hold. Spots are not filled in.
+func shortList(c character.Character, nameOf func(id int64) string) []Short {
+	need, names, order := reagentNeeds(c)
 	have := map[int64]int{}
 	for _, b := range c.Bags {
 		have[int64(b.ItemID)] += b.Count
@@ -226,7 +211,7 @@ func shortOf(c character.Character, nameOf func(id int64) string, spotsFor func(
 		if names[id] == "" {
 			continue
 		}
-		out = append(out, Short{Item: names[id], Need: need[id] - have[id], Spots: spotsFor(id, names[id])})
+		out = append(out, Short{Item: names[id], ID: id, Need: need[id] - have[id]})
 	}
 	return out
 }
@@ -331,9 +316,26 @@ func addChores(p *Plan, c character.Character, src source, opt Options) {
 	if ch, ok := repairChore(c, spotsWhere(qx, c, maps, false, func(e questie.Entity) bool { return e.Flags&flagRepair != 0 })); ok {
 		chores = append(chores, ch)
 	}
-	chores = append(chores, restockChores(shortOf(c, func(id int64) string { return itemName(opt, id) }, func(id int64, name string) []Spot { return vendorSpots(c, qx, opt, maps, id, name) }))...)
+	nameOf := func(id int64) string { return itemName(opt, id) }
+	shorts := shortList(c, nameOf)
+	for i := range shorts {
+		sh := &shorts[i]
+		pick, rest := pickupChores(p, c, qx, opt, maps, sh.ID, sh.Item, sh.Need)
+		chores = append(chores, pick...)
+		sh.Need = rest
+		sh.Spots = vendorSpots(c, qx, opt, maps, sh.ID, sh.Item)
+		if !c.BankCaptured {
+			sh.Note = "your bank was not seen"
+		}
+	}
+	chores = append(chores, restockChores(shorts)...)
 	if c.BagsCaptured || len(c.Bags) > 0 {
 		junk, mail := reviewLines(c, qx, opt)
+		for _, m := range outgoingMail(c, opt.Others, qx, nameOf) {
+			if !slices.ContainsFunc(mail, func(x Mailing) bool { return x.ID == m.ID && x.To == m.To }) {
+				mail = append(mail, m)
+			}
+		}
 		needs := inventory.NeedsOf(c, qx)
 		guard := func(id int64, name string) bool {
 			return len(needs.For(id, name, nil)) > 0 || len(needs.Starts(id)) > 0
