@@ -72,7 +72,7 @@ func wowcQuest(e lua.Table) (Quest, bool) {
 		return Objective{Text: asStr(o["text"]), Have: asInt(o["have"]), Need: asInt(o["need"]), Done: asBool(o["done"])}, true
 	})
 	return Quest{QuestID: *id, Title: asStr(e["title"]), Level: asInt(e["level"]), Complete: asBool(e["complete"]),
-		Failed: asBool(e["failed"]), Objectives: objs, Elite: asBool(e["elite"])}, true
+		Failed: asBool(e["failed"]), Objectives: objs, Elite: asBool(e["elite"]), Group: asInt(e["group"])}, true
 }
 
 // wowcTalents reads a record's talents and its talentPoints (unspent points, optional: absent in older

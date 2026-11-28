@@ -58,6 +58,8 @@ type Quest struct {
 	Observed bool
 	// Elite is set when the addon flagged the quest elite (a group quest); nil or false when not.
 	Elite *bool
+	// Group is the quest's suggested group size from the addon (0 or nil: none); above 0 the quest is a group quest.
+	Group *int
 }
 
 // QuestPOI is one captured quest map point: a map, a position as percent of that map, and when
@@ -311,6 +313,15 @@ func (c Character) Reach() int {
 
 // IsHidden reports whether the player hid the quest from the plan.
 func (c Character) IsHidden(id int) bool { return c.PlanPrefs != nil && c.PlanPrefs.Hidden[id] }
+
+// IsElite reports whether the capture itself marks the quest elite, and whether it says anything: ok is
+// false for a capture with neither an elite flag nor a group size, which leaves the answer to other sources.
+func (q Quest) IsElite() (elite, ok bool) {
+	if q.Elite != nil && *q.Elite || q.Group != nil && *q.Group > 0 {
+		return true, true
+	}
+	return false, q.Elite != nil
+}
 
 // ElitesIncluded reports whether the player plans elite quests.
 func (c Character) ElitesIncluded() bool { return c.PlanPrefs != nil && c.PlanPrefs.IncludeElite }

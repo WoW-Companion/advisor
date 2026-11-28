@@ -74,6 +74,8 @@ type Stop struct {
 	// Level is the quest's level (0 when unknown) and Diff its difficulty colour for the player.
 	Level int    `json:"level,omitempty"`
 	Diff  string `json:"diff,omitempty"`
+	// Elite is set when the quest is elite or a group quest; the addon's level tag reads it (Plan.lua 1.7).
+	Elite bool `json:"elite,omitempty"`
 	// Priority is set on a class quest's stops: they are worth doing first, so they come early.
 	Priority bool `json:"priority,omitempty"`
 	// Optional is set on a holiday-event quest's stops: the player opted in, and they come after the rest.
@@ -121,6 +123,7 @@ type FindStop struct {
 	Label   string `json:"label"`
 	Level   int    `json:"level,omitempty"`
 	Diff    string `json:"diff,omitempty"`
+	Elite   bool   `json:"elite,omitempty"` // the quest is elite or a group quest (Plan.lua 1.7)
 	// Hint and Zone are on a logged quest with no place on the map, mostly a done quest whose finisher is
 	// unknown: Hint is the quest's own objective text, Zone where it is known to be (Plan.lua 1.7).
 	Hint string `json:"hint,omitempty"`
@@ -262,6 +265,7 @@ type spot struct {
 	quests   []int
 	names    []string
 	label    string        // the NPC or mob
+	elite    bool          // the quest is elite or a group quest
 	must     bool          // part of a class quest: always on the route, never cut to "later"
 	event    bool          // only holiday-event quests use this stop: optional, cut before any other
 	tags     []string      // on a pick-up: per quest in names, the dungeon and XP in brackets; "" for none
@@ -396,10 +400,10 @@ func planWith(c character.Character, src source, opt Options) Plan {
 	reach := c.Reach()
 	for _, q := range src.quests(c, at) {
 		for _, sp := range q.chain() {
-			sp.level = q.level
+			sp.level, sp.elite = q.level, q.elite
 		}
 		for _, sp := range q.unplaced {
-			sp.level = q.level
+			sp.level, sp.elite = q.level, q.elite
 		}
 		if c.IsHidden(q.id) {
 			if inLogSet(p.Basis.InLog, q.id) {
@@ -502,7 +506,7 @@ func planWith(c character.Character, src source, opt Options) Plan {
 			turnOf[f.id] = f.turnin
 		}
 		for _, sp := range f.chain() {
-			sp.locked, sp.depth, sp.unlockedBy, sp.chain, sp.observed = true, f.depth, f.unlockedBy, f.chainName, f.observed
+			sp.locked, sp.depth, sp.unlockedBy, sp.chain, sp.observed, sp.elite = true, f.depth, f.unlockedBy, f.chainName, f.observed, f.elite
 		}
 		use = append(use, f)
 		chosen = append(chosen, f)
@@ -628,7 +632,7 @@ func planWith(c character.Character, src source, opt Options) Plan {
 	p.Here = buildHere(p, append(listed, chosen...), src)
 	p.Finishers = buildFinishers(c, src, listed, p.Zone)
 	for i, s := range findSpots {
-		p.Find = append(p.Find, FindStop{N: i + 1, QuestID: s.quests[0], Quest: strings.Join(s.names, ", "), Label: s.label, Level: s.level, Diff: DiffOf(s.level, lvl)})
+		p.Find = append(p.Find, FindStop{N: i + 1, QuestID: s.quests[0], Quest: strings.Join(s.names, ", "), Label: s.label, Level: s.level, Diff: DiffOf(s.level, lvl), Elite: s.elite})
 	}
 	for i := range p.Zones {
 		z := &p.Zones[i]
@@ -674,7 +678,7 @@ func mustSet(nodes []*spot, preds [][]int) map[int]bool {
 
 func stopOf(n int, s *spot) Stop {
 	st := Stop{N: n, Kind: s.kind, Map: s.m, X: round1(s.x), Y: round1(s.y), Place: s.place, Priority: s.must, Optional: s.event}
-	st.Level = s.level
+	st.Level, st.Elite = s.level, s.elite
 	if s.zoneOnly {
 		st.X, st.Y, st.ZoneOnly, st.Unplaced = NoPos, NoPos, true, true
 	}
@@ -1175,6 +1179,8 @@ func choosePickups(c character.Character, lvl, reach int, opt Options, pickups [
 	for _, q := range pickups {
 		fit := dungeonFits(q, lvl)
 		switch {
+		case q.elite && !c.ElitesIncluded() && !q.must:
+			*later = append(*later, q.chain()...) // an elite quest needs a group: visible under later, never planned
 		case tooHigh(q.level, lvl, reach) && !q.must && !fit:
 			*later = append(*later, q.chain()...)
 		case q.level > 0 && q.level < lvl-PickupBelow && !q.must && !fit:
@@ -1344,5 +1350,5 @@ func inLogSet(inLog []int, id int) bool { _, ok := slices.BinarySearch(inLog, id
 
 // parkedOf is a parked entry for a quest.
 func parkedOf(q *quest, lvl int, kind, why string) Parked {
-	return Parked{QuestID: q.id, Quest: q.name, Why: why, Kind: kind, Level: q.level, Diff: DiffOf(q.level, lvl)}
+	return Parked{QuestID: q.id, Quest: q.name, Why: why, Kind: kind, Level: q.level, Diff: DiffOf(q.level, lvl), Elite: q.elite}
 }

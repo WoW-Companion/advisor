@@ -77,6 +77,7 @@ type Parked struct {
 	Kind    string `json:"kind"`
 	Level   int    `json:"level,omitempty"`
 	Diff    string `json:"diff,omitempty"`
+	Elite   bool   `json:"elite,omitempty"`
 }
 
 // entranceSource is a source that knows which zone a dungeon's entrance stands in.

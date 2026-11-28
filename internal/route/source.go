@@ -23,6 +23,17 @@ type questieSource struct {
 	follow func(use []*quest, cur int, opt Options) []*quest // set by quests
 }
 
+// eliteOf says whether a quest is elite, by the first source that answers: the capture (an elite flag or a
+// group size on the quest's log entry), then the QuestieDB's own quest tag or type, then the dataset.
+func (s *questieSource) eliteOf(qq *questie.Quest, lq *character.Quest) bool {
+	if lq != nil {
+		if e, ok := lq.IsElite(); ok {
+			return e
+		}
+	}
+	return qq.Elite || advice.DatasetElite(qq.ID, s.opt.Data)
+}
+
 type pt struct {
 	m    int
 	x, y float64
@@ -386,7 +397,7 @@ func (s *questieSource) quests(c character.Character, at *questie.Where) []*ques
 		if qq == nil || (lq.Failed != nil && *lq.Failed) {
 			continue
 		}
-		q := &quest{id: qq.ID, name: qq.Name, level: qq.Level, must: classQuestOf(c, qq), hint: qq.Objective, elite: lq.Elite != nil && *lq.Elite}
+		q := &quest{id: qq.ID, name: qq.Name, level: qq.Level, must: classQuestOf(c, qq), hint: qq.Objective, elite: s.eliteOf(qq, &lq)}
 		if lq.Level != nil {
 			q.level = *lq.Level
 		}
@@ -448,7 +459,7 @@ func (s *questieSource) quests(c character.Character, at *questie.Where) []*ques
 			if pick == nil || pick.m != curMap {
 				continue
 			}
-			q := &quest{id: qq.ID, name: qq.Name, level: qq.Level, pickup: pick, must: classQuestOf(c, qq), event: qq.Event != ""}
+			q := &quest{id: qq.ID, name: qq.Name, level: qq.Level, pickup: pick, must: classQuestOf(c, qq), event: qq.Event != "", elite: s.eliteOf(qq, nil)}
 			q.festival = festivalSort(qq.Zone)
 			q.xp = s.opt.XP[qq.ID]
 			if d := s.qx.DungeonOf(qq.ID); d != nil {
@@ -483,6 +494,9 @@ func (s *questieSource) quests(c character.Character, at *questie.Where) []*ques
 			if qq == nil || tooHigh(qq.Level, *c.Level, c.Reach()) {
 				continue
 			}
+			if !c.ElitesIncluded() && !classQuestOf(c, qq) && s.eliteOf(qq, nil) {
+				continue // a follow-up that needs a group is not planned
+			}
 			ax, ay, haveA := x, y, haveXY
 			for _, a := range f.UnlockedBy {
 				if t := tspot[a]; t != nil {
@@ -498,7 +512,7 @@ func (s *questieSource) quests(c character.Character, at *questie.Where) []*ques
 				continue
 			}
 			q := &quest{id: qq.ID, name: qq.Name, level: qq.Level, pickup: pick, must: classQuestOf(c, qq), event: qq.Event != "",
-				locked: true, depth: f.Depth, unlockedBy: f.UnlockedBy, chainName: f.Chain, observed: f.Observed}
+				elite: s.eliteOf(qq, nil), locked: true, depth: f.Depth, unlockedBy: f.UnlockedBy, chainName: f.Chain, observed: f.Observed}
 			q.objs, q.unplaced = objectives(qq, nil, nil, pick.x, pick.y)
 			if len(q.unplaced) == 0 {
 				q.turnin = spotFrom(KindTurnIn, qq, qq.Finishers, pick.x, pick.y, true)

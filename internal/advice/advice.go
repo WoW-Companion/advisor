@@ -78,25 +78,40 @@ type questInfo struct {
 
 func lookup(q character.Quest, ds store.DataStore) questInfo {
 	info := lookupBase(q, ds)
-	info.elite = isElite(q, ds)
+	if e, ok := q.IsElite(); ok {
+		info.elite = e // the capture's own word
+	} else {
+		info.elite = isElite(q, ds)
+	}
 	return info
+}
+
+// EliteNote is the words that tag an elite quest wherever the quest is listed: "" for any other quest.
+func EliteNote(elite bool) string {
+	if elite {
+		return " (elite, needs a group)"
+	}
+	return ""
 }
 
 // isElite reads an optional boolean column of the dataset's quests table (elite, then group); failing
 // that, whether players tagged the quest "group" or "dungeon" (or gave it a group size of two or more)
 // in quests_observed. False when the dataset has none.
-func isElite(q character.Quest, ds store.DataStore) bool {
-	if ds == nil || q.QuestID == 0 {
+func isElite(q character.Quest, ds store.DataStore) bool { return DatasetElite(q.QuestID, ds) }
+
+// DatasetElite is isElite for a quest id: whether the dataset marks the quest elite or a group quest.
+func DatasetElite(questID int, ds store.DataStore) bool {
+	if ds == nil || questID == 0 {
 		return false
 	}
-	if row, err := ds.Get("quests", int64(q.QuestID)); err == nil {
+	if row, err := ds.Get("quests", int64(questID)); err == nil {
 		for _, col := range []string{"elite", "group"} {
 			if b, ok := row[col].(bool); ok && b {
 				return true
 			}
 		}
 	}
-	id := int64(q.QuestID)
+	id := int64(questID)
 	rows, err := ds.Filter("quests_observed", store.Range{Column: "quest_id", Min: id, Max: id})
 	if err != nil {
 		return false
@@ -217,7 +232,7 @@ func WhatsNextWith(c character.Character, ds store.DataStore, qx *questie.Index)
 		info := lookup(q, ds)
 		switch {
 		case isTrue(q.Complete):
-			s := Step{Kind: KindTurnIn, Title: "Turn in " + title(q), Reason: "ready to turn in", Zone: info.zone, QuestID: q.QuestID, Sources: info.sources, Name: title(q), Level: lvl(info.level), Elite: info.elite}
+			s := Step{Kind: KindTurnIn, Title: "Turn in " + title(q), Reason: "ready to turn in" + EliteNote(info.elite), Zone: info.zone, QuestID: q.QuestID, Sources: info.sources, Name: title(q), Level: lvl(info.level), Elite: info.elite}
 			if withChain(&s, ds, q, true) {
 				unlocking[q.QuestID] = true
 			}
@@ -230,6 +245,7 @@ func WhatsNextWith(c character.Character, ds store.DataStore, qx *questie.Index)
 		default:
 			s := Step{Kind: KindQuest, Title: title(q), Zone: info.zone, QuestID: q.QuestID, Sources: info.sources, Name: title(q), Level: lvl(info.level), Elite: info.elite}
 			chained := func() {
+				s.Reason += EliteNote(info.elite)
 				withChain(&s, ds, q, false)
 				if p := q.ProgressText(); p != "" {
 					s.Progress = p

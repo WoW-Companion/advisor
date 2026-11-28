@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/WoW-Companion/advisor/internal/advice"
 	"github.com/WoW-Companion/advisor/internal/digest"
 	"github.com/WoW-Companion/advisor/internal/wording"
 )
@@ -43,6 +44,14 @@ func levelLua(level int, diff string) string {
 	return out
 }
 
+// eliteLua is the ", elite = true" tail of an entry for an elite or group quest; empty otherwise.
+func eliteLua(elite bool) string {
+	if elite {
+		return ", elite = true"
+	}
+	return ""
+}
+
 func stops(b *strings.Builder, indent string, list []Stop) {
 	for _, s := range list {
 		extra := ""
@@ -55,7 +64,7 @@ func stops(b *strings.Builder, indent string, list []Stop) {
 		if s.Place != "" {
 			extra += ", place = " + digest.Quote(s.Place)
 		}
-		extra += levelLua(s.Level, s.Diff)
+		extra += levelLua(s.Level, s.Diff) + eliteLua(s.Elite)
 		if s.Errand != "" {
 			extra += ", errand = " + digest.Quote(s.Errand)
 		}
@@ -111,7 +120,7 @@ func (e Envelope) Lua() string {
 		}
 		b.WriteString("      },\n      parked = {\n")
 		for _, k := range p.Parked {
-			fmt.Fprintf(&b, "        { questID = %d, quest = %s, why = %s, kind = %s%s },\n", k.QuestID, digest.Quote(k.Quest), digest.Quote(k.Why), digest.Quote(k.Kind), levelLua(k.Level, k.Diff))
+			fmt.Fprintf(&b, "        { questID = %d, quest = %s, why = %s, kind = %s%s },\n", k.QuestID, digest.Quote(k.Quest), digest.Quote(k.Why), digest.Quote(k.Kind), levelLua(k.Level, k.Diff)+eliteLua(k.Elite))
 		}
 		b.WriteString("      },\n      later = {\n")
 		stops(&b, "        ", p.Later)
@@ -122,10 +131,10 @@ func (e Envelope) Lua() string {
 				if f.Zone != "" {
 					z = ", zone = " + digest.Quote(f.Zone)
 				}
-				fmt.Fprintf(&b, "        { n = %d, questID = %d, quest = %s, hint = %s%s%s, done = false },\n", f.N, f.QuestID, digest.Quote(f.Quest), digest.Quote(f.Hint), z, levelLua(f.Level, f.Diff))
+				fmt.Fprintf(&b, "        { n = %d, questID = %d, quest = %s, hint = %s%s%s, done = false },\n", f.N, f.QuestID, digest.Quote(f.Quest), digest.Quote(f.Hint), z, levelLua(f.Level, f.Diff)+eliteLua(f.Elite))
 				continue
 			}
-			fmt.Fprintf(&b, "        { n = %d, kind = \"objective\", questID = %d, quest = %s, label = %s%s, done = false },\n", f.N, f.QuestID, digest.Quote(f.Quest), digest.Quote(f.Label), levelLua(f.Level, f.Diff))
+			fmt.Fprintf(&b, "        { n = %d, kind = \"objective\", questID = %d, quest = %s, label = %s%s, done = false },\n", f.N, f.QuestID, digest.Quote(f.Quest), digest.Quote(f.Label), levelLua(f.Level, f.Diff)+eliteLua(f.Elite))
 		}
 		b.WriteString("      },\n")
 		if len(p.Errands) > 0 {
@@ -192,7 +201,7 @@ func Render(p Plan, limit int) string {
 			fmt.Fprintf(&b, "...and %d more stops\n", len(p.Steps)-limit)
 			break
 		}
-		fmt.Fprintf(&b, "%d. %s%s%s\n", s.N, s.Label, coordNote(s), lockedNote(s))
+		fmt.Fprintf(&b, "%d. %s%s%s%s\n", s.N, s.Label, coordNote(s), lockedNote(s), advice.EliteNote(s.Elite))
 	}
 	if len(p.Later) > 0 {
 		fmt.Fprintf(&b, "%d stops are later (too high a level, off this map or past the 20-stop cap).\n", len(p.Later))
