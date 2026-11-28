@@ -371,8 +371,18 @@ func worldRecipeCases(t *testing.T, part string, cases []worldRecipe) {
 		} else {
 			check(yellow-1, professions.Orange)
 			if yellow < grey {
-				check(yellow, professions.Yellow)
-				check(grey-1, professions.Yellow)
+				// yellow up to halfway to grey, green from there: the game's colours, which the advisor shows
+				mid := (yellow + grey) / 2
+				shade := func(skill int) string {
+					if skill >= mid {
+						return professions.Green
+					}
+					return professions.Yellow
+				}
+				check(yellow, shade(yellow))
+				check(mid-1, shade(mid-1))
+				check(mid, shade(mid))
+				check(grey-1, shade(grey-1))
 			}
 			check(grey, "none")
 		}
@@ -383,7 +393,7 @@ func worldRecipeCases(t *testing.T, part string, cases []worldRecipe) {
 				note = resultIf(false, "a recipe the player cannot learn before it is grey is listed")
 			}
 		}
-		out = append(out, benchRow{tc.name + ": colour at the thresholds", strings.Join(got, " "), strings.Join(want, " ") + " (orange below yellow, yellow to grey, none from grey)", recipeLevSrc, note})
+		out = append(out, benchRow{tc.name + ": colour at the thresholds", strings.Join(got, " "), strings.Join(want, " ") + " (orange below yellow, yellow to halfway, green to grey, none from grey)", recipeLevSrc, note})
 	}
 	finish(t, "advice-recipe-level-"+part, "Offline recipe levels: "+part, out)
 }

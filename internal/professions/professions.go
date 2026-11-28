@@ -220,8 +220,9 @@ func learnOf(r Recipe) int {
 }
 
 // Select picks the recipes a character at skill should make next: those they can already learn
-// (a recipe with no learn skill counts as learnable, and is noted), orange before yellow, and
-// within a difficulty the highest learn skill first, then the lowest spell id. Recipes with no
+// (a recipe with no learn skill counts as learnable, and is noted), orange before yellow before green (the colours the game
+// shows, so a recipe that gives a skill-up one craft in four is never called yellow), and
+// within a colour the highest learn skill first, then the lowest spell id. Recipes with no
 // thresholds follow in the same learn-skill order; at most MaxRecipes are returned.
 func Select(recipes []Recipe, skill int) []Step {
 	var tiers = map[string][]Recipe{}
@@ -229,12 +230,12 @@ func Select(recipes []Recipe, skill int) []Step {
 		if r.LearnSkill != nil && *r.LearnSkill > skill {
 			continue
 		}
-		if d := difficulty(r, skill); d != "" {
+		if d := colourAt(r, skill); d != "" {
 			tiers[d] = append(tiers[d], r)
 		}
 	}
 	var out []Step
-	for _, d := range []string{Orange, Yellow, Unknown} {
+	for _, d := range []string{Orange, Yellow, Green, Unknown} {
 		l := tiers[d]
 		sort.Slice(l, func(i, j int) bool {
 			if learnOf(l[i]) != learnOf(l[j]) {
@@ -485,8 +486,9 @@ func FarMaterials(c character.Character, ds store.DataStore) map[int64][]string 
 	return out
 }
 
-// Trades are the professions whose recipes ReagentUsers reads.
-var Trades = []string{"Alchemy", "Blacksmithing", "Enchanting", "Engineering", "Leatherworking", "Tailoring", "Cooking", "First Aid"}
+// Trades are the professions whose recipes ReagentUsers reads. Mining is one: it smelts the ore and stone it digs, so a
+// miner's alt is where those go.
+var Trades = []string{"Alchemy", "Blacksmithing", "Enchanting", "Engineering", "Leatherworking", "Tailoring", "Cooking", "First Aid", "Mining"}
 
 // ReagentUsers maps each reagent item id to the professions whose recipes use it, at any skill. A
 // profession the dataset has no recipes for contributes nothing, and ok is false when none do.
