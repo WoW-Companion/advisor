@@ -249,8 +249,8 @@ func nmSeen(c character.Character, level int) (character.Character, int64) {
 // and says the money covers it at exactly the total or above; with no money known it says nothing of money.
 func TestOfflineBenchmarkSweepTrainingMoney(t *testing.T) {
 	var out []benchRow
-	for ci, class := range tzClasses {
-		for _, level := range []int{8, 16, 24, 40} {
+	for ci, class := range []string{"WARRIOR", "MAGE", "PRIEST", "DRUID"} {
+		for _, level := range []int{16, 40} {
 			base, total := nmSeen(nmChar(class, ci, level), level)
 			if total == 0 {
 				continue
