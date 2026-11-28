@@ -7,6 +7,7 @@ import (
 
 	"github.com/parquet-go/parquet-go"
 
+	"github.com/WoW-Companion/advisor/internal/character"
 	"github.com/WoW-Companion/advisor/internal/questie"
 	"github.com/WoW-Companion/advisor/internal/store"
 )
@@ -133,4 +134,69 @@ func ftable[T any](t *testing.T, rows []T) store.SizedReaderAt {
 		t.Fatal(err)
 	}
 	return store.SizedReaderAt{ReaderAt: bytes.NewReader(buf.Bytes()), Size: int64(buf.Len())}
+}
+
+// gapData is supplyData without the NPC rows or offers: the dataset knows the items but not Sly Garrett.
+func gapData(t *testing.T) store.DataStore {
+	return store.New(store.ReaderSource{
+		"items":           ftable(t, []fItem{{20, "Empty Vial"}, {21, "Dust of Decay"}, {23, "Coarse Thread"}}),
+		"npcs":            ftable(t, []fNpc{{8, "Cloth Trader", "Orgrimmar"}}),
+		"vendor_sources":  ftable(t, []fOffer{{8, 23, 3}}),
+		"recipes":         ftable(t, []fRecipe{{1, "Poisons"}}),
+		"recipe_reagents": ftable(t, []fReagent{{1, 20}, {1, 21}}),
+	})
+}
+
+func bootyIndex() *questie.Index {
+	return &questie.Index{Areas: map[int]questie.Area{1: {UIMap: 224, Zone: "Booty Bay"}}}
+}
+
+func seenSly(faction string) []character.SeenVendor {
+	return []character.SeenVendor{{NPC: 2622, Name: "Sly Garrett", Map: 224, X: 40.5, Y: 73.8, Faction: faction,
+		Items: []character.SeenStock{{ItemID: 20}, {ItemID: 21}, {ItemID: 23, Ext: true}}}}
+}
+
+func TestObservedVendorAnswersPoisonVendor(t *testing.T) {
+	for _, q := range []Query{{Text: "poison vendor in Booty Bay"}, {Text: "poison vendor"}} {
+		q.Faction, q.Observed = "Horde", seenSly("")
+		res := Search(gapData(t), bootyIndex(), q)
+		if len(res.Found) != 1 {
+			t.Fatalf("%+v: %+v", q, res)
+		}
+		f := res.Found[0]
+		if f.NPCID != 2622 || f.Zone != "Booty Bay" || !f.HasXY || !f.Observed || strings.Join(f.Sells, ",") != "Dust of Decay,Empty Vial" {
+			t.Errorf("%+v: %+v", q, f)
+		}
+		if !strings.Contains(res.Text, "seen by your characters") {
+			t.Errorf("text %q", res.Text)
+		}
+	}
+	// Without the observation the dataset gap stays an honest miss.
+	if res := Search(gapData(t), bootyIndex(), Query{Text: "poison vendor in Booty Bay", Faction: "Horde"}); len(res.Found) != 0 {
+		t.Errorf("found without observation: %+v", res)
+	}
+}
+
+func TestObservedMergesWithDatasetByNpc(t *testing.T) {
+	obs := seenSly("")
+	obs = append(obs, character.SeenVendor{NPC: 2622, Name: "Sly Garrett", Map: 224, X: 41, Y: 74, T: 5, Items: []character.SeenStock{{ItemID: 20}}})
+	res := Search(supplyData(t), findIndex(), Query{Text: "poison", Zone: "Booty Bay", Faction: "Horde", Observed: obs})
+	if len(res.Found) != 1 {
+		t.Fatalf("want one merged entry: %+v", res)
+	}
+	f := res.Found[0]
+	if !f.Observed || f.Sub != "Shady Goods" || f.Zone != "Stranglethorn Vale" || f.X != 40.5 {
+		t.Errorf("dataset and Questie values must win: %+v", f)
+	}
+}
+
+func TestObservedOtherFactionFiltered(t *testing.T) {
+	q := Query{Text: "poison vendor in Booty Bay", Faction: "Alliance", Observed: seenSly("Horde")}
+	if res := Search(gapData(t), bootyIndex(), q); len(res.Found) != 0 {
+		t.Errorf("Horde vendor offered to Alliance: %+v", res.Found)
+	}
+	q.Faction = "Horde"
+	if res := Search(gapData(t), bootyIndex(), q); len(res.Found) != 1 || res.Found[0].Faction != "Horde" {
+		t.Errorf("%+v", res)
+	}
 }

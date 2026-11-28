@@ -24,7 +24,7 @@ func addVendorTools(s *mcp.Server, cfg Config) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "find_vendor",
 		Description: "Answers 'who sells X?', 'is there a poison / reagent / trade-goods vendor in <place>?', 'which vendor is here?', 'where is the trainer / flight master?' for one captured character (by name; omit if only one). " +
-			"Searches the dataset's vendor offers and NPCs plus the player's QuestieDB subnames and vendor types, neutral vendors included. " +
+			"Searches the dataset's vendor offers and NPCs plus the player's QuestieDB subnames and vendor types and the shops the player's characters opened, neutral vendors included. " +
 			"Each answer names the NPC, its subname, the zone and coordinates and what it sells. Call it BEFORE saying a vendor, trainer or flight master is unknown: " +
 			"never say you cannot confirm one without calling this first. When it finds nothing, say it is not in your data.",
 	}, func(_ context.Context, _ *mcp.CallToolRequest, in FindVendorInput) (*mcp.CallToolResult, vendors.Result, error) {
@@ -41,7 +41,7 @@ func addVendorTools(s *mcp.Server, cfg Config) {
 			ds = store.NewDir(cfg.Dataset)
 		}
 		qx := questie.ForSavedVariables(cfg.SavedVariables)
-		q := vendors.Query{Text: in.Query, Zone: strings.TrimSpace(in.Zone), Kind: in.Kind, Faction: c.Faction}
+		q := vendors.Query{Text: in.Query, Zone: strings.TrimSpace(in.Zone), Kind: in.Kind, Faction: c.Faction, Observed: vendors.ObservedOf(f.Characters...)}
 		if p := c.LastKnownPosition(); p != nil {
 			q.At = questie.Where{MapID: p.MapID, Zone: p.Zone, X: p.X, Y: p.Y}
 		} else if c.Location != nil {
