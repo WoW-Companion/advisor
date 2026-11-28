@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/WoW-Companion/advisor/internal/character"
 	"github.com/WoW-Companion/advisor/internal/questie"
 	"github.com/WoW-Companion/advisor/internal/store"
 )
@@ -31,6 +32,20 @@ type Query struct {
 	Kind    string // vendor (default), trainer or flight
 	Faction string // the player's faction; "" lists both
 	At      questie.Where
+	// Observed are the vendors the player's characters opened (Seen.Vendors), searched beside the dataset and
+	// QuestieDB and merged by npc id; use ObservedOf to collect them.
+	Observed []character.SeenVendor
+}
+
+// ObservedOf is the vendors every one of the characters opened.
+func ObservedOf(chars ...character.Character) []character.SeenVendor {
+	var out []character.SeenVendor
+	for _, c := range chars {
+		if c.Seen != nil {
+			out = append(out, c.Seen.Vendors...)
+		}
+	}
+	return out
 }
 
 // Found is one NPC the search matched.
@@ -48,6 +63,7 @@ type Found struct {
 	FactionKnown bool     `json:"faction_known" jsonschema:"false when no data says which side can use the NPC; Faction is then empty"`
 	Sells        []string `json:"sells,omitempty"`
 	Questie      bool     `json:"from_questie" jsonschema:"the place or the subname was read from the player's QuestieDB"`
+	Observed     bool     `json:"observed,omitempty" jsonschema:"true when one of the player's characters opened this vendor's shop"`
 	rank         int
 	dist         float64
 	matched      map[string]bool
@@ -190,6 +206,10 @@ func search(ds store.DataStore, qx *questie.Index, q Query, terms []string) Resu
 	if ds != nil && kind == KindVendor {
 		datasetVendors(ds, terms, q.Zone, cand, get, sold)
 	}
+	var seen map[int64]*seenVendor
+	if kind == KindVendor {
+		seen = observedVendors(ds, qx, terms, q, cand, get, sold)
+	}
 	for _, s := range qx.Services(kind) {
 		f := cand[int64(s.ID)]
 		text := strings.ToLower(s.Entity.Name + " " + s.Entity.Sub)
@@ -218,7 +238,7 @@ func search(ds store.DataStore, qx *questie.Index, q Query, terms []string) Resu
 	}
 	var list []*Found
 	for id, f := range cand {
-		if !place(ds, qx, f, id, q) || !open(f.Faction, q.Faction) {
+		if !place(ds, qx, f, id, q, seen[id]) || !open(f.Faction, q.Faction) {
 			continue
 		}
 		all := true
@@ -338,7 +358,7 @@ func datasetVendors(ds store.DataStore, terms []string, zone string, cand map[in
 
 // place fills the NPC's name and place from the dataset row, then Questie; false when it has no name
 // or stands outside the zone asked for.
-func place(ds store.DataStore, qx *questie.Index, f *Found, id int64, q Query) bool {
+func place(ds store.DataStore, qx *questie.Index, f *Found, id int64, q Query, sv *seenVendor) bool {
 	if ds != nil {
 		if n, err := ds.Get("npcs", id); err == nil {
 			if f.Name == "" {
@@ -355,6 +375,9 @@ func place(ds store.DataStore, qx *questie.Index, f *Found, id int64, q Query) b
 			}
 			f.Faction = cmp.Or(f.Faction, str(n["faction"]))
 		}
+	}
+	if sv != nil {
+		sv.fill(f)
 	}
 	if f.Name == "" {
 		return false
@@ -392,14 +415,11 @@ func place(ds store.DataStore, qx *questie.Index, f *Found, id int64, q Query) b
 }
 
 func fillSells(ds store.DataStore, f *Found, terms []string, known map[string]bool) {
-	if ds == nil {
-		return
-	}
 	names := map[string]bool{}
 	for n := range known {
 		names[n] = true
 	}
-	if len(names) < MaxSells {
+	if ds != nil && len(names) < MaxSells {
 		if rows, err := ds.Filter("vendor_sources", store.Range{Column: "npc_id", Min: f.NPCID, Max: f.NPCID}); err == nil {
 			for _, r := range rows {
 				if it, err := ds.Get("items", i64(r["item_id"])); err == nil && str(it["name"]) != "" {
@@ -491,6 +511,9 @@ func (f Found) Line() string {
 	}
 	if f.Questie {
 		s += " (from your Questie database)"
+	}
+	if f.Observed {
+		s += " (seen by your characters)"
 	}
 	return s
 }
