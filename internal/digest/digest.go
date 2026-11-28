@@ -178,7 +178,7 @@ type Options struct {
 	PendingBuild     string
 	PendingReason    string
 	PendingPublished bool
-	Questie      *questie.Index   // the player's own QuestieDB; nil when they have none
+	Questie          *questie.Index // the player's own QuestieDB; nil when they have none
 	// PrevLevel is the character's level at the last capture, 0 when unknown. Training then covers
 	// the levels after it; with 0 it covers the character's own level only.
 	PrevLevel int
