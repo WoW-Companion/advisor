@@ -156,14 +156,19 @@ func addProfessionChores(p *Plan, c character.Character, src source, opt Options
 			continue
 		}
 		for _, n := range h.Next.Needs {
-			if n.Missing <= 0 || professionLines(p) >= maxProfessionLines || hasRestock(p, n.Item) {
+			if n.Missing <= 0 || professionLines(p) >= maxProfessionLines || hasRestock(p, n.Item) || hasPickup(p, n.Item) {
+				continue
+			}
+			pick, missing := pickupChores(p, c, qx, opt, maps, n.ID, n.Item, n.Missing)
+			bundleChores(p, pick)
+			if missing <= 0 {
 				continue
 			}
 			spots := vendorSpots(c, qx, opt, maps, n.ID, n.Item)
 			if len(spots) == 0 {
 				continue
 			}
-			bundleChores(p, []Chore{{Kind: ErrandRestock, Do: fmt.Sprintf("buy %d %s", n.Missing, n.Item), Prep: "from",
+			bundleChores(p, []Chore{{Kind: ErrandRestock, Do: fmt.Sprintf("buy %d %s", missing, n.Item), Prep: "from",
 				Why: fmt.Sprintf("%s%s skill-ups (%d to %d)", profWhyPrefix, h.Profession, h.Next.From, h.Next.To), Spots: spots}})
 		}
 	}
