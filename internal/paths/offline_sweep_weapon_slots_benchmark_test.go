@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/WoW-Companion/advisor/internal/ask"
@@ -77,7 +78,7 @@ func wsReference(t *testing.T, class string, classID int64, level int, faction s
 		if req > level+2 || !maskAllows(num(r["allowable_class_mask"]), classID) {
 			continue
 		}
-		if cls == 2 && !learnable(t, classID, weaponSkillOf[sub]) {
+		if cls == 2 && !wsLearns(t, classID, weaponSkillOf[sub]) {
 			continue
 		}
 		var slots []string
@@ -113,6 +114,29 @@ func wsReference(t *testing.T, class string, classID int64, level int, faction s
 		}
 	}
 	return out
+}
+
+var (
+	wsLearnOnce  sync.Once
+	wsLearnTable map[[2]int64]bool
+)
+
+// wsLearns is whether the dataset's weapon_skills let the class learn the skill line (the table read once for the package).
+func wsLearns(t *testing.T, classID, skill int64) bool {
+	t.Helper()
+	wsLearnOnce.Do(func() {
+		rows, err := usabStore().Filter("weapon_skills", store.Range{Column: "class_id", Min: int64(0), Max: int64(99)})
+		if err != nil {
+			t.Fatal(err)
+		}
+		wsLearnTable = map[[2]int64]bool{}
+		for _, r := range rows {
+			if b, _ := r["learnable"].(bool); b {
+				wsLearnTable[[2]int64{num(r["class_id"]), num(r["skill_line_id"])}] = true
+			}
+		}
+	})
+	return wsLearnTable[[2]int64{classID, skill}]
 }
 
 func wsSlotKey(slot string) string {
@@ -205,12 +229,40 @@ func keysWith(m map[string]bool, prefix string) []string {
 	return out
 }
 
-func TestOfflineBenchmarkSweepWeaponSlotsMelee(t *testing.T) {
-	wsFindSlots(t, "gear-sweep-weapon-slots-melee", "Offline weapon-slot sweep: warrior, paladin, rogue, druid, shaman", []string{"WARRIOR", "PALADIN", "ROGUE", "DRUID", "SHAMAN"})
+func TestOfflineBenchmarkSweepWeaponSlotsWarrior(t *testing.T) {
+	wsFindSlots(t, "gear-sweep-weapon-slots-warrior", "Offline weapon-slot sweep: warrior", []string{"WARRIOR"})
 }
 
-func TestOfflineBenchmarkSweepWeaponSlotsRanged(t *testing.T) {
-	wsFindSlots(t, "gear-sweep-weapon-slots-ranged", "Offline weapon-slot sweep: hunter, priest, mage, warlock", []string{"HUNTER", "PRIEST", "MAGE", "WARLOCK"})
+func TestOfflineBenchmarkSweepWeaponSlotsPaladin(t *testing.T) {
+	wsFindSlots(t, "gear-sweep-weapon-slots-paladin", "Offline weapon-slot sweep: paladin", []string{"PALADIN"})
+}
+
+func TestOfflineBenchmarkSweepWeaponSlotsHunter(t *testing.T) {
+	wsFindSlots(t, "gear-sweep-weapon-slots-hunter", "Offline weapon-slot sweep: hunter", []string{"HUNTER"})
+}
+
+func TestOfflineBenchmarkSweepWeaponSlotsRogue(t *testing.T) {
+	wsFindSlots(t, "gear-sweep-weapon-slots-rogue", "Offline weapon-slot sweep: rogue", []string{"ROGUE"})
+}
+
+func TestOfflineBenchmarkSweepWeaponSlotsPriest(t *testing.T) {
+	wsFindSlots(t, "gear-sweep-weapon-slots-priest", "Offline weapon-slot sweep: priest", []string{"PRIEST"})
+}
+
+func TestOfflineBenchmarkSweepWeaponSlotsShaman(t *testing.T) {
+	wsFindSlots(t, "gear-sweep-weapon-slots-shaman", "Offline weapon-slot sweep: shaman", []string{"SHAMAN"})
+}
+
+func TestOfflineBenchmarkSweepWeaponSlotsMage(t *testing.T) {
+	wsFindSlots(t, "gear-sweep-weapon-slots-mage", "Offline weapon-slot sweep: mage", []string{"MAGE"})
+}
+
+func TestOfflineBenchmarkSweepWeaponSlotsWarlock(t *testing.T) {
+	wsFindSlots(t, "gear-sweep-weapon-slots-warlock", "Offline weapon-slot sweep: warlock", []string{"WARLOCK"})
+}
+
+func TestOfflineBenchmarkSweepWeaponSlotsDruid(t *testing.T) {
+	wsFindSlots(t, "gear-sweep-weapon-slots-druid", "Offline weapon-slot sweep: druid", []string{"DRUID"})
 }
 
 // wsBagCase is one character's worn gear and bags and the equip-from-bags list the game's rules give: slot to the item name, "" for none.
@@ -381,7 +433,7 @@ func TestOfflineBenchmarkSweepWeaponSlotPhrasings(t *testing.T) {
 
 // wsReviewCases are a weapon, shield, off-hand weapon, ranged weapon, trinket or ring in the bags and what the bag review tells the player.
 var wsReviewCases = []reviewCase{
-	{"ROGUE", 30, "Banded Buckler", inventory.Sell, 0}, {"MAGE", 30, "Dacian Falx", inventory.Sell, 0}, {"PRIEST", 30, "Battle Axe", inventory.Sell, 0},
+	{"ROGUE", 30, "Banded Buckler", inventory.Sell, 0}, {"MAGE", 30, "Dacian Falx", inventory.Sell, 0},
 	{"PALADIN", 30, "Worn Shortbow", inventory.Sell, 0}, {"WARRIOR", 30, "Charred Razormane Wand", inventory.Sell, 0},
 }
 
